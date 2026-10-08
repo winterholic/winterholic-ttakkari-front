@@ -109,6 +109,7 @@ interface ReqOpts {
   method?: string;
   query?: Record<string, string | number | boolean | undefined | null>;
   json?: unknown;
+  form?: FormData;
   /** 로그인·refresh·logout 은 Bearer 도 401 재시도도 쓰지 않는다. */
   noAuth?: boolean;
 }
@@ -125,7 +126,7 @@ async function raw(path: string, o: ReqOpts): Promise<Response> {
     return fetch(url, {
       method: o.method ?? "GET",
       headers,
-      body: o.json !== undefined ? JSON.stringify(o.json) : undefined,
+      body: o.form ?? (o.json !== undefined ? JSON.stringify(o.json) : undefined),
       credentials: "include",
     });
   };
@@ -216,6 +217,15 @@ export async function contentBlob(id: UUID, variant: ArtifactVariant = "original
 export async function downloadLink(id: UUID, variant: ArtifactVariant = "original"): Promise<DownloadLinkOut> {
   const r = await json<DownloadLinkOut>(`/api/artifacts/${id}/download-link`, { method: "POST", query: { variant } });
   return { ...r, url: /^https?:\/\//.test(r.url) ? r.url : apiUrl(r.url) };
+}
+
+/** 이 기기의 파일을 올린다. 결과 ID 를 다음 Run 의 context_artifact_ids 에 넣으면 에이전트가 읽는다. */
+export function uploadFile(file: File, workspaceId: UUID, sessionId?: UUID | null): Promise<ArtifactOut> {
+  const form = new FormData();
+  form.set("file", file);
+  form.set("workspace_id", workspaceId);
+  if (sessionId) form.set("session_id", sessionId);
+  return json("/api/uploads", { method: "POST", form });
 }
 
 // ---- system

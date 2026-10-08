@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, cancelRun, createRun, createSession, getArtifact, getSession, getWorkspace, listRuns } from "../api/client";
+import { ApiError, cancelRun, createRun, createSession, getArtifact, getSession, getWorkspace, listRuns, patchSession, stopAll, uploadFile } from "../api/client";
+import { Menu } from "../ui/Menu";
+import { toast } from "../ui/toastStore";
 import type { RunOut } from "../api/types";
 import { Composer } from "../features/chat/Composer";
 import { NewSession } from "../features/chat/NewSession";
@@ -12,6 +14,15 @@ import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 
 const FOLLOW_THRESHOLD = 96;
+
+interface Attachment {
+  key: string;
+  name: string;
+  state: "uploading" | "done" | "failed";
+  file: File;
+  id?: string;
+  error?: string;
+}
 const ACTIVE = ["queued", "running"];
 
 /** 바닥 근처일 때만 새 내용을 따라가고, 위로 올려 읽는 중이면 '새 메시지' 버튼을 띄운다(docs/07 §5). */
@@ -92,10 +103,37 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
   });
   const [droppedId, setDroppedId] = useState<string | null>(null);
   const contextShown = contextArtifact.data && contextArtifact.data.id !== droppedId ? contextArtifact.data : null;
-  const contextIds = contextShown ? [contextShown.id] : [];
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const attachSeq = useRef(0);
+  const uploading = attachments.some((a) => a.state === "uploading");
+  const attachedIds = attachments.flatMap((a) => (a.state === "done" && a.id ? [a.id] : []));
+  const contextIds = [...(contextShown ? [contextShown.id] : []), ...attachedIds];
+  const workspaceId = session.data?.workspace_id ?? choice?.workspaceId ?? null;
+
+  const attach = (files: File[]) => {
+    if (!workspaceId) return;
+    for (const file of files) {
+      attachSeq.current += 1;
+      const key = `${attachSeq.current}-${file.name}`;
+      setAttachments((all) => [...all, { key, name: file.name, state: "uploading", file }]);
+      uploadFile(file, workspaceId, sessionId).then(
+        (art) => setAttachments((all) => all.map((a) => (a.key === key ? { ...a, state: "done", id: art.id } : a))),
+        (e: unknown) =>
+          setAttachments((all) =>
+            all.map((a) => (a.key === key ? { ...a, state: "failed", error: e instanceof Error ? e.message : "올리지 못했어요" } : a)),
+          ),
+      );
+    }
+  };
+  const retryAttach = (key: string) => {
+    const a = attachments.find((x) => x.key === key);
+    if (!a) return;
+    setAttachments((all) => all.filter((x) => x.key !== key));
+    attach([a.file]);
+  };
 
   const contextNames = useCallback(
-    (run: RunOut) => run.context_artifact_ids.map((id) => (contextArtifact.data?.id === id ? contextArtifact.data.filename : "보던 결과물")),
+    (run: RunOut) => run.context_artifact_ids.map((id) => (contextArtifact.data?.id === id ? contextArtifact.data.filename : "함께 보낸 파일")),
     [contextArtifact.data],
   );
 
@@ -123,6 +161,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
     },
     onSuccess: ({ sid }) => {
       setSendError(null);
+      setAttachments([]);
       void qc.invalidateQueries({ queryKey: ["sessions"] });
       if (sid !== sessionId) navigate(`/chat/${sid}`);
       else void qc.invalidateQueries({ queryKey: ["runs", sid] });
@@ -176,9 +215,40 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
         meta={meta}
         actions={
           sessionId && (
-            <Link className="tk-icon-button" to={`/workspace/${sessionId}`} aria-label="작업 공간 열기">
-              <Icon name="workspace" />
-            </Link>
+            <>
+              <Link className="tk-icon-button" to={`/workspace/${sessionId}`} aria-label="작업 공간 열기">
+                <Icon name="workspace" />
+              </Link>
+              <Menu
+                label="세션 메뉴"
+                items={[
+                  {
+                    label: "세션 보관",
+                    icon: "library",
+                    disabled: !!activeRun,
+                    onSelect: () =>
+                      void patchSession(sessionId, { archived: true }).then(() => {
+                        void qc.invalidateQueries({ queryKey: ["sessions"] });
+                        toast({ message: "세션을 보관했어요." });
+                        navigate("/chat");
+                      }),
+                  },
+                  {
+                    label: "모든 작업 비상 정지",
+                    icon: "stop",
+                    danger: true,
+                    separatorBefore: true,
+                    onSelect: () =>
+                      void stopAll().then((r) => {
+                        refreshAll();
+                        toast({ message: r.stopped.length ? `작업 ${r.stopped.length}개를 멈췄어요.` : "실행 중인 작업이 없어요." });
+                      }),
+                  },
+                ]}
+              >
+                <Icon name="more-vertical" />
+              </Menu>
+            </>
           )
         }
       />
@@ -257,15 +327,39 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
         onSubmit={onSubmit}
         onStop={activeRun ? () => stop(activeRun.id) : undefined}
         fill={fill}
+        onAttach={workspaceId ? attach : undefined}
+        blocked={uploading}
         context={
-          contextShown ? (
+          contextShown || attachments.length > 0 ? (
             <div className="tk-chips" aria-label="함께 보낼 문맥">
-              <span className="tk-chip tk-chip--context">
-                <span>{contextShown.filename}</span>
-                <button className="tk-icon-button tk-icon-button--xs tk-icon-button--round" type="button" aria-label="문맥에서 빼기" onClick={() => setDroppedId(contextShown.id)}>
-                  <Icon name="x" />
-                </button>
-              </span>
+              {contextShown && (
+                <span className="tk-chip tk-chip--context">
+                  <span>{contextShown.filename}</span>
+                  <button className="tk-icon-button tk-icon-button--xs tk-icon-button--round" type="button" aria-label="문맥에서 빼기" onClick={() => setDroppedId(contextShown.id)}>
+                    <Icon name="x" />
+                  </button>
+                </span>
+              )}
+              {attachments.map((a) => (
+                <span
+                  key={a.key}
+                  className="tk-chip tk-chip--context"
+                  aria-busy={a.state === "uploading" || undefined}
+                  data-failed={a.state === "failed" ? "" : undefined}
+                  title={a.error}
+                >
+                  {a.state === "uploading" && <span className="tk-spinner tk-spinner--xs" aria-hidden />}
+                  <span>{a.name}</span>
+                  {a.state === "failed" && (
+                    <button className="tk-icon-button tk-icon-button--xs tk-icon-button--round" type="button" aria-label={`${a.name} 다시 올리기`} onClick={() => retryAttach(a.key)}>
+                      <Icon name="retry" />
+                    </button>
+                  )}
+                  <button className="tk-icon-button tk-icon-button--xs tk-icon-button--round" type="button" aria-label={`${a.name} 빼기`} onClick={() => setAttachments((all) => all.filter((x) => x.key !== a.key))}>
+                    <Icon name="x" />
+                  </button>
+                </span>
+              ))}
             </div>
           ) : undefined
         }

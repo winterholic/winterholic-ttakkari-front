@@ -131,7 +131,7 @@ export interface RunOut {
 
 // ---- artifacts
 export type ArtifactKind = "markdown" | "html" | "pdf" | "pptx" | "docx" | "sheet" | "image" | "code" | "other";
-export type ArtifactSource = "agent_output" | "agent_modified" | "user_registered";
+export type ArtifactSource = "agent_output" | "agent_modified" | "user_registered" | "upload";
 export type PreviewStatus = "not_required" | "pending" | "processing" | "ready" | "failed" | "unavailable";
 export type ExportPolicy = "allow" | "deny" | "sensitive";
 export type ArtifactVariant = "original" | "preview";

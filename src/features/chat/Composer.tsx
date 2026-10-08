@@ -38,9 +38,14 @@ export interface ComposerProps {
   /** 제안 칩이 채우는 값. 바뀔 때마다 입력에 채우고 포커스한다(바로 보내지 않는다). */
   fill?: { text: string; nonce: number } | null;
   label?: string;
+  /** 있으면 첨부 버튼이 생긴다. */
+  onAttach?: (files: File[]) => void;
+  /** 첨부 업로드 중이면 보내기를 막는다. */
+  blocked?: boolean;
 }
 
-export function Composer({ draftKey, running, queued, onSubmit, onStop, context, fill, label = "따까리에게 지시하기" }: ComposerProps) {
+export function Composer({ draftKey, running, queued, onSubmit, onStop, context, fill, label = "따까리에게 지시하기", onAttach, blocked }: ComposerProps) {
+  const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(() => loadDraft(draftKey));
   const [online, setOnline] = useState(() => navigator.onLine);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -82,7 +87,7 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
   }, [running, onStop]);
 
   const empty = text.trim() === "";
-  const disabled = empty || !online;
+  const disabled = empty || !online || !!blocked;
 
   function submit() {
     if (disabled) return;
@@ -103,7 +108,9 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
     submit();
   }
 
-  const hint = !online
+  const hint = blocked
+    ? "첨부를 올리는 중이에요"
+    : !online
     ? "오프라인 · 초안은 이 기기에 남아 있어요"
     : running
       ? queued > 0
@@ -116,6 +123,24 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
       <form className="tk-composer" aria-label={label} onSubmit={onFormSubmit} data-offline={online ? undefined : ""}>
         {context}
         <div className="tk-composer__row">
+          {onAttach && (
+            <>
+              <button className="tk-icon-button" type="button" aria-label="파일 첨부" onClick={() => fileInput.current?.click()}>
+                <Icon name="paperclip" />
+              </button>
+              <input
+                ref={fileInput}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  e.target.value = "";
+                  if (files.length) onAttach(files);
+                }}
+              />
+            </>
+          )}
           <label className="tk-sr-only" htmlFor={`composer-${draftKey}`}>지시</label>
           <textarea
             ref={ref}
