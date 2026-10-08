@@ -1,3 +1,8 @@
+// 디자인 시스템 CSS 순서가 중요하다(토큰 → 글자 → 컴포넌트 → 문서). docs/19 §1
+import "./vendor/ttakkari/tokens.css";
+import "./vendor/ttakkari/typography.css";
+import "./vendor/ttakkari/components.css";
+import "./vendor/ttakkari/prose.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";

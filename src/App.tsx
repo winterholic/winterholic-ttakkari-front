@@ -1,36 +1,25 @@
-import { Link, Navigate, Outlet, Route, Routes } from "react-router";
-import { useAuth } from "./auth";
+import { Navigate, Route, Routes } from "react-router";
 import { LoginPage } from "./pages/LoginPage";
-import { HomePage } from "./pages/HomePage";
-import { SessionPage } from "./pages/SessionPage";
+import { ChatPage } from "./pages/ChatPage";
+import { WorkspacePage } from "./pages/WorkspacePage";
 import { LibraryPage } from "./pages/LibraryPage";
-import { ArtifactPage } from "./pages/ArtifactPage";
+import { FilesPage } from "./pages/FilesPage";
+import { AppShell } from "./shell/AppShell";
 
-function RequireAuth() {
-  const { state, logout } = useAuth();
-  if (state === "loading") return <p>불러오는 중</p>;
-  if (state === "out") return <Navigate to="/login" replace />;
-  return (
-    <>
-      <nav>
-        <Link to="/">홈</Link> <Link to="/library">라이브러리</Link> <button onClick={() => void logout()}>로그아웃</button>
-      </nav>
-      <Outlet />
-    </>
-  );
-}
-
+// 영역 넷은 라우트다(디자인 시스템 docs/19 §5). 결과물은 어느 화면에서든 ?artifact=<id> 로 연다.
 export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route element={<RequireAuth />}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/s/:sessionId" element={<SessionPage />} />
+      <Route element={<AppShell />}>
+        <Route path="/chat" element={<ChatPage />} />
+        <Route path="/chat/:sessionId" element={<ChatPage />} />
+        <Route path="/workspace" element={<WorkspacePage />} />
+        <Route path="/workspace/:sessionId" element={<WorkspacePage />} />
         <Route path="/library" element={<LibraryPage />} />
-        <Route path="/a/:artifactId" element={<ArtifactPage />} />
+        <Route path="/files" element={<FilesPage />} />
       </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
+      <Route path="*" element={<Navigate to="/chat" replace />} />
     </Routes>
   );
 }
