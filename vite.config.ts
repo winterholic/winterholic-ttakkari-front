@@ -20,6 +20,8 @@ export default defineConfig({
         icons: pwa.icons,
       },
       workbox: {
+        // 푸시 수신·알림 클릭 처리는 생성되는 SW 에 이 파일을 끼워 넣어 쓴다.
+        importScripts: ["/push-sw.js"],
         // 셸·CSS·아이콘은 precache. 결과물 원본은 캐시하지 않는다(민감 자료가 기기에 남는다).
         globPatterns: ["**/*.{js,css,html,svg,ico}", "brand/{app-icon-512,app-icon-maskable-512,apple-touch-icon-180}.png"],
         // 뷰어의 무거운 렌더러(Monaco 2.8MB 등)는 쓸 때만 네트워크로 받는다. precache 한도(2MiB)를 넘으면 빌드가 실패한다.

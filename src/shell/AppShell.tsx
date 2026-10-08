@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { Link, Navigate, Outlet, useLocation, useParams } from "react-router";
 import { useAuth } from "../auth";
+import { PushSettings } from "../features/push/PushSettings";
 import { IconButton } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Icon } from "../ui/Icon";
@@ -12,6 +13,7 @@ import { ShellContext } from "./ShellContext";
 import type { ShellApi } from "./ShellContext";
 import { SessionList } from "./SessionList";
 import { AreaLinks } from "./ShellNav";
+import { useShortcuts } from "./useShortcuts";
 import { useConnection } from "./useConnection";
 import type { ConnectionState } from "./ShellContext";
 
@@ -51,6 +53,7 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
       <Presence c={connection} />
       <div className="app-shell-footer__actions">
         <ThemeToggle size="sm" />
+        <PushSettings />
         <IconButton size="sm" aria-label="로그아웃" onClick={() => void out()}>
           <Icon name="logout" />
         </IconButton>
@@ -64,6 +67,7 @@ export function AppShell() {
   const { sessionId } = useParams();
   const location = useLocation();
   const connection = useConnection(state === "in");
+  useShortcuts();
   // 작업 공간 링크가 마지막으로 본 세션으로 가도록, 세션이 있는 화면에서 id 를 기억한다.
   const [lastSession, setLastSession] = useState<string | undefined>(sessionId);
   if (sessionId && sessionId !== lastSession) setLastSession(sessionId);
@@ -101,7 +105,7 @@ export function AppShell() {
             <Link className="tk-header__brand" to="/chat">
               {BRAND}
             </Link>
-            <Link className="tk-icon-button tk-icon-button--sm" to="/chat" aria-label="새 세션">
+            <Link className="tk-icon-button tk-icon-button--sm" to="/chat" aria-label="새 세션" title="새 세션 (⌘⇧O)">
               <Icon name="new-chat" />
             </Link>
           </div>

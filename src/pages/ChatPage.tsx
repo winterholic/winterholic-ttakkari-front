@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, cancelRun, createRun, createSession, getArtifact, getSession, getWorkspace, listRuns, patchSession, stopAll, uploadFile } from "../api/client";
@@ -208,8 +209,27 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
     </>
   );
 
+  const [dragging, setDragging] = useState(false);
+  const hasFiles = (e: React.DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+
   return (
-    <div className="tk-screen">
+    <div
+      className="tk-screen"
+      onDragOver={(e) => {
+        if (!workspaceId || !hasFiles(e)) return;
+        e.preventDefault();
+        if (!dragging) setDragging(true);
+      }}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+      }}
+      onDrop={(e) => {
+        if (!workspaceId || !hasFiles(e)) return;
+        e.preventDefault();
+        setDragging(false);
+        attach(Array.from(e.dataTransfer.files));
+      }}
+    >
       <PageHeader
         title={title}
         meta={meta}
@@ -253,7 +273,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
         }
       />
       <ArtifactViewerHost>
-      <div className="tk-thread" role="log" aria-label="대화" aria-live="polite" ref={threadRef}>
+      <div className="tk-thread tk-screen__body" role="log" aria-label="대화" aria-live="polite" ref={threadRef}>
         {!sessionId ? (
           <NewSession value={choice} onChange={setChoice} />
         ) : (
@@ -329,6 +349,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
         fill={fill}
         onAttach={workspaceId ? attach : undefined}
         blocked={uploading}
+        notice={dragging ? "놓으면 첨부해요" : null}
         context={
           contextShown || attachments.length > 0 ? (
             <div className="tk-chips" aria-label="함께 보낼 문맥">

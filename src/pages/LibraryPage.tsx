@@ -74,7 +74,7 @@ export function LibraryPage() {
   return (
     <div className="tk-screen">
       <PageHeader title="보관함" meta={list.isSuccess ? `결과물 ${items.length}${list.hasNextPage ? "+" : ""}개` : undefined} />
-      <ArtifactViewerHost onDelete={setToDelete} resolveInitial={(id) => items.find((a) => a.id === id)}>
+      <ArtifactViewerHost alwaysOpen onDelete={setToDelete} resolveInitial={(id) => items.find((a) => a.id === id)}>
         <div className="tk-screen__body">
           <div className="tk-container tk-container--full">
             <div className="tk-filterbar" role="search">

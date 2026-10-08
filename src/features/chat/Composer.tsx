@@ -42,9 +42,11 @@ export interface ComposerProps {
   onAttach?: (files: File[]) => void;
   /** 첨부 업로드 중이면 보내기를 막는다. */
   blocked?: boolean;
+  /** 힌트 자리에 잠깐 보여 줄 안내(예: 파일을 끌어 놓는 중). */
+  notice?: string | null;
 }
 
-export function Composer({ draftKey, running, queued, onSubmit, onStop, context, fill, label = "따까리에게 지시하기", onAttach, blocked }: ComposerProps) {
+export function Composer({ draftKey, running, queued, onSubmit, onStop, context, fill, label = "따까리에게 지시하기", onAttach, blocked, notice }: ComposerProps) {
   const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(() => loadDraft(draftKey));
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -108,7 +110,9 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
     submit();
   }
 
-  const hint = blocked
+  const hint = notice
+    ? notice
+    : blocked
     ? "첨부를 올리는 중이에요"
     : !online
     ? "오프라인 · 초안은 이 기기에 남아 있어요"
