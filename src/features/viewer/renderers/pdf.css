@@ -1,0 +1,4 @@
+/* PDF.js 텍스트 레이어: 글자는 투명하게 두고 선택·복사만 가능하게 한다. 색·간격 값은 쓰지 않는다. */
+.tk-pdf-text { position: absolute; inset: 0; overflow: clip; line-height: 1; text-align: initial; opacity: 1; }
+.tk-pdf-text :is(span, br) { color: transparent; position: absolute; white-space: pre; cursor: text; transform-origin: 0 0; }
+.tk-pdf-text ::selection { background: var(--tk-color-highlight-mark); }

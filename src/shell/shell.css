@@ -1,0 +1,9 @@
+/* 셸 전용 보조 규칙. 디자인 시스템 토큰만 쓴다. 사이드바·드로어 아래의 연결 상태 + 테마·로그아웃 줄. */
+.app-shell-footer {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-2); flex: none;
+  padding: var(--tk-space-2) var(--tk-space-3);
+  padding-bottom: calc(var(--tk-space-2) + env(safe-area-inset-bottom));
+  border-top: var(--tk-border-width-hairline) solid var(--tk-component-sidebar-border);
+}
+.app-shell-footer .tk-presence { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.app-shell-footer__actions { display: flex; align-items: center; gap: var(--tk-space-1); flex: none; }

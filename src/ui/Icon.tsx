@@ -1,7 +1,7 @@
 import {
-  Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
+  ChevronDown, ChevronUp, Plus, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
   Download, Ellipsis, EllipsisVertical, ExternalLink, Eye, FileArchive, FileCode, FileSpreadsheet, FileText, Folder,
-  FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, Lock, Mail, Maximize,
+  FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, Lock, LogOut, Mail, Maximize,
   Menu, MessageSquare, Moon, MoveHorizontal, OctagonAlert, PanelRight, Paperclip, Pin, Presentation, RefreshCw,
   Search, Send, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, Square, SquarePen, Sun, Terminal, Trash2,
   TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut,
@@ -25,6 +25,7 @@ const ICONS = {
   info: Info, tip: Lightbulb, important: Bell, warning: TriangleAlert, caution: OctagonAlert,
   moon: Moon, sun: Sun, menu: Menu, x: X, back: ArrowLeft, more: Ellipsis, "more-vertical": EllipsisVertical,
   "arrow-down": ArrowDown,
+  "chevron-up": ChevronUp, "chevron-down": ChevronDown, plus: Plus, logout: LogOut,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

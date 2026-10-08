@@ -32,8 +32,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setState("in");
       },
       logout: async () => {
-        await apiLogout();
-        setState("out");
+        // 서버 호출이 실패해도 토큰은 이미 비워졌으므로 화면은 로그아웃 상태로 돌린다.
+        try {
+          await apiLogout();
+        } finally {
+          setState("out");
+        }
       },
     }),
     [state],
