@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { contentBlob, downloadLink, getArtifact, retryPreview } from "../../api/client";
+import { apiUrl, contentBlob, downloadLink, getAccessToken, getArtifact, retryPreview } from "../../api/client";
 import type { ArtifactOut, UUID } from "../../api/types";
 import { Icon, KIND_GLYPH } from "../../ui/Icon";
 import { errorText, inlineViewLink } from "./api";
@@ -15,6 +15,7 @@ import { ErrorBody, LoadingBody, StatePanel } from "./renderers/StatePanel";
 
 // 무거운 렌더러는 처음 열 때만 받는다(코드 분할).
 const PdfView = lazy(() => import("./renderers/PdfView"));
+const REMOTE_PDF_BYTES = 8 * 1024 * 1024;
 const CodeView = lazy(() => import("./renderers/CodeView"));
 const SheetView = lazy(() => import("./renderers/SheetView"));
 
@@ -371,7 +372,25 @@ function CodeBody({ a, findSignal }: { a: ArtifactOut; findSignal: number }) {
 }
 
 function PdfBody({ a, variant, zoom, slides, onTotal, onCurrent }: { a: ArtifactOut; variant: "original" | "preview"; zoom: number; slides?: boolean; onTotal: (n: number) => void; onCurrent: (n: number) => void }) {
-  const b = useBlobUrl(a.id, variant);
+  // 큰 원본 PDF 는 통째로 받지 않고 PDF.js 가 Range 로 필요한 만큼만 받게 한다.
+  const remote = variant === "original" && a.size_bytes > REMOTE_PDF_BYTES;
+  const b = useBlobUrl(a.id, variant, !remote);
+  const token = getAccessToken();
+  if (remote && token) {
+    return (
+      <Suspense fallback={<LoadingBody label="PDF 를 불러오는 중" />}>
+        <PdfView
+          url={apiUrl(`/api/artifacts/${a.id}/content?variant=original`)}
+          httpHeaders={{ Authorization: `Bearer ${token}` }}
+          zoom={zoom}
+          label={a.filename}
+          slides={slides}
+          onPages={onTotal}
+          onPage={onCurrent}
+        />
+      </Suspense>
+    );
+  }
   const err = bodyError(b.error, b.refetch);
   if (err) return err;
   if (!b.url) return <LoadingBody label="PDF 를 불러오는 중" />;

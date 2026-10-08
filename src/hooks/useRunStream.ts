@@ -1,5 +1,5 @@
 import { useEffect, useReducer } from "react";
-import { runEvents } from "../api/client";
+import { ApiError, runEvents } from "../api/client";
 import { subscribeRun } from "../api/stream";
 import { TERMINAL_RUN_STATUSES } from "../api/types";
 import type { RunEvent, RunStatus, UUID } from "../api/types";
@@ -51,6 +51,12 @@ function reducer(s: State, a: Action): State {
   }
 }
 
+/** 404 같은 확정 오류는 다시 시도해도 같다. 네트워크 오류·5xx·429 만 다시 시도한다. */
+export function isRetriable(error: unknown): boolean {
+  if (error instanceof ApiError) return error.status >= 500 || error.status === 429 || error.status === 0;
+  return true;
+}
+
 export function useRunStream(runId: UUID | null | undefined) {
   const [state, dispatch] = useReducer(reducer, initial);
 
@@ -62,18 +68,24 @@ export function useRunStream(runId: UUID | null | undefined) {
 
     void (async () => {
       let after = 0;
-      try {
-        // 백필: 500개씩 끝까지 읽는다.
-        for (;;) {
-          const page = await runEvents(runId, after, 500);
+      // 백필: 500개씩 끝까지 읽는다. 모바일 네트워크가 잠깐 끊겨도 포기하지 않고 다시 시도한다.
+      for (let attempt = 0; ; attempt++) {
+        try {
+          for (;;) {
+            const page = await runEvents(runId, after, 500);
+            if (cancelled) return;
+            dispatch({ type: "events", events: page });
+            if (page.length > 0) after = Math.max(after, page[page.length - 1].seq);
+            if (page.length < 500) break;
+          }
+          break;
+        } catch (error) {
           if (cancelled) return;
-          dispatch({ type: "events", events: page });
-          if (page.length > 0) after = Math.max(after, page[page.length - 1].seq);
-          if (page.length < 500) break;
+          dispatch({ type: "error", error });
+          if (!isRetriable(error)) return;
+          await new Promise((r) => setTimeout(r, Math.min(15_000, 1000 * 2 ** attempt)));
+          if (cancelled) return;
         }
-      } catch (error) {
-        if (!cancelled) dispatch({ type: "error", error });
-        return;
       }
       if (cancelled) return;
       unsubscribe = subscribeRun(runId, {

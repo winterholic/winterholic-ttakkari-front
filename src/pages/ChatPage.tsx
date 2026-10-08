@@ -10,7 +10,8 @@ import { Composer } from "../features/chat/Composer";
 import { NewSession } from "../features/chat/NewSession";
 import type { NewSessionChoice } from "../features/chat/NewSession";
 import { RunBlock } from "../features/chat/RunBlock";
-import { ArtifactViewerHost, useArtifactViewer } from "../features/viewer";
+import { ArtifactViewerHost, FollowupComposer, useArtifactViewer } from "../features/viewer";
+import { useIsDesktop } from "../features/viewer/hooks";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 
@@ -25,6 +26,8 @@ interface Attachment {
   error?: string;
 }
 const ACTIVE = ["queued", "running"];
+// 백엔드 RunIn.prompt max_length 와 같다.
+const MAX_PROMPT = 100_000;
 
 /** 바닥 근처일 때만 새 내용을 따라가고, 위로 올려 읽는 중이면 '새 메시지' 버튼을 띄운다(docs/07 §5). */
 function useThreadFollow(dep: unknown) {
@@ -75,8 +78,8 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const viewer = useArtifactViewer();
+  const isDesktop = useIsDesktop();
   const [choice, setChoice] = useState<NewSessionChoice | null>(null);
-  const [queue, setQueue] = useState<string[]>([]);
   const [fill, setFill] = useState<{ text: string; nonce: number } | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
 
@@ -144,12 +147,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
     void qc.invalidateQueries({ queryKey: ["artifacts"] });
   }, [qc, sessionId]);
 
-  const flushing = useRef(false);
   const send = useMutation({
-    onMutate: (prompt: string) => {
-      setQueue((q) => (q[0] === prompt && flushing.current ? q.slice(1) : q));
-      flushing.current = false;
-    },
     mutationFn: async (prompt: string) => {
       let sid = sessionId;
       if (!sid) {
@@ -168,28 +166,19 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
       else void qc.invalidateQueries({ queryKey: ["runs", sid] });
     },
     onError: (e, prompt) => {
-      if (e instanceof ApiError && e.status === 409) {
-        // 다른 기기에서 먼저 시작한 작업이 있다. 대기열로 돌린다.
-        setQueue((q) => [prompt, ...q]);
-        refreshAll();
-        return;
-      }
-      setSendError(e instanceof Error ? e.message : "보내지 못했어요.");
+      setSendError(e instanceof ApiError || e instanceof Error ? e.message : "보내지 못했어요.");
       setFill({ text: prompt, nonce: Date.now() });
     },
   });
 
-  // 실행 중에 쓴 지시는 끝나면 순서대로 보낸다.
-  const { mutate, isPending } = send;
-  useEffect(() => {
-    if (activeRun || isPending || flushing.current || queue.length === 0) return;
-    flushing.current = true;
-    mutate(queue[0]);
-  }, [activeRun, isPending, mutate, queue]);
-
+  // 실행 중에 보낸 지시는 서버 세션 대기열에 들어가 앞 작업이 끝나면 시작된다(새로고침·다른 기기에서도 유지).
   const onSubmit = (text: string) => {
-    if (activeRun) setQueue((q) => [...q, text]);
-    else send.mutate(text);
+    if (text.length > MAX_PROMPT) {
+      setSendError(`지시가 너무 길어요(최대 ${MAX_PROMPT.toLocaleString()}자). 긴 내용은 파일로 첨부해 주세요.`);
+      setFill({ text, nonce: Date.now() });
+      return;
+    }
+    send.mutate(text);
   };
   const stop = useCallback(
     (runId: string) => {
@@ -272,7 +261,12 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
           )
         }
       />
-      <ArtifactViewerHost>
+      <ArtifactViewerHost
+        followup={
+          // 데스크톱은 채팅 입력창이 그대로 보여 문맥 칩으로 이어 지시한다. 모바일 전체 화면 뷰어에만 따로 둔다.
+          !isDesktop && sessionId && viewer.current ? <FollowupComposer sessionId={sessionId} artifactId={viewer.current} /> : undefined
+        }
+      >
       <div className="tk-thread tk-screen__body" role="log" aria-label="대화" aria-live="polite" ref={threadRef}>
         {!sessionId ? (
           <NewSession value={choice} onChange={setChoice} />
@@ -315,17 +309,6 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
                 onSettled={refreshAll}
               />
             ))}
-            {queue.map((q, i) => (
-              <article key={`${i}-${q}`} className="tk-message tk-message--user" data-author="user" aria-label="대기 중인 지시">
-                <div className="tk-message__body">{q}</div>
-                <p className="tk-message__meta">
-                  <span className="tk-message__time">대기 중</span>
-                  <button className="tk-button tk-button--sm tk-button--ghost" type="button" onClick={() => setQueue((all) => all.filter((_, j) => j !== i))}>
-                    취소
-                  </button>
-                </p>
-              </article>
-            ))}
             {jump && (
               <button className="tk-jump" type="button" onClick={toBottom}>
                 {activeRun && <span className="tk-dot tk-dot--live" aria-hidden />}새 메시지
@@ -343,7 +326,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
       <Composer
         draftKey={sessionId ?? "new"}
         running={!!activeRun || send.isPending}
-        queued={queue.length}
+        queued={runList.filter((r) => r.status === "queued").length}
         onSubmit={onSubmit}
         onStop={activeRun ? () => stop(activeRun.id) : undefined}
         fill={fill}

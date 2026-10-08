@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ApiError, createRun } from "../../api/client";
 import type { UUID } from "../../api/types";
 import { Icon } from "../../ui/Icon";
@@ -10,11 +10,15 @@ import { shouldSubmitOnEnter } from "./kinds";
 /** 뷰어 아래 후속 지시(docs/09 §5). 지금 보는 결과물이 context_artifact_ids 로 붙은 채 새 Run 을 만들고 채팅으로 간다. */
 export function FollowupComposer({ sessionId, artifactId }: { sessionId: UUID; artifactId: UUID }) {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const [text, setText] = useState("");
   const send = useMutation({
     mutationFn: (prompt: string) => createRun(sessionId, { prompt, context_artifact_ids: [artifactId] }),
     onSuccess: () => {
       setText("");
+      // 채팅 화면 안에서 열린 뷰어면 같은 라우트라 목록이 저절로 갱신되지 않는다.
+      void qc.invalidateQueries({ queryKey: ["runs", sessionId] });
+      void qc.invalidateQueries({ queryKey: ["sessions"] });
       navigate(`/chat/${sessionId}`);
     },
   });

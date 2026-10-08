@@ -7,7 +7,9 @@ import "./pdf.css";
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export interface PdfViewProps {
+  /** blob URL, 또는 큰 파일이면 Range 로 조금씩 받을 원격 URL + 인증 헤더. */
   url: string;
+  httpHeaders?: Record<string, string>;
   /** 1 = 폭 맞춤. 단계 50~300% 는 호스트가 정한다. */
   zoom: number;
   label: string;
@@ -17,14 +19,15 @@ export interface PdfViewProps {
 }
 
 /** docs/19 §4: 페이지마다 article.tk-page 안에 캔버스 + 텍스트 레이어. 화면 밖 페이지는 data-pending 으로 자리만 둔다. */
-export default function PdfView({ url, zoom, label, slides, onPages, onPage }: PdfViewProps) {
+export default function PdfView({ url, httpHeaders, zoom, label, slides, onPages, onPage }: PdfViewProps) {
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [ratios, setRatios] = useState<number[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    const task = pdfjs.getDocument({ url });
+    // 원격이면 보이는 페이지에 필요한 부분만 Range 로 받는다(모바일 메모리·데이터 절약).
+    const task = pdfjs.getDocument(httpHeaders ? { url, httpHeaders, disableAutoFetch: true, rangeChunkSize: 1 << 20 } : { url });
     task.promise
       .then(async (d) => {
         if (cancelled) return;
