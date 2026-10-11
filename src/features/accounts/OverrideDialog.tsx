@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteOverride, getOverride, putOverride } from "../../api/client";
-import type { AccountOut } from "../../api/types";
+import type { AccountOut, AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { SortableList } from "../../ui/SortableList";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 
-export const OVERRIDE_KEY = ["accounts", "override"] as const;
+export const overrideKey = (pool: AccountPool) => ["accounts", "override", pool] as const;
 const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex" };
 
-export function useOverride() {
+export function useOverride(pool: AccountPool = "personal") {
   // 기한이 지나면 서버가 비활성으로 돌려준다. 화면도 그 즈음 다시 읽는다.
-  return useQuery({ queryKey: OVERRIDE_KEY, queryFn: getOverride, refetchInterval: 60_000 });
+  return useQuery({ queryKey: overrideKey(pool), queryFn: () => getOverride(pool), refetchInterval: 60_000 });
 }
 
 function untilText(iso: string): string {
@@ -35,13 +35,13 @@ function preset(kind: "1h" | "3h" | "tonight" | "tomorrow9"): Date {
 }
 
 /** 계정 목록 위에 뜨는 "임시 순서 적용 중" 안내. 활성일 때만 보인다. */
-export function OverrideBanner({ accounts, onEdit }: { accounts: AccountOut[]; onEdit: () => void }) {
+export function OverrideBanner({ accounts, pool, onEdit }: { accounts: AccountOut[]; pool: AccountPool; onEdit: () => void }) {
   const qc = useQueryClient();
-  const ov = useOverride();
+  const ov = useOverride(pool);
   const off = useMutation({
-    mutationFn: deleteOverride,
+    mutationFn: () => deleteOverride(pool),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: OVERRIDE_KEY });
+      void qc.invalidateQueries({ queryKey: overrideKey(pool) });
       toast({ message: "임시 순서를 끝냈어요. 기본 순서로 돌아가요." });
     },
   });
@@ -63,9 +63,9 @@ export function OverrideBanner({ accounts, onEdit }: { accounts: AccountOut[]; o
 }
 
 /** 정한 시각까지만 쓸 순서를 끌어서 정한다. 기본 순서는 그대로 두고, 시각이 지나면 저절로 돌아간다. */
-export function OverrideDialog({ accounts, onClose }: { accounts: AccountOut[]; onClose: () => void }) {
+export function OverrideDialog({ accounts, pool, onClose }: { accounts: AccountOut[]; pool: AccountPool; onClose: () => void }) {
   const qc = useQueryClient();
-  const ov = useOverride();
+  const ov = useOverride(pool);
   const initial = (() => {
     if (!ov.data?.active) return accounts.filter((a) => a.enabled);
     const pick = ov.data.ids.map((id) => accounts.find((a) => a.id === id)).filter((a): a is AccountOut => !!a);
@@ -73,13 +73,13 @@ export function OverrideDialog({ accounts, onClose }: { accounts: AccountOut[]; 
   })();
   const [order, setOrder] = useState<AccountOut[]>(initial);
   const [until, setUntil] = useState<string>(ov.data?.active && ov.data.until ? localInput(new Date(ov.data.until)) : localInput(preset("tomorrow9")));
-  const pool = accounts.filter((a) => !order.some((o) => o.id === a.id));
+  const rest = accounts.filter((a) => !order.some((o) => o.id === a.id));
   // 렌더 중 Date.now() 를 부르지 않는다(react-hooks/purity). 다이얼로그를 연 시각 기준으로 본다.
   const [openedAt] = useState(() => Date.now());
   const save = useMutation({
-    mutationFn: () => putOverride(order.map((a) => a.id), new Date(until).toISOString()),
+    mutationFn: () => putOverride(order.map((a) => a.id), new Date(until).toISOString(), pool),
     onSuccess: (r) => {
-      qc.setQueryData(OVERRIDE_KEY, r);
+      qc.setQueryData(overrideKey(pool), r);
       void qc.invalidateQueries({ queryKey: ["accounts"] });
       toast({ message: `${untilText(r.until!)}까지 이 순서로 써요.`, tone: "success" });
       onClose();
@@ -91,7 +91,7 @@ export function OverrideDialog({ accounts, onClose }: { accounts: AccountOut[]; 
       open
       onClose={onClose}
       modal
-      title="임시 순서"
+      title={pool === "work" ? "회사 계정 임시 순서" : "임시 순서"}
       id="account-override"
       footer={
         <>
@@ -134,9 +134,9 @@ export function OverrideDialog({ accounts, onClose }: { accounts: AccountOut[]; 
             </div>
           )}
         />
-        {pool.length > 0 && (
+        {rest.length > 0 && (
           <div className="tk-chips" role="group" aria-label="더할 계정">
-            {pool.map((a) => (
+            {rest.map((a) => (
               <button key={a.id} className="tk-chip" type="button" onClick={() => setOrder([...order, a])}>
                 <Icon name="plus" />{a.name}
               </button>

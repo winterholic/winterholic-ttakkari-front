@@ -20,8 +20,11 @@ export function useSessions() {
 function SessionRow({ session, active, now }: { session: SessionOut; active: boolean; now: Date }) {
   const st = sessionStatus(session);
   return (
-    <Link className="tk-session" to={`/chat/${session.id}`} aria-current={active ? "page" : undefined}>
-      <span className="tk-session__title">{session.title || "제목 없는 세션"}</span>
+    <Link className="tk-session" to={`/${session.pool === "work" ? "work" : "chat"}/${session.id}`} aria-current={active ? "page" : undefined}>
+      <span className="tk-session__title">
+        {session.pool === "work" && <span className="tk-badge tk-badge--info session-pool">회사</span>}
+        {session.title || "제목 없는 세션"}
+      </span>
       <span className="tk-session__time">{sessionTime(session.updated_at, now)}</span>
       <span className="tk-session__meta">
         {st.running && <span className="tk-dot tk-dot--live" aria-hidden="true" />}

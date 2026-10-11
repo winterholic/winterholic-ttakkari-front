@@ -68,7 +68,12 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     return () => window.clearInterval(t);
   }, [open]);
   const rows = q.data ?? [];
-  const active = rows.find((a) => a.enabled && a.cooldown_seconds === 0 && !a.windows.some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex"));
+  const usable = (a: AccountUsage) => a.enabled && a.cooldown_seconds === 0 && !a.windows.some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex");
+  // 묶음(개인·회사)마다 지금 쓰는 계정이 따로 있다.
+  const groups = (["personal", "work"] as const)
+    .map((pool) => ({ pool, title: pool === "work" ? "회사 계정" : "개인 계정", rows: rows.filter((a) => a.pool === pool) }))
+    .filter((g) => g.rows.length > 0);
+  const activeIds = new Set(groups.map((g) => g.rows.find(usable)?.id).filter(Boolean));
   const onCount = rows.filter((a) => a.enabled).length;
   return (
     <Dialog kind="sheet" open={open} onClose={onClose} title="사용량" id="account-usage">
@@ -88,26 +93,32 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
           </button>
         </div>
 
-        {active && (
-          <section className="usage-now" aria-label="지금 쓰는 계정">
-            <span className="usage-now__label">지금 쓰는 계정</span>
-            <span className="usage-now__name">{active.name}</span>
-            <span className="usage-now__stats">
-              {active.windows.slice(0, 2).map((w) => (
-                <span key={w.key} data-level={level(w.percent)}>{w.label} {w.percent}%</span>
-              ))}
-            </span>
-          </section>
-        )}
+        {groups.map((g) => {
+          const active = g.rows.find(usable);
+          return active ? (
+            <section key={g.pool} className="usage-now" aria-label={`${g.title} 지금 쓰는 계정`}>
+              <span className="usage-now__label">{g.pool === "work" ? "회사 업무에 지금 쓰는 계정" : "지금 쓰는 계정"}</span>
+              <span className="usage-now__name">{active.name}</span>
+              <span className="usage-now__stats">
+                {active.windows.slice(0, 2).map((w) => (
+                  <span key={w.key} data-level={level(w.percent)}>{w.label} {w.percent}%</span>
+                ))}
+              </span>
+            </section>
+          ) : null;
+        })}
 
         {q.isPending && <p className="usage__note">사용량을 불러오는 중이에요.</p>}
         {q.isError && <p className="tk-error" role="alert">{errorText(q.error).message}</p>}
 
-        <ol className="usage__list" aria-label="계정별 사용량">
-          {rows.map((a) => {
-            const st = statusOf(a, a.id === active?.id);
+        {groups.map((g) => (
+          <section key={g.pool} className="usage__group" aria-label={g.title}>
+            {groups.length > 1 && <h3 className="usage__group-title">{g.title}</h3>}
+            <ol className="usage__list" aria-label={`${g.title} 사용량`}>
+          {g.rows.map((a) => {
+            const st = statusOf(a, activeIds.has(a.id));
             return (
-              <li key={a.id} className="usage-card" data-off={!a.enabled || undefined} data-active={a.id === active?.id || undefined}>
+              <li key={a.id} className="usage-card" data-off={!a.enabled || undefined} data-active={activeIds.has(a.id) || undefined}>
                 <div className="usage-card__head">
                   <span className="usage-card__rank" aria-label={`${a.rank}순위`}>{a.rank}</span>
                   <span className="usage-card__title">
@@ -131,7 +142,9 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
               </li>
             );
           })}
-        </ol>
+            </ol>
+          </section>
+        ))}
         <p className="usage__note">
           순서와 켜기는 <Link to="/settings#accounts" onClick={onClose}>계정 관리</Link>에서 바꿔요. 한도에 걸린 계정은 자동으로 건너뛰어요.
         </p>

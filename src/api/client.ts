@@ -1,5 +1,6 @@
 import type {
   AccountIn,
+  AccountPool,
   AccountOut,
   AccountPatch,
   ApiErrorBody,
@@ -192,7 +193,7 @@ export const searchFiles = (id: UUID, q: string): Promise<FileEntry[]> =>
   json(`/api/workspaces/${id}/search`, { query: { q } });
 
 // ---- sessions
-export const listSessions = (p: { workspace_id?: UUID; include_archived?: boolean; limit?: number; parent_id?: UUID } = {}): Promise<SessionOut[]> =>
+export const listSessions = (p: { workspace_id?: UUID; include_archived?: boolean; limit?: number; parent_id?: UUID; pool?: AccountPool } = {}): Promise<SessionOut[]> =>
   json("/api/sessions", { query: p });
 export const createSession = (body: SessionIn): Promise<SessionOut> => json("/api/sessions", { method: "POST", json: body });
 export const getSession = (id: UUID): Promise<SessionOut> => json(`/api/sessions/${id}`);
@@ -248,8 +249,8 @@ export const createAccount = (body: AccountIn): Promise<AccountOut> => json("/ap
 export const patchAccount = (id: UUID, body: AccountPatch): Promise<AccountOut> =>
   json(`/api/accounts/${id}`, { method: "PATCH", json: body });
 export const deleteAccount = (id: UUID): Promise<void> => json(`/api/accounts/${id}`, { method: "DELETE" });
-export const reorderAccounts = (ids: UUID[]): Promise<AccountOut[]> =>
-  json("/api/accounts/reorder", { method: "POST", json: { ids } });
+export const reorderAccounts = (ids: UUID[], pool: AccountPool = "personal"): Promise<AccountOut[]> =>
+  json("/api/accounts/reorder", { method: "POST", json: { ids }, query: { pool } });
 export const clearAccountCooldown = (id: UUID): Promise<AccountOut> =>
   json(`/api/accounts/${id}/cooldown/clear`, { method: "POST" });
 
@@ -413,6 +414,7 @@ export interface AccountUsage {
   id: string;
   name: string;
   engine: "claude" | "codex";
+  pool: AccountPool;
   enabled: boolean;
   rank: number;
   login: "ok" | "unknown" | "missing";
@@ -423,8 +425,9 @@ export interface AccountUsage {
   error: string | null;
   updated_at: number | null;
 }
-export const getOverride = (): Promise<OverrideOut> => json("/api/accounts/override");
-export const putOverride = (ids: string[], until: string): Promise<OverrideOut> =>
-  json("/api/accounts/override", { method: "PUT", json: { ids, until } });
-export const deleteOverride = (): Promise<void> => json("/api/accounts/override", { method: "DELETE" });
+export const getOverride = (pool: AccountPool = "personal"): Promise<OverrideOut> => json("/api/accounts/override", { query: { pool } });
+export const putOverride = (ids: string[], until: string, pool: AccountPool = "personal"): Promise<OverrideOut> =>
+  json("/api/accounts/override", { method: "PUT", json: { ids, until }, query: { pool } });
+export const deleteOverride = (pool: AccountPool = "personal"): Promise<void> =>
+  json("/api/accounts/override", { method: "DELETE", query: { pool } });
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });

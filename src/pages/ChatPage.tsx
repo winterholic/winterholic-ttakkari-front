@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, cancelRun, createRun, createSession, getArtifact, getSession, getWorkspace, listRuns, patchSession, stopAll, uploadFile } from "../api/client";
 import { Menu } from "../ui/Menu";
 import { toast } from "../ui/toastStore";
-import type { RunOut } from "../api/types";
+import type { AccountPool, RunOut } from "../api/types";
 import { Composer } from "../features/chat/Composer";
 import { NewSession } from "../features/chat/NewSession";
 import type { NewSessionChoice } from "../features/chat/NewSession";
@@ -70,13 +70,14 @@ function useThreadFollow(dep: unknown) {
   return { ref, inner, jump, toBottom };
 }
 
-export function ChatPage() {
+/** pool="work" 는 회사 업무 탭(/work). 거기서 만든 대화는 회사 계정만 쓴다. */
+export function ChatPage({ pool = "personal" }: { pool?: AccountPool }) {
   const { sessionId } = useParams();
   // 세션이 바뀌면 대기열·초안·스크롤 상태를 통째로 새로 시작한다.
-  return <ChatScreen key={sessionId ?? "new"} sessionId={sessionId} />;
+  return <ChatScreen key={`${pool}:${sessionId ?? "new"}`} sessionId={sessionId} pool={pool} />;
 }
 
-function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
+function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: AccountPool }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const viewer = useArtifactViewer();
@@ -155,7 +156,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
       if (!sid) {
         if (!choice) throw new Error("작업 공간을 먼저 골라 주세요.");
         // 새 세션은 오케스트레이터다. 엔진은 서버가 auto(Claude 우선, 한도면 다음 계정)로 정한다(ADR 0006).
-        const s = await createSession({ workspace_id: choice.workspaceId, kind: "orchestrator", model: choice.model, effort: choice.effort });
+        const s = await createSession({ workspace_id: choice.workspaceId, kind: "orchestrator", model: choice.model, effort: choice.effort, pool });
         sid = s.id;
       }
       const run = await createRun(sid, { prompt, context_artifact_ids: contextIds });
@@ -165,7 +166,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
       setSendError(null);
       setAttachments([]);
       void qc.invalidateQueries({ queryKey: ["sessions"] });
-      if (sid !== sessionId) navigate(`/chat/${sid}`);
+      if (sid !== sessionId) navigate(`/${pool === "work" ? "work" : "chat"}/${sid}`);
       else void qc.invalidateQueries({ queryKey: ["runs", sid] });
     },
     onError: (e, prompt) => {
@@ -201,10 +202,11 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
   const lastProfile = [...runList].reverse().find((r) => r.profile)?.profile;
   const engineText = session.data?.engine === "auto" ? (lastProfile ?? "Claude Code 우선") : session.data?.engine === "codex" ? "Codex" : "Claude Code";
 
-  const title = sessionId ? (session.data?.title ?? "불러오는 중") : "새 세션";
+  const title = sessionId ? (session.data?.title ?? "불러오는 중") : pool === "work" ? "새 회사 업무" : "새 세션";
   const meta = sessionId && session.data && (
     <>
       {activeRun ? <span className="tk-dot tk-dot--live" aria-hidden /> : null}
+      {session.data.pool === "work" ? "회사 · " : ""}
       {isOrch ? "오케스트레이터" : kind === "worker" ? "작업 세션" : (workspace.data?.name ?? "작업 공간")} · {engineText}
       {session.data.model ? ` · ${session.data.model}` : ""}
     </>
@@ -263,7 +265,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
                       void patchSession(sessionId, { archived: true }).then(() => {
                         void qc.invalidateQueries({ queryKey: ["sessions"] });
                         toast({ message: "세션을 보관했어요." });
-                        navigate("/chat");
+                        navigate(pool === "work" ? "/work" : "/chat");
                       }),
                   },
                   {
@@ -295,7 +297,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
       >
       <div className="tk-thread tk-screen__body" role="log" aria-label="대화" aria-live="polite" ref={threadRef}>
         {!sessionId ? (
-          <NewSession value={choice} onChange={setChoice} />
+          <NewSession value={choice} onChange={setChoice} pool={pool} />
         ) : (
           <div className="tk-thread__inner" ref={innerRef}>
             {session.isError && (

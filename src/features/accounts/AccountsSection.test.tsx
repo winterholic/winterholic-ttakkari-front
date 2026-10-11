@@ -5,7 +5,7 @@ import type { AccountOut } from "../../api/types";
 import { AccountsSection } from "./AccountsSection";
 
 const acc = (o: Partial<AccountOut>): AccountOut => ({
-  id: "a", name: "claude", engine: "claude", config_dir: null, enabled: true, priority: 0, login: "ok",
+  id: "a", name: "claude", engine: "claude", pool: "personal", config_dir: null, enabled: true, priority: 0, login: "ok",
   login_label: "me@example.com", cooldown_seconds: 0, ...o,
 });
 const api = vi.hoisted(() => ({

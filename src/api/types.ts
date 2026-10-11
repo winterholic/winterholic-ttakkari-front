@@ -80,6 +80,7 @@ export interface SessionIn {
   effort?: Effort | null;
   /** orchestrator 면 엔진은 서버가 auto(Claude 우선, 한도면 다음 계정)로 고정한다. */
   kind?: "chat" | "orchestrator";
+  pool?: AccountPool;
 }
 export interface SessionPatch {
   title?: string;
@@ -97,6 +98,8 @@ export interface SessionOut {
   engine_session_id: string | null;
   kind: "chat" | "orchestrator" | "worker";
   parent_id: UUID | null;
+  /** personal | work(회사 업무 탭) */
+  pool: AccountPool;
   created_at: ISODateTime;
   updated_at: ISODateTime;
   archived_at: ISODateTime | null;
@@ -239,10 +242,13 @@ export type RunEventType = RunEvent["type"];
 
 // ---- engine accounts (ADR 0006)
 export type AccountEngine = "claude" | "codex";
+/** 계정 묶음. 회사 업무 탭에서 만든 대화는 work 계정만 쓴다. */
+export type AccountPool = "personal" | "work";
 export interface AccountOut {
   id: UUID;
   name: string;
   engine: AccountEngine;
+  pool: AccountPool;
   config_dir: string | null;
   enabled: boolean;
   priority: number;
@@ -256,11 +262,13 @@ export interface AccountOut {
 export interface AccountIn {
   name: string;
   engine: AccountEngine;
+  pool?: AccountPool;
   config_dir?: string | null;
   enabled?: boolean;
 }
 export interface AccountPatch {
   name?: string;
+  pool?: AccountPool;
   config_dir?: string | null;
   enabled?: boolean;
 }

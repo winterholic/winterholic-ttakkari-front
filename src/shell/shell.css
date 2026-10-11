@@ -20,3 +20,5 @@
 .app-user-menu__body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 .app-user-menu__name { font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
 .app-user-menu__body .tk-presence { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 세션 목록의 회사 업무 표시 */
+.session-pool { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }

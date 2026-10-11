@@ -16,6 +16,8 @@ export function App() {
       <Route element={<AppShell />}>
         <Route path="/chat" element={<ChatPage />} />
         <Route path="/chat/:sessionId" element={<ChatPage />} />
+        <Route path="/work" element={<ChatPage pool="work" />} />
+        <Route path="/work/:sessionId" element={<ChatPage pool="work" />} />
         <Route path="/workspace" element={<WorkspacePage />} />
         <Route path="/workspace/:sessionId" element={<WorkspacePage />} />
         <Route path="/library" element={<LibraryPage />} />

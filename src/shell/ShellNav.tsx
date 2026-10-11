@@ -17,6 +17,8 @@ export function areas(sessionId?: string): Area[] {
   return [
     // 새 세션 버튼을 따로 두지 않는다. 채팅 탭이 곧 새 세션 화면이다(⌘⇧O 도 같다).
     { root: "chat", to: "/chat", icon: "chat", label: "채팅" },
+    // 회사 업무: 여기서 만든 대화는 회사 계정만 쓴다(설정 > 계정 > 회사 계정).
+    { root: "work", to: "/work", icon: "briefcase", label: "회사 업무", short: "회사" },
     { root: "workspace", to: sessionId ? `/workspace/${sessionId}` : "/workspace", icon: "workspace", label: "작업 공간" },
     { root: "library", to: "/library", icon: "library", label: "보관함" },
     { root: "files", to: "/files", icon: "folder-search", label: "파일", short: "파일" },

@@ -5,7 +5,7 @@ import { listAccounts, systemInfo } from "../../api/client";
 import { useOverride } from "../accounts/OverrideDialog";
 import { errorText } from "../viewer/api";
 import { useDefaultWorkspace } from "../workspace/useDefaultWorkspace";
-import type { Effort, EngineName } from "../../api/types";
+import type { AccountPool, Effort, EngineName } from "../../api/types";
 import { Select } from "../../ui/Select";
 import type { SelectOption } from "../../ui/Select";
 
@@ -46,12 +46,12 @@ const EFFORTS: SelectOption<Effort | "">[] = [
 ];
 
 /** 세션이 없는 /chat 화면. 첫 지시를 보내면 세션이 만들어진다. */
-export function NewSession({ value, onChange }: { value: NewSessionChoice | null; onChange: (v: NewSessionChoice) => void }) {
+export function NewSession({ value, onChange, pool = "personal" }: { value: NewSessionChoice | null; onChange: (v: NewSessionChoice) => void; pool?: AccountPool }) {
   const ws = useDefaultWorkspace();
   const accs = useQuery({ queryKey: ["accounts"], queryFn: listAccounts, staleTime: 30_000 });
-  const ov = useOverride();
+  const ov = useOverride(pool);
   const top = (() => {
-    const list = accs.data ?? [];
+    const list = (accs.data ?? []).filter((a) => a.pool === pool);
     const ids = ov.data?.active ? ov.data.ids : [];
     const ordered = [...list].sort((a, b) => {
       const ra = ids.indexOf(a.id), rb = ids.indexOf(b.id);
@@ -104,8 +104,12 @@ export function NewSession({ value, onChange }: { value: NewSessionChoice | null
     <div className="tk-thread__inner">
       <div className="tk-empty">
         <span className="tk-avatar tk-avatar--agent" aria-hidden />
-        <p className="tk-empty__title">무엇을 시킬까요?</p>
-        <p>무엇이든 말로 지시하세요. 따까리가 일을 나눠 작업 세션에 맡기고, 끝나면 정리해서 알려 줘요. Claude Code 를 먼저 쓰고, 사용량 한도에 걸리면 다음 계정(마지막엔 Codex)으로 이어가요.</p>
+        <p className="tk-empty__title">{pool === "work" ? "회사 일, 무엇을 시킬까요?" : "무엇을 시킬까요?"}</p>
+        <p>
+          {pool === "work"
+            ? "여기서 시킨 일은 회사 계정만 써요. 작업 세션과 결과 보고까지 전부요. 순서와 켜기는 설정 > 계정 > 회사 계정에서 바꿔요."
+            : "무엇이든 말로 지시하세요. 따까리가 일을 나눠 작업 세션에 맡기고, 끝나면 정리해서 알려 줘요. Claude Code 를 먼저 쓰고, 사용량 한도에 걸리면 다음 계정(마지막엔 Codex)으로 이어가요."}
+        </p>
       </div>
       {noEngine && (
         <aside className="tk-callout tk-callout--warning" role="status">
@@ -122,10 +126,12 @@ export function NewSession({ value, onChange }: { value: NewSessionChoice | null
             options={MODEL_OPTIONS}
             onChange={(model) => set({ model: model || null })}
           />
-          {top && (
+          {top ? (
             <p className="tk-help">
-              <span>지금 1순위: {top.name} ({top.engine === "codex" ? "Codex" : "Claude Code"}). 고른 모델은 그 엔진 계정에서만 쓰여요.</span>
+              <span>{pool === "work" ? "회사 계정" : "지금"} 1순위: {top.name} ({top.engine === "codex" ? "Codex" : "Claude Code"}). 고른 모델은 그 엔진 계정에서만 쓰여요.</span>
             </p>
+          ) : accs.isSuccess && (
+            <p className="tk-error"><span>켜진 {pool === "work" ? "회사" : "개인"} 계정이 없어요. 설정 &gt; 계정에서 켜 주세요.</span></p>
           )}
         </div>
         <div className="tk-field">
