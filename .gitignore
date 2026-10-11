@@ -9,3 +9,5 @@ dev-dist
 coverage
 .agent-notes/
 *.tsbuildinfo
+.vercel
+.env*
