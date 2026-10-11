@@ -5,6 +5,8 @@ import { systemInfo } from "../../api/client";
 import { errorText } from "../viewer/api";
 import { useDefaultWorkspace } from "../workspace/useDefaultWorkspace";
 import type { Effort, EngineName } from "../../api/types";
+import { Select } from "../../ui/Select";
+import type { SelectOption } from "../../ui/Select";
 
 export interface NewSessionChoice {
   workspaceId: string;
@@ -13,7 +15,7 @@ export interface NewSessionChoice {
   effort: Effort | null;
 }
 
-const MODELS: Record<EngineName, { value: string; label: string }[]> = {
+const MODELS: Record<EngineName, SelectOption<string>[]> = {
   claude: [
     { value: "", label: "기본 모델" },
     { value: "opus", label: "Opus" },
@@ -27,7 +29,12 @@ const MODELS: Record<EngineName, { value: string; label: string }[]> = {
   ],
 };
 
-const EFFORTS: { value: Effort | ""; label: string }[] = [
+const ENGINES: SelectOption<EngineName>[] = [
+  { value: "claude", label: "Claude Code" },
+  { value: "codex", label: "Codex" },
+];
+
+const EFFORTS: SelectOption<Effort | "">[] = [
   { value: "", label: "기본" },
   { value: "low", label: "낮음" },
   { value: "medium", label: "보통" },
@@ -88,38 +95,37 @@ export function NewSession({ value, onChange }: { value: NewSessionChoice | null
       </div>
       <div className="tk-grid tk-grid--2">
         <div className="tk-field">
-          <label className="tk-label" htmlFor="ns-engine">엔진</label>
-          <span className="tk-select">
-            <select id="ns-engine" value={current?.engine ?? "claude"} onChange={(e) => set({ engine: e.target.value as EngineName, model: null })}>
-            <option value="claude">Claude Code</option>
-            <option value="codex">Codex</option>
-          </select>
-          </span>
-          {engineMissing && <p className="tk-error">이 Mac 에 {current?.engine} CLI 가 없어요.</p>}
+          <label className="tk-label" id="ns-engine-label" htmlFor="ns-engine">엔진</label>
+          <Select
+            id="ns-engine"
+            labelledBy="ns-engine-label"
+            value={current?.engine ?? "claude"}
+            options={ENGINES}
+            onChange={(engine) => set({ engine, model: null })}
+            invalid={Boolean(engineMissing)}
+            describedBy={engineMissing ? "ns-engine-err" : undefined}
+          />
+          {engineMissing && <p className="tk-error" id="ns-engine-err">이 Mac 에 {current?.engine} CLI 가 없어요.</p>}
         </div>
         <div className="tk-field">
-          <label className="tk-label" htmlFor="ns-model">모델</label>
-          <span className="tk-select">
-            <select id="ns-model" value={current?.model ?? ""} onChange={(e) => set({ model: e.target.value || null })}>
-            {MODELS[current?.engine ?? "claude"].map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-          </span>
+          <label className="tk-label" id="ns-model-label" htmlFor="ns-model">모델</label>
+          <Select
+            id="ns-model"
+            labelledBy="ns-model-label"
+            value={current?.model ?? ""}
+            options={MODELS[current?.engine ?? "claude"]}
+            onChange={(model) => set({ model: model || null })}
+          />
         </div>
         <div className="tk-field">
-          <label className="tk-label" htmlFor="ns-effort">추론 강도</label>
-          <span className="tk-select">
-            <select id="ns-effort" value={current?.effort ?? ""} onChange={(e) => set({ effort: (e.target.value || null) as Effort | null })}>
-            {EFFORTS.map((m) => (
-              <option key={m.value} value={m.value}>
-                {m.label}
-              </option>
-            ))}
-          </select>
-          </span>
+          <label className="tk-label" id="ns-effort-label" htmlFor="ns-effort">추론 강도</label>
+          <Select
+            id="ns-effort"
+            labelledBy="ns-effort-label"
+            value={current?.effort ?? ""}
+            options={EFFORTS}
+            onChange={(effort) => set({ effort: (effort || null) as Effort | null })}
+          />
         </div>
       </div>
     </div>
