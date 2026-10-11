@@ -73,7 +73,7 @@ describe("AppShell 인증 가드", () => {
     expect(screen.getByText("보관함 본문")).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "영역과 세션" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((l) => l.textContent)).toEqual(expect.arrayContaining(["채팅", "작업 공간", "보관함", "파일 찾기"]));
+    expect(links.map((l) => l.textContent)).toEqual(expect.arrayContaining(["채팅", "작업 공간", "보관함", "파일"]));
     const current = links.filter((l) => l.getAttribute("aria-current") === "page");
     expect(current.map((l) => l.textContent)).toEqual(["보관함"]);
   });

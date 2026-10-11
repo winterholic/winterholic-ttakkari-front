@@ -89,9 +89,9 @@ export function NewSession({ value, onChange }: { value: NewSessionChoice | null
         <p>무엇이든 말로 지시하세요. 따까리가 일을 나눠 작업 세션에 맡기고, 끝나면 정리해서 알려 줘요. Claude Code 를 먼저 쓰고, 사용량 한도에 걸리면 다음 계정(마지막엔 Codex)으로 이어가요.</p>
       </div>
       {noEngine && (
-        <p className="tk-banner tk-banner--warning" role="status">
-          <span className="tk-banner__text">이 Mac 에 Claude Code 도 Codex 도 없어요. 하나는 설치해야 지시할 수 있어요.</span>
-        </p>
+        <aside className="tk-callout tk-callout--warning" role="status">
+          <div className="tk-callout__body"><p>이 Mac 에 Claude Code 도 Codex 도 없어요. 하나는 설치해야 지시할 수 있어요.</p></div>
+        </aside>
       )}
       <div className="tk-grid tk-grid--2">
         <div className="tk-field">

@@ -1,0 +1,32 @@
+/* 파일 > 보내기. 폰이 주 사용처라 큰 버튼 셋과 받는 폴더를 위에 둔다. 디자인 시스템 토큰만 쓴다. */
+.transfer { display: flex; flex-direction: column; gap: var(--tk-space-4); padding-block: var(--tk-space-4); border-radius: var(--tk-radius-lg); }
+.transfer[data-dragging] { outline: var(--tk-focus-ring-width) dashed var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-space-1); }
+.transfer__dest {
+  display: flex; align-items: center; gap: var(--tk-space-3); padding: var(--tk-space-3);
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default);
+}
+.transfer__dest-body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.transfer__dest-label { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.transfer__dest-path { overflow-wrap: anywhere; color: var(--tk-color-text-primary); font-size: var(--tk-font-size-sm); }
+.transfer__actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--tk-space-2); }
+.transfer__action {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--tk-space-2);
+  min-height: calc(var(--tk-size-touch-target-min) * 2); padding: var(--tk-space-3) var(--tk-space-2);
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg);
+  background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); cursor: pointer;
+  font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.transfer__action > .tk-icon { --tk-_icon: var(--tk-size-icon-lg); color: var(--tk-color-text-brand); }
+@media (hover: hover) { .transfer__action:hover { border-color: var(--tk-color-border-strong); background: var(--tk-color-interactive-hover-overlay); } }
+.transfer__action:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }
+.transfer__action:disabled { color: var(--tk-color-text-disabled); cursor: not-allowed; }
+.transfer__drop-hint { margin: calc(-1 * var(--tk-space-2)) 0 0; text-align: center; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.transfer__opts { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.transfer__queue { padding-block: var(--tk-space-2); }
+.transfer-row .tk-progress { margin-top: var(--tk-space-1); }
+.transfer-row__notes { color: var(--tk-color-text-agent); font-size: var(--tk-font-size-xs); }
+.transfer-picker__path { margin: 0 0 var(--tk-space-2); overflow-wrap: anywhere; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.transfer-picker__go { flex: none; align-self: center; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
+.transfer-picker__new { display: flex; gap: var(--tk-space-2); margin-top: var(--tk-space-3); }
+.transfer-picker__new > .tk-input { flex: 1 1 auto; min-width: 0; }
+.files-tabs { margin-top: var(--tk-space-4); }

@@ -11,6 +11,7 @@ import { formatSize, formatWhen, glyphTypeForFilename } from "../features/viewer
 import { EmptyState, ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { useArtifactViewer } from "../features/viewer/useArtifactViewer";
 import { useDefaultWorkspace } from "../features/workspace/useDefaultWorkspace";
+import { TransferPanel } from "../features/transfer/TransferPanel";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 
@@ -21,6 +22,8 @@ const REGISTER_ERRORS: Record<string, string> = {
 
 export function FilesPage() {
   const [params, setParams] = useSearchParams();
+  // 폰에서 주로 쓰는 건 보내기라 기본 탭이 보내기다.
+  const tab = params.get("tab") === "find" ? "find" : "send";
   const wsQuery = useDefaultWorkspace();
   const ws: WorkspaceOut | undefined = wsQuery.data;
   const path = params.get("path") ?? ".";
@@ -41,23 +44,36 @@ export function FilesPage() {
   const listing = useQuery({
     queryKey: ["files", ws?.id, path, showHidden],
     queryFn: () => listFiles(ws!.id, path, showHidden),
-    enabled: Boolean(ws) && q === "",
+    enabled: Boolean(ws) && q === "" && tab === "find",
   });
   const found = useQuery({
     queryKey: ["file-search", ws?.id, q],
     queryFn: () => searchFiles(ws!.id, q),
-    enabled: Boolean(ws) && q !== "",
+    enabled: Boolean(ws) && q !== "" && tab === "find",
   });
 
   return (
     <div className="tk-screen">
-      <PageHeader title="파일 찾기" meta={ws ? `${ws.name} · ${ws.root_path}` : undefined} />
+      <PageHeader title="파일" meta={tab === "find" && ws ? `${ws.name} · ${ws.root_path}` : "폰에서 내 컴퓨터로 보내기"} />
       <ArtifactViewerHost>
         <div className="tk-screen__body">
           <div className="tk-container tk-container--md">
-            {wsQuery.isPending && <ListSkeleton rows={4} label="워크스페이스를 불러오는 중" />}
-            {wsQuery.isError && <ErrorState error={wsQuery.error} what="워크스페이스" onRetry={() => void wsQuery.refetch()} />}
-            {ws && (
+            <div className="tk-segmented tk-segmented--block files-tabs" role="radiogroup" aria-label="파일">
+              <label>
+                <input type="radio" name="files-tab" checked={tab === "send"} onChange={() => setNav({ tab: null })} />
+                <Icon name="share" />
+                보내기
+              </label>
+              <label>
+                <input type="radio" name="files-tab" checked={tab === "find"} onChange={() => setNav({ tab: "find" })} />
+                <Icon name="search" />
+                찾기
+              </label>
+            </div>
+            {tab === "send" && <TransferPanel />}
+            {tab === "find" && wsQuery.isPending && <ListSkeleton rows={4} label="워크스페이스를 불러오는 중" />}
+            {tab === "find" && wsQuery.isError && <ErrorState error={wsQuery.error} what="워크스페이스" onRetry={() => void wsQuery.refetch()} />}
+            {tab === "find" && ws && (
               <>
                 <div className="tk-filterbar" role="search">
                   <div className="tk-filterbar__row">

@@ -113,6 +113,9 @@ interface ReqOpts {
   query?: Record<string, string | number | boolean | undefined | null>;
   json?: unknown;
   form?: FormData;
+  /** 바이트 그대로 보낼 본문(파일 조각). */
+  blob?: Blob;
+  signal?: AbortSignal;
   /** 로그인·refresh·logout 은 Bearer 도 401 재시도도 쓰지 않는다. */
   noAuth?: boolean;
 }
@@ -125,12 +128,14 @@ async function raw(path: string, o: ReqOpts): Promise<Response> {
   const send = (token: string | null) => {
     const headers: Record<string, string> = {};
     if (o.json !== undefined) headers["Content-Type"] = "application/json";
+    if (o.blob) headers["Content-Type"] = "application/octet-stream";
     if (token && !o.noAuth) headers.Authorization = `Bearer ${token}`;
     return fetch(url, {
       method: o.method ?? "GET",
       headers,
-      body: o.form ?? (o.json !== undefined ? JSON.stringify(o.json) : undefined),
+      body: o.blob ?? o.form ?? (o.json !== undefined ? JSON.stringify(o.json) : undefined),
       credentials: "include",
+      signal: o.signal,
     });
   };
 
@@ -247,4 +252,60 @@ export const reorderAccounts = (ids: UUID[]): Promise<AccountOut[]> =>
   json("/api/accounts/reorder", { method: "POST", json: { ids } });
 export const clearAccountCooldown = (id: UUID): Promise<AccountOut> =>
   json(`/api/accounts/${id}/cooldown/clear`, { method: "POST" });
+
+// ---- 폰 → 컴퓨터 파일 보내기
+export interface TransferStartIn {
+  filename: string;
+  size: number;
+  dest_dir: string;
+  convert_heic: boolean;
+  strip_location: boolean;
+  keep_original: boolean;
+}
+export interface TransferOut {
+  id: string;
+  received: number;
+  size: number;
+  chunk_size: number;
+}
+export interface DeliveredFile {
+  path: string;
+  name: string;
+  size: number;
+  artifact_id: string | null;
+}
+export interface TransferDone {
+  files: DeliveredFile[];
+  notes: string[];
+}
+export interface FolderRef {
+  name: string;
+  path: string;
+}
+export interface FoldersOut {
+  path: string | null;
+  parent: string | null;
+  roots: FolderRef[];
+  dirs: FolderRef[];
+  default: string;
+  can_write: boolean;
+}
+export interface TransferTokenOut {
+  id: string;
+  name: string;
+  created_at: string;
+  last_used_at: string | null;
+  token: string | null;
+}
+export const startTransfer = (body: TransferStartIn): Promise<TransferOut> => json("/api/transfers", { method: "POST", json: body });
+export const transferStatus = (id: string): Promise<TransferOut> => json(`/api/transfers/${id}`);
+export const putTransferChunk = (id: string, offset: number, blob: Blob, signal?: AbortSignal): Promise<TransferOut> =>
+  json(`/api/transfers/${id}`, { method: "PUT", query: { offset }, blob, signal });
+export const completeTransfer = (id: string): Promise<TransferDone> => json(`/api/transfers/${id}/complete`, { method: "POST" });
+export const cancelTransfer = (id: string): Promise<void> => json(`/api/transfers/${id}`, { method: "DELETE" });
+export const transferFolders = (path?: string): Promise<FoldersOut> => json("/api/transfers/folders", { query: { path } });
+export const makeTransferFolder = (path: string): Promise<FolderRef> => json("/api/transfers/folders", { method: "POST", json: { path } });
+export const listTransferTokens = (): Promise<TransferTokenOut[]> => json("/api/transfer-tokens");
+export const createTransferToken = (name: string): Promise<TransferTokenOut> => json("/api/transfer-tokens", { method: "POST", json: { name } });
+export const revokeTransferToken = (id: string): Promise<void> => json(`/api/transfer-tokens/${id}`, { method: "DELETE" });
 

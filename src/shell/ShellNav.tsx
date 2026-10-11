@@ -19,7 +19,7 @@ export function areas(sessionId?: string): Area[] {
     { root: "chat", to: "/chat", icon: "chat", label: "채팅" },
     { root: "workspace", to: sessionId ? `/workspace/${sessionId}` : "/workspace", icon: "workspace", label: "작업 공간" },
     { root: "library", to: "/library", icon: "library", label: "보관함" },
-    { root: "files", to: "/files", icon: "folder-search", label: "파일 찾기", short: "파일" },
+    { root: "files", to: "/files", icon: "folder-search", label: "파일", short: "파일" },
   ];
 }
 

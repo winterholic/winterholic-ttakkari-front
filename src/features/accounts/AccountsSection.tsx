@@ -84,10 +84,10 @@ export function AccountsSection() {
       {q.isPending && <ListSkeleton rows={2} label="계정을 불러오는 중" />}
       {q.isError && <ErrorState error={q.error} what="계정" onRetry={() => void q.refetch()} />}
       {q.isSuccess && enabledCount === 0 && (
-        <p className="tk-banner tk-banner--warning" role="status">
-          <Icon name="warning" />
-          <span className="tk-banner__text">켜진 계정이 없어요. 하나 이상 켜야 지시를 실행할 수 있어요.</span>
-        </p>
+        <aside className="tk-callout tk-callout--warning" role="status">
+          <Icon name="warning" className="tk-callout__icon" />
+          <div className="tk-callout__body"><p>켜진 계정이 없어요. 하나 이상 켜야 지시를 실행할 수 있어요.</p></div>
+        </aside>
       )}
       {rowError && (
         <p className="tk-error" role="alert">

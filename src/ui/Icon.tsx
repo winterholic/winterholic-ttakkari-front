@@ -1,5 +1,5 @@
 import {
-  ChevronDown, ChevronRight, ChevronUp, Plus, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
+  Camera, ChevronDown, ChevronRight, ChevronUp, Plus, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
   Download, Ellipsis, EllipsisVertical, ExternalLink, Eye, FileArchive, FileCode, FileSpreadsheet, FileText, Folder,
   FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, Lock, LogOut, Mail, Maximize,
   Menu, MessageSquare, Moon, MoveHorizontal, OctagonAlert, PanelRight, Paperclip, Pin, Presentation, RefreshCw,
@@ -17,7 +17,7 @@ const ICONS = {
   search: Search, filter: SlidersHorizontal, sort: ArrowUpDown,
   "zoom-in": ZoomIn, "zoom-out": ZoomOut, fit: MoveHorizontal, expand: Maximize, wrap: WrapText, follow: ArrowDown,
   clock: Clock, hand: Hand, "circle-check": CircleCheck, "circle-x": CircleX, ban: Ban,
-  shield: ShieldCheck, "shield-alert": ShieldAlert, lock: Lock, key: KeyRound, smartphone: Smartphone,
+  shield: ShieldCheck, "shield-alert": ShieldAlert, lock: Lock, key: KeyRound, smartphone: Smartphone, camera: Camera,
   "file-text": FileText, "file-pdf": FileText, presentation: Presentation, sheet: FileSpreadsheet, image: Image,
   "file-code": FileCode, globe: Globe, "file-archive": FileArchive,
   folder: Folder, "folder-open": FolderOpen, "hard-drive": HardDrive, terminal: Terminal,

@@ -16,3 +16,10 @@
   background: var(--tk-color-ink-bg); color: var(--tk-color-ink-text); overflow-wrap: anywhere;
   font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-mono);
 }
+/* 아이폰 단축어 안내 */
+.shortcut-token { display: flex; flex-direction: column; align-items: flex-start; gap: var(--tk-space-2); padding: var(--tk-space-3); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-subtle); }
+.shortcut-token > .account-form__cmd { align-self: stretch; }
+.shortcut-token__title { margin: 0; color: var(--tk-color-text-warning); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.shortcut-steps { display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0; padding-left: var(--tk-space-5); color: var(--tk-color-text-secondary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); }
+.shortcut-steps strong { color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-medium); }
+.shortcut-steps__copy { display: flex; align-items: center; gap: var(--tk-space-1); margin-top: var(--tk-space-1); overflow-wrap: anywhere; }
