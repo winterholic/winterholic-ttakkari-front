@@ -71,3 +71,16 @@ describe("Toast", () => {
     expect(onClick).toHaveBeenCalled();
   });
 });
+
+describe("Menu 토글 항목", () => {
+  it("menuitemcheckbox 로 상태를 알리고, 눌러도 메뉴를 닫지 않는다", () => {
+    const onSelect = vi.fn();
+    render(<Menu label="사용자 메뉴" items={[{ label: "다크 모드", checked: false, onSelect }]}><span>열기</span></Menu>);
+    fireEvent.click(screen.getByRole("button", { name: "사용자 메뉴" }));
+    const item = screen.getByRole("menuitemcheckbox", { name: "다크 모드" });
+    expect(item.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(item);
+    expect(onSelect).toHaveBeenCalledOnce();
+    expect(screen.getByRole("button", { name: "사용자 메뉴" }).getAttribute("aria-expanded")).toBe("true");
+  });
+});

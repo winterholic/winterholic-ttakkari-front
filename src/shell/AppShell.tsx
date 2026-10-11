@@ -63,7 +63,7 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
         items={[
           { label: "설정", icon: "settings", onSelect: () => navigate("/settings") },
           { label: "알림", icon: "important", onSelect: () => setPushOpen(true) },
-          { label: isDark ? "라이트 모드" : "다크 모드", icon: isDark ? "sun" : "moon", onSelect: toggle },
+          { label: "다크 모드", icon: "moon", checked: isDark, onSelect: toggle },
           { label: "로그아웃", icon: "logout", onSelect: () => void out(), separatorBefore: true },
         ]}
       >

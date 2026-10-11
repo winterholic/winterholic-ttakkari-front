@@ -11,6 +11,8 @@ export interface MenuItem {
   disabled?: boolean;
   /** 이 항목 앞에 구분선을 그린다. */
   separatorBefore?: boolean;
+  /** 켜고 끄는 항목(menuitemcheckbox + 스위치). 누르면 상태만 바꾸고 메뉴는 열어 둔다. */
+  checked?: boolean;
 }
 
 export interface MenuProps {
@@ -36,7 +38,7 @@ export function Menu({ label, items, children, align = "end", up, triggerClassNa
   const focusAt = useRef<"first" | "last">("first");
   const typed = useRef({ text: "", timer: 0 });
 
-  const enabled = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role="menuitem"]:not([aria-disabled="true"])') ?? [])];
+  const enabled = () => [...(menu.current?.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([aria-disabled="true"])') ?? [])];
 
   useEffect(() => {
     if (!open) return;
@@ -117,18 +119,20 @@ export function Menu({ label, items, children, align = "end", up, triggerClassNa
             {it.separatorBefore && <hr className="tk-menu__separator" />}
             <button
               className={it.danger ? "tk-menu__item tk-menu__item--danger" : "tk-menu__item"}
-              role="menuitem"
+              role={it.checked === undefined ? "menuitem" : "menuitemcheckbox"}
+              aria-checked={it.checked}
               type="button"
               tabIndex={-1}
               aria-disabled={it.disabled || undefined}
               onClick={() => {
                 if (it.disabled) return;
-                close(true);
+                if (it.checked === undefined) close(true);
                 it.onSelect();
               }}
             >
               {it.icon && <Icon name={it.icon} />}
               {it.label}
+              {it.checked !== undefined && <span className="tk-menu__switch" aria-hidden />}
             </button>
           </Fragment>
         ))}
