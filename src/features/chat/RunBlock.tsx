@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { runEvents } from "../../api/client";
 import type { RunEvent, RunOut } from "../../api/types";
 import { useRunStream } from "../../hooks/useRunStream";
-import { AgentMessage, UserMessage } from "./Messages";
+import { AgentMessage, ReportMessage, UserMessage } from "./Messages";
 import { buildRunView } from "./runView";
 
 const ACTIVE = ["queued", "running"];
@@ -52,7 +52,7 @@ export function RunBlock({ run, contextNames, isLast, onOpen, onStop, onRetry, o
 
   return (
     <>
-      <UserMessage run={run} contextNames={contextNames} />
+      {run.origin === "report" ? <ReportMessage run={run} /> : <UserMessage run={run} contextNames={contextNames} />}
       <AgentMessage
         run={run}
         view={view}

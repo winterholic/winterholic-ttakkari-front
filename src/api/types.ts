@@ -102,6 +102,10 @@ export interface SessionOut {
   archived_at: ISODateTime | null;
   active_run_id: UUID | null;
   last_run_status: string | null;
+  last_run_profile?: string | null;
+  last_run_started_at?: ISODateTime | null;
+  /** 마지막으로 끝난 Run 의 결과(없으면 오류) 앞 200자 */
+  last_result?: string | null;
 }
 
 // ---- runs

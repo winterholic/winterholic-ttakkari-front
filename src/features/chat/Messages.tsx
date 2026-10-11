@@ -54,9 +54,29 @@ export function ArtifactCard({ a, onOpen, isNew }: { a: ArtifactOut; onOpen: (id
   );
 }
 
-export function UserMessage({ run, contextNames }: { run: RunOut; contextNames: string[] }) {
+/** 작업 세션이 끝나 오케스트레이터에게 들어온 결과 보고. 사용자 말풍선이 아니라 접힌 시스템 줄로 보인다. */
+export function ReportMessage({ run }: { run: RunOut }) {
+  const count = (run.prompt.match(/\[작업 보고\]/g) ?? []).length;
+  const titles = [...run.prompt.matchAll(/\[작업 보고\] 작업 세션 '([^']*)'.*?(완료|실패|취소|중단)/g)].map((m) => `${m[1]} ${m[2]}`);
   return (
-    <article className="tk-message tk-message--user" data-author="user" aria-label="내 지시">
+    <article className="report-message" data-author="system" aria-label="작업 보고">
+      <details>
+        <summary>
+          <Icon name="workspace" />
+          <span>작업 보고{count > 1 ? ` ${count}건` : ""}</span>
+          {titles.length > 0 && <span className="report-message__titles">{titles.join(" · ")}</span>}
+          <span className="tk-message__time">{time(run.created_at)}</span>
+        </summary>
+        <pre className="report-message__body">{run.prompt}</pre>
+      </details>
+    </article>
+  );
+}
+
+export function UserMessage({ run, contextNames }: { run: RunOut; contextNames: string[] }) {
+  const byOrchestrator = run.origin === "orchestrator";
+  return (
+    <article className="tk-message tk-message--user" data-author="user" aria-label={byOrchestrator ? "오케스트레이터 지시" : "내 지시"}>
       {contextNames.length > 0 && (
         <div className="tk-chips" aria-label="함께 보낸 문맥">
           {contextNames.map((n) => (
@@ -68,6 +88,7 @@ export function UserMessage({ run, contextNames }: { run: RunOut; contextNames: 
       )}
       <div className="tk-message__body">{run.prompt}</div>
       <p className="tk-message__meta">
+        {byOrchestrator && <span>오케스트레이터 지시 · </span>}
         <span className="tk-message__time">{time(run.created_at)}</span>
       </p>
     </article>

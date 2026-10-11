@@ -29,11 +29,6 @@ const MODELS: Record<EngineName, SelectOption<string>[]> = {
   ],
 };
 
-const ENGINES: SelectOption<EngineName>[] = [
-  { value: "claude", label: "Claude Code" },
-  { value: "codex", label: "Codex" },
-];
-
 const EFFORTS: SelectOption<Effort | "">[] = [
   { value: "", label: "기본" },
   { value: "low", label: "낮음" },
@@ -48,7 +43,7 @@ export function NewSession({ value, onChange }: { value: NewSessionChoice | null
   const info = useQuery({ queryKey: ["systemInfo"], queryFn: systemInfo, staleTime: 60_000 });
   const first = ws.data;
   useEffect(() => {
-    if (!value && first) onChange({ workspaceId: first.id, engine: first.default_engine as EngineName, model: null, effort: null });
+    if (!value && first) onChange({ workspaceId: first.id, engine: "claude", model: null, effort: null });
   }, [value, first, onChange]);
   const current = value;
 
@@ -84,36 +79,28 @@ export function NewSession({ value, onChange }: { value: NewSessionChoice | null
       </div>
     );
   }
-  const engineMissing = current && info.data && !info.data.engines[current.engine];
+  const noEngine = info.data && !info.data.engines.claude && !info.data.engines.codex;
 
   return (
     <div className="tk-thread__inner">
       <div className="tk-empty">
         <span className="tk-avatar tk-avatar--agent" aria-hidden />
         <p className="tk-empty__title">무엇을 시킬까요?</p>
-        <p>Mac Studio에서 할 일을 말로 지시하세요. 엔진과 모델은 아래에서 고를 수 있어요.</p>
+        <p>무엇이든 말로 지시하세요. 따까리가 일을 나눠 작업 세션에 맡기고, 끝나면 정리해서 알려 줘요. Claude Code 를 먼저 쓰고, 사용량 한도에 걸리면 다음 계정(마지막엔 Codex)으로 이어가요.</p>
       </div>
+      {noEngine && (
+        <p className="tk-banner tk-banner--warning" role="status">
+          <span className="tk-banner__text">이 Mac 에 Claude Code 도 Codex 도 없어요. 하나는 설치해야 지시할 수 있어요.</span>
+        </p>
+      )}
       <div className="tk-grid tk-grid--2">
-        <div className="tk-field">
-          <label className="tk-label" id="ns-engine-label" htmlFor="ns-engine">엔진</label>
-          <Select
-            id="ns-engine"
-            labelledBy="ns-engine-label"
-            value={current?.engine ?? "claude"}
-            options={ENGINES}
-            onChange={(engine) => set({ engine, model: null })}
-            invalid={Boolean(engineMissing)}
-            describedBy={engineMissing ? "ns-engine-err" : undefined}
-          />
-          {engineMissing && <p className="tk-error" id="ns-engine-err">이 Mac 에 {current?.engine} CLI 가 없어요.</p>}
-        </div>
         <div className="tk-field">
           <label className="tk-label" id="ns-model-label" htmlFor="ns-model">모델</label>
           <Select
             id="ns-model"
             labelledBy="ns-model-label"
             value={current?.model ?? ""}
-            options={MODELS[current?.engine ?? "claude"]}
+            options={MODELS.claude}
             onChange={(model) => set({ model: model || null })}
           />
         </div>

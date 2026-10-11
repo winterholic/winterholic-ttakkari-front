@@ -1,0 +1,45 @@
+/* 오케스트레이터 화면: 왼쪽 메인 대화 + 오른쪽 작업 세션 탭(lg 이상). lg 미만은 헤더 버튼이 시트로 연다. 디자인 시스템 토큰만 쓴다. */
+.orch-layout { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.orch-layout__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.orch-layout__aside { display: none; }
+@media (min-width: 1024px) {
+  .orch-layout__aside {
+    display: flex; flex-direction: column; flex: 0 0 var(--tk-size-layout-sidebar); min-height: 0; overflow-y: auto;
+    border-left: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); background: var(--tk-color-surface-subtle);
+  }
+  .orch-workers-toggle { display: none; }
+}
+
+.worker-panel { display: flex; flex-direction: column; gap: var(--tk-space-2); padding: var(--tk-space-4) var(--tk-space-3); }
+.worker-panel__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--tk-space-2); padding-inline: var(--tk-space-2); }
+.worker-panel__title { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.worker-panel__count { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.worker-panel__note { margin: 0; padding: var(--tk-space-2); color: var(--tk-color-text-secondary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); }
+.worker-tab { align-items: flex-start; border-radius: var(--tk-radius-md); text-decoration: none; }
+.worker-tab__top { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-2); min-width: 0; }
+.worker-tab__top > .tk-badge { flex: none; }
+.worker-tab__snippet {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  color: var(--tk-color-text-secondary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
+}
+.worker-tab__go { flex: none; align-self: center; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
+
+/* 대화 턴 사이 구분선. 간격은 스레드의 턴 간격이 맡는다 */
+.thread-divider { align-self: stretch; width: 100%; margin-block: 0; }
+
+/* 작업 보고: 사용자 말풍선이 아니라 접힌 시스템 줄 */
+.report-message { color: var(--tk-color-text-secondary); }
+.report-message summary {
+  display: flex; align-items: center; gap: var(--tk-space-2); cursor: pointer; list-style: none;
+  font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.report-message summary::-webkit-details-marker { display: none; }
+.report-message summary > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-agent); }
+.report-message__titles { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tk-color-text-tertiary); font-weight: var(--tk-font-weight-regular); }
+.report-message summary > .tk-message__time { margin-left: auto; flex: none; }
+.report-message summary:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); border-radius: var(--tk-radius-sm); }
+.report-message__body {
+  margin: var(--tk-space-2) 0 0; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--tk-color-surface-subtle); color: var(--tk-color-text-secondary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-mono);
+}

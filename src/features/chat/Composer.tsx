@@ -118,8 +118,8 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
     ? "오프라인 · 초안은 이 기기에 남아 있어요"
     : running
       ? queued > 0
-        ? `지금 작업이 끝나면 ${queued}개 지시를 이어서 보내요`
-        : "실행 중에도 다음 지시를 쓸 수 있어요. 끝나면 이어서 보내요"
+        ? `${queued}개 지시가 차례를 기다려요`
+        : "기다리지 않고 계속 보내도 돼요. 순서대로 전달해요"
       : null;
 
   return (
@@ -156,20 +156,20 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
           />
-          {running && onStop && empty ? (
+          {/* 실행 중에도 보내기는 그대로 둔다. 응답을 기다리지 않고 계속 보내면 대기열에 쌓인다(사용자 결정 10-11). */}
+          {running && onStop && (
             <button className="tk-icon-button tk-icon-button--secondary tk-icon-button--round tk-composer__send" type="button" aria-label="실행 멈추기" onClick={onStop}>
               <Icon name="stop" />
             </button>
-          ) : (
-            <button
-              className="tk-icon-button tk-icon-button--primary tk-icon-button--round tk-composer__send"
-              type="submit"
-              aria-label={running ? "대기열에 넣기" : "보내기"}
-              aria-disabled={disabled || undefined}
-            >
-              <Icon name="send" />
-            </button>
           )}
+          <button
+            className="tk-icon-button tk-icon-button--primary tk-icon-button--round tk-composer__send"
+            type="submit"
+            aria-label={running ? "대기열에 넣기" : "보내기"}
+            aria-disabled={disabled || undefined}
+          >
+            <Icon name="send" />
+          </button>
         </div>
         <p className="tk-composer__hint">
           <span>{hint}</span>

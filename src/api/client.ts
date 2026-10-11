@@ -187,7 +187,7 @@ export const searchFiles = (id: UUID, q: string): Promise<FileEntry[]> =>
   json(`/api/workspaces/${id}/search`, { query: { q } });
 
 // ---- sessions
-export const listSessions = (p: { workspace_id?: UUID; include_archived?: boolean; limit?: number } = {}): Promise<SessionOut[]> =>
+export const listSessions = (p: { workspace_id?: UUID; include_archived?: boolean; limit?: number; parent_id?: UUID } = {}): Promise<SessionOut[]> =>
   json("/api/sessions", { query: p });
 export const createSession = (body: SessionIn): Promise<SessionOut> => json("/api/sessions", { method: "POST", json: body });
 export const getSession = (id: UUID): Promise<SessionOut> => json(`/api/sessions/${id}`);

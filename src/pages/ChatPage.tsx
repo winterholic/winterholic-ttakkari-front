@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,6 +14,8 @@ import { ArtifactViewerHost, FollowupComposer, useArtifactViewer } from "../feat
 import { useIsDesktop } from "../features/viewer/hooks";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
+import { Dialog } from "../ui/Dialog";
+import { WorkerPanel, useWorkers } from "../features/orchestrator/WorkerPanel";
 
 const FOLLOW_THRESHOLD = 96;
 
@@ -152,7 +154,8 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
       let sid = sessionId;
       if (!sid) {
         if (!choice) throw new Error("작업 공간을 먼저 골라 주세요.");
-        const s = await createSession({ workspace_id: choice.workspaceId, engine: choice.engine, model: choice.model, effort: choice.effort });
+        // 새 세션은 오케스트레이터다. 엔진은 서버가 auto(Claude 우선, 한도면 다음 계정)로 정한다(ADR 0006).
+        const s = await createSession({ workspace_id: choice.workspaceId, kind: "orchestrator", model: choice.model, effort: choice.effort });
         sid = s.id;
       }
       const run = await createRun(sid, { prompt, context_artifact_ids: contextIds });
@@ -189,11 +192,20 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
 
   const { ref: threadRef, inner: innerRef, jump, toBottom } = useThreadFollow(sessionId);
 
+  const kind = session.data?.kind;
+  const isOrch = kind === "orchestrator";
+  const parentId = kind === "worker" ? session.data?.parent_id : null;
+  const workers = useWorkers(isOrch && sessionId ? sessionId : "");
+  const [workersOpen, setWorkersOpen] = useState(false);
+  const workerCount = isOrch ? (workers.data?.length ?? 0) : 0;
+  const lastProfile = [...runList].reverse().find((r) => r.profile)?.profile;
+  const engineText = session.data?.engine === "auto" ? (lastProfile ?? "Claude Code 우선") : session.data?.engine === "codex" ? "Codex" : "Claude Code";
+
   const title = sessionId ? (session.data?.title ?? "불러오는 중") : "새 세션";
   const meta = sessionId && session.data && (
     <>
       {activeRun ? <span className="tk-dot tk-dot--live" aria-hidden /> : null}
-      {workspace.data?.name ?? "작업 공간"} · {session.data.engine === "codex" ? "Codex" : "Claude Code"}
+      {isOrch ? "오케스트레이터" : kind === "worker" ? "작업 세션" : (workspace.data?.name ?? "작업 공간")} · {engineText}
       {session.data.model ? ` · ${session.data.model}` : ""}
     </>
   );
@@ -225,6 +237,18 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
         actions={
           sessionId && (
             <>
+              {parentId && (
+                <Link className="tk-button tk-button--sm tk-button--ghost" to={`/chat/${parentId}`}>
+                  <Icon name="back" />
+                  오케스트레이터
+                </Link>
+              )}
+              {isOrch && (
+                <button className="tk-button tk-button--sm orch-workers-toggle" type="button" onClick={() => setWorkersOpen(true)} aria-haspopup="dialog">
+                  <Icon name="workspace" />
+                  작업 세션{workerCount > 0 ? ` ${workerCount}` : ""}
+                </button>
+              )}
               <Link className="tk-icon-button" to={`/workspace/${sessionId}`} aria-label="작업 공간 열기">
                 <Icon name="workspace" />
               </Link>
@@ -261,6 +285,8 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
           )
         }
       />
+      <div className={isOrch ? "orch-layout" : "orch-layout orch-layout--single"}>
+      <div className="orch-layout__main">
       <ArtifactViewerHost
         followup={
           // 데스크톱은 채팅 입력창이 그대로 보여 문맥 칩으로 이어 지시한다. 모바일 전체 화면 뷰어에만 따로 둔다.
@@ -297,8 +323,9 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
               </p>
             )}
             {runList.map((run, i) => (
+              <Fragment key={run.id}>
+              {i > 0 && <hr className="tk-divider thread-divider" />}
               <RunBlock
-                key={run.id}
                 run={run}
                 contextNames={contextNames(run)}
                 isLast={i === runList.length - 1}
@@ -308,6 +335,7 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
                 onSuggest={(text) => setFill({ text, nonce: Date.now() })}
                 onSettled={refreshAll}
               />
+              </Fragment>
             ))}
             {jump && (
               <button className="tk-jump" type="button" onClick={toBottom}>
@@ -369,6 +397,18 @@ function ChatScreen({ sessionId }: { sessionId: string | undefined }) {
         }
       />
       </ArtifactViewerHost>
+      </div>
+      {isOrch && sessionId && (
+        <aside className="orch-layout__aside" aria-label="작업 세션">
+          <WorkerPanel orchestratorId={sessionId} />
+        </aside>
+      )}
+      </div>
+      {isOrch && sessionId && (
+        <Dialog kind="sheet" open={workersOpen} onClose={() => setWorkersOpen(false)} title="작업 세션" id="workers-sheet">
+          <WorkerPanel orchestratorId={sessionId} inSheet />
+        </Dialog>
+      )}
     </div>
   );
 }
