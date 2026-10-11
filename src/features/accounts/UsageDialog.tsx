@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import type React from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { accountUsage } from "../../api/client";
+import { accountUsage, codexReset } from "../../api/client";
 import type { AccountUsage, UsageWindow } from "../../api/client";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
+import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import "./usage.css";
 
@@ -134,9 +135,11 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                 ) : (
                   <p className="usage__note">{a.error ?? "아직 사용량 기록이 없어요."}</p>
                 )}
+                {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => void q.refetch()} />}
                 {a.windows.length > 0 && (
                   <p className="usage-card__foot">
-                    {a.source ? SOURCE[a.source] : ""}{a.updated_at ? ` · ${ago(a.updated_at, now)}` : ""}
+                    {a.source ? (a.source === "api" ? (a.engine === "codex" ? "ChatGPT 사용량 기준" : "Claude 구독 사용량 기준") : SOURCE[a.source]) : ""}
+                    {a.updated_at ? ` · ${ago(a.updated_at, now)}` : ""}
                   </p>
                 )}
               </li>
@@ -175,3 +178,66 @@ function WindowRow({ w, now }: { w: UsageWindow; now: number }) {
     </div>
   );
 }
+
+function untilText(at: number | null, now: number): string | null {
+  if (!at) return null;
+  const s = at - now / 1000;
+  if (s <= 0) return "곧";
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  return d > 0 ? `${d}일 ${h}시간` : `${Math.max(1, h)}시간`;
+}
+
+/**
+ * Codex rate-limit 재설정(Orca 의 「지금 재설정」). 크레딧 한 개를 쓰면 5시간·주간 한도가 바로 풀린다.
+ * 되돌릴 수 없어 한 번 더 묻는다. 한도에 걸린 창이 없으면 쓸 필요가 없다고 함께 알린다.
+ */
+function ResetRow({ account, now, onDone }: { account: AccountUsage; now: number; onDone: () => void }) {
+  const [asking, setAsking] = useState(false);
+  const c = account.reset_credits!;
+  const limited = account.windows.some((w) => w.percent >= 100);
+  const reset = useMutation({
+    mutationFn: () => codexReset(account.id),
+    onSuccess: (r) => {
+      setAsking(false);
+      toast({ message: r.message, tone: r.outcome === "reset" ? "success" : r.outcome === "nothing_to_reset" ? "neutral" : "danger" });
+      onDone();
+    },
+  });
+  const left = untilText(c.next_expires_at, now);
+  return (
+    <div className="usage-reset" data-empty={c.available === 0 || undefined}>
+      <span className="usage-reset__body">
+        <span className="usage-reset__title">rate-limit 재설정 {c.available}회 사용 가능</span>
+        {c.available > 0 && left && <span className="usage-reset__sub">다음 항목이 {left} 후 만료돼요</span>}
+      </span>
+      {c.available > 0 && (
+        <button className={limited ? "tk-button tk-button--sm tk-button--primary" : "tk-button tk-button--sm"} type="button" onClick={() => setAsking(true)}>
+          지금 재설정
+        </button>
+      )}
+      <Dialog
+        open={asking}
+        onClose={() => setAsking(false)}
+        size="sm"
+        title="지금 재설정할까요?"
+        id={`codex-reset-${account.id}`}
+        footer={
+          <>
+            <button className="tk-button" type="button" onClick={() => setAsking(false)}>취소</button>
+            <button className="tk-button tk-button--primary" type="button" aria-busy={reset.isPending || undefined} onClick={() => !reset.isPending && reset.mutate()}>
+              재설정 1회 쓰기
+            </button>
+          </>
+        }
+      >
+        <p>
+          <strong>{account.name}</strong> 의 Codex 사용량 한도를 지금 초기화해요. 재설정 크레딧 {c.available}회 중 1회를 쓰고, 되돌릴 수 없어요.
+        </p>
+        {!limited && <p className="tk-help"><span>지금은 한도에 걸린 창이 없어요. 걸렸을 때 쓰는 편이 좋아요.</span></p>}
+        {reset.error && <p className="tk-error" role="alert">{errorText(reset.error).message}</p>}
+      </Dialog>
+    </div>
+  );
+}
+

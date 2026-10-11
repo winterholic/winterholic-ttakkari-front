@@ -420,6 +420,8 @@ export interface AccountUsage {
   login: "ok" | "unknown" | "missing";
   cooldown_seconds: number;
   windows: UsageWindow[];
+  /** Codex rate-limit 재설정 크레딧 */
+  reset_credits?: { available: number; next_expires_at: number | null } | null;
   source: "api" | "stream" | "session_log" | null;
   plan: string | null;
   error: string | null;
@@ -431,3 +433,5 @@ export const putOverride = (ids: string[], until: string, pool: AccountPool = "p
 export const deleteOverride = (pool: AccountPool = "personal"): Promise<void> =>
   json("/api/accounts/override", { method: "DELETE", query: { pool } });
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });
+export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
+  json(`/api/accounts/${id}/codex-reset`, { method: "POST" });

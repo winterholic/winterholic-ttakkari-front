@@ -44,3 +44,13 @@
 .usage-win__reset { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .usage__group { display: flex; flex-direction: column; gap: var(--tk-space-2); }
 .usage__group-title { margin: var(--tk-space-2) 0 0; color: var(--tk-color-text-secondary); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+/* Codex rate-limit 재설정 */
+.usage-reset {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-3);
+  padding: var(--tk-space-2) var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle);
+}
+.usage-reset__body { display: flex; flex-direction: column; min-width: 0; }
+.usage-reset__title { color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.usage-reset__sub { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.usage-reset[data-empty] .usage-reset__title { color: var(--tk-color-text-tertiary); }
+.usage-reset > .tk-button { flex: none; }

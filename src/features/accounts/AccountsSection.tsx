@@ -73,8 +73,8 @@ const POOL_TEXT: Record<AccountPool, { title: string; help: string; empty: strin
   },
   work: {
     title: "회사 계정",
-    help: "회사 업무 탭에서 시킨 일만 써요(작업 세션·결과 보고까지). 순서·켜기·임시 순서가 개인 계정과 따로예요.",
-    empty: "회사 계정이 없어요. 계정을 추가하거나, 개인 계정 메뉴에서 회사 계정으로 옮기세요.",
+    help: "회사 업무 탭에서 시킨 일만 써요(작업 세션·결과 보고까지). 순서·켜기·임시 순서가 개인 계정과 따로예요. 계정은 개인 계정의 ⋮ 메뉴에서 옮겨 와요.",
+    empty: "회사 계정이 없어요. 개인 계정의 ⋮ 메뉴에서 「회사 계정으로 옮기기」로 들여요.",
   },
 };
 
@@ -133,10 +133,13 @@ function AccountPoolSection({ pool }: { pool: AccountPool }) {
             <Icon name="clock" />
             임시 순서
           </button>
-          <button className="tk-button tk-button--sm" type="button" onClick={() => setEditing("new")}>
-            <Icon name="plus" />
-            계정 추가
-          </button>
+          {/* 회사 계정은 개인 계정 메뉴의 「회사 계정으로 옮기기」로만 들인다(사용자 결정 10-12). */}
+          {pool === "personal" && (
+            <button className="tk-button tk-button--sm" type="button" onClick={() => setEditing("new")}>
+              <Icon name="plus" />
+              계정 추가
+            </button>
+          )}
         </div>
       </div>
       <p className="tk-fieldset__help">{POOL_TEXT[pool].help}</p>
