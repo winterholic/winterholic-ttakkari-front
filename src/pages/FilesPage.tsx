@@ -222,7 +222,12 @@ function FileRow({ e, wsId, showPath, onOpenDir }: { e: FileEntry; wsId: UUID; s
 function WorkspaceForm({ first, onCreated, onCancel }: { first: boolean; onCreated: (w: WorkspaceOut) => void; onCancel?: () => void }) {
   const [name, setName] = useState("");
   const [root, setRoot] = useState("");
-  const m = useMutation({ mutationFn: () => createWorkspace({ name: name.trim(), root_path: root.trim() }), onSuccess: onCreated });
+  const [extra, setExtra] = useState("");
+  const extraRoots = extra.split("\n").map((l) => l.trim()).filter(Boolean);
+  const m = useMutation({
+    mutationFn: () => createWorkspace({ name: name.trim(), root_path: root.trim(), extra_writable_roots: extraRoots }),
+    onSuccess: onCreated,
+  });
   const err = m.error instanceof ApiError ? { message: REGISTER_ERRORS[m.error.code] ?? m.error.message, code: m.error.code, fields: m.error.errors } : m.error ? { ...errorText(m.error), fields: undefined } : null;
   const ready = name.trim() !== "" && root.trim() !== "";
   const nameId = useId();
@@ -246,6 +251,11 @@ function WorkspaceForm({ first, onCreated, onCancel }: { first: boolean; onCreat
             {err.fields?.map((f, i) => <span key={i}> {f.loc.join(".")}: {f.msg}</span>)}
           </p>
         )}
+      </div>
+      <div className="tk-field">
+        <label className="tk-label" htmlFor={`${nameId}-extra`}>추가 쓰기 경로 (선택)</label>
+        <textarea id={`${nameId}-extra`} className="tk-textarea tk-input--mono" rows={3} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={"/Users/me/docs\n/Users/me/testing"} aria-describedby={`${nameId}-extra-help`} />
+        <p className="tk-help" id={`${nameId}-extra-help`}>폴더 경로 밖에서도 에이전트가 쓸 수 있는 폴더예요. 한 줄에 하나씩 적어 주세요.</p>
       </div>
       <div className="tk-button-group">
         {onCancel && <button className="tk-button" type="button" onClick={onCancel}>취소</button>}

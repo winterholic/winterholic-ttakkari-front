@@ -35,12 +35,14 @@ export interface WorkspaceIn {
   default_engine?: EngineName;
   codex_sandbox?: CodexSandbox;
   export_allowed?: boolean;
+  extra_writable_roots?: string[];
 }
 export interface WorkspacePatch {
   name?: string;
   default_engine?: EngineName;
   codex_sandbox?: CodexSandbox;
   export_allowed?: boolean;
+  extra_writable_roots?: string[];
   archived?: boolean;
 }
 export interface WorkspaceOut {
@@ -51,6 +53,7 @@ export interface WorkspaceOut {
   default_engine: string;
   codex_sandbox: string;
   export_allowed: boolean;
+  extra_writable_roots: string[];
   created_at: ISODateTime;
   archived_at: ISODateTime | null;
 }
