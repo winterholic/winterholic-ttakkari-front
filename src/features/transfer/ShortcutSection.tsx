@@ -51,7 +51,7 @@ export function ShortcutSection() {
         </button>
       </div>
       <p className="tk-fieldset__help">
-        사진 앱이나 파일 앱에서 공유 버튼 → "따까리로 보내기" 한 번으로 내 컴퓨터의 받는 폴더(기본 ~/docs/inbox)에 저장돼요. HEIC 변환·위치 정보 지우기도 똑같이 적용돼요.
+        사진 앱이나 파일 앱에서 공유 버튼 → "따까리로 보내기" 한 번으로 내 컴퓨터의 받는 폴더(기본 ~/.ttakkari/inbox)에 저장돼요. HEIC 변환·위치 정보 지우기도 똑같이 적용돼요.
       </p>
       {local && (
         <aside className="tk-callout tk-callout--warning" role="status">
