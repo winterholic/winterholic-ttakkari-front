@@ -30,13 +30,16 @@ function renderIt() {
 
 describe("AccountsSection", () => {
   it("우선순위 번호·로그인·한도 대기를 보이고, 스위치로 끈다", async () => {
-    api.listAccounts.mockResolvedValue([acc({}), acc({ id: "b", name: "codex", engine: "codex", login: "unknown", login_label: null, cooldown_seconds: 600 })]);
+    api.listAccounts.mockResolvedValue([acc({}), acc({ id: "b", name: "codex", engine: "codex", login: "unknown", login_label: null, cooldown_seconds: 600, login_command: "codex login" })]);
     api.patchAccount.mockResolvedValue(acc({ enabled: false }));
     renderIt();
     expect(await screen.findByText("me@example.com")).toBeTruthy();
     expect(screen.getByLabelText("2순위")).toBeTruthy();
-    expect(screen.getByText("로그인 확인 못 함")).toBeTruthy();
+    expect(screen.getByText("로그인 필요")).toBeTruthy();
     expect(screen.getByText("한도 대기 10분")).toBeTruthy();
+    // 로그인 안 된 계정에만 로그인 명령과 복사 버튼이 보인다.
+    expect(screen.getByText("codex login")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "복사" })).toHaveLength(1);
     fireEvent.click(screen.getByRole("switch", { name: "claude 사용" }));
     await waitFor(() => expect(api.patchAccount).toHaveBeenCalledWith("a", { enabled: false }));
   });

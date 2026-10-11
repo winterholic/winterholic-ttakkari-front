@@ -250,6 +250,8 @@ export interface AccountOut {
   login: "ok" | "unknown" | "missing";
   login_label: string | null;
   cooldown_seconds: number;
+  /** 처음 한 번 Mac Studio 터미널에서 실행할 로그인 명령. 로그인돼 있으면 null */
+  login_command?: string | null;
 }
 export interface AccountIn {
   name: string;

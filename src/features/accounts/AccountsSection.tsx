@@ -6,6 +6,7 @@ import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { Menu } from "../../ui/Menu";
 import { Select } from "../../ui/Select";
+import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { ErrorState, ListSkeleton } from "../viewer/screenStates";
 
@@ -16,11 +17,6 @@ const ENGINE_OPTIONS = [
   { value: "claude" as const, label: "Claude Code" },
   { value: "codex" as const, label: "Codex" },
 ];
-const DEFAULT_DIR: Record<AccountEngine, string> = { claude: "~/.claude", codex: "~/.codex" };
-const LOGIN_CMD: Record<AccountEngine, (dir: string) => string> = {
-  claude: (dir) => `CLAUDE_CONFIG_DIR=${dir} claude   # 열리면 /login`,
-  codex: (dir) => `CODEX_HOME=${dir} codex login`,
-};
 
 function errMessage(e: unknown): string {
   if (e instanceof ApiError) return e.errors?.map((x) => x.msg.replace(/^Value error, /, "")).join(" ") || e.message;
@@ -29,8 +25,28 @@ function errMessage(e: unknown): string {
 
 function loginText(a: AccountOut): string {
   if (a.login === "ok") return a.login_label ? a.login_label : "로그인됨";
-  if (a.login === "missing") return "계정 폴더 없음";
-  return "로그인 확인 못 함";
+  return "로그인 필요";
+}
+
+/** 로그인 안 된 계정에만 보인다. 브라우저 인증이라 Mac Studio 에서 한 번은 직접 해야 한다. */
+function LoginHint({ engine, command }: { engine: AccountEngine; command: string }) {
+  const copy = () =>
+    void navigator.clipboard?.writeText(command).then(
+      () => toast({ message: "명령을 복사했어요. Mac Studio 터미널에 붙여 넣으세요." }),
+      () => toast({ message: "복사하지 못했어요. 길게 눌러 직접 복사해 주세요.", tone: "danger" }),
+    );
+  return (
+    <span className="account-login">
+      <span>{engine === "claude" ? "Mac Studio 터미널에서 이 명령을 실행하고, 열리면 /login 을 입력해 로그인해요." : "Mac Studio 터미널에서 이 명령을 실행해 로그인해요."}</span>
+      <span className="account-login__row">
+        <code className="tk-mono">{command}</code>
+        <button className="tk-button tk-button--xs" type="button" onClick={copy}>
+          <Icon name="copy" />
+          복사
+        </button>
+      </span>
+    </span>
+  );
 }
 
 function minutes(sec: number): string {
@@ -105,9 +121,9 @@ export function AccountsSection() {
                   <span className="tk-list__meta">
                     <span>{ENGINE_LABEL[a.engine]}</span>
                     <span className={a.login === "ok" ? undefined : "account-row__warn"}>{loginText(a)}</span>
-                    {a.config_dir && <span className="tk-mono">{a.config_dir}</span>}
                     {a.cooldown_seconds > 0 && <span className="tk-badge tk-badge--warning">한도 대기 {minutes(a.cooldown_seconds)}</span>}
                   </span>
+                  {a.login !== "ok" && a.login_command && <LoginHint engine={a.engine} command={a.login_command} />}
                 </span>
                 <span className="tk-list__end">
                   <label className="tk-switch">
@@ -127,7 +143,7 @@ export function AccountsSection() {
                       { label: "위로", icon: "chevron-up", disabled: i === 0 || move.isPending, onSelect: () => move.mutate({ from: i, to: i - 1 }) },
                       { label: "아래로", icon: "chevron-down", disabled: i === rows.length - 1 || move.isPending, onSelect: () => move.mutate({ from: i, to: i + 1 }) },
                       ...(a.cooldown_seconds > 0 ? [{ label: "한도 대기 풀기", icon: "clock" as const, onSelect: () => clear.mutate(a) }] : []),
-                      { label: "이름·폴더 바꾸기", icon: "key", separatorBefore: true, onSelect: () => setEditing(a) },
+                      { label: "이름 바꾸기", icon: "key", separatorBefore: true, onSelect: () => setEditing(a) },
                       { label: "삭제", icon: "trash", danger: true, onSelect: () => setRemoving(a) },
                     ]}
                   >
@@ -157,7 +173,7 @@ export function AccountsSection() {
           </>
         }
       >
-        <p>따까리 목록에서만 빠져요. 계정 폴더와 로그인 정보는 그대로 남아요.</p>
+        <p>따까리 목록에서만 빠져요. 그 계정의 로그인 정보는 Mac Studio 에 그대로 남아요.</p>
         {remove.error && <p className="tk-error" role="alert">{errMessage(remove.error)}</p>}
       </Dialog>
     </section>
@@ -169,26 +185,24 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
   const id = useId();
   const [name, setName] = useState(account?.name ?? "");
   const [engine, setEngine] = useState<AccountEngine>(account?.engine ?? "claude");
-  const [dir, setDir] = useState(account?.config_dir ?? "");
   const save = useMutation({
     mutationFn: () =>
       account
-        ? patchAccount(account.id, { name: name.trim(), config_dir: dir.trim() || null })
-        : createAccount({ name: name.trim(), engine, config_dir: dir.trim() || null }),
+        ? patchAccount(account.id, { name: name.trim() })
+        : createAccount({ name: name.trim(), engine }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
       onClose();
     },
   });
   const ready = name.trim() !== "";
-  const shownDir = dir.trim() || DEFAULT_DIR[engine];
   return (
     <Dialog
       open
       onClose={onClose}
       size="sm"
       modal
-      title={account ? "계정 고치기" : "계정 추가"}
+      title={account ? "이름 바꾸기" : "계정 추가"}
       id="account-edit"
       footer={
         <>
@@ -227,23 +241,9 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
             <Select id={`${id}-engine`} labelledBy={`${id}-engine-label`} value={engine} options={ENGINE_OPTIONS} onChange={setEngine} />
           )}
         </div>
-        <div className="tk-field">
-          <label className="tk-label" htmlFor={`${id}-dir`}>
-            계정 폴더 <span className="tk-label__optional">선택</span>
-          </label>
-          <input
-            id={`${id}-dir`}
-            className="tk-input tk-input--mono"
-            value={dir}
-            onChange={(e) => setDir(e.target.value)}
-            placeholder={`비우면 기본 위치(${DEFAULT_DIR[engine]})`}
-            aria-describedby={`${id}-dir-help`}
-          />
-          <p className="tk-help" id={`${id}-dir-help`}>
-            <span>계정마다 폴더가 달라야 해요. 처음 쓰는 폴더면 Mac Studio 터미널에서 한 번 로그인해 주세요.</span>
-          </p>
-          <code className="account-form__cmd">{LOGIN_CMD[engine](shownDir)}</code>
-        </div>
+        <p className="tk-help">
+          <span>{account ? "이름만 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
+        </p>
         {save.error && (
           <p className="tk-error" role="alert">
             {errMessage(save.error)}

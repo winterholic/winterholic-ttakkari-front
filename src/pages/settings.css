@@ -23,3 +23,6 @@
 .shortcut-steps { display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0; padding-left: var(--tk-space-5); color: var(--tk-color-text-secondary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); }
 .shortcut-steps strong { color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-medium); }
 .shortcut-steps__copy { display: flex; align-items: center; gap: var(--tk-space-1); margin-top: var(--tk-space-1); overflow-wrap: anywhere; }
+.account-login { display: flex; flex-direction: column; gap: var(--tk-space-1); margin-top: var(--tk-space-1); color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); line-height: var(--tk-font-line-height-relaxed); }
+.account-login__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
+.account-login__row > code { padding: var(--tk-space-0-5) var(--tk-space-2); border-radius: var(--tk-radius-sm); background: var(--tk-color-surface-subtle); color: var(--tk-color-text-primary); overflow-wrap: anywhere; }
