@@ -4,6 +4,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { FilesPage } from "./pages/FilesPage";
+import { SettingsPage } from "./pages/SettingsPage";
 import { AppShell } from "./shell/AppShell";
 
 // 영역 넷은 라우트다(디자인 시스템 docs/19 §5). 결과물은 어느 화면에서든 ?artifact=<id> 로 연다.
@@ -18,6 +19,7 @@ export function App() {
         <Route path="/workspace/:sessionId" element={<WorkspacePage />} />
         <Route path="/library" element={<LibraryPage />} />
         <Route path="/files" element={<FilesPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/chat" replace />} />
     </Routes>

@@ -1,0 +1,3 @@
+/* 설정 화면 보조 규칙. 디자인 시스템 토큰만 쓴다. 경로 입력이 남는 폭을 차지하고 좁으면 버튼이 아래로 내려간다. */
+.settings-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-component-button-group-gap); }
+.settings-add > .tk-input { flex: 1 1 16rem; min-width: 0; }

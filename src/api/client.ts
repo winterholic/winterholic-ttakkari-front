@@ -174,6 +174,8 @@ export const listWorkspaces = (includeArchived = false): Promise<WorkspaceOut[]>
 export const createWorkspace = (body: WorkspaceIn): Promise<WorkspaceOut> =>
   json("/api/workspaces", { method: "POST", json: body });
 export const getWorkspace = (id: UUID): Promise<WorkspaceOut> => json(`/api/workspaces/${id}`);
+/** 서버가 알아서 만드는 기본 워크스페이스. 사용자는 워크스페이스를 고르지 않는다. */
+export const getDefaultWorkspace = (): Promise<WorkspaceOut> => json("/api/workspaces/default");
 export const patchWorkspace = (id: UUID, body: WorkspacePatch): Promise<WorkspaceOut> =>
   json(`/api/workspaces/${id}`, { method: "PATCH", json: body });
 export const listFiles = (id: UUID, path = ".", showHidden = false): Promise<DirListing> =>

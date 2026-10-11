@@ -1,7 +1,7 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createWorkspace, listFiles, listWorkspaces, registerArtifact, searchFiles } from "../api/client";
+import { listFiles, registerArtifact, searchFiles } from "../api/client";
 import type { FileEntry, UUID, WorkspaceOut } from "../api/types";
 import { ApiError } from "../api/client";
 import { errorText } from "../features/viewer/api";
@@ -10,6 +10,7 @@ import { useDebounced } from "../features/viewer/hooks";
 import { formatSize, formatWhen, glyphTypeForFilename } from "../features/viewer/kinds";
 import { EmptyState, ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { useArtifactViewer } from "../features/viewer/useArtifactViewer";
+import { useDefaultWorkspace } from "../features/workspace/useDefaultWorkspace";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 
@@ -19,17 +20,13 @@ const REGISTER_ERRORS: Record<string, string> = {
 };
 
 export function FilesPage() {
-  const qc = useQueryClient();
   const [params, setParams] = useSearchParams();
-  const wsList = useQuery({ queryKey: ["workspaces"], queryFn: () => listWorkspaces() });
-  const workspaces = wsList.data ?? [];
-  const wsParam = params.get("ws");
-  const ws: WorkspaceOut | undefined = workspaces.find((w) => w.id === wsParam) ?? workspaces[0];
+  const wsQuery = useDefaultWorkspace();
+  const ws: WorkspaceOut | undefined = wsQuery.data;
   const path = params.get("path") ?? ".";
   const showHidden = params.get("hidden") === "1";
   const [text, setText] = useState("");
   const q = useDebounced(text.trim(), 300);
-  const [adding, setAdding] = useState(false);
 
   const setNav = (patch: Record<string, string | null>) =>
     setParams((p) => {
@@ -52,33 +49,17 @@ export function FilesPage() {
     enabled: Boolean(ws) && q !== "",
   });
 
-  const form = !wsList.isLoading && (workspaces.length === 0 || adding);
-  const onCreated = (w: WorkspaceOut) => {
-    void qc.invalidateQueries({ queryKey: ["workspaces"] });
-    setAdding(false);
-    setNav({ ws: w.id, path: null });
-  };
-
   return (
     <div className="tk-screen">
       <PageHeader title="파일 찾기" meta={ws ? `${ws.name} · ${ws.root_path}` : undefined} />
       <ArtifactViewerHost>
         <div className="tk-screen__body">
           <div className="tk-container tk-container--md">
-            {wsList.isLoading && <ListSkeleton rows={4} label="워크스페이스를 불러오는 중" />}
-            {wsList.isError && <ErrorState error={wsList.error} what="워크스페이스" onRetry={() => void wsList.refetch()} />}
-            {form && <WorkspaceForm first={workspaces.length === 0} onCreated={onCreated} onCancel={workspaces.length ? () => setAdding(false) : undefined} />}
-            {ws && !form && (
+            {wsQuery.isPending && <ListSkeleton rows={4} label="워크스페이스를 불러오는 중" />}
+            {wsQuery.isError && <ErrorState error={wsQuery.error} what="워크스페이스" onRetry={() => void wsQuery.refetch()} />}
+            {ws && (
               <>
                 <div className="tk-filterbar" role="search">
-                  <div className="tk-filterbar__row">
-                    <span className="tk-select">
-                      <select aria-label="워크스페이스" value={ws.id} onChange={(e) => { setText(""); setNav({ ws: e.target.value, path: null }); }}>
-                        {workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-                      </select>
-                    </span>
-                    <button className="tk-icon-button tk-icon-button--secondary" type="button" aria-label="워크스페이스 등록" onClick={() => setAdding(true)}><Icon name="plus" /></button>
-                  </div>
                   <div className="tk-filterbar__row">
                     <span className="tk-input-wrap">
                       <Icon name="search" />
@@ -216,51 +197,5 @@ function FileRow({ e, wsId, showPath, onOpenDir }: { e: FileEntry; wsId: UUID; s
         )}
       </span>
     </div>
-  );
-}
-
-function WorkspaceForm({ first, onCreated, onCancel }: { first: boolean; onCreated: (w: WorkspaceOut) => void; onCancel?: () => void }) {
-  const [name, setName] = useState("");
-  const [root, setRoot] = useState("");
-  const [extra, setExtra] = useState("");
-  const extraRoots = extra.split("\n").map((l) => l.trim()).filter(Boolean);
-  const m = useMutation({
-    mutationFn: () => createWorkspace({ name: name.trim(), root_path: root.trim(), extra_writable_roots: extraRoots }),
-    onSuccess: onCreated,
-  });
-  const err = m.error instanceof ApiError ? { message: REGISTER_ERRORS[m.error.code] ?? m.error.message, code: m.error.code, fields: m.error.errors } : m.error ? { ...errorText(m.error), fields: undefined } : null;
-  const ready = name.trim() !== "" && root.trim() !== "";
-  const nameId = useId();
-  return (
-    <form className="tk-fieldset" onSubmit={(e) => { e.preventDefault(); if (ready && !m.isPending) m.mutate(); }} aria-label="워크스페이스 등록">
-      {first && (
-        <EmptyState icon="folder-search" title="워크스페이스를 먼저 등록해 주세요">
-          에이전트가 일하고 파일을 찾을 폴더예요. 서버에 허용된 위치 안의 폴더만 등록할 수 있어요.
-        </EmptyState>
-      )}
-      <div className="tk-field">
-        <label className="tk-label" htmlFor={nameId}>이름</label>
-        <input id={nameId} className="tk-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="예: e2e" aria-invalid={Boolean(err) || undefined} />
-      </div>
-      <div className="tk-field">
-        <label className="tk-label" htmlFor={`${nameId}-root`}>폴더 경로</label>
-        <input id={`${nameId}-root`} className="tk-input tk-input--mono" value={root} onChange={(e) => setRoot(e.target.value)} placeholder="/Users/me/development/project" aria-invalid={Boolean(err) || undefined} aria-describedby={err ? `${nameId}-err` : undefined} />
-        {err && (
-          <p className="tk-error" id={`${nameId}-err`} role="alert">
-            {err.message} <code>{err.code}</code>
-            {err.fields?.map((f, i) => <span key={i}> {f.loc.join(".")}: {f.msg}</span>)}
-          </p>
-        )}
-      </div>
-      <div className="tk-field">
-        <label className="tk-label" htmlFor={`${nameId}-extra`}>추가 쓰기 경로 (선택)</label>
-        <textarea id={`${nameId}-extra`} className="tk-textarea tk-input--mono" rows={3} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={"/Users/me/docs\n/Users/me/testing"} aria-describedby={`${nameId}-extra-help`} />
-        <p className="tk-help" id={`${nameId}-extra-help`}>폴더 경로 밖에서도 에이전트가 쓸 수 있는 폴더예요. 한 줄에 하나씩 적어 주세요.</p>
-      </div>
-      <div className="tk-button-group">
-        {onCancel && <button className="tk-button" type="button" onClick={onCancel}>취소</button>}
-        <button className="tk-button tk-button--primary" type="submit" aria-disabled={!ready || undefined} aria-busy={m.isPending || undefined}>등록</button>
-      </div>
-    </form>
   );
 }

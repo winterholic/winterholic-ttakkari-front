@@ -54,6 +54,9 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
       <div className="app-shell-footer__actions">
         <ThemeToggle size="sm" />
         <PushSettings />
+        <Link className="tk-icon-button tk-icon-button--sm" to="/settings" aria-label="설정" title="설정">
+          <Icon name="settings" />
+        </Link>
         <IconButton size="sm" aria-label="로그아웃" onClick={() => void out()}>
           <Icon name="logout" />
         </IconButton>
