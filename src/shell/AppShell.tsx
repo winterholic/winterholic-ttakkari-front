@@ -61,6 +61,7 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
         className="app-user-menu"
         triggerClassName="app-user-menu__trigger"
         items={[
+          { label: "계정 관리", icon: "key", onSelect: () => navigate("/settings#accounts") },
           { label: "설정", icon: "settings", onSelect: () => navigate("/settings") },
           { label: "알림", icon: "important", onSelect: () => setPushOpen(true) },
           { label: "다크 모드", icon: "moon", checked: isDark, onSelect: toggle },

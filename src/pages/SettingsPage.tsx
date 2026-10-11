@@ -1,10 +1,12 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router";
 import { ApiError, patchWorkspace } from "../api/client";
 import type { WorkspaceOut } from "../api/types";
 import { errorText } from "../features/viewer/api";
 import { ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { DEFAULT_WORKSPACE_KEY, useDefaultWorkspace } from "../features/workspace/useDefaultWorkspace";
+import { AccountsSection } from "../features/accounts/AccountsSection";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 import "./settings.css";
@@ -19,6 +21,11 @@ const ROOT_ERRORS: Record<string, string> = {
 
 export function SettingsPage() {
   const ws = useDefaultWorkspace();
+  const { hash } = useLocation();
+  // 사용자 메뉴의 '계정 관리'는 #accounts 로 온다.
+  useEffect(() => {
+    if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: "start" });
+  }, [hash]);
   return (
     <div className="tk-screen">
       <PageHeader title="설정" />
@@ -26,6 +33,7 @@ export function SettingsPage() {
         <div className="tk-container tk-container--md">
           {ws.isPending && <ListSkeleton rows={3} label="설정을 불러오는 중" />}
           {ws.isError && <ErrorState error={ws.error} what="작업 공간" onRetry={() => void ws.refetch()} />}
+          <AccountsSection />
           {ws.data && <WritableRoots ws={ws.data} />}
         </div>
       </div>

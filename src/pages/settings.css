@@ -1,3 +1,18 @@
 /* 설정 화면 보조 규칙. 디자인 시스템 토큰만 쓴다. 경로 입력이 남는 폭을 차지하고 좁으면 버튼이 아래로 내려간다. */
 .settings-add { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-component-button-group-gap); }
 .settings-add > .tk-input { flex: 1 1 16rem; min-width: 0; }
+/* 계정 행: 앞에 우선순위 번호. 꺼진 계정은 흐리게(aria-disabled) */
+.account-row__rank {
+  display: inline-grid; place-items: center; flex: none;
+  width: var(--tk-size-control-xs); height: var(--tk-size-control-xs); border-radius: var(--tk-radius-full);
+  background: var(--tk-color-surface-muted); color: var(--tk-color-text-secondary);
+  font: var(--tk-font-weight-semibold) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono);
+}
+.account-row[aria-disabled="true"] .tk-list__title { color: var(--tk-color-text-tertiary); }
+.account-row__warn { color: var(--tk-color-text-warning); }
+.account-form { display: flex; flex-direction: column; gap: var(--tk-space-4); }
+.account-form__cmd {
+  display: block; padding: var(--tk-space-2) var(--tk-space-3); border-radius: var(--tk-radius-md);
+  background: var(--tk-color-ink-bg); color: var(--tk-color-ink-text); overflow-wrap: anywhere;
+  font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-mono);
+}

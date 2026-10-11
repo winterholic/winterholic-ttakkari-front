@@ -78,6 +78,8 @@ export interface SessionIn {
   engine?: EngineName | null;
   model?: string | null;
   effort?: Effort | null;
+  /** orchestrator 면 엔진은 서버가 auto(Claude 우선, 한도면 다음 계정)로 고정한다. */
+  kind?: "chat" | "orchestrator";
 }
 export interface SessionPatch {
   title?: string;
@@ -93,6 +95,8 @@ export interface SessionOut {
   model: string | null;
   effort: string | null;
   engine_session_id: string | null;
+  kind: "chat" | "orchestrator" | "worker";
+  parent_id: UUID | null;
   created_at: ISODateTime;
   updated_at: ISODateTime;
   archived_at: ISODateTime | null;
@@ -126,6 +130,10 @@ export interface RunOut {
   cost_usd: number | null;
   usage: Record<string, unknown>;
   checkpoint_ref: string | null;
+  /** user: 내 지시 · report: 작업 세션 결과 보고 · orchestrator: 오케스트레이터가 작업 세션에 보낸 지시 */
+  origin: "user" | "report" | "orchestrator";
+  /** 실제로 실행한 엔진 계정 이름(폴백하면 마지막 계정) */
+  profile: string | null;
   last_seq: number;
   created_at: ISODateTime;
   started_at: ISODateTime | null;
@@ -224,3 +232,30 @@ export type RunEvent =
     >;
 
 export type RunEventType = RunEvent["type"];
+
+// ---- engine accounts (ADR 0006)
+export type AccountEngine = "claude" | "codex";
+export interface AccountOut {
+  id: UUID;
+  name: string;
+  engine: AccountEngine;
+  config_dir: string | null;
+  enabled: boolean;
+  priority: number;
+  /** ok: 로그인 확인 · unknown: 확인 못 함 · missing: 계정 폴더 없음 */
+  login: "ok" | "unknown" | "missing";
+  login_label: string | null;
+  cooldown_seconds: number;
+}
+export interface AccountIn {
+  name: string;
+  engine: AccountEngine;
+  config_dir?: string | null;
+  enabled?: boolean;
+}
+export interface AccountPatch {
+  name?: string;
+  config_dir?: string | null;
+  enabled?: boolean;
+}
+

@@ -1,4 +1,7 @@
 import type {
+  AccountIn,
+  AccountOut,
+  AccountPatch,
   ApiErrorBody,
   ArtifactListParams,
   ArtifactOut,
@@ -233,3 +236,15 @@ export function uploadFile(file: File, workspaceId: UUID, sessionId?: UUID | nul
 // ---- system
 export const systemInfo = (): Promise<SystemInfo> => json("/api/system/info");
 export const stopAll = (): Promise<StopAllOut> => json("/api/system/stop-all", { method: "POST" });
+
+// ---- engine accounts
+export const listAccounts = (): Promise<AccountOut[]> => json("/api/accounts");
+export const createAccount = (body: AccountIn): Promise<AccountOut> => json("/api/accounts", { method: "POST", json: body });
+export const patchAccount = (id: UUID, body: AccountPatch): Promise<AccountOut> =>
+  json(`/api/accounts/${id}`, { method: "PATCH", json: body });
+export const deleteAccount = (id: UUID): Promise<void> => json(`/api/accounts/${id}`, { method: "DELETE" });
+export const reorderAccounts = (ids: UUID[]): Promise<AccountOut[]> =>
+  json("/api/accounts/reorder", { method: "POST", json: { ids } });
+export const clearAccountCooldown = (id: UUID): Promise<AccountOut> =>
+  json(`/api/accounts/${id}/cooldown/clear`, { method: "POST" });
+

@@ -6,7 +6,7 @@ import { buildRunView, describeTool } from "./runView";
 const base: RunOut = {
   id: "r1", session_id: "s1", workspace_id: "w1", prompt: "README 고쳐줘", context_artifact_ids: [], engine: "claude",
   model: null, effort: null, status: "running", exit_code: null, error: null, result_text: null, cost_usd: null,
-  usage: {}, checkpoint_ref: null, last_seq: 0, created_at: "2026-10-09T00:00:00Z", started_at: "2026-10-09T00:00:01Z",
+  usage: {}, checkpoint_ref: null, origin: "user", profile: "claude", last_seq: 0, created_at: "2026-10-09T00:00:00Z", started_at: "2026-10-09T00:00:01Z",
   finished_at: null,
 };
 
