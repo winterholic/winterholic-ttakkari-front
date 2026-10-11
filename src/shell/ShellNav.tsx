@@ -15,6 +15,7 @@ interface Area {
 /** 영역 넷(docs/19 §5). 작업 공간만 기억해 둔 세션이 있으면 그 세션으로 간다. */
 export function areas(sessionId?: string): Area[] {
   return [
+    // 새 세션 버튼을 따로 두지 않는다. 채팅 탭이 곧 새 세션 화면이다(⌘⇧O 도 같다).
     { root: "chat", to: "/chat", icon: "chat", label: "채팅" },
     { root: "workspace", to: sessionId ? `/workspace/${sessionId}` : "/workspace", icon: "workspace", label: "작업 공간" },
     { root: "library", to: "/library", icon: "library", label: "보관함" },

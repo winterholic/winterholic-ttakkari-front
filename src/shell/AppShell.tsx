@@ -123,9 +123,6 @@ export function AppShell() {
             <Link className="tk-header__brand" to="/chat">
               {BRAND}
             </Link>
-            <Link className="tk-icon-button tk-icon-button--sm" to="/chat" aria-label="새 세션" title="새 세션 (⌘⇧O)">
-              <Icon name="new-chat" />
-            </Link>
           </div>
           <nav className="tk-sidebar" aria-label="영역과 세션">
             <div className="tk-nav">
@@ -155,10 +152,6 @@ export function AppShell() {
           </div>
           <div className="tk-drawer__body">
             <nav className="tk-sidebar" aria-label="세션">
-              <Link className="tk-button tk-button--block" to="/chat">
-                <Icon name="new-chat" />
-                새 세션
-              </Link>
               <SessionList currentId={sessionId} />
             </nav>
           </div>
