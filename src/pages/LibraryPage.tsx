@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteArtifact, listArtifacts } from "../api/client";
 import type { ArtifactKind, ArtifactOut } from "../api/types";
 import { errorText } from "../features/viewer/api";
@@ -41,7 +41,10 @@ export function LibraryPage() {
     queryFn: ({ pageParam }) => listArtifacts({ q: q || undefined, kind: kind === "all" ? undefined : kind, limit: PAGE, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
+    // 필터·검색어를 바꾸면 새 결과가 올 때까지 이전 목록을 둔다. 없으면 매번 로딩 뼈대로 바뀌어 깜빡인다.
+    placeholderData: keepPreviousData,
   });
+  const switching = list.isPlaceholderData;
   const moreError = list.isFetchNextPageError ? list.error : null;
   const items = useMemo(() => list.data?.pages.flat() ?? [], [list.data]);
   const groups = useMemo(() => {
@@ -91,7 +94,7 @@ export function LibraryPage() {
                   </button>
                 ))}
               </div>
-              <p className="tk-filterbar__count" role="status">{list.isSuccess ? `${items.length}${list.hasNextPage ? "개 이상" : "개"}` : ""}</p>
+              <p className="tk-filterbar__count" role="status">{switching ? "찾는 중" : list.isSuccess ? `${items.length}${list.hasNextPage ? "개 이상" : "개"}` : ""}</p>
             </div>
           </div>
 
@@ -107,7 +110,7 @@ export function LibraryPage() {
             )
           )}
           {list.isSuccess && items.length > 0 && (
-            <div className="tk-list">
+            <div className="tk-list" aria-busy={switching || undefined}>
               {groups.map((g) => (
                 <div key={g.label} role="group" aria-label={g.label}>
                   <p className="tk-list__group">{g.label}</p>
