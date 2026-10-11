@@ -1,0 +1,44 @@
+/* 사용자 메뉴 > 사용량. 디자인 시스템 토큰만 쓴다. 숫자가 주인공이라 퍼센트를 크게, 막대는 굵게. */
+.usage { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.usage__bar { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-2); }
+.usage__meta, .usage__note { margin: 0; color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); }
+.usage__note a { color: var(--tk-color-text-brand); }
+.usage__list { display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+
+.usage-now {
+  display: grid; grid-template-columns: 1fr auto; gap: var(--tk-space-0-5) var(--tk-space-3); align-items: baseline;
+  padding: var(--tk-space-3) var(--tk-space-4); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-subtle);
+}
+.usage-now__label { grid-column: 1 / -1; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.usage-now__name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.usage-now__stats { display: flex; gap: var(--tk-space-3); color: var(--tk-color-text-secondary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / 1 var(--tk-font-family-mono); }
+.usage-now__stats > [data-level="warn"] { color: var(--tk-color-text-warning); }
+.usage-now__stats > [data-level="danger"] { color: var(--tk-color-text-danger); }
+
+.usage-card {
+  display: flex; flex-direction: column; gap: var(--tk-space-3); padding: var(--tk-space-3) var(--tk-space-4);
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default);
+}
+.usage-card[data-active] { border-color: var(--tk-color-border-strong); }
+.usage-card[data-off] { background: transparent; }
+.usage-card[data-off] .usage-card__windows, .usage-card[data-off] .usage-card__name { opacity: 0.6; }
+.usage-card__head { display: flex; align-items: center; gap: var(--tk-space-3); min-width: 0; }
+.usage-card__rank {
+  display: inline-grid; place-items: center; flex: none; width: var(--tk-size-control-xs); height: var(--tk-size-control-xs);
+  border-radius: var(--tk-radius-full); background: var(--tk-color-surface-muted); color: var(--tk-color-text-secondary);
+  font: var(--tk-font-weight-semibold) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono);
+}
+.usage-card__title { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.usage-card__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.usage-card__sub { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.usage-card__head > .tk-badge { flex: none; }
+.usage-card__windows { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--tk-space-3) var(--tk-space-4); }
+.usage-card__foot { margin: 0; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+
+.usage-win { display: flex; flex-direction: column; gap: var(--tk-space-1-5); min-width: 0; }
+.usage-win__top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--tk-space-2); }
+.usage-win__label { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); }
+.usage-win__pct { color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-lg) / 1 var(--tk-font-family-mono); font-variant-numeric: tabular-nums; }
+.usage-win[data-level="warn"] .usage-win__pct { color: var(--tk-color-text-warning); }
+.usage-win[data-level="danger"] .usage-win__pct { color: var(--tk-color-text-danger); }
+.usage-win__reset { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }

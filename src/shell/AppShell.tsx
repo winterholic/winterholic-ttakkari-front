@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useAuth } from "../auth";
 import { PushSettingsDialog } from "../features/push/PushSettings";
+import { UsageDialog } from "../features/accounts/UsageDialog";
 import { IconButton } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Icon } from "../ui/Icon";
@@ -48,6 +49,7 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
   const navigate = useNavigate();
   const { isDark, toggle } = useTheme();
   const [pushOpen, setPushOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const out = async () => {
     await logout();
     qc.clear();
@@ -61,6 +63,7 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
         className="app-user-menu"
         triggerClassName="app-user-menu__trigger"
         items={[
+          { label: "사용량", icon: "gauge", onSelect: () => setUsageOpen(true) },
           { label: "비서 관리", icon: "tip", onSelect: () => navigate("/assistant") },
           { label: "계정 관리", icon: "key", onSelect: () => navigate("/settings#accounts") },
           { label: "설정", icon: "settings", onSelect: () => navigate("/settings") },
@@ -77,6 +80,7 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
         <Icon name="chevron-up" />
       </Menu>
       <PushSettingsDialog open={pushOpen} onClose={() => setPushOpen(false)} />
+      <UsageDialog open={usageOpen} onClose={() => setUsageOpen(false)} />
     </div>
   );
 }

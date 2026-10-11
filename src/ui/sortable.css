@@ -1,0 +1,13 @@
+/* 끌어서 순서 바꾸기. 디자인 시스템 토큰만 쓴다. */
+.sortable-row { position: relative; touch-action: manipulation; }
+.sortable-row[data-dragging] { z-index: var(--tk-z-index-raised); }
+.sortable-row[data-dragging] > .tk-list__item { background: var(--tk-color-surface-default); box-shadow: var(--tk-shadow-md); border-radius: var(--tk-radius-md); }
+.sortable-handle {
+  display: inline-grid; place-items: center; flex: none; width: var(--tk-size-touch-target-min); height: var(--tk-size-touch-target-min);
+  margin-left: calc(-1 * var(--tk-space-2)); border: 0; border-radius: var(--tk-radius-md); background: none;
+  color: var(--tk-color-text-tertiary); cursor: grab; touch-action: none;
+}
+.sortable-handle:active { cursor: grabbing; }
+.sortable-handle > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); }
+@media (hover: hover) { .sortable-handle:hover { color: var(--tk-color-text-primary); background: var(--tk-color-interactive-hover-overlay); } }
+.sortable-handle:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(-1 * var(--tk-focus-ring-width)); }

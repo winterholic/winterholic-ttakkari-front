@@ -396,3 +396,35 @@ export const reindexSource = (id: string): Promise<SourceOut> => json(`${A}/sour
 export const deleteSource = (id: string): Promise<void> => json(`${A}/sources/${id}`, { method: "DELETE" });
 export const recallTest = (query: string): Promise<{ results: RecallHit[] }> => json(`${A}/recall`, { method: "POST", json: { query, k: 8 } });
 export const listTools = (): Promise<{ tools: ToolInfo[] }> => json(`${A}/tools`);
+
+// ---- 계정 임시 우선순위·사용량
+export interface OverrideOut {
+  active: boolean;
+  ids: string[];
+  until: string | null;
+}
+export interface UsageWindow {
+  key: string;
+  label: string;
+  percent: number;
+  resets_at: number | null;
+}
+export interface AccountUsage {
+  id: string;
+  name: string;
+  engine: "claude" | "codex";
+  enabled: boolean;
+  rank: number;
+  login: "ok" | "unknown" | "missing";
+  cooldown_seconds: number;
+  windows: UsageWindow[];
+  source: "api" | "stream" | "session_log" | null;
+  plan: string | null;
+  error: string | null;
+  updated_at: number | null;
+}
+export const getOverride = (): Promise<OverrideOut> => json("/api/accounts/override");
+export const putOverride = (ids: string[], until: string): Promise<OverrideOut> =>
+  json("/api/accounts/override", { method: "PUT", json: { ids, until } });
+export const deleteOverride = (): Promise<void> => json("/api/accounts/override", { method: "DELETE" });
+export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });

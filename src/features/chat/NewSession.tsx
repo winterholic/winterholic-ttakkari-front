@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { systemInfo } from "../../api/client";
+import { listAccounts, systemInfo } from "../../api/client";
+import { useOverride } from "../accounts/OverrideDialog";
 import { errorText } from "../viewer/api";
 import { useDefaultWorkspace } from "../workspace/useDefaultWorkspace";
 import type { Effort, EngineName } from "../../api/types";
@@ -29,6 +30,13 @@ const MODELS: Record<EngineName, SelectOption<string>[]> = {
   ],
 };
 
+// 모델 이름은 그 엔진 계정에만 넘어간다(Claude 모델 → Claude 계정, Codex 모델 → Codex 계정). 백엔드 profiles.model_engine.
+const MODEL_OPTIONS: SelectOption<string>[] = [
+  { value: "", label: "기본 모델(계정마다 기본값)" },
+  ...MODELS.claude.filter((m) => m.value).map((m) => ({ value: m.value, label: `Claude · ${m.label}` })),
+  ...MODELS.codex.filter((m) => m.value).map((m) => ({ value: m.value, label: `Codex · ${m.label}` })),
+];
+
 const EFFORTS: SelectOption<Effort | "">[] = [
   { value: "", label: "기본" },
   { value: "low", label: "낮음" },
@@ -40,6 +48,17 @@ const EFFORTS: SelectOption<Effort | "">[] = [
 /** 세션이 없는 /chat 화면. 첫 지시를 보내면 세션이 만들어진다. */
 export function NewSession({ value, onChange }: { value: NewSessionChoice | null; onChange: (v: NewSessionChoice) => void }) {
   const ws = useDefaultWorkspace();
+  const accs = useQuery({ queryKey: ["accounts"], queryFn: listAccounts, staleTime: 30_000 });
+  const ov = useOverride();
+  const top = (() => {
+    const list = accs.data ?? [];
+    const ids = ov.data?.active ? ov.data.ids : [];
+    const ordered = [...list].sort((a, b) => {
+      const ra = ids.indexOf(a.id), rb = ids.indexOf(b.id);
+      return (ra < 0 ? ids.length : ra) - (rb < 0 ? ids.length : rb) || a.priority - b.priority;
+    });
+    return ordered.find((a) => a.enabled);
+  })();
   const info = useQuery({ queryKey: ["systemInfo"], queryFn: systemInfo, staleTime: 60_000 });
   const first = ws.data;
   useEffect(() => {
@@ -100,9 +119,14 @@ export function NewSession({ value, onChange }: { value: NewSessionChoice | null
             id="ns-model"
             labelledBy="ns-model-label"
             value={current?.model ?? ""}
-            options={MODELS.claude}
+            options={MODEL_OPTIONS}
             onChange={(model) => set({ model: model || null })}
           />
+          {top && (
+            <p className="tk-help">
+              <span>지금 1순위: {top.name} ({top.engine === "codex" ? "Codex" : "Claude Code"}). 고른 모델은 그 엔진 계정에서만 쓰여요.</span>
+            </p>
+          )}
         </div>
         <div className="tk-field">
           <label className="tk-label" id="ns-effort-label" htmlFor="ns-effort">추론 강도</label>

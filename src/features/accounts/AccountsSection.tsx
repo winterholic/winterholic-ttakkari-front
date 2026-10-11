@@ -6,6 +6,8 @@ import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { Menu } from "../../ui/Menu";
 import { Select } from "../../ui/Select";
+import { SortableList } from "../../ui/SortableList";
+import { OverrideBanner, OverrideDialog } from "./OverrideDialog";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { ErrorState, ListSkeleton } from "../viewer/screenStates";
@@ -60,20 +62,24 @@ export function AccountsSection() {
   const q = useQuery({ queryKey: ACCOUNTS_KEY, queryFn: listAccounts, refetchInterval: 30_000 });
   const [editing, setEditing] = useState<AccountOut | "new" | null>(null);
   const [removing, setRemoving] = useState<AccountOut | null>(null);
+  const [overriding, setOverriding] = useState(false);
   const set = (rows: AccountOut[]) => qc.setQueryData(ACCOUNTS_KEY, rows);
   const replace = (a: AccountOut) => set((q.data ?? []).map((x) => (x.id === a.id ? a : x)));
 
   const toggle = useMutation({ mutationFn: (a: AccountOut) => patchAccount(a.id, { enabled: !a.enabled }), onSuccess: replace });
   const clear = useMutation({ mutationFn: (a: AccountOut) => clearAccountCooldown(a.id), onSuccess: replace });
-  const move = useMutation({
-    mutationFn: ({ from, to }: { from: number; to: number }) => {
-      const ids = (q.data ?? []).map((a) => a.id);
-      const [x] = ids.splice(from, 1);
-      ids.splice(to, 0, x);
-      return reorderAccounts(ids);
-    },
+  const reorder = useMutation({
+    mutationFn: (next: AccountOut[]) => reorderAccounts(next.map((a) => a.id)),
+    onMutate: (next) => set(next),
     onSuccess: set,
+    onError: () => void q.refetch(),
   });
+  const moveBy = (from: number, to: number) => {
+    const next = [...rows];
+    const [x] = next.splice(from, 1);
+    next.splice(to, 0, x);
+    reorder.mutate(next);
+  };
   const remove = useMutation({
     mutationFn: (a: AccountOut) => deleteAccount(a.id),
     onSuccess: () => {
@@ -81,7 +87,7 @@ export function AccountsSection() {
       void qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
     },
   });
-  const rowError = toggle.error ?? clear.error ?? move.error;
+  const rowError = toggle.error ?? clear.error ?? reorder.error;
   const rows = q.data ?? [];
   const enabledCount = rows.filter((a) => a.enabled).length;
 
@@ -89,14 +95,21 @@ export function AccountsSection() {
     <section className="tk-section" id="accounts" aria-labelledby={`${id}-title`}>
       <div className="tk-section__head">
         <h2 className="tk-section__title" id={`${id}-title`}>계정</h2>
-        <button className="tk-button tk-button--sm" type="button" onClick={() => setEditing("new")}>
-          <Icon name="plus" />
-          계정 추가
-        </button>
+        <div className="tk-button-group">
+          <button className="tk-button tk-button--sm" type="button" onClick={() => setOverriding(true)} disabled={rows.length < 2}>
+            <Icon name="clock" />
+            임시 순서
+          </button>
+          <button className="tk-button tk-button--sm" type="button" onClick={() => setEditing("new")}>
+            <Icon name="plus" />
+            계정 추가
+          </button>
+        </div>
       </div>
       <p className="tk-fieldset__help">
-        위에서부터 차례로 써요. 사용량 한도에 걸리면 그 계정은 잠시 쉬고 다음 계정으로 이어서 해요. 오케스트레이터와 작업 세션은 Claude Code 계정이 다 막히면 Codex 까지 넘어가요.
+        손잡이를 끌어 순서를 바꿔요. 위에서부터 차례로 쓰고, 사용량 한도에 걸리면 그 계정은 잠시 쉬고 다음 계정으로 이어서 해요. 오케스트레이터와 작업 세션은 Claude Code 계정이 다 막히면 Codex 까지 넘어가요.
       </p>
+      <OverrideBanner accounts={rows} onEdit={() => setOverriding(true)} />
       {q.isPending && <ListSkeleton rows={2} label="계정을 불러오는 중" />}
       {q.isError && <ErrorState error={q.error} what="계정" onRetry={() => void q.refetch()} />}
       {q.isSuccess && enabledCount === 0 && (
@@ -111,10 +124,13 @@ export function AccountsSection() {
         </p>
       )}
       {q.isSuccess && (
-        <ol className="tk-list" aria-label="계정 우선순위">
-          {rows.map((a, i) => (
-            <li key={a.id}>
+        <SortableList
+          items={rows}
+          label="계정 우선순위"
+          onReorder={(next) => reorder.mutate(next)}
+          render={(a, i, handle) => (
               <div className="tk-list__item account-row" aria-disabled={!a.enabled || undefined}>
+                {handle}
                 <span className="account-row__rank" aria-label={`${i + 1}순위`}>{i + 1}</span>
                 <span className="tk-list__body">
                   <span className="tk-list__title">{a.name}</span>
@@ -140,8 +156,8 @@ export function AccountsSection() {
                     label={`${a.name} 메뉴`}
                     triggerClassName="tk-icon-button tk-icon-button--sm"
                     items={[
-                      { label: "위로", icon: "chevron-up", disabled: i === 0 || move.isPending, onSelect: () => move.mutate({ from: i, to: i - 1 }) },
-                      { label: "아래로", icon: "chevron-down", disabled: i === rows.length - 1 || move.isPending, onSelect: () => move.mutate({ from: i, to: i + 1 }) },
+                      { label: "위로", icon: "chevron-up", disabled: i === 0 || reorder.isPending, onSelect: () => moveBy(i, i - 1) },
+                      { label: "아래로", icon: "chevron-down", disabled: i === rows.length - 1 || reorder.isPending, onSelect: () => moveBy(i, i + 1) },
                       ...(a.cooldown_seconds > 0 ? [{ label: "한도 대기 풀기", icon: "clock" as const, onSelect: () => clear.mutate(a) }] : []),
                       { label: "이름 바꾸기", icon: "key", separatorBefore: true, onSelect: () => setEditing(a) },
                       { label: "삭제", icon: "trash", danger: true, onSelect: () => setRemoving(a) },
@@ -151,10 +167,10 @@ export function AccountsSection() {
                   </Menu>
                 </span>
               </div>
-            </li>
-          ))}
-        </ol>
+          )}
+        />
       )}
+      {overriding && <OverrideDialog accounts={rows} onClose={() => setOverriding(false)} />}
       {editing && <AccountDialog account={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
       <Dialog
         open={!!removing}
