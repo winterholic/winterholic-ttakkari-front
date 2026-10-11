@@ -9,15 +9,25 @@ import { usePush } from "./usePush";
 /** 사이드바·드로어 하단의 알림 버튼과 설정 다이얼로그. 스위치는 즉시 반영한다(docs/06 §5). */
 export function PushSettings() {
   const [open, setOpen] = useState(false);
-  const { state, busy, error, enable, disable, test } = usePush();
-  const toggleable = state === "off" || state === "on";
-
+  const { state } = usePush();
   return (
     <>
       <IconButton size="sm" aria-label="알림 설정" aria-pressed={state === "on"} onClick={() => setOpen(true)}>
         <Icon name="important" />
       </IconButton>
-      <Dialog open={open} onClose={() => setOpen(false)} size="sm" title="알림" id="push-settings">
+      <PushSettingsDialog open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+/** 알림 설정 다이얼로그. 사용자 메뉴의 '알림' 항목도 이걸 연다. */
+export function PushSettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { state, busy, error, enable, disable, test } = usePush();
+  const toggleable = state === "off" || state === "on";
+
+  return (
+    <>
+      <Dialog open={open} onClose={onClose} size="sm" title="알림" id="push-settings">
         <div className="tk-choices">
           <label className="tk-switch tk-switch--row">
             <input

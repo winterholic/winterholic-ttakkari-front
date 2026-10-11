@@ -1,12 +1,13 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
-import { Link, Navigate, Outlet, useLocation, useParams } from "react-router";
+import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useAuth } from "../auth";
-import { PushSettings } from "../features/push/PushSettings";
+import { PushSettingsDialog } from "../features/push/PushSettings";
 import { IconButton } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Icon } from "../ui/Icon";
-import { ThemeToggle } from "../ui/ThemeToggle";
+import { Menu } from "../ui/Menu";
+import { useTheme } from "../ui/useTheme";
 import { ToastRegion } from "../ui/Toast";
 import "./shell.css";
 import { ShellContext } from "./ShellContext";
@@ -44,23 +45,36 @@ function Presence({ c }: { c: ConnectionState }) {
 function SidebarFooter({ connection }: { connection: ConnectionState }) {
   const { logout } = useAuth();
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const { isDark, toggle } = useTheme();
+  const [pushOpen, setPushOpen] = useState(false);
   const out = async () => {
     await logout();
     qc.clear();
   };
   return (
     <div className="app-shell-footer">
-      <Presence c={connection} />
-      <div className="app-shell-footer__actions">
-        <ThemeToggle size="sm" />
-        <PushSettings />
-        <Link className="tk-icon-button tk-icon-button--sm" to="/settings" aria-label="설정" title="설정">
-          <Icon name="settings" />
-        </Link>
-        <IconButton size="sm" aria-label="로그아웃" onClick={() => void out()}>
-          <Icon name="logout" />
-        </IconButton>
-      </div>
+      <Menu
+        label="사용자 메뉴"
+        align="start"
+        up
+        className="app-user-menu"
+        triggerClassName="app-user-menu__trigger"
+        items={[
+          { label: "설정", icon: "settings", onSelect: () => navigate("/settings") },
+          { label: "알림", icon: "important", onSelect: () => setPushOpen(true) },
+          { label: isDark ? "라이트 모드" : "다크 모드", icon: isDark ? "sun" : "moon", onSelect: toggle },
+          { label: "로그아웃", icon: "logout", onSelect: () => void out(), separatorBefore: true },
+        ]}
+      >
+        <span className="tk-avatar tk-avatar--sm" aria-hidden>W</span>
+        <span className="app-user-menu__body">
+          <span className="app-user-menu__name">winterholic</span>
+          <Presence c={connection} />
+        </span>
+        <Icon name="chevron-up" />
+      </Menu>
+      <PushSettingsDialog open={pushOpen} onClose={() => setPushOpen(false)} />
     </div>
   );
 }

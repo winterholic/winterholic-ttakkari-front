@@ -23,10 +23,12 @@ export interface MenuProps {
   /** 화면 아래쪽 트리거는 위로 연다. */
   up?: boolean;
   triggerClassName?: string;
+  /** .tk-dropdown 래퍼에 더할 클래스(예: 폭을 채우는 사용자 메뉴). */
+  className?: string;
 }
 
 /** docs/06 §13 키보드 계약: ↓↑ 열기, Home/End, 글자 점프, Esc 닫고 트리거로 복귀, Tab 닫기, 바깥 클릭 닫기. */
-export function Menu({ label, items, children, align = "end", up, triggerClassName = "tk-icon-button" }: MenuProps) {
+export function Menu({ label, items, children, align = "end", up, triggerClassName = "tk-icon-button", className }: MenuProps) {
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const trigger = useRef<HTMLButtonElement>(null);
@@ -84,7 +86,7 @@ export function Menu({ label, items, children, align = "end", up, triggerClassNa
   };
 
   return (
-    <div className="tk-dropdown">
+    <div className={className ? `tk-dropdown ${className}` : "tk-dropdown"}>
       <button
         ref={trigger}
         className={triggerClassName}
