@@ -309,3 +309,90 @@ export const listTransferTokens = (): Promise<TransferTokenOut[]> => json("/api/
 export const createTransferToken = (name: string): Promise<TransferTokenOut> => json("/api/transfer-tokens", { method: "POST", json: { name } });
 export const revokeTransferToken = (id: string): Promise<void> => json(`/api/transfer-tokens/${id}`, { method: "DELETE" });
 
+
+// ---- 비서 관리(ADR 0007)
+export type MemoryKind = "fact" | "preference" | "decision" | "event" | "instruction" | "note";
+export type EntityType = "person" | "project" | "org" | "place" | "tool" | "topic" | "preference" | "other";
+export interface AssistantStatus {
+  embedder: string;
+  model: string | null;
+  ready: boolean;
+  counts: { memories: number; entities: number; relations: number; documents: number; chunks: number };
+  brief: string;
+}
+export interface MemoryOut {
+  id: string;
+  kind: MemoryKind;
+  content: string;
+  pinned: boolean;
+  source: string;
+  entities: string[];
+  created_at: string;
+}
+export interface EntityOut {
+  id: string;
+  type: EntityType;
+  name: string;
+  aliases: string[];
+  summary: string | null;
+  pinned: boolean;
+}
+export interface EntityDetail extends EntityOut {
+  relations: { subject: string | null; predicate: string; object: string | null; note: string | null }[];
+  memories: { id: string; kind: string; content: string }[];
+}
+export interface SourceOut {
+  id: string;
+  path: string;
+  pattern: string;
+  enabled: boolean;
+  documents: number;
+  chunks: number;
+  last_indexed_at: string | null;
+  last_error: string | null;
+  indexing: boolean;
+}
+export interface RecallHit {
+  type: "memory" | "chunk" | "entity";
+  id: string;
+  score: number;
+  text: string;
+  path?: string;
+  heading?: string | null;
+  kind?: string;
+  entity_type?: string;
+  name?: string;
+}
+export interface ToolInfo {
+  name: string;
+  group: string;
+  who: string;
+  desc: string;
+}
+const A = "/api/assistant";
+export const assistantStatus = (): Promise<AssistantStatus> => json(`${A}/status`);
+export const getInstructions = (): Promise<{ text: string }> => json(`${A}/instructions`);
+export const putInstructions = (text: string): Promise<{ text: string }> => json(`${A}/instructions`, { method: "PUT", json: { text } });
+export const listMemories = (p: { q?: string; kind?: MemoryKind; pinned?: boolean } = {}): Promise<{ memories: MemoryOut[] }> =>
+  json(`${A}/memories`, { query: p });
+export const addMemory = (body: { content: string; kind: MemoryKind; entities: string[]; pinned: boolean }): Promise<MemoryOut> =>
+  json(`${A}/memories`, { method: "POST", json: body });
+export const patchMemory = (id: string, body: Partial<Pick<MemoryOut, "content" | "kind" | "pinned">>): Promise<MemoryOut> =>
+  json(`${A}/memories/${id}`, { method: "PATCH", json: body });
+export const deleteMemory = (id: string): Promise<void> => json(`${A}/memories/${id}`, { method: "DELETE" });
+export const listEntities = (p: { type?: EntityType; q?: string } = {}): Promise<{ entities: EntityOut[] }> => json(`${A}/entities`, { query: p });
+export const getEntity = (id: string): Promise<EntityDetail> => json(`${A}/entities/${id}`);
+export const addEntity = (body: { name: string; type: EntityType; summary?: string | null; pinned?: boolean }): Promise<EntityOut> =>
+  json(`${A}/entities`, { method: "POST", json: body });
+export const patchEntity = (id: string, body: { summary?: string | null; pinned?: boolean; type?: EntityType }): Promise<EntityOut> =>
+  json(`${A}/entities/${id}`, { method: "PATCH", json: body });
+export const deleteEntity = (id: string): Promise<void> => json(`${A}/entities/${id}`, { method: "DELETE" });
+export const addRelation = (body: { subject: string; predicate: string; object: string }): Promise<{ id: string }> =>
+  json(`${A}/relations`, { method: "POST", json: body });
+export const listSources = (): Promise<{ sources: SourceOut[] }> => json(`${A}/sources`);
+export const addSource = (path: string, pattern?: string): Promise<SourceOut> =>
+  json(`${A}/sources`, { method: "POST", json: { path, pattern: pattern || "**/*.md" } });
+export const reindexSource = (id: string): Promise<SourceOut> => json(`${A}/sources/${id}/reindex`, { method: "POST" });
+export const deleteSource = (id: string): Promise<void> => json(`${A}/sources/${id}`, { method: "DELETE" });
+export const recallTest = (query: string): Promise<{ results: RecallHit[] }> => json(`${A}/recall`, { method: "POST", json: { query, k: 8 } });
+export const listTools = (): Promise<{ tools: ToolInfo[] }> => json(`${A}/tools`);

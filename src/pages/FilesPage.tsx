@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listFiles, registerArtifact, searchFiles } from "../api/client";
 import type { FileEntry, UUID, WorkspaceOut } from "../api/types";
 import { ApiError } from "../api/client";
@@ -45,11 +45,14 @@ export function FilesPage() {
     queryKey: ["files", ws?.id, path, showHidden],
     queryFn: () => listFiles(ws!.id, path, showHidden),
     enabled: Boolean(ws) && q === "" && tab === "find",
+    placeholderData: keepPreviousData,
   });
   const found = useQuery({
     queryKey: ["file-search", ws?.id, q],
     queryFn: () => searchFiles(ws!.id, q),
     enabled: Boolean(ws) && q !== "" && tab === "find",
+    // 검색어가 바뀌는 동안 이전 결과를 둔다(보관함과 같은 깜빡임 방지).
+    placeholderData: keepPreviousData,
   });
 
   return (

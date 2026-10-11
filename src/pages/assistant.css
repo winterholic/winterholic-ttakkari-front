@@ -1,0 +1,17 @@
+/* 비서 관리. 디자인 시스템 토큰만 쓴다. */
+.assistant-tabs { margin-top: var(--tk-space-4); }
+.assistant-instructions { min-height: calc(var(--tk-component-input-textarea-min-height) * 3); font-size: var(--tk-font-size-md); }
+.assistant-count { margin: 0; text-align: right; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.assistant-sub { margin: var(--tk-space-2) 0 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.assistant-brief {
+  margin: 0; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); white-space: pre-wrap; overflow-wrap: anywhere;
+  background: var(--tk-color-surface-subtle); color: var(--tk-color-text-secondary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
+}
+.assistant-form { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.assistant-form__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
+.assistant-form__row > .tk-input, .assistant-form__row > .tk-select { flex: 1 1 10rem; min-width: 0; }
+.assistant-hit {
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap;
+  color: var(--tk-color-text-primary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
+}
