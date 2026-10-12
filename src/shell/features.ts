@@ -10,12 +10,14 @@ export interface Feature {
   description: string;
   /** 모바일 하단 탭에 바로 둔다. 칸이 다섯뿐이라(채팅·셋·더보기) 새 기능은 기본으로 더보기에 들어간다. */
   mobileTab?: boolean;
+  /** 모바일 더보기에 표시한다. 기본값은 true이며 데스크톱 부가 기능 목록에는 영향을 주지 않는다. */
+  mobileMore?: boolean;
   /** 하단 탭 칸이 좁을 때 쓰는 짧은 이름. */
   tabLabel?: string;
 }
 
 /**
- * 채팅이 아닌 기능 전부. 데스크톱은 사이드바 "부가 기능" 모달, 모바일은 하단 탭(mobileTab)과 더보기 화면이 이 목록 하나를 쓴다.
+ * 채팅이 아닌 기능 전부. 데스크톱은 사이드바 "부가 기능" 모달에 전부 보이고, 모바일은 하단 탭(mobileTab)과 더보기(mobileMore)에 나눠 보인다.
  * 새 기능은 라우트를 만들고 여기에 항목 하나만 넣으면 양쪽에 같이 나타난다. 순서도 이 순서다.
  */
 export const FEATURES: readonly Feature[] = [
@@ -29,7 +31,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "memos", to: "/memos", icon: "memo", label: "메모", description: "카테고리·태그로 정리하는 메모", mobileTab: true },
   { root: "calendar", to: "/calendar", icon: "calendar", label: "캘린더", description: "일정과 한국 공휴일", mobileTab: true },
   { root: "meetings", to: "/meetings", icon: "mic", label: "회의록", description: "녹음·전사에서 결정과 할 일을 정리" },
-  { root: "resources", to: "/resources", icon: "server", label: "서버 리소스", description: "Mac Studio CPU·메모리·저장공간 현황" },
+  { root: "resources", to: "/resources", icon: "server", label: "서버 리소스", description: "Mac Studio CPU·메모리·저장공간 현황", mobileMore: false },
 ];
 
 /** 지금 경로가 어느 부가 기능 안인가. 채팅·설정처럼 목록에 없는 화면이면 undefined. */
@@ -39,4 +41,4 @@ export function featureAt(pathname: string): Feature | undefined {
 }
 
 /** 모바일 더보기 화면에 모을 기능: 하단 탭에 자리가 없는 것 전부. */
-export const moreFeatures = (): Feature[] => FEATURES.filter((f) => !f.mobileTab);
+export const moreFeatures = (): Feature[] => FEATURES.filter((f) => !f.mobileTab && f.mobileMore !== false);
