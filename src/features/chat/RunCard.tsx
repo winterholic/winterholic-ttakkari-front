@@ -102,6 +102,7 @@ export function RunCard({ run, view, onStop, onRetry }: { run: RunOut; view: Run
   const meta = (
     <p className="tk-run__meta">
       <span className="tk-run__elapsed">{formatElapsed(run.started_at ?? run.created_at, run.finished_at, now)}</span>
+      {run.profile && <span>사용 계정: {run.profile}</span>}
       {view.steps.length > 0 && <span>단계 {view.steps.length}개</span>}
       {writes > 0 && <span>파일 {writes}번 수정</span>}
       {view.artifacts.length > 0 && <span>결과물 {view.artifacts.length}</span>}

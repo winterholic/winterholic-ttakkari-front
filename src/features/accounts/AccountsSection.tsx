@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
 import type { AccountEngine, AccountOut } from "../../api/types";
@@ -73,12 +73,34 @@ export function AccountsSection() {
 
   const toggle = useMutation({ mutationFn: (a: AccountOut) => patchAccount(a.id, { enabled: !a.enabled }), onSuccess: replace });
   const clear = useMutation({ mutationFn: (a: AccountOut) => clearAccountCooldown(a.id), onSuccess: replace });
+  const reorderLock = useRef(false);
   const reorder = useMutation({
-    mutationFn: (next: AccountOut[]) => reorderAccounts(next.map((a) => a.id)),
+    mutationFn: async (next: AccountOut[]) => {
+      const ids = next.map((a) => a.id);
+      try {
+        return await reorderAccounts(ids);
+      } catch (e) {
+        // 다른 탭에서 삭제된 계정이 stale 목록에 남으면 최신 목록에 사용자 순서를 합쳐 재시도한다.
+        if (!(e instanceof ApiError) || e.status !== 400 || !e.message.includes("모든 계정 id")) throw e;
+        const latest = await listAccounts();
+        const latestIds = new Set(latest.map((a) => a.id));
+        const merged = [...new Set(ids.filter((id) => latestIds.has(id)))];
+        for (const a of latest) if (!merged.includes(a.id)) merged.push(a.id);
+        return reorderAccounts(merged);
+      }
+    },
     onMutate: (next) => set(next),
     onSuccess: set,
     onError: () => void q.refetch(),
+    onSettled: () => {
+      reorderLock.current = false;
+    },
   });
+  const saveOrder = (next: AccountOut[]) => {
+    if (reorderLock.current) return;
+    reorderLock.current = true;
+    reorder.mutate(next);
+  };
   const tagWork = useMutation({
     mutationFn: (a: AccountOut) => patchAccount(a.id, { pool: a.pool === "work" ? "personal" : "work" }),
     onSuccess: (a) => {
@@ -90,7 +112,7 @@ export function AccountsSection() {
     const next = [...rows];
     const [x] = next.splice(from, 1);
     next.splice(to, 0, x);
-    reorder.mutate(next);
+    saveOrder(next);
   };
   const remove = useMutation({
     mutationFn: (a: AccountOut) => deleteAccount(a.id),
@@ -150,7 +172,8 @@ export function AccountsSection() {
         <SortableList
           items={rows}
           label="계정 우선순위"
-          onReorder={(next) => reorder.mutate(next)}
+          disabled={reorder.isPending}
+          onReorder={saveOrder}
           render={(a, i, handle) => (
               <div className="tk-list__item account-row" aria-disabled={!a.enabled || undefined}>
                 {handle}
@@ -203,11 +226,11 @@ export function AccountsSection() {
           <Dialog open={!!a} onClose={() => setActing(null)} size="sm" title={a ? `${a.name} 관리` : "계정 관리"} id="account-actions">
             {a && (
               <div className="account-actions">
-                <button className="tk-button tk-button--block" type="button" disabled={i === 0 || reorder.isPending} onClick={done(() => moveBy(i, i - 1))}>
+                <button className="tk-button tk-button--block" type="button" disabled={i === 0 || reorder.isPending} onClick={() => { setActing(null); moveBy(i, i - 1); }}>
                   <Icon name="chevron-up" />
                   위로
                 </button>
-                <button className="tk-button tk-button--block" type="button" disabled={i === rows.length - 1 || reorder.isPending} onClick={done(() => moveBy(i, i + 1))}>
+                <button className="tk-button tk-button--block" type="button" disabled={i === rows.length - 1 || reorder.isPending} onClick={() => { setActing(null); moveBy(i, i + 1); }}>
                   <Icon name="chevron-down" />
                   아래로
                 </button>

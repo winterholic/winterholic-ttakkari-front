@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AccountOut } from "../../api/types";
+import { ApiError } from "../../api/client";
 import { AccountsSection } from "./AccountsSection";
 
 const acc = (o: Partial<AccountOut>): AccountOut => ({
@@ -71,4 +72,37 @@ describe("AccountsSection", () => {
     fireEvent.click(await screen.findByRole("button", { name: "회사 그룹에서 빼기" }));
     await waitFor(() => expect(api.patchAccount).toHaveBeenCalledWith("w", { pool: "personal" }));
   });
+  it("stale permanent order retries with the latest server account list", async () => {
+    const a = acc({ id: "a", name: "A" });
+    const b = acc({ id: "b", name: "B", priority: 1 });
+    const stale = acc({ id: "deleted", name: "삭제된 계정", priority: 2 });
+    const c = acc({ id: "c", name: "C", priority: 2 });
+    api.listAccounts.mockResolvedValueOnce([a, b, stale]).mockResolvedValueOnce([a, b, c]);
+    api.reorderAccounts
+      .mockRejectedValueOnce(new ApiError(400, { code: "bad_input", message: "모든 계정 id 를 한 번씩 보내야 합니다." }))
+      .mockResolvedValueOnce([b, a, c]);
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: "B 메뉴" }));
+    fireEvent.click(await screen.findByRole("button", { name: "위로" }));
+    await waitFor(() => expect(api.reorderAccounts).toHaveBeenCalledTimes(2));
+    expect(api.reorderAccounts).toHaveBeenNthCalledWith(1, ["b", "a", "deleted"]);
+    expect(api.reorderAccounts).toHaveBeenNthCalledWith(2, ["b", "a", "c"]);
+    expect(await screen.findByLabelText("3순위")).toBeTruthy();
+  });
+
+  it("disables drag handles while a permanent order save is pending", async () => {
+    const a = acc({ id: "a", name: "A" });
+    const b = acc({ id: "b", name: "B", priority: 1 });
+    let finish!: (rows: AccountOut[]) => void;
+    api.listAccounts.mockResolvedValue([a, b]);
+    api.reorderAccounts.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: "B 메뉴" }));
+    fireEvent.click(await screen.findByRole("button", { name: "위로" }));
+    await waitFor(() => expect(api.reorderAccounts).toHaveBeenCalledTimes(1));
+    const handles = screen.getAllByRole("button", { name: "끌어서 순서 바꾸기" });
+    expect(handles.every((h) => (h as HTMLButtonElement).disabled)).toBe(true);
+    finish([b, a]);
+  });
+
 });

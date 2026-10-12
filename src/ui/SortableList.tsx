@@ -11,9 +11,10 @@ import "./sortable.css";
  * 손잡이에서만 끌리게 해 목록 안의 스위치·메뉴 버튼은 그대로 눌린다.
  */
 export function SortableList<T extends { id: string }>({
-  items, onReorder, render, label,
+  items, onReorder, render, label, disabled = false,
 }: {
   items: T[];
+  disabled?: boolean;
   onReorder: (next: T[]) => void;
   render: (item: T, index: number, handle: ReactNode) => ReactNode;
   label: string;
@@ -35,17 +36,17 @@ export function SortableList<T extends { id: string }>({
       accessibility={{ screenReaderInstructions: { draggable: "Space 로 집고 위·아래 화살표로 옮긴 뒤 Space 로 놓아요." } }}>
       <SortableContext items={items.map((x) => x.id)} strategy={verticalListSortingStrategy}>
         <ol className="tk-list sortable-list" aria-label={label}>
-          {items.map((item, i) => <SortableRow key={item.id} id={item.id}>{(handle) => render(item, i, handle)}</SortableRow>)}
+          {items.map((item, i) => <SortableRow key={item.id} id={item.id} disabled={disabled}>{(handle) => render(item, i, handle)}</SortableRow>)}
         </ol>
       </SortableContext>
     </DndContext>
   );
 }
 
-function SortableRow({ id, children }: { id: string; children: (handle: ReactNode) => ReactNode }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id });
+function SortableRow({ id, disabled, children }: { id: string; disabled?: boolean; children: (handle: ReactNode) => ReactNode }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
   const handle = (
-    <button ref={setActivatorNodeRef} className="sortable-handle" type="button" aria-label="끌어서 순서 바꾸기" {...attributes} {...listeners}>
+    <button ref={setActivatorNodeRef} className="sortable-handle" type="button" disabled={disabled} aria-label="끌어서 순서 바꾸기" {...attributes} {...listeners}>
       <Icon name="grip" />
     </button>
   );
