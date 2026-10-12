@@ -3,7 +3,7 @@ import type { KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { createMemo, deleteMemo, getMemo, patchMemo } from "../../api/client";
 import type { MemoOut } from "../../api/client";
 import { Button } from "../../ui/Button";
@@ -134,9 +134,6 @@ function MemoForm({ memo }: { memo: MemoOut | null }) {
   return (
     <div className="memo-editor">
       <div className="memo-editor__bar">
-        <Link className="tk-icon-button memo-editor__back" to="/memos" aria-label="메모 목록으로">
-          <Icon name="back" />
-        </Link>
         <div className="tk-segmented" role="radiogroup" aria-label="편집 방식">
           <label>
             <input type="radio" name={`${id}-mode`} checked={mode === "edit"} onChange={() => setMode("edit")} />
