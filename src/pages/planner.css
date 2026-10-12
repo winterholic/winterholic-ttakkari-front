@@ -1,0 +1,115 @@
+/* 메모·캘린더. 디자인 시스템 토큰만 쓴다(hex·dark: 금지). */
+
+/* ---- 메모: 모바일은 목록/편집기 중 하나만, lg 이상은 두 칸 */
+.planner-memos__layout { display: flex; flex: 1 1 auto; min-height: 0; }
+.planner-memos__list, .planner-memos__editor { flex: 1 1 auto; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.planner-memos__list { padding: var(--tk-space-3) var(--tk-space-4) var(--tk-space-6); }
+.planner-memos__editor { display: flex; flex-direction: column; padding: var(--tk-space-3) var(--tk-space-4) var(--tk-space-6); }
+.planner-memos__layout:not([data-editing]) .planner-memos__editor { display: none; }
+.planner-memos__layout[data-editing] .planner-memos__list { display: none; }
+.planner-memos__list .tk-list__title { display: flex; align-items: center; gap: var(--tk-space-1); }
+.planner-memos__list .tk-list__title > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-brand); }
+.planner-memos__list .tk-list__item[aria-current] { background: var(--tk-color-interactive-selected-bg); }
+.planner-memos__list .tk-filterbar { margin-bottom: var(--tk-space-3); }
+@media (min-width: 1024px) {
+  .planner-memos__layout .planner-memos__list, .planner-memos__layout .planner-memos__editor { display: flex; }
+  .planner-memos__list { flex: 0 0 22rem; flex-direction: column; border-right: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
+  .planner-memos__list > * { flex: none; }
+  .planner-memos__editor { flex: 1 1 0; padding-inline: var(--tk-space-6); }
+  .memo-editor__back { display: none; }
+}
+
+.memo-editor { display: flex; flex-direction: column; flex: 1 1 auto; gap: var(--tk-space-3); min-height: 0; }
+.memo-editor__bar { display: flex; align-items: center; gap: var(--tk-space-2); }
+.memo-editor__status { flex: 1 1 auto; min-width: 0; text-align: right; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.memo-editor__status[data-status="error"], .memo-editor__status[data-status="conflict"] { color: var(--tk-color-text-danger); }
+.memo-editor__fields { display: flex; flex-direction: column; flex: 1 1 auto; gap: var(--tk-space-3); min-height: 0; }
+.memo-editor__title { font-weight: var(--tk-font-weight-semibold); }
+.memo-editor__tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1-5); color: var(--tk-color-text-tertiary); }
+.memo-editor__tag-input {
+  flex: 1 1 8rem; min-width: 6rem; min-height: var(--tk-size-control-sm); padding: 0; border: 0; background: transparent; color: var(--tk-color-text-primary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.memo-editor__tag-input:focus { outline: none; }
+.memo-editor__tag-x { display: inline-flex; margin-left: var(--tk-space-1); padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.memo-editor__tag-x > .tk-icon { --tk-_icon: var(--tk-size-icon-xs); }
+.memo-editor__body {
+  flex: 1 1 auto; min-height: 16rem; resize: none;
+  font: var(--tk-font-weight-regular) var(--tk-font-size-md) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
+}
+.memo-editor__preview { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.memo-editor__preview-title { margin: 0 0 var(--tk-space-3); color: var(--tk-color-text-primary); font: var(--tk-font-weight-bold) var(--tk-font-size-xl) / var(--tk-font-line-height-heading) var(--tk-font-family-sans); }
+.memo-editor__note { margin: 0; }
+
+/* ---- 일정 편집 폼 */
+.planner-form { display: flex; flex-direction: column; gap: var(--tk-space-4); }
+.planner-form__when { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.planner-form__pair { display: flex; gap: var(--tk-space-2); }
+.planner-form__pair > * { flex: 1 1 0; min-width: 0; }
+.planner-form__actions {
+  position: sticky; bottom: 0; align-items: center; padding-block: var(--tk-space-3); background: var(--tk-color-surface-default);
+  border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle);
+}
+.planner-form__spacer { flex: 1 1 auto; }
+.planner-form__confirm { flex: 1 1 auto; color: var(--tk-color-text-danger); font-size: var(--tk-font-size-sm); }
+
+/* ---- 캘린더. FullCalendar 변수를 디자인 시스템 토큰으로 돌린다 */
+.planner-cal__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tk-space-2); padding: var(--tk-space-2) var(--tk-space-4); }
+.planner-cal__nav { display: flex; align-items: center; gap: var(--tk-space-1); min-width: 0; }
+.planner-cal__title { margin: 0 0 0 var(--tk-space-2); color: var(--tk-color-text-primary); white-space: nowrap; font: var(--tk-font-weight-semibold) var(--tk-font-size-lg) / var(--tk-font-line-height-heading) var(--tk-font-family-sans); }
+.planner-cal__body { flex: 1 1 auto; min-height: 0; padding: 0 var(--tk-space-2) var(--tk-space-2); overflow: hidden; }
+.planner-cal__body .fc {
+  --fc-border-color: var(--tk-color-border-subtle);
+  --fc-page-bg-color: transparent;
+  --fc-neutral-bg-color: var(--tk-color-surface-subtle);
+  --fc-neutral-text-color: var(--tk-color-text-tertiary);
+  --fc-today-bg-color: var(--tk-color-surface-brand-subtle);
+  --fc-event-bg-color: var(--tk-color-surface-brand-subtle);
+  --fc-event-border-color: var(--tk-color-border-brand);
+  --fc-event-text-color: var(--tk-color-text-primary);
+  --fc-list-event-hover-bg-color: var(--tk-color-interactive-hover-overlay);
+  --fc-more-link-bg-color: transparent;
+  --fc-now-indicator-color: var(--tk-color-text-danger);
+  --fc-non-business-color: transparent;
+  --fc-highlight-color: var(--tk-color-interactive-selected-bg);
+  --fc-popover-bg-color: var(--tk-color-surface-raised);
+  color: var(--tk-color-text-primary);
+  font-family: var(--tk-font-family-sans);
+  font-size: var(--tk-font-size-sm);
+}
+.planner-cal__body .fc .fc-scroller { overscroll-behavior: contain; }
+.planner-cal__body .fc-theme-standard .fc-popover { box-shadow: var(--tk-shadow-md); border-radius: var(--tk-radius-md); z-index: var(--tk-z-index-popover); }
+.planner-cal__body .fc-col-header-cell-cushion, .planner-cal__body .fc-daygrid-day-number { color: var(--tk-color-text-secondary); text-decoration: none; }
+.planner-cal__body .fc-daygrid-day-number { padding: var(--tk-space-1) var(--tk-space-1-5); }
+.planner-cal__body .fc-event { cursor: pointer; border-radius: var(--tk-radius-xs); font-size: var(--tk-font-size-xs); }
+.planner-cal__body .fc-daygrid-more-link { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.planner-cal__body .fc-list-event { cursor: pointer; }
+.planner-cal__body .fc-list-event-dot { border-color: var(--tk-color-border-brand); }
+.planner-cal__body .fc-list-day-text, .planner-cal__body .fc-list-day-side-text { color: var(--tk-color-text-primary); text-decoration: none; }
+
+/* 일요일과 공휴일은 날짜를 빨갛게, 토요일은 약하게 */
+.planner-cal__body .tk-cal-day--red, .planner-cal__body .tk-cal-day--red .fc-daygrid-day-number,
+.planner-cal__body .tk-cal-day--red .fc-col-header-cell-cushion, .planner-cal__body .tk-cal-day--red .fc-list-day-text,
+.planner-cal__body .tk-cal-day--red .fc-list-day-side-text { color: var(--tk-color-text-danger); }
+.planner-cal__body .tk-cal-day--sat .fc-daygrid-day-number, .planner-cal__body .tk-cal-day--sat .fc-col-header-cell-cushion { color: var(--tk-color-text-info); }
+
+/* 공휴일 이름: 배경 없이 빨간 글자. 클릭해도 열리지 않는다 */
+.planner-cal__body .fc-event.tk-cal-holiday { background: transparent; border-color: transparent; cursor: default; pointer-events: none; }
+.planner-cal__body .fc-event.tk-cal-holiday .fc-event-title, .planner-cal__body .fc-event.tk-cal-holiday .fc-event-main,
+.planner-cal__body .fc-list-event.tk-cal-holiday td, .planner-cal__body .fc-list-event.tk-cal-holiday a { color: var(--tk-color-text-danger); }
+.planner-cal__body .fc-list-event.tk-cal-holiday { cursor: default; }
+.planner-cal__body .fc-list-event.tk-cal-holiday .fc-list-event-dot { border-color: var(--tk-color-border-danger); }
+
+.planner-cal__body .fc-daygrid-event { border-width: var(--tk-border-width-hairline); padding-inline: var(--tk-space-0-5); }
+.planner-cal__body .fc-event.tk-cal-holiday .fc-event-title { white-space: normal; font-weight: var(--tk-font-weight-medium); }
+.planner-cal__body .fc-daygrid-event .fc-event-time { font-weight: var(--tk-font-weight-regular); }
+
+@media (max-width: 639px) {
+  /* 칸이 좁아 시각까지 넣으면 제목이 잘린다. 시각은 주·목록 보기와 편집 화면에서 본다 */
+  .planner-cal__body .fc-daygrid-event .fc-event-time { display: none; }
+  .planner-cal__bar { padding-inline: var(--tk-space-3); }
+  .planner-cal__title { font-size: var(--tk-font-size-md); }
+  .planner-cal__body { padding-inline: 0; }
+  .planner-cal__body .fc-col-header-cell-cushion { padding-inline: 0; font-size: var(--tk-font-size-xs); }
+  .planner-cal__body .fc-timegrid-slot-label-cushion { font-size: var(--tk-font-size-xs); }
+}

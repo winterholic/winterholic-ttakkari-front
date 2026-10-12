@@ -434,3 +434,75 @@ export const deleteOverride = (): Promise<void> => json("/api/accounts/override"
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });
+
+// ---- 메모·캘린더(ADR 0008). 시각은 Asia/Seoul 벽시계 문자열이다(시간 `YYYY-MM-DDTHH:MM`, 종일 `YYYY-MM-DD`, 끝 날짜 포함).
+export interface MemoSummary {
+  id: string;
+  title: string;
+  tags: string[];
+  pinned: boolean;
+  source: "user" | "agent";
+  rev: number;
+  excerpt: string;
+  created_at: string;
+  updated_at: string;
+}
+export interface MemoOut extends MemoSummary {
+  body: string;
+}
+export interface MemoPatch {
+  title?: string;
+  body?: string;
+  tags?: string[];
+  pinned?: boolean;
+  /** 마지막으로 본 버전. 서버와 다르면 409 conflict. */
+  rev?: number;
+}
+export interface EventOut {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  all_day: boolean;
+  start: string;
+  end: string;
+  rrule: string | null;
+  recurring: boolean;
+  source: "user" | "agent";
+  created_at: string;
+  updated_at: string;
+}
+export interface EventIn {
+  title: string;
+  start: string;
+  end?: string;
+  all_day: boolean;
+  description?: string;
+  location?: string;
+  rrule?: string | null;
+}
+export type EventPatch = Partial<EventIn>;
+export interface HolidayOut {
+  date: string;
+  name: string;
+  substitute: boolean;
+}
+
+export const listMemos = (p: { q?: string; tag?: string } = {}): Promise<{ memos: MemoSummary[] }> =>
+  json("/api/memos", { query: { ...p, limit: 300 } });
+export const listMemoTags = (): Promise<{ tags: { name: string; count: number }[] }> => json("/api/memos/tags");
+export const createMemo = (body: { title?: string; body?: string; tags?: string[]; pinned?: boolean } = {}): Promise<MemoOut> =>
+  json("/api/memos", { method: "POST", json: body });
+export const getMemo = (id: string): Promise<MemoOut> => json(`/api/memos/${id}`);
+export const patchMemo = (id: string, body: MemoPatch): Promise<MemoOut> => json(`/api/memos/${id}`, { method: "PATCH", json: body });
+export const deleteMemo = (id: string): Promise<void> => json(`/api/memos/${id}`, { method: "DELETE" });
+
+export const listEvents = (from: string, to: string): Promise<{ events: EventOut[] }> =>
+  json("/api/calendar/events", { query: { from, to } });
+export const listHolidays = (from: string, to: string): Promise<{ holidays: HolidayOut[] }> =>
+  json("/api/calendar/holidays", { query: { from, to } });
+export const getEvent = (id: string): Promise<EventOut> => json(`/api/calendar/events/${id}`);
+export const createEvent = (body: EventIn): Promise<EventOut> => json("/api/calendar/events", { method: "POST", json: body });
+export const patchEvent = (id: string, body: EventPatch): Promise<EventOut> =>
+  json(`/api/calendar/events/${id}`, { method: "PATCH", json: body });
+export const deleteEvent = (id: string): Promise<void> => json(`/api/calendar/events/${id}`, { method: "DELETE" });

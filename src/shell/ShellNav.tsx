@@ -25,6 +25,29 @@ export function areas(sessionId?: string): Area[] {
   ];
 }
 
+/**
+ * 메모·캘린더. 하단 탭이 이미 다섯이라 탭에는 넣지 않고, 사이드바(데스크톱)와 드로어(모바일)의 영역 링크 아래에 둔다.
+ * 영역(채팅·작업 공간…)과 달리 "생활 도구"라 한 묶음으로 나눈다.
+ */
+const TOOLS: { root: string; to: string; icon: IconName; label: string }[] = [
+  { root: "memos", to: "/memos", icon: "memo", label: "메모" },
+  { root: "calendar", to: "/calendar", icon: "calendar", label: "캘린더" },
+];
+
+export function ToolLinks() {
+  const here = useLocation().pathname.split("/")[1];
+  return (
+    <div className="tk-nav" role="group" aria-label="메모와 캘린더">
+      {TOOLS.map((t) => (
+        <Link key={t.root} className="tk-nav__link" to={t.to} aria-current={t.root === here ? "page" : undefined}>
+          <Icon name={t.icon} />
+          {t.label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 export function AreaLinks({ sessionId, variant }: { sessionId?: string; variant: "nav" | "tabbar" }) {
   const here = useLocation().pathname.split("/")[1];
   const cls = variant === "nav" ? "tk-nav__link" : "tk-tabbar__item";

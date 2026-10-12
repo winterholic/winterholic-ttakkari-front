@@ -14,7 +14,7 @@ import "./shell.css";
 import { ShellContext } from "./ShellContext";
 import type { ShellApi } from "./ShellContext";
 import { SessionList } from "./SessionList";
-import { AreaLinks } from "./ShellNav";
+import { AreaLinks, ToolLinks } from "./ShellNav";
 import { useShortcuts } from "./useShortcuts";
 import { useConnection } from "./useConnection";
 import { useKeyboardOpen } from "./useKeyboardOpen";
@@ -135,6 +135,7 @@ export function AppShell() {
             <div className="tk-nav">
               <AreaLinks sessionId={currentSession} variant="nav" />
             </div>
+            <ToolLinks />
             <SessionList currentId={sessionId} />
           </nav>
           <SidebarFooter connection={connection} />
@@ -159,6 +160,7 @@ export function AppShell() {
           </div>
           <div className="tk-drawer__body">
             <nav className="tk-sidebar" aria-label="세션">
+              <ToolLinks />
               <SessionList currentId={sessionId} />
             </nav>
           </div>

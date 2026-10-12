@@ -73,9 +73,18 @@ describe("AppShell 인증 가드", () => {
     expect(screen.getByText("보관함 본문")).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "영역과 세션" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((l) => l.textContent)).toEqual(expect.arrayContaining(["채팅", "작업 공간", "보관함", "파일"]));
+    expect(links.map((l) => l.textContent)).toEqual(expect.arrayContaining(["채팅", "작업 공간", "보관함", "파일", "메모", "캘린더"]));
     const current = links.filter((l) => l.getAttribute("aria-current") === "page");
     expect(current.map((l) => l.textContent)).toEqual(["보관함"]);
+  });
+
+  it("메모·캘린더는 하단 탭이 아니라 사이드바·드로어 링크로 둔다 (탭은 다섯 개 그대로)", () => {
+    renderAt("/library");
+    const tabbar = screen.getByRole("navigation", { name: "영역" });
+    expect(within(tabbar).getAllByRole("link").map((l) => l.textContent)).toEqual(["채팅", "회사", "작업 공간", "보관함", "파일"]);
+    const nav = screen.getByRole("navigation", { name: "영역과 세션" });
+    expect(within(nav).getByRole("link", { name: "메모" }).getAttribute("href")).toBe("/memos");
+    expect(within(nav).getByRole("link", { name: "캘린더" }).getAttribute("href")).toBe("/calendar");
   });
 
   it("세션 화면에서 작업 공간 링크는 그 세션으로 가고, 세션 행은 /chat/:id 를 가리킨다", async () => {
