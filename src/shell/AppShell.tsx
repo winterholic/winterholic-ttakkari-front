@@ -17,6 +17,7 @@ import { SessionList } from "./SessionList";
 import { AreaLinks } from "./ShellNav";
 import { useShortcuts } from "./useShortcuts";
 import { useConnection } from "./useConnection";
+import { useKeyboardOpen } from "./useKeyboardOpen";
 import type { ConnectionState } from "./ShellContext";
 
 const BRAND = (
@@ -91,6 +92,7 @@ export function AppShell() {
   const location = useLocation();
   const connection = useConnection(state === "in");
   useShortcuts();
+  useKeyboardOpen();
   // 작업 공간 링크가 마지막으로 본 세션으로 가도록, 세션이 있는 화면에서 id 를 기억한다.
   const [lastSession, setLastSession] = useState<string | undefined>(sessionId);
   if (sessionId && sessionId !== lastSession) setLastSession(sessionId);

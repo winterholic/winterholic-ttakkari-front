@@ -2,7 +2,7 @@
 .app-shell-footer {
   display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-2); flex: none;
   padding: var(--tk-space-2) var(--tk-space-3);
-  padding-bottom: calc(var(--tk-space-2) + env(safe-area-inset-bottom));
+  padding-bottom: max(var(--tk-space-2), calc(env(safe-area-inset-bottom) / 2));
   border-top: var(--tk-border-width-hairline) solid var(--tk-component-sidebar-border);
 }
 /* 사용자 메뉴: 이름 + 연결 상태를 한 버튼에 담고, 설정·알림·테마·로그아웃은 위로 여는 메뉴에 모은다 */
@@ -27,3 +27,10 @@
 /* 다이얼로그·시트 본문: flex 기준을 내용 크기(auto)로 둔다. vendor 의 `flex: 1`(= 0%)은 높이가 auto 인 세로 flex 상자에서
    WebKit 이 본문을 padding 만큼으로 줄여, 모바일 사파리에서 사용량·알림 모달 내용이 잘렸다. */
 :is(.tk-dialog, .tk-sheet) .tk-dialog__body { flex: 1 1 auto; }
+
+/* 하단 여백: 홈 인디케이터 높이(env)를 통째로 비우면 탭바 아래가 휑해서 절반만 비운다(최소 space-2). */
+.tk-tabbar { padding-bottom: max(var(--tk-space-2), calc(env(safe-area-inset-bottom) / 2)); }
+/* 드로어는 vendor 규칙이 padding-bottom 에 env 를 주는데 .app-shell-footer 도 env 를 더해 두 번 비워졌다. 푸터 한 곳에서만 비운다. */
+.tk-drawer { padding-bottom: 0; }
+/* 키보드가 올라와 있으면(useKeyboardOpen) 탭바를 숨긴다 */
+html[data-kbd] .tk-tabbar { display: none; }
