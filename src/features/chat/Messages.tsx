@@ -3,6 +3,7 @@ import remarkGfm from "remark-gfm";
 import { downloadLink } from "../../api/client";
 import type { ArtifactOut, RunOut } from "../../api/types";
 import { Icon, KIND_GLYPH } from "../../ui/Icon";
+import { SentAttachments } from "./Attachments";
 import { RunCard, StateBadge } from "./RunCard";
 import { STATUS_LABEL, formatBytes } from "./runView";
 import type { RunView } from "./runView";
@@ -73,19 +74,11 @@ export function ReportMessage({ run }: { run: RunOut }) {
   );
 }
 
-export function UserMessage({ run, contextNames }: { run: RunOut; contextNames: string[] }) {
+export function UserMessage({ run, onOpen }: { run: RunOut; onOpen: (id: string) => void }) {
   const byOrchestrator = run.origin === "orchestrator";
   return (
     <article className="tk-message tk-message--user" data-author="user" aria-label={byOrchestrator ? "오케스트레이터 지시" : "내 지시"}>
-      {contextNames.length > 0 && (
-        <div className="tk-chips" aria-label="함께 보낸 문맥">
-          {contextNames.map((n) => (
-            <span key={n} className="tk-chip tk-chip--context">
-              {n}
-            </span>
-          ))}
-        </div>
-      )}
+      {run.context_artifact_ids.length > 0 && <SentAttachments ids={run.context_artifact_ids} onOpen={onOpen} />}
       <div className="tk-message__body">{run.prompt}</div>
       <p className="tk-message__meta">
         {byOrchestrator && <span>오케스트레이터 지시 · </span>}

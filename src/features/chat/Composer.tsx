@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { Icon } from "../../ui/Icon";
+import "./attachments.css";
 
 const DRAFT_PREFIX = "tk-draft:";
 
@@ -124,7 +125,7 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
 
   return (
     <div className="tk-composer-tray">
-      <form className="tk-composer" aria-label={label} onSubmit={onFormSubmit} data-offline={online ? undefined : ""}>
+      <form className="tk-composer" aria-label={label} onSubmit={onFormSubmit} data-offline={online ? undefined : ""} data-has-context={context ? "" : undefined}>
         {context}
         <div className="tk-composer__row">
           {onAttach && (

@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, cancelRun, createRun, createSession, getArtifact, getSession, getWorkspace, listRuns, patchSession, stopAll, uploadFile } from "../api/client";
 import { Menu } from "../ui/Menu";
 import { toast } from "../ui/toastStore";
-import type { AccountPool, RunOut } from "../api/types";
+import type { AccountPool } from "../api/types";
+import { PendingAttachment, releaseFileUrl } from "../features/chat/Attachments";
 import { Composer } from "../features/chat/Composer";
 import { NewSession } from "../features/chat/NewSession";
 import type { NewSessionChoice } from "../features/chat/NewSession";
@@ -141,11 +142,6 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
     attach([a.file]);
   };
 
-  const contextNames = useCallback(
-    (run: RunOut) => run.context_artifact_ids.map((id) => (contextArtifact.data?.id === id ? contextArtifact.data.filename : "함께 보낸 파일")),
-    [contextArtifact.data],
-  );
-
   const refreshAll = useCallback(() => {
     void qc.invalidateQueries({ queryKey: ["runs", sessionId] });
     void qc.invalidateQueries({ queryKey: ["sessions"] });
@@ -172,6 +168,7 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
     },
     onSuccess: ({ sid }) => {
       setSendError(null);
+      attachments.forEach((a) => releaseFileUrl(a.file));
       setAttachments([]);
       void qc.invalidateQueries({ queryKey: ["sessions"] });
       if (sid !== sessionId) navigate(`/${pool === "work" ? "work" : "chat"}/${sid}`);
@@ -337,7 +334,6 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
               {i > 0 && <hr className="tk-divider thread-divider" />}
               <RunBlock
                 run={run}
-                contextNames={contextNames(run)}
                 isLast={i === runList.length - 1}
                 onOpen={viewer.open}
                 onStop={stop}
@@ -373,36 +369,35 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
         notice={dragging ? "놓으면 첨부해요" : null}
         context={
           contextShown || attachments.length > 0 ? (
-            <div className="tk-chips" aria-label="함께 보낼 문맥">
+            <>
               {contextShown && (
-                <span className="tk-chip tk-chip--context">
-                  <span>{contextShown.filename}</span>
-                  <button className="tk-icon-button tk-icon-button--xs tk-icon-button--round" type="button" aria-label="문맥에서 빼기" onClick={() => setDroppedId(contextShown.id)}>
-                    <Icon name="x" />
-                  </button>
-                </span>
-              )}
-              {attachments.map((a) => (
-                <span
-                  key={a.key}
-                  className="tk-chip tk-chip--context"
-                  aria-busy={a.state === "uploading" || undefined}
-                  data-failed={a.state === "failed" ? "" : undefined}
-                  title={a.error}
-                >
-                  {a.state === "uploading" && <span className="tk-spinner tk-spinner--xs" aria-hidden />}
-                  <span>{a.name}</span>
-                  {a.state === "failed" && (
-                    <button className="tk-icon-button tk-icon-button--xs tk-icon-button--round" type="button" aria-label={`${a.name} 다시 올리기`} onClick={() => retryAttach(a.key)}>
-                      <Icon name="retry" />
+                <div className="tk-chips" aria-label="함께 보낼 문맥">
+                  <span className="tk-chip tk-chip--context">
+                    <span>{contextShown.filename}</span>
+                    <button className="tk-icon-button tk-icon-button--xs tk-icon-button--round" type="button" aria-label="문맥에서 빼기" onClick={() => setDroppedId(contextShown.id)}>
+                      <Icon name="x" />
                     </button>
-                  )}
-                  <button className="tk-icon-button tk-icon-button--xs tk-icon-button--round" type="button" aria-label={`${a.name} 빼기`} onClick={() => setAttachments((all) => all.filter((x) => x.key !== a.key))}>
-                    <Icon name="x" />
-                  </button>
-                </span>
-              ))}
-            </div>
+                  </span>
+                </div>
+              )}
+              {attachments.length > 0 && (
+                <div className="tk-attach-list" aria-label="함께 보낼 첨부">
+                  {attachments.map((a) => (
+                    <PendingAttachment
+                      key={a.key}
+                      file={a.file}
+                      state={a.state}
+                      error={a.error}
+                      onRetry={() => retryAttach(a.key)}
+                      onRemove={() => {
+                        releaseFileUrl(a.file);
+                        setAttachments((all) => all.filter((x) => x.key !== a.key));
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           ) : undefined
         }
       />

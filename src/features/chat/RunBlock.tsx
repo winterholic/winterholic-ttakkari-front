@@ -21,7 +21,6 @@ async function allEvents(runId: string): Promise<RunEvent[]> {
 
 export interface RunBlockProps {
   run: RunOut;
-  contextNames: string[];
   isLast: boolean;
   onOpen: (id: string) => void;
   onStop: (runId: string) => void;
@@ -31,7 +30,7 @@ export interface RunBlockProps {
   onSettled: () => void;
 }
 
-export function RunBlock({ run, contextNames, isLast, onOpen, onStop, onRetry, onSuggest, onSettled }: RunBlockProps) {
+export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettled }: RunBlockProps) {
   const active = ACTIVE.includes(run.status);
   const stream = useRunStream(active ? run.id : null);
   // 끝난 Run 은 이벤트가 더 생기지 않는다. 한 번 읽고 캐시한다.
@@ -52,7 +51,7 @@ export function RunBlock({ run, contextNames, isLast, onOpen, onStop, onRetry, o
 
   return (
     <>
-      {run.origin === "report" ? <ReportMessage run={run} /> : <UserMessage run={run} contextNames={contextNames} />}
+      {run.origin === "report" ? <ReportMessage run={run} /> : <UserMessage run={run} onOpen={onOpen} />}
       <AgentMessage
         run={run}
         view={view}

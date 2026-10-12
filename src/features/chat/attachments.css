@@ -1,0 +1,50 @@
+/* 첨부 타일: 입력창·보낸 말풍선 공용. 이미지는 정사각 썸네일, 그 외는 아이콘 + 이름 + 종류·크기. 디자인 시스템 토큰만 쓴다. */
+.tk-attach-list { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); min-width: 0; }
+.tk-message--user .tk-attach-list { justify-content: flex-end; max-width: var(--tk-component-message-user-max-width); }
+.tk-composer > .tk-attach-list { padding: var(--tk-space-1) var(--tk-space-1) 0; }
+
+.tk-attach {
+  position: relative; display: inline-flex; min-width: 0; max-width: 100%;
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg);
+  background: var(--tk-color-surface-subtle); color: var(--tk-color-text-primary); overflow: hidden;
+}
+.tk-attach[data-failed] { border-color: var(--tk-color-border-danger); }
+.tk-attach[data-state="uploading"] .tk-attach__thumb img { opacity: var(--tk-opacity-muted); }
+.tk-attach__main {
+  display: flex; align-items: center; gap: var(--tk-space-2); min-width: 0; margin: 0; padding: 0; border: 0; background: none;
+  color: inherit; font: inherit; text-align: left; cursor: default;
+}
+button.tk-attach__main { cursor: pointer; }
+button.tk-attach__main:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(-1 * var(--tk-focus-ring-width)); }
+
+.tk-attach[data-kind="file"] .tk-attach__main { padding: var(--tk-space-2) var(--tk-space-3) var(--tk-space-2) var(--tk-space-2); width: calc(var(--tk-size-control-lg) * 4); max-width: 100%; }
+.tk-attach[data-kind="file"]:has(.tk-attach__actions) .tk-attach__main { padding-right: calc(var(--tk-size-control-md) + var(--tk-space-2)); }
+.tk-attach__text { display: flex; flex-direction: column; gap: var(--tk-space-0-5); min-width: 0; }
+.tk-attach__name {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
+  font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.tk-attach__meta {
+  display: flex; align-items: center; gap: var(--tk-space-1-5); color: var(--tk-color-text-tertiary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+
+.tk-attach__thumb {
+  display: grid; place-items: center; width: calc(var(--tk-size-control-lg) * 2); aspect-ratio: 1; background: var(--tk-color-surface-muted);
+  color: var(--tk-color-text-tertiary);
+}
+.tk-attach__thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* 삭제·재시도는 타일 모서리에 얹는다. 터치 영역은 .tk-icon-button--xs 가 넓혀 준다 */
+.tk-attach__actions { position: absolute; top: var(--tk-space-1); right: var(--tk-space-1); display: flex; gap: var(--tk-space-0-5); }
+.tk-attach[data-kind="image"] .tk-attach__actions .tk-icon-button { background: var(--tk-color-surface-inverse); color: var(--tk-color-text-inverse); }
+.tk-attach[data-kind="file"] .tk-attach__actions { top: 50%; transform: translateY(-50%); }
+.tk-attach__busy { position: absolute; inset: 0; margin: auto; }
+
+/* 입력창: 첨부가 붙으면 본문을 전폭 한 줄로 올리고, 첨부 버튼·보내기는 아래 줄로 내린다.
+   클립 폭만큼 본문이 밀려 칩 줄과 어긋나던 문제를 없앤다. 첨부가 없을 때는 한 줄 레이아웃 그대로. */
+.tk-composer[data-has-context] .tk-composer__row { flex-wrap: wrap; align-items: center; }
+.tk-composer[data-has-context] .tk-composer__input { order: -1; flex: 1 0 100%; padding-inline: var(--tk-space-2); }
+.tk-composer[data-has-context] .tk-composer__send { margin-left: auto; }
+.tk-composer[data-has-context] .tk-composer__send ~ .tk-composer__send { margin-left: 0; }
+.tk-composer .tk-attach__thumb { width: calc(var(--tk-size-control-lg) * 1.5); }
