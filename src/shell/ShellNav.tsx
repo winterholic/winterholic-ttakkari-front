@@ -25,9 +25,12 @@ export function areas(sessionId?: string): Area[] {
 
 const MORE_ROOTS = ["workspace", "library", "files"];
 
-/** 하단 탭에 자리가 없어 모바일에서는 더보기 화면(/more)으로 가는 영역. */
-export function moreAreas(sessionId?: string): Area[] {
-  return areas(sessionId).filter((a) => MORE_ROOTS.includes(a.root));
+/**
+ * 하단 탭에 자리가 없어 모바일에서는 더보기 화면(/more)으로 가는 영역.
+ * 작업 공간은 마지막 세션이 아니라 개요(/workspace)로 보낸다. 더보기에서 맥락 없이 특정 세션이 뜨면 무슨 화면인지 알 수 없었다.
+ */
+export function moreAreas(): Area[] {
+  return areas().filter((a) => MORE_ROOTS.includes(a.root));
 }
 
 /**

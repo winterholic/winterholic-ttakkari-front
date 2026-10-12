@@ -1,0 +1,10 @@
+/* 작업 공간 맨 위 한 줄 설명. 처음 온 사람이 이 화면이 무엇인지 알게 한다 */
+.workspace-intro {
+  margin: 0; padding: var(--tk-space-3) var(--tk-space-4) var(--tk-space-1);
+  color: var(--tk-color-text-secondary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.workspace-intro--session { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--tk-space-1) var(--tk-space-3); }
+.workspace-intro__links { display: flex; gap: var(--tk-space-3); flex: none; }
+.workspace-intro__links a { color: var(--tk-color-text-link); font-weight: var(--tk-font-weight-medium); text-decoration: none; }
+.workspace-intro__links a:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); border-radius: var(--tk-radius-sm); }

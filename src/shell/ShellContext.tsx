@@ -14,8 +14,6 @@ export interface ConnectionState {
 export interface ShellApi {
   openDrawer: () => void;
   connection: ConnectionState;
-  /** 마지막으로 본 세션. 작업 공간 링크(사이드바·더보기)가 이 세션으로 간다. */
-  lastSession?: string;
 }
 
 export const DEFAULT_CONNECTION: ConnectionState = { online: true, mac: "checking", lastOkAt: null };

@@ -106,14 +106,14 @@ describe("AppShell 인증 가드", () => {
     expect(within(drawer).queryByRole("link", { name: "캘린더", hidden: true })).toBeNull();
   });
 
-  it("더보기 화면은 작업 공간·보관함·파일을 모으고 작업 공간은 마지막 세션으로 간다", async () => {
+  it("더보기 화면은 작업 공간·보관함·파일을 모으고, 작업 공간은 마지막 세션이 아니라 개요로 간다", async () => {
     renderAt("/chat/s9");
-    // 세션 화면을 거쳐 더보기로 가야 마지막 세션이 기억된다. 탭 링크를 눌러 이동한다.
+    // 세션 화면을 거쳐 와도(사이드바는 그 세션을 기억한다) 더보기의 작업 공간은 개요다.
     within(screen.getByRole("navigation", { name: "영역" })).getByRole("link", { name: "더보기" }).click();
     const more = await screen.findByRole("navigation", { name: "더보기 메뉴" });
     const links = within(more).getAllByRole("link");
     expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
-      ["작업 공간", "/workspace/s9"],
+      ["작업 공간", "/workspace"],
       ["보관함", "/library"],
       ["파일", "/files"],
     ]);

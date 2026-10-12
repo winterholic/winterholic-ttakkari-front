@@ -103,10 +103,7 @@ export function AppShell() {
   const drawerOpen = drawerKey === location.key;
   const openDrawer = useCallback(() => setDrawerKey(location.key), [location.key]);
 
-  const api = useMemo<ShellApi>(
-    () => ({ openDrawer, connection, lastSession: currentSession }),
-    [openDrawer, connection, currentSession],
-  );
+  const api = useMemo<ShellApi>(() => ({ openDrawer, connection }), [openDrawer, connection]);
 
   if (state === "out") return <Navigate to="/login" replace />;
   if (state === "loading") {
