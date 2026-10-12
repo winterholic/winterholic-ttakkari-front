@@ -318,8 +318,12 @@ export const revokeTransferToken = (id: string): Promise<void> => json(`/api/tra
 // ---- 비서 관리(ADR 0007)
 export type MemoryKind = "fact" | "preference" | "decision" | "event" | "instruction" | "note";
 export type EntityType = "person" | "project" | "org" | "place" | "tool" | "topic" | "preference" | "other";
+export type ContextScope = "personal" | "work" | "shared";
+export const SCOPE_LABEL: Record<ContextScope, string> = { personal: "개인", work: "회사", shared: "공통" };
+export const CATEGORY_LABEL: Record<string, string> = { projects: "프로젝트", "work-history": "작업 기록", knowledge: "지식", health: "건강" };
 export interface AssistantStatus {
   embedder: string;
+  retrieval?: string;
   model: string | null;
   ready: boolean;
   counts: { memories: number; entities: number; relations: number; documents: number; chunks: number };
@@ -333,6 +337,8 @@ export interface MemoryOut {
   source: string;
   entities: string[];
   created_at: string;
+  scope?: ContextScope;
+  source_ref?: string | null;
 }
 export interface EntityOut {
   id: string;
@@ -341,6 +347,7 @@ export interface EntityOut {
   aliases: string[];
   summary: string | null;
   pinned: boolean;
+  scope?: ContextScope;
 }
 export interface EntityDetail extends EntityOut {
   relations: { subject: string | null; predicate: string; object: string | null; note: string | null }[];
@@ -356,6 +363,9 @@ export interface SourceOut {
   last_indexed_at: string | null;
   last_error: string | null;
   indexing: boolean;
+  scope?: ContextScope;
+  category?: string;
+  entity_id?: string | null;
 }
 export interface RecallHit {
   type: "memory" | "chunk" | "entity";
@@ -367,6 +377,10 @@ export interface RecallHit {
   kind?: string;
   entity_type?: string;
   name?: string;
+  scope?: ContextScope;
+  category?: string;
+  project?: string | null;
+  source_ref?: string | null;
 }
 export interface ToolInfo {
   name: string;

@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 import {
   addEntity, addMemory, addRelation, addSource, assistantStatus, deleteEntity, deleteMemory, deleteSource, getInstructions,
   listEntities, listMemories, listSources, listTools, patchEntity, patchMemory, putInstructions, recallTest, reindexSource,
+  CATEGORY_LABEL, SCOPE_LABEL,
 } from "../api/client";
 import type { EntityType, MemoryKind, RecallHit } from "../api/client";
 import { errorText } from "../features/viewer/api";
@@ -180,6 +181,7 @@ function MemoryTab() {
                   <span className="tk-list__title tk-list__title--wrap">{m.content}</span>
                   <span className="tk-list__meta">
                     <span>{KIND_LABEL[m.kind]}</span>
+                    {m.scope && <span>{SCOPE_LABEL[m.scope]}</span>}
                     <span>{m.source === "agent" ? "따까리가 기억" : m.source === "manual" ? "직접 넣음" : m.source}</span>
                     {m.entities.length > 0 && <span>{m.entities.join(", ")}</span>}
                   </span>
@@ -255,7 +257,7 @@ function KnowledgeTab() {
     <>
       <section className="tk-section" aria-labelledby={`${id}-s`}>
         <div className="tk-section__head"><h2 className="tk-section__title" id={`${id}-s`}>지식 출처</h2></div>
-        <p className="tk-fieldset__help">폴더 안의 마크다운·텍스트를 잘라 색인해요. 따까리가 recall 로 찾아 써요. 바뀐 파일만 매시간 다시 색인해요.</p>
+        <p className="tk-fieldset__help">폴더 안의 마크다운·텍스트를 잘라 색인해요. 따까리가 recall 로 찾아 써요(키워드·부분 일치 검색, 별도 임베딩 모델 없음). 바뀐 파일만 매시간 다시 색인해요.</p>
         <form className="assistant-form__row" onSubmit={(e) => { e.preventDefault(); if (path.trim()) add.mutate(); }}>
           <input className="tk-input tk-input--sm tk-input--mono" value={path} onChange={(e) => setPath(e.target.value)} placeholder="~/work-history" aria-label="폴더 경로" />
           <button className="tk-button tk-button--sm tk-button--primary" type="submit" aria-disabled={!path.trim() || undefined} aria-busy={add.isPending || undefined}>추가</button>
@@ -270,6 +272,8 @@ function KnowledgeTab() {
                 <span className="tk-list__body">
                   <span className="tk-list__title tk-mono">{s.path.replace(/^\/Users\/[^/]+/, "~")}</span>
                   <span className="tk-list__meta">
+                    {s.scope && <span>{SCOPE_LABEL[s.scope]}</span>}
+                    {s.category && <span>{CATEGORY_LABEL[s.category] ?? s.category}</span>}
                     {s.indexing ? <span><span className="tk-spinner tk-spinner--xs" aria-hidden /> 색인 중</span> : <span>문서 {s.documents} · 조각 {s.chunks}</span>}
                     <span>{s.pattern}</span>
                     {s.last_indexed_at && <span>{new Date(s.last_indexed_at).toLocaleString("ko-KR")}</span>}
@@ -303,6 +307,8 @@ function KnowledgeTab() {
                     <span className="tk-list__meta">
                       <span>{h.type === "memory" ? "기억" : h.type === "entity" ? "항목" : "문서"}</span>
                       <span className="tk-mono">{h.score.toFixed(3)}</span>
+                      {h.scope && <span>{SCOPE_LABEL[h.scope]}</span>}
+                      {h.project && <span>{h.project}</span>}
                       {h.path && <span className="tk-mono">{h.path.split("/").slice(-1)[0]}</span>}
                       {h.heading && <span>{h.heading}</span>}
                     </span>
