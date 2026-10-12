@@ -15,6 +15,7 @@ import { useIsDesktop } from "../features/viewer/hooks";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 import { Dialog } from "../ui/Dialog";
+import { useForegroundResync } from "../hooks/useForegroundResync";
 import { WorkerPanel, useWorkers } from "../features/orchestrator/WorkerPanel";
 
 const FOLLOW_THRESHOLD = 96;
@@ -97,7 +98,8 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
     queryKey: ["runs", sessionId],
     queryFn: () => listRuns(sessionId!),
     enabled: !!sessionId,
-    refetchInterval: (q) => ((q.state.data ?? []).some((r) => ACTIVE.includes(r.status)) ? 10_000 : false),
+    // 워커 보고로 서버가 새 run 을 만들어도 클라이언트는 모른다. 진행 중이 아니어도 느리게 계속 확인한다.
+    refetchInterval: (q) => ((q.state.data ?? []).some((r) => ACTIVE.includes(r.status)) ? 10_000 : 30_000),
   });
   const runList = useMemo(() => runs.data ?? [], [runs.data]);
   const activeRun = runList.find((r) => ACTIVE.includes(r.status)) ?? null;
@@ -149,6 +151,12 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
     void qc.invalidateQueries({ queryKey: ["sessions"] });
     void qc.invalidateQueries({ queryKey: ["artifacts"] });
   }, [qc, sessionId]);
+
+  useForegroundResync(() => {
+    refreshAll();
+    void qc.invalidateQueries({ queryKey: ["session", sessionId] });
+    void qc.invalidateQueries({ queryKey: ["workers"] });
+  });
 
   const send = useMutation({
     mutationFn: async (prompt: string) => {

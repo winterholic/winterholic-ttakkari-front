@@ -124,22 +124,30 @@ export function TransferPanel() {
       {top.isError && <p className="tk-error" role="alert">{errorText(top.error).message}</p>}
 
       <div className="transfer__actions">
-        <button className="transfer__action" type="button" onClick={() => photos.current?.click()} disabled={!destPath}>
-          <Icon name="image" />
-          <span>사진·동영상</span>
-        </button>
-        <button className="transfer__action" type="button" onClick={() => camera.current?.click()} disabled={!destPath}>
-          <Icon name="camera" />
-          <span>카메라로 찍기</span>
-        </button>
-        <button className="transfer__action" type="button" onClick={() => anyFile.current?.click()} disabled={!destPath}>
-          <Icon name="file-text" />
-          <span>파일</span>
-        </button>
-        {/* 아이폰은 accept 에 따라 사진 보관함 / 카메라 / 파일 앱을 각각 연다. */}
-        <input ref={photos} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { send(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-        <input ref={camera} type="file" accept="image/*,video/*" capture="environment" hidden onChange={(e) => { send(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
-        <input ref={anyFile} type="file" multiple hidden onChange={(e) => { send(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+        {/* 아이폰은 accept 에 따라 사진 보관함 / 카메라 / 파일 앱을 각각 연다.
+            input 에 hidden(display:none)을 주면 iOS 가 선택 메뉴를 붙일 기준 상자를 못 찾아 엉뚱한 곳에 띄운다.
+            그래서 input 을 투명하게 버튼 위에 겹쳐 둔다. */}
+        <div className="transfer__slot">
+          <button className="transfer__action" type="button" onClick={() => photos.current?.click()} disabled={!destPath}>
+            <Icon name="image" />
+            <span>사진·동영상</span>
+          </button>
+          <input className="transfer__file" ref={photos} type="file" accept="image/*,video/*" multiple tabIndex={-1} aria-hidden="true" onChange={(e) => { send(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+        </div>
+        <div className="transfer__slot">
+          <button className="transfer__action" type="button" onClick={() => camera.current?.click()} disabled={!destPath}>
+            <Icon name="camera" />
+            <span>카메라로 찍기</span>
+          </button>
+          <input className="transfer__file" ref={camera} type="file" accept="image/*,video/*" capture="environment" tabIndex={-1} aria-hidden="true" onChange={(e) => { send(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+        </div>
+        <div className="transfer__slot">
+          <button className="transfer__action" type="button" onClick={() => anyFile.current?.click()} disabled={!destPath}>
+            <Icon name="file-text" />
+            <span>파일</span>
+          </button>
+          <input className="transfer__file" ref={anyFile} type="file" multiple tabIndex={-1} aria-hidden="true" onChange={(e) => { send(Array.from(e.target.files ?? [])); e.target.value = ""; }} />
+        </div>
       </div>
       <p className="transfer__drop-hint">{isIOS ? "여러 장을 한 번에 골라도 돼요." : "여기로 끌어다 놓거나 붙여넣어도 보내져요."}</p>
 

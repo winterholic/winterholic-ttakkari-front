@@ -1,4 +1,5 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
+import { useForegroundResync } from "./useForegroundResync";
 import { ApiError, runEvents } from "../api/client";
 import { subscribeRun } from "../api/stream";
 import { TERMINAL_RUN_STATUSES } from "../api/types";
@@ -59,9 +60,16 @@ export function isRetriable(error: unknown): boolean {
 
 export function useRunStream(runId: UUID | null | undefined) {
   const [state, dispatch] = useReducer(reducer, initial);
+  // 복귀 시 연결을 새로 맺고 백필부터 다시 한다. iOS 는 백그라운드 SSE 를 소리 없이 죽여 onclose 도 안 불릴 수 있다.
+  const [epoch, setEpoch] = useState(0);
+  const lastRunId = useRef(runId);
+  useForegroundResync(() => setEpoch((n) => n + 1));
 
   useEffect(() => {
-    dispatch({ type: "reset" });
+    if (lastRunId.current !== runId) {
+      lastRunId.current = runId;
+      dispatch({ type: "reset" });
+    }
     if (!runId) return;
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
@@ -100,7 +108,7 @@ export function useRunStream(runId: UUID | null | undefined) {
       cancelled = true;
       unsubscribe?.();
     };
-  }, [runId]);
+  }, [runId, epoch]);
 
   const finished = state.ended || (state.status !== null && TERMINAL_RUN_STATUSES.includes(state.status));
   return { events: state.events, status: state.status, finished, error: state.error };

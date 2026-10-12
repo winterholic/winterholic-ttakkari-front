@@ -55,4 +55,16 @@ describe("useRunStream", () => {
     expect(result.current.events).toEqual([]);
     expect(runEvents).not.toHaveBeenCalled();
   });
+
+  it("화면에 복귀하면 다시 구독하고 이미 받은 이벤트는 유지한다", async () => {
+    runEvents.mockResolvedValueOnce([ev(1)]).mockResolvedValueOnce([ev(1), ev(2)]);
+    const { result } = renderHook(() => useRunStream("r1"));
+    await waitFor(() => expect(subscribeRun).toHaveBeenCalledTimes(1));
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await waitFor(() => expect(subscribeRun).toHaveBeenCalledTimes(2));
+    expect(unsubscribe).toHaveBeenCalled();
+    expect(result.current.events.map((e) => e.seq)).toEqual([1, 2]);
+  });
 });

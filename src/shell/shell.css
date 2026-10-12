@@ -24,3 +24,6 @@
 .session-pool { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }
 /* 드로어 자신이 받은 프로그램 포커스는 링을 그리지 않는다. 안쪽 요소의 키보드 포커스 링은 그대로다 */
 .tk-drawer:focus { outline: none; }
+/* 다이얼로그·시트 본문: flex 기준을 내용 크기(auto)로 둔다. vendor 의 `flex: 1`(= 0%)은 높이가 auto 인 세로 flex 상자에서
+   WebKit 이 본문을 padding 만큼으로 줄여, 모바일 사파리에서 사용량·알림 모달 내용이 잘렸다. */
+:is(.tk-dialog, .tk-sheet) .tk-dialog__body { flex: 1 1 auto; }

@@ -9,6 +9,9 @@
 .transfer__dest-label { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
 .transfer__dest-path { overflow-wrap: anywhere; color: var(--tk-color-text-primary); font-size: var(--tk-font-size-sm); }
 .transfer__actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--tk-space-2); }
+.transfer__slot { position: relative; display: flex; }
+.transfer__slot > .transfer__action { flex: 1; }
+.transfer__file { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; pointer-events: none; }
 .transfer__action {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--tk-space-2);
   min-height: calc(var(--tk-size-touch-target-min) * 2); padding: var(--tk-space-3) var(--tk-space-2);
