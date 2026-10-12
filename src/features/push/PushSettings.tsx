@@ -37,7 +37,7 @@ export function PushSettingsDialog({ open, onClose }: { open: boolean; onClose: 
               disabled={!toggleable || busy}
               onChange={() => void (state === "on" ? disable() : enable())}
             />
-            작업 끝나면 알림
+            푸시 알림 받기
           </label>
           <p className="tk-fieldset__help" data-testid="push-message">
             {PUSH_MESSAGE[state]}

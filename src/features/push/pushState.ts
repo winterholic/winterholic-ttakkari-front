@@ -24,8 +24,8 @@ export const PUSH_MESSAGE: Record<PushState, string> = {
   unsupported: "이 브라우저는 알림을 지원하지 않습니다.",
   "needs-install": "iPhone 에서는 공유 버튼에서 홈 화면에 추가한 뒤, 설치된 앱에서 켤 수 있습니다.",
   denied: "알림이 차단되어 있습니다. 브라우저 또는 기기 설정에서 허용으로 바꿔 주세요.",
-  off: "앱을 닫아 두어도 작업이 끝나면 알림을 받습니다.",
-  on: "이 기기에서 작업이 끝나면 알림을 받습니다.",
+  off: "켜면 따까리가 직접 보내는 알림과 작업 실패 알림을 받습니다. 작업이 끝났다는 알림은 보내지 않습니다.",
+  on: "이 기기에서 따까리가 직접 보내는 알림과 작업 실패 알림을 받습니다. 작업이 끝났다는 알림은 보내지 않습니다.",
 };
 
 /** base64url -> Uint8Array(applicationServerKey). */
