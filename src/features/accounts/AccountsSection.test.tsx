@@ -49,4 +49,16 @@ describe("AccountsSection", () => {
     renderIt();
     expect(await screen.findByText(/켜진 계정이 없어요/)).toBeTruthy();
   });
+
+  it("회사 그룹 계정도 같은 목록에 배지로 보이고, 메뉴로 그룹에서 뺀다", async () => {
+    api.listAccounts.mockResolvedValue([acc({}), acc({ id: "w", name: "FDE", pool: "work", priority: 1 })]);
+    api.patchAccount.mockResolvedValue(acc({ id: "w", name: "FDE", pool: "personal", priority: 1 }));
+    renderIt();
+    expect(await screen.findByText("FDE")).toBeTruthy();
+    expect(screen.getByLabelText("2순위")).toBeTruthy();
+    expect(screen.getAllByText("회사")).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "FDE 메뉴" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "회사 그룹에서 빼기" }));
+    await waitFor(() => expect(api.patchAccount).toHaveBeenCalledWith("w", { pool: "personal" }));
+  });
 });

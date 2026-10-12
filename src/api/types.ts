@@ -242,7 +242,7 @@ export type RunEventType = RunEvent["type"];
 
 // ---- engine accounts (ADR 0006)
 export type AccountEngine = "claude" | "codex";
-/** 계정 묶음. 회사 업무 탭에서 만든 대화는 work 계정만 쓴다. */
+/** 회사 그룹 태그. 계정 순서·켜기는 전체 목록 하나이고, work 는 회사 업무 탭이 쓰는 부분집합이다. */
 export type AccountPool = "personal" | "work";
 export interface AccountOut {
   id: UUID;

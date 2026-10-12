@@ -9,6 +9,7 @@
   font: var(--tk-font-weight-semibold) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono);
 }
 .account-row[aria-disabled="true"] .tk-list__title { color: var(--tk-color-text-tertiary); }
+.account-group { margin-left: var(--tk-space-1-5); vertical-align: text-bottom; }
 .account-row__warn { color: var(--tk-color-text-warning); }
 .account-form { display: flex; flex-direction: column; gap: var(--tk-space-4); }
 .account-form__cmd {
