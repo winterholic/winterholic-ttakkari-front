@@ -7,6 +7,7 @@ import { Menu } from "../ui/Menu";
 import { toast } from "../ui/toastStore";
 import type { AccountPool } from "../api/types";
 import { PendingAttachment, releaseFileUrl } from "../features/chat/Attachments";
+import { checkAttachFiles } from "../features/chat/clipboardFiles";
 import { Composer } from "../features/chat/Composer";
 import { NewSession } from "../features/chat/NewSession";
 import type { NewSessionChoice } from "../features/chat/NewSession";
@@ -120,26 +121,31 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
   const contextIds = [...(contextShown ? [contextShown.id] : []), ...attachedIds];
   const workspaceId = session.data?.workspace_id ?? choice?.workspaceId ?? null;
 
-  const attach = (files: File[]) => {
+  const startUpload = (file: File) => {
     if (!workspaceId) return;
-    for (const file of files) {
-      attachSeq.current += 1;
-      const key = `${attachSeq.current}-${file.name}`;
-      setAttachments((all) => [...all, { key, name: file.name, state: "uploading", file }]);
-      uploadFile(file, workspaceId, sessionId).then(
-        (art) => setAttachments((all) => all.map((a) => (a.key === key ? { ...a, state: "done", id: art.id } : a))),
-        (e: unknown) =>
-          setAttachments((all) =>
-            all.map((a) => (a.key === key ? { ...a, state: "failed", error: e instanceof Error ? e.message : "올리지 못했어요" } : a)),
-          ),
-      );
-    }
+    attachSeq.current += 1;
+    const key = `${attachSeq.current}-${file.name}`;
+    setAttachments((all) => [...all, { key, name: file.name, state: "uploading", file }]);
+    uploadFile(file, workspaceId, sessionId).then(
+      (art) => setAttachments((all) => all.map((a) => (a.key === key ? { ...a, state: "done", id: art.id } : a))),
+      (e: unknown) =>
+        setAttachments((all) =>
+          all.map((a) => (a.key === key ? { ...a, state: "failed", error: e instanceof Error ? e.message : "올리지 못했어요" } : a)),
+        ),
+    );
+  };
+  // 파일 선택·붙여넣기·드롭이 모두 여기를 지난다. 크기·개수 규칙을 한 곳에서 적용한다.
+  const attach = (picked: File[]) => {
+    if (!workspaceId) return;
+    const { accepted, problems } = checkAttachFiles(picked, attachments.length + (contextShown ? 1 : 0));
+    for (const message of problems) toast({ message, tone: "danger" });
+    accepted.forEach(startUpload);
   };
   const retryAttach = (key: string) => {
     const a = attachments.find((x) => x.key === key);
     if (!a) return;
     setAttachments((all) => all.filter((x) => x.key !== key));
-    attach([a.file]);
+    startUpload(a.file);
   };
 
   const refreshAll = useCallback(() => {
@@ -224,20 +230,31 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
     <div
       className="tk-screen"
       onDragOver={(e) => {
-        if (!workspaceId || !hasFiles(e)) return;
+        if (!hasFiles(e)) return;
+        // 놓을 곳이 없어도 막아 둔다. 안 막으면 브라우저가 파일을 열면서 앱을 떠난다.
         e.preventDefault();
-        if (!dragging) setDragging(true);
+        if (workspaceId && !dragging) setDragging(true);
       }}
       onDragLeave={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
       }}
       onDrop={(e) => {
-        if (!workspaceId || !hasFiles(e)) return;
+        if (!hasFiles(e)) return;
         e.preventDefault();
         setDragging(false);
+        if (!workspaceId) {
+          toast({ message: "작업 공간을 먼저 고른 뒤 파일을 놓아 주세요.", tone: "danger" });
+          return;
+        }
         attach(Array.from(e.dataTransfer.files));
       }}
     >
+      {dragging && (
+        <div className="tk-dropzone" aria-hidden>
+          <Icon name="paperclip" />
+          <span>여기에 놓으면 첨부해요</span>
+        </div>
+      )}
       <PageHeader
         title={title}
         meta={meta}

@@ -42,3 +42,14 @@ button.tk-attach__main:focus-visible { outline: var(--tk-focus-ring-width) solid
 .tk-attach__busy { position: absolute; inset: 0; margin: auto; }
 
 .tk-composer .tk-attach__thumb { width: calc(var(--tk-size-control-lg) * 1.5); }
+
+/* 파일을 끌어 오면 채팅 영역 전체에 드롭 영역을 띄운다. 포인터를 받지 않아 dragleave 판정을 건드리지 않는다 */
+.tk-screen:has(> .tk-dropzone) { position: relative; }
+.tk-dropzone {
+  position: absolute; inset: var(--tk-space-2); z-index: var(--tk-z-index-sticky); pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--tk-space-2);
+  border: var(--tk-border-width-strong) dashed var(--tk-color-border-focus); border-radius: var(--tk-radius-xl);
+  background: color-mix(in srgb, var(--tk-color-surface-brand-subtle) 85%, transparent); color: var(--tk-color-text-primary);
+  font: var(--tk-font-weight-medium) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.tk-dropzone > .tk-icon { --tk-_icon: var(--tk-size-icon-lg); }

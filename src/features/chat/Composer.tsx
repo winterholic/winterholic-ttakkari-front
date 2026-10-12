@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { FormEvent, KeyboardEvent, ReactNode } from "react";
+import type { ClipboardEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
 import { Icon } from "../../ui/Icon";
+import { filesFromClipboard } from "./clipboardFiles";
 import "./attachments.css";
 import "./composer.css";
 
@@ -150,6 +151,15 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
     }
   }
 
+  // 스크린샷·복사한 파일은 첨부로 보낸다. 웹페이지 등 text/html 이 함께 오면 건드리지 않아 텍스트가 그대로 붙는다.
+  function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
+    if (!onAttach) return;
+    const files = filesFromClipboard(e.clipboardData);
+    if (files.length === 0) return;
+    e.preventDefault();
+    onAttach(files);
+  }
+
   function onFormSubmit(e: FormEvent) {
     e.preventDefault();
     submit();
@@ -200,6 +210,7 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
+            onPaste={onPaste}
           />
           {/* 실행 중에도 보내기는 그대로 둔다. 응답을 기다리지 않고 계속 보내면 대기열에 쌓인다(사용자 결정 10-11). */}
           {running && onStop && (
