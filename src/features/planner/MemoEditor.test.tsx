@@ -12,29 +12,48 @@ const h = vi.hoisted(() => {
       this.status = status;
     }
   }
-  return { FakeApiError, createMemo: vi.fn(), patchMemo: vi.fn(), getMemo: vi.fn(), deleteMemo: vi.fn() };
+  return {
+    FakeApiError, createMemo: vi.fn(), patchMemo: vi.fn(), getMemo: vi.fn(), deleteMemo: vi.fn(),
+    listMemoTags: vi.fn(), listMemoCategories: vi.fn(),
+  };
 });
-const { FakeApiError, createMemo, patchMemo, getMemo, deleteMemo } = h;
+const { FakeApiError, createMemo, patchMemo, getMemo, deleteMemo, listMemoTags, listMemoCategories } = h;
 vi.mock("../../api/client", () => ({
   ApiError: h.FakeApiError,
+  CATEGORY_COLORS: ["blue", "green", "amber", "violet", "red", "gray"],
   createMemo: (...a: unknown[]) => h.createMemo(...a),
   patchMemo: (...a: unknown[]) => h.patchMemo(...a),
   getMemo: (...a: unknown[]) => h.getMemo(...a),
   deleteMemo: (...a: unknown[]) => h.deleteMemo(...a),
+  listMemoTags: (...a: unknown[]) => h.listMemoTags(...a),
+  listMemoCategories: (...a: unknown[]) => h.listMemoCategories(...a),
+  createMemoCategory: vi.fn(),
+  patchMemoCategory: vi.fn(),
+  orderMemoCategories: vi.fn(),
+  deleteMemoCategory: vi.fn(),
 }));
 
 import { MemoEditor } from "./MemoEditor";
 
 const memo = (p: Record<string, unknown> = {}) => ({
-  id: "m1", title: "장보기", body: "- 우유", tags: ["집"], pinned: false, source: "user", rev: 1, excerpt: "", created_at: "", updated_at: "", ...p,
+  id: "m1", title: "장보기", body: "- 우유", tags: ["집"], category_id: null, pinned: false, source: "user", rev: 1, excerpt: "", created_at: "", updated_at: "", ...p,
 });
 
-function mount(memoId: string) {
+const CATS = {
+  categories: [
+    { id: "c1", name: "회사", color: "blue", position: 1, count: 2 },
+    { id: "c2", name: "집", color: null, position: 2, count: 1 },
+  ],
+  total: 4,
+  uncategorized: 1,
+};
+
+function mount(memoId: string, defaultCategory: string | null = null) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <MemoEditor memoId={memoId} />
+        <MemoEditor memoId={memoId} defaultCategory={defaultCategory} />
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -46,6 +65,8 @@ beforeEach(() => {
   patchMemo.mockReset();
   getMemo.mockReset();
   deleteMemo.mockReset();
+  listMemoTags.mockReset().mockResolvedValue({ tags: [{ name: "장보기", count: 3 }, { name: "Work", count: 2 }, { name: "집", count: 1 }] });
+  listMemoCategories.mockReset().mockResolvedValue(CATS);
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
     this.setAttribute("open", "");
   };
@@ -134,5 +155,51 @@ describe("메모 편집기 자동 저장", () => {
     fireEvent.click(screen.getByRole("button", { name: "맨 위에 고정" }));
     await wait(900);
     expect(patchMemo).toHaveBeenCalledWith("m1", expect.objectContaining({ pinned: true, rev: 1 }));
+  });
+});
+
+describe("메모 편집기 카테고리·태그", () => {
+  it("새 메모는 목록에서 고른 카테고리로 만들어진다", async () => {
+    createMemo.mockResolvedValue(memo({ id: "new1", category_id: "c1" }));
+    mount("new", "c1");
+    await screen.findByRole("radio", { name: "회사" });
+    expect((screen.getByRole("radio", { name: "회사" }) as HTMLInputElement).checked).toBe(true);
+    type("본문", "주간 보고");
+    await wait(900);
+    expect(createMemo).toHaveBeenCalledWith(expect.objectContaining({ body: "주간 보고", category_id: "c1" }));
+  });
+
+  it("카테고리 칩 하나로 옮기고, 미분류로 되돌릴 수 있다", async () => {
+    getMemo.mockResolvedValue(memo());
+    patchMemo.mockResolvedValueOnce(memo({ category_id: "c2", rev: 2 })).mockResolvedValueOnce(memo({ rev: 3 }));
+    mount("m1");
+    fireEvent.click(await screen.findByRole("radio", { name: "집" }));
+    await wait(900);
+    expect(patchMemo).toHaveBeenLastCalledWith("m1", expect.objectContaining({ category_id: "c2", rev: 1 }));
+    fireEvent.click(screen.getByRole("radio", { name: "미분류" }));
+    await wait(900);
+    expect(patchMemo).toHaveBeenLastCalledWith("m1", expect.objectContaining({ category_id: null, rev: 2 }));
+  });
+
+  it("태그 칸에 쓰면 기존 태그를 제안하고, 누르면 붙는다(대소문자만 다르면 기존 태그를 다시 쓴다)", async () => {
+    getMemo.mockResolvedValue(memo({ tags: [] }));
+    patchMemo.mockResolvedValue(memo({ rev: 2 }));
+    mount("m1");
+    await screen.findByLabelText("본문");
+    await wait(10);
+    const input = screen.getByLabelText("태그 추가");
+    fireEvent.focus(input);
+    const suggest = screen.getByRole("group", { name: "태그 제안" });
+    expect(suggest.textContent).toContain("#장보기");
+    type("태그 추가", "wo");
+    expect(screen.getByRole("group", { name: "태그 제안" }).textContent).toContain("#Work");
+    expect(screen.getByRole("group", { name: "태그 제안" }).textContent).not.toContain("#장보기");
+    fireEvent.click(screen.getByRole("button", { name: "#Work" }));
+    type("태그 추가", "work");
+    fireEvent.keyDown(input, { key: "Enter" });
+    type("태그 추가", "새태그");
+    fireEvent.click(screen.getByRole("button", { name: "새태그" }));
+    await wait(900);
+    expect(patchMemo).toHaveBeenLastCalledWith("m1", expect.objectContaining({ tags: ["Work", "새태그"] }));
   });
 });

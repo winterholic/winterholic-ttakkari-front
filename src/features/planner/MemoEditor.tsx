@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useNavigate } from "react-router";
-import { createMemo, deleteMemo, getMemo, patchMemo } from "../../api/client";
+import { createMemo, deleteMemo, getMemo, listMemoTags, patchMemo } from "../../api/client";
 import type { MemoOut } from "../../api/client";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
@@ -12,6 +12,7 @@ import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { ErrorState } from "../viewer/screenStates";
+import { CategoryDot, useMemoCategories } from "./MemoCategories";
 import { useAutosave } from "./useAutosave";
 import type { SaveStatus } from "./useAutosave";
 
@@ -19,13 +20,17 @@ interface Doc {
   title: string;
   body: string;
   tags: string[];
+  category_id: string | null;
   pinned: boolean;
 }
 
-const sameDoc = (a: Doc, b: Doc) => a.title === b.title && a.body === b.body && a.pinned === b.pinned && a.tags.join("\n") === b.tags.join("\n");
+const sameDoc = (a: Doc, b: Doc) =>
+  a.title === b.title && a.body === b.body && a.pinned === b.pinned && a.category_id === b.category_id && a.tags.join("\n") === b.tags.join("\n");
+// 카테고리만 고른 새 메모는 아직 빈 메모다(목록 화면의 카테고리가 기본으로 들어오므로).
 const isBlank = (d: Doc) => !d.title.trim() && !d.body.trim() && d.tags.length === 0;
-const BLANK: Doc = { title: "", body: "", tags: [], pinned: false };
-const docOf = (m: MemoOut): Doc => ({ title: m.title, body: m.body, tags: m.tags, pinned: m.pinned });
+const blank = (category_id: string | null): Doc => ({ title: "", body: "", tags: [], category_id, pinned: false });
+const docOf = (m: MemoOut): Doc => ({ title: m.title, body: m.body, tags: m.tags, category_id: m.category_id, pinned: m.pinned });
+const MAX_SUGGESTIONS = 12;
 
 const STATUS_TEXT: Record<SaveStatus, string> = {
   saved: "저장됨",
@@ -35,8 +40,11 @@ const STATUS_TEXT: Record<SaveStatus, string> = {
   conflict: "다른 곳에서 먼저 수정됐어요",
 };
 
-/** `/memos/new` 는 아직 서버에 없는 새 메모다. 첫 글자가 들어가고 잠시 뒤에 만들어져서, 빈 메모가 쌓이지 않는다. */
-export function MemoEditor({ memoId }: { memoId: string }) {
+/**
+ * `/memos/new` 는 아직 서버에 없는 새 메모다. 첫 글자가 들어가고 잠시 뒤에 만들어져서, 빈 메모가 쌓이지 않는다.
+ * defaultCategory 는 새 메모가 들어갈 카테고리(목록에서 고르고 있던 것).
+ */
+export function MemoEditor({ memoId, defaultCategory = null }: { memoId: string; defaultCategory?: string | null }) {
   const isNew = memoId === "new";
   const q = useQuery({ queryKey: ["memo", memoId], queryFn: () => getMemo(memoId), enabled: !isNew, gcTime: 0 });
   if (!isNew && q.isPending) {
@@ -49,20 +57,23 @@ export function MemoEditor({ memoId }: { memoId: string }) {
   }
   if (!isNew && q.isError) return <ErrorState error={q.error} what="메모" onRetry={() => void q.refetch()} />;
   const memo = isNew ? null : q.data!;
-  return <MemoForm key={memoId} memo={memo} />;
+  return <MemoForm key={memoId} memo={memo} defaultCategory={defaultCategory} />;
 }
 
-function MemoForm({ memo }: { memo: MemoOut | null }) {
+function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCategory: string | null }) {
   const id = useId();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const [doc, setDoc] = useState<Doc>(memo ? docOf(memo) : BLANK);
+  const [doc, setDoc] = useState<Doc>(memo ? docOf(memo) : blank(defaultCategory));
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [tagDraft, setTagDraft] = useState("");
+  const [tagFocus, setTagFocus] = useState(false);
+  const cats = useMemoCategories();
+  const knownTags = useQuery({ queryKey: ["memos", "tags", null], queryFn: () => listMemoTags() });
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 서버에 만든 뒤의 id 와 마지막으로 받은 버전. 렌더와 무관한 값이라 ref 로 둔다.
   const meta = useRef({ id: memo?.id ?? null, rev: memo?.rev ?? 0 });
-  const [initial] = useState<Doc>(memo ? docOf(memo) : BLANK);
+  const [initial] = useState<Doc>(memo ? docOf(memo) : blank(defaultCategory));
 
   const { status, flush, reset } = useAutosave(
     doc,
@@ -113,11 +124,26 @@ function MemoForm({ memo }: { memo: MemoOut | null }) {
   });
 
   const set = (p: Partial<Doc>) => setDoc((d) => ({ ...d, ...p }));
+  const all = knownTags.data?.tags ?? [];
   const addTag = (raw: string) => {
-    const t = raw.trim().replace(/^#+/, "").trim();
+    let t = raw.trim().replace(/^#+/, "").trim();
+    // 대소문자만 다른 기존 태그가 있으면 그것을 다시 쓴다(같은 태그가 둘로 갈리지 않게).
+    t = all.find((x) => x.name.toLowerCase() === t.toLowerCase())?.name ?? t;
     if (!t || t.length > 30 || doc.tags.includes(t) || doc.tags.length >= 20) return;
     set({ tags: [...doc.tags, t] });
   };
+  const needle = tagDraft.trim().replace(/^#+/, "").trim().toLowerCase();
+  const suggestions = all
+    .filter((t) => !doc.tags.includes(t.name) && (!needle || t.name.toLowerCase().includes(needle)))
+    .sort((a, b) => Number(b.name.toLowerCase().startsWith(needle)) - Number(a.name.toLowerCase().startsWith(needle)))
+    .slice(0, MAX_SUGGESTIONS);
+  const isNewTag = needle !== "" && !all.some((t) => t.name.toLowerCase() === needle) && !doc.tags.some((t) => t.toLowerCase() === needle);
+  const pickTag = (name: string) => {
+    addTag(name);
+    setTagDraft("");
+  };
+  const catList = cats.data?.categories ?? [];
+  const docCat = catList.find((c) => c.id === doc.category_id);
   const onTagKey = (e: KeyboardEvent<HTMLInputElement>) => {
     // 한글 조합 중의 Enter 는 글자 확정이라 태그로 넣지 않는다.
     if (e.nativeEvent.isComposing) return;
@@ -180,6 +206,22 @@ function MemoForm({ memo }: { memo: MemoOut | null }) {
             autoComplete="off"
             onChange={(e) => set({ title: e.target.value })}
           />
+          {catList.length > 0 && (
+            <div className="tk-chips memo-editor__cats" role="radiogroup" aria-label="카테고리">
+              <Icon name="folder" />
+              <label className="tk-chip">
+                <input type="radio" name={`${id}-cat`} checked={doc.category_id === null} onChange={() => set({ category_id: null })} />
+                미분류
+              </label>
+              {catList.map((c) => (
+                <label className="tk-chip" key={c.id}>
+                  <input type="radio" name={`${id}-cat`} checked={doc.category_id === c.id} onChange={() => set({ category_id: c.id })} />
+                  <CategoryDot color={c.color} />
+                  <span>{c.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
           <div className="memo-editor__tags">
             <Icon name="tag" />
             {doc.tags.map((t) => (
@@ -193,17 +235,37 @@ function MemoForm({ memo }: { memo: MemoOut | null }) {
             <input
               className="memo-editor__tag-input"
               value={tagDraft}
-              placeholder={doc.tags.length ? "" : "태그 (Enter 로 추가)"}
+              placeholder={doc.tags.length ? "태그 추가" : "태그 추가 (입력 후 Enter)"}
               aria-label="태그 추가"
+              aria-controls={`${id}-tag-suggest`}
+              autoComplete="off"
               enterKeyHint="done"
               onChange={(e) => setTagDraft(e.target.value)}
               onKeyDown={onTagKey}
+              onFocus={() => setTagFocus(true)}
               onBlur={() => {
+                setTagFocus(false);
                 addTag(tagDraft);
                 setTagDraft("");
               }}
             />
           </div>
+          {tagFocus && (suggestions.length > 0 || isNewTag) && (
+            // 누르는 동안 입력칸이 포커스를 잃지 않게 pointerdown 을 막는다(키보드가 내려갔다 올라오지 않게).
+            <div className="tk-chips memo-editor__suggest" id={`${id}-tag-suggest`} role="group" aria-label="태그 제안" onPointerDown={(e) => e.preventDefault()}>
+              {isNewTag && (
+                <button type="button" className="tk-chip memo-editor__suggest-new" onClick={() => pickTag(tagDraft)}>
+                  <Icon name="plus" />
+                  <span>{tagDraft.trim().replace(/^#+/, "")}</span>
+                </button>
+              )}
+              {suggestions.map((t) => (
+                <button type="button" className="tk-chip" key={t.name} onClick={() => pickTag(t.name)}>
+                  #{t.name}
+                </button>
+              ))}
+            </div>
+          )}
           <textarea
             className="tk-textarea memo-editor__body"
             value={doc.body}
@@ -215,6 +277,17 @@ function MemoForm({ memo }: { memo: MemoOut | null }) {
       ) : (
         <div className="memo-editor__preview">
           {doc.title && <h2 className="memo-editor__preview-title">{doc.title}</h2>}
+          {(docCat || doc.tags.length > 0) && (
+            <p className="tk-list__meta memo-editor__preview-meta">
+              {docCat && (
+                <span className="memo-item__cat">
+                  <CategoryDot color={docCat.color} />
+                  {docCat.name}
+                </span>
+              )}
+              {doc.tags.length > 0 && <span>{doc.tags.map((t) => `#${t}`).join(" ")}</span>}
+            </p>
+          )}
           {doc.body.trim() ? (
             <article className="tk-prose">
               <Markdown remarkPlugins={[remarkGfm]}>{doc.body}</Markdown>

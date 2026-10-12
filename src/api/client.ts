@@ -111,7 +111,8 @@ export async function refreshOrLose(): Promise<string> {
 
 interface ReqOpts {
   method?: string;
-  query?: Record<string, string | number | boolean | undefined | null>;
+  /** 배열은 같은 이름으로 여러 번 붙인다(?tag=a&tag=b). */
+  query?: Record<string, string | number | boolean | string[] | undefined | null>;
   json?: unknown;
   form?: FormData;
   /** 바이트 그대로 보낼 본문(파일 조각). */
@@ -123,7 +124,10 @@ interface ReqOpts {
 
 async function raw(path: string, o: ReqOpts): Promise<Response> {
   const qs = new URLSearchParams();
-  for (const [k, v] of Object.entries(o.query ?? {})) if (v !== undefined && v !== null) qs.set(k, String(v));
+  for (const [k, v] of Object.entries(o.query ?? {})) {
+    if (Array.isArray(v)) for (const x of v) qs.append(k, x);
+    else if (v !== undefined && v !== null) qs.set(k, String(v));
+  }
   const url = apiUrl(path) + (qs.size ? `?${qs}` : "");
 
   const send = (token: string | null) => {
@@ -440,6 +444,8 @@ export interface MemoSummary {
   id: string;
   title: string;
   tags: string[];
+  /** null 이면 미분류. */
+  category_id: string | null;
   pinned: boolean;
   source: "user" | "agent";
   rev: number;
@@ -454,9 +460,26 @@ export interface MemoPatch {
   title?: string;
   body?: string;
   tags?: string[];
+  /** null 이면 미분류로 옮긴다. 빼면 그대로. */
+  category_id?: string | null;
   pinned?: boolean;
   /** 마지막으로 본 버전. 서버와 다르면 409 conflict. */
   rev?: number;
+}
+/** 토큰 --tk-color-chart-categorical-1..6 순서. */
+export const CATEGORY_COLORS = ["blue", "green", "amber", "violet", "red", "gray"] as const;
+export type CategoryColor = (typeof CATEGORY_COLORS)[number];
+export interface MemoCategory {
+  id: string;
+  name: string;
+  color: CategoryColor | null;
+  position: number;
+  count: number;
+}
+export interface MemoCategoriesOut {
+  categories: MemoCategory[];
+  total: number;
+  uncategorized: number;
 }
 export interface EventOut {
   id: string;
@@ -495,14 +518,24 @@ export interface HolidayOut {
   substitute: boolean;
 }
 
-export const listMemos = (p: { q?: string; tag?: string } = {}): Promise<{ memos: MemoSummary[] }> =>
-  json("/api/memos", { query: { ...p, limit: 300 } });
-export const listMemoTags = (): Promise<{ tags: { name: string; count: number }[] }> => json("/api/memos/tags");
-export const createMemo = (body: { title?: string; body?: string; tags?: string[]; pinned?: boolean } = {}): Promise<MemoOut> =>
+/** tags 는 모두 가진 메모만(AND). category 는 카테고리 id 또는 "none"(미분류). */
+export const listMemos = (p: { q?: string; tags?: string[]; category?: string } = {}): Promise<{ memos: MemoSummary[] }> =>
+  json("/api/memos", { query: { q: p.q, tag: p.tags, category: p.category, limit: 300 } });
+export const listMemoTags = (category?: string): Promise<{ tags: { name: string; count: number }[] }> =>
+  json("/api/memos/tags", { query: { category } });
+export const createMemo = (body: { title?: string; body?: string; tags?: string[]; category_id?: string | null; pinned?: boolean } = {}): Promise<MemoOut> =>
   json("/api/memos", { method: "POST", json: body });
 export const getMemo = (id: string): Promise<MemoOut> => json(`/api/memos/${id}`);
 export const patchMemo = (id: string, body: MemoPatch): Promise<MemoOut> => json(`/api/memos/${id}`, { method: "PATCH", json: body });
 export const deleteMemo = (id: string): Promise<void> => json(`/api/memos/${id}`, { method: "DELETE" });
+export const listMemoCategories = (): Promise<MemoCategoriesOut> => json("/api/memo-categories");
+export const createMemoCategory = (body: { name: string; color?: CategoryColor | null }): Promise<MemoCategory> =>
+  json("/api/memo-categories", { method: "POST", json: body });
+export const patchMemoCategory = (id: string, body: { name?: string; color?: CategoryColor | null }): Promise<MemoCategory> =>
+  json(`/api/memo-categories/${id}`, { method: "PATCH", json: body });
+export const orderMemoCategories = (ids: string[]): Promise<{ categories: MemoCategory[] }> =>
+  json("/api/memo-categories/order", { method: "PUT", json: { ids } });
+export const deleteMemoCategory = (id: string): Promise<void> => json(`/api/memo-categories/${id}`, { method: "DELETE" });
 
 export const listEvents = (from: string, to: string): Promise<{ events: EventOut[] }> =>
   json("/api/calendar/events", { query: { from, to } });
