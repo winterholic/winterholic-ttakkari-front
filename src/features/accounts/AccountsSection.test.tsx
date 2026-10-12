@@ -37,6 +37,7 @@ afterEach(() => {
 function renderIt() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(<QueryClientProvider client={qc}><AccountsSection /></QueryClientProvider>);
+  return qc;
 }
 
 describe("AccountsSection", () => {
@@ -103,6 +104,27 @@ describe("AccountsSection", () => {
     const handles = screen.getAllByRole("button", { name: "끌어서 순서 바꾸기" });
     expect(handles.every((h) => (h as HTMLButtonElement).disabled)).toBe(true);
     finish([b, a]);
+  });
+
+  it("a background refetch in flight does not overwrite the saved order", async () => {
+    const a = acc({ id: "a", name: "A" });
+    const b = acc({ id: "b", name: "B", priority: 1 });
+    let staleFetch!: (rows: AccountOut[]) => void;
+    api.listAccounts
+      .mockResolvedValueOnce([a, b])
+      .mockImplementationOnce(() => new Promise((resolve) => { staleFetch = resolve; }))
+      .mockResolvedValue([b, a]);
+    api.reorderAccounts.mockResolvedValue([b, a]);
+    const qc = renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: "B 메뉴" }));
+    void qc.refetchQueries({ queryKey: ["accounts"] });
+    await waitFor(() => expect(api.listAccounts).toHaveBeenCalledTimes(2));
+    fireEvent.click(await screen.findByRole("button", { name: "위로" }));
+    await waitFor(() => expect(api.reorderAccounts).toHaveBeenCalledWith(["b", "a"]));
+    await waitFor(() => expect(qc.isMutating()).toBe(0));
+    staleFetch([a, b]);
+    await new Promise((r) => setTimeout(r, 0));
+    expect(qc.getQueryData<AccountOut[]>(["accounts"])?.map((x) => x.id)).toEqual(["b", "a"]);
   });
 
 });

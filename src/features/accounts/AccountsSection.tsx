@@ -89,7 +89,11 @@ export function AccountsSection() {
         return reorderAccounts(merged);
       }
     },
-    onMutate: (next) => set(next),
+    onMutate: async (next) => {
+      // 30초 폴링이 저장 중에 끝나면 옛 순서로 덮으므로 진행 중인 목록 요청을 먼저 취소한다.
+      await qc.cancelQueries({ queryKey: ACCOUNTS_KEY });
+      set(next);
+    },
     onSuccess: set,
     onError: () => void q.refetch(),
     onSettled: () => {
