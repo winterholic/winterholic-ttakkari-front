@@ -85,6 +85,7 @@
 /* ---- 일정 편집 폼 */
 .planner-form { display: flex; flex-direction: column; gap: var(--tk-space-4); }
 .planner-form__when { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.planner-form__lunar { display: flex; flex-wrap: wrap; gap: var(--tk-space-1) var(--tk-space-3); color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
 .planner-form__pair { display: flex; gap: var(--tk-space-2); }
 .planner-form__pair > * { flex: 1 1 0; min-width: 0; }
 .planner-form__actions {
@@ -97,6 +98,8 @@
 /* ---- 캘린더. FullCalendar 변수를 디자인 시스템 토큰으로 돌린다 */
 .planner-cal__bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tk-space-2); padding: var(--tk-space-2) var(--tk-space-4); }
 .planner-cal__nav { display: flex; align-items: center; gap: var(--tk-space-1); min-width: 0; }
+.planner-cal__controls { display: flex; align-items: center; gap: var(--tk-space-3); }
+.planner-cal__lunar-toggle { font-size: var(--tk-font-size-xs); white-space: nowrap; }
 .planner-cal__title { margin: 0 0 0 var(--tk-space-2); color: var(--tk-color-text-primary); white-space: nowrap; font: var(--tk-font-weight-semibold) var(--tk-font-size-lg) / var(--tk-font-line-height-heading) var(--tk-font-family-sans); }
 .planner-cal__body { flex: 1 1 auto; min-height: 0; padding: 0 var(--tk-space-2) var(--tk-space-2); overflow: hidden; }
 .planner-cal__body .fc {
@@ -122,6 +125,8 @@
 .planner-cal__body .fc-theme-standard .fc-popover { box-shadow: var(--tk-shadow-md); border-radius: var(--tk-radius-md); z-index: var(--tk-z-index-popover); }
 .planner-cal__body .fc-col-header-cell-cushion, .planner-cal__body .fc-daygrid-day-number { color: var(--tk-color-text-secondary); text-decoration: none; }
 .planner-cal__body .fc-daygrid-day-number { padding: var(--tk-space-1) var(--tk-space-1-5); }
+.planner-cal__day-content { display: flex; flex-direction: column; align-items: flex-end; gap: var(--tk-space-0-5); line-height: var(--tk-font-line-height-tight); }
+.planner-cal__lunar { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-regular); white-space: nowrap; }
 .planner-cal__body .fc-event { cursor: pointer; border-radius: var(--tk-radius-xs); font-size: var(--tk-font-size-xs); }
 .planner-cal__body .fc-daygrid-more-link { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .planner-cal__body .fc-list-event { cursor: pointer; }

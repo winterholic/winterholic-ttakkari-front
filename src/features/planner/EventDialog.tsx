@@ -9,13 +9,14 @@ import { errorText } from "../viewer/api";
 import { ErrorState } from "../viewer/screenStates";
 import { usePush } from "../push/usePush";
 import { ALL_DAY_REMINDERS, blankForm, formFromEvent, formToPayload, reminderFor, TIMED_REMINDERS, validateForm } from "./eventForm";
+import { formatLunarDate, lunarDate } from "./lunar";
 import type { EventForm } from "./eventForm";
 import type { Reminder } from "../../api/client";
 
 /** create: 날짜(와 시각)를 눌러 만든다. edit: 일정(시리즈) id 로 연다. */
 export type EditorTarget = { mode: "create"; date: string; time?: string } | { mode: "edit"; eventId: string };
 
-export function EventDialog({ target, onClose }: { target: EditorTarget | null; onClose: () => void }) {
+export function EventDialog({ target, onClose, showLunar = true }: { target: EditorTarget | null; onClose: () => void; showLunar?: boolean }) {
   const edit = target?.mode === "edit" ? target.eventId : null;
   const series = useQuery({ queryKey: ["calendar", "event", edit], queryFn: () => getEvent(edit!), enabled: !!edit, gcTime: 0 });
   const title = edit ? "일정 수정" : "새 일정";
@@ -23,13 +24,13 @@ export function EventDialog({ target, onClose }: { target: EditorTarget | null; 
     <Dialog open={target !== null} onClose={onClose} size="lg" title={title} modal id="event-dialog">
       {target && edit && series.isPending && <p className="tk-status tk-status--agent" role="status"><span className="tk-spinner tk-spinner--sm" aria-hidden />불러오는 중</p>}
       {target && edit && series.isError && <ErrorState error={series.error} what="일정" onRetry={() => void series.refetch()} />}
-      {target?.mode === "create" && <EventFormView key={`${target.date}${target.time ?? ""}`} initial={blankForm(target.date, target.time)} eventId={null} onClose={onClose} />}
-      {edit && series.data && <EventFormView key={series.data.id} initial={formFromEvent(series.data)} eventId={edit} recurring={series.data.recurring} onClose={onClose} />}
+      {target?.mode === "create" && <EventFormView key={`${target.date}${target.time ?? ""}`} initial={blankForm(target.date, target.time)} eventId={null} onClose={onClose} showLunar={showLunar} />}
+      {edit && series.data && <EventFormView key={series.data.id} initial={formFromEvent(series.data)} eventId={edit} recurring={series.data.recurring} onClose={onClose} showLunar={showLunar} />}
     </Dialog>
   );
 }
 
-function EventFormView({ initial, eventId, recurring, onClose }: { initial: EventForm; eventId: string | null; recurring?: boolean; onClose: () => void }) {
+function EventFormView({ initial, eventId, recurring, onClose, showLunar }: { initial: EventForm; eventId: string | null; recurring?: boolean; onClose: () => void; showLunar: boolean }) {
   const id = useId();
   const qc = useQueryClient();
   const [f, setF] = useState(initial);
@@ -67,6 +68,8 @@ function EventFormView({ initial, eventId, recurring, onClose }: { initial: Even
     set({ startDate: date, startTime: time, ...(shiftedEnd ? { endDate: date, endTime: time } : {}) });
   };
   const err = problem ?? (save.error ? errorText(save.error).message : null) ?? (del.error ? errorText(del.error).message : null);
+  const lunarStart = showLunar ? lunarDate(f.startDate) : null;
+  const lunarEnd = showLunar && f.endDate !== f.startDate ? lunarDate(f.endDate) : null;
 
   return (
     <form
@@ -85,6 +88,12 @@ function EventFormView({ initial, eventId, recurring, onClose }: { initial: Even
         종일
       </label>
       <div className="planner-form__when">
+        {showLunar && (
+          <div className="planner-form__lunar" aria-live="polite">
+            {lunarStart && <span>{formatLunarDate(lunarStart)}</span>}
+            {lunarEnd && <span>끝 · {formatLunarDate(lunarEnd)}</span>}
+          </div>
+        )}
         <div className="tk-field">
           <label htmlFor={`${id}-sd`}>시작</label>
           <div className="planner-form__pair">

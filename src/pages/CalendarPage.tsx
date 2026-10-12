@@ -12,6 +12,7 @@ import { listEvents, listHolidays } from "../api/client";
 import { EventDialog } from "../features/planner/EventDialog";
 import type { EditorTarget } from "../features/planner/EventDialog";
 import { seoulNow, seoulToday, toFcEvent, toFcHoliday, visibleRange } from "../features/planner/dates";
+import { formatLunarDateCompact, lunarDate } from "../features/planner/lunar";
 import { ErrorState } from "../features/viewer/screenStates";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
@@ -24,6 +25,7 @@ const VIEWS: { id: ViewId; label: string }[] = [
   { id: "listMonth", label: "목록" },
 ];
 const PLUGINS = [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin];
+const LUNAR_DISPLAY_KEY = "tk-calendar-lunar-display";
 
 /**
  * 캘린더(ADR 0008). FullCalendar 를 timeZone="UTC" 로 두고 서버가 준 서울 벽시계 문자열을 그대로 먹여, 기기 시간대와 상관없이
@@ -32,6 +34,7 @@ const PLUGINS = [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin];
 export function CalendarPage() {
   const cal = useRef<FullCalendar>(null);
   const [view, setView] = useState<ViewId>("dayGridMonth");
+  const [showLunar, setShowLunar] = useState(() => localStorage.getItem(LUNAR_DISPLAY_KEY) !== "false");
   const [title, setTitle] = useState("");
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
   // 일정 알림을 누르면 `/calendar?event=<id>&date=YYYY-MM-DD` 로 새로 열린다(서비스 워커가 창을 이동시킨다).
@@ -81,6 +84,10 @@ export function CalendarPage() {
     const id = a.event.extendedProps.eventId as string | undefined;
     if (id) setEditor({ mode: "edit", eventId: id });
   };
+  const toggleLunar = (enabled: boolean) => {
+    setShowLunar(enabled);
+    localStorage.setItem(LUNAR_DISPLAY_KEY, String(enabled));
+  };
   const hasError = events.isError || holidays.isError;
 
   return (
@@ -109,13 +116,19 @@ export function CalendarPage() {
             {title}
           </h2>
         </div>
-        <div className="tk-segmented" role="radiogroup" aria-label="보기">
-          {VIEWS.map((v) => (
-            <label key={v.id}>
-              <input type="radio" name="cal-view" checked={view === v.id} onChange={() => api()?.changeView(v.id)} />
-              {v.label}
-            </label>
-          ))}
+        <div className="planner-cal__controls">
+          <div className="tk-segmented" role="radiogroup" aria-label="보기">
+            {VIEWS.map((v) => (
+              <label key={v.id}>
+                <input type="radio" name="cal-view" checked={view === v.id} onChange={() => api()?.changeView(v.id)} />
+                {v.label}
+              </label>
+            ))}
+          </div>
+          <label className="tk-switch planner-cal__lunar-toggle">
+            <input type="checkbox" role="switch" checked={showLunar} onChange={(event) => toggleLunar(event.target.checked)} />
+            음력
+          </label>
         </div>
       </div>
       {hasError && (
@@ -157,13 +170,23 @@ export function CalendarPage() {
           noEventsText="이 달에는 일정이 없어요"
           dayHeaderClassNames={(a) => dateClass(a.date)}
           dayCellClassNames={(a) => dateClass(a.date)}
-          dayCellContent={(a: DayCellContentArg) => a.dayNumberText.replace("일", "")}
+          dayCellContent={(a: DayCellContentArg) => {
+            const day = a.dayNumberText.replace("일", "");
+            const date = a.date.toISOString().slice(0, 10);
+            const compact = showLunar && a.view.type === "dayGridMonth" ? formatLunarDateCompact(lunarDate(date)) : null;
+            return compact ? (
+              <span className="planner-cal__day-content">
+                <span>{day}</span>
+                <span className="planner-cal__lunar" aria-label={compact}>{compact}</span>
+              </span>
+            ) : day;
+          }}
           datesSet={onDates}
           eventClick={onEventClick}
           dateClick={(a) => setEditor({ mode: "create", date: a.dateStr.slice(0, 10), time: a.allDay ? undefined : a.dateStr.slice(11, 16) })}
         />
       </div>
-      <EventDialog target={editor} onClose={() => setEditor(null)} />
+      <EventDialog target={editor} onClose={() => setEditor(null)} showLunar={showLunar} />
     </div>
   );
 }
