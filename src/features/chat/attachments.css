@@ -41,10 +41,4 @@ button.tk-attach__main:focus-visible { outline: var(--tk-focus-ring-width) solid
 .tk-attach[data-kind="file"] .tk-attach__actions { top: 50%; transform: translateY(-50%); }
 .tk-attach__busy { position: absolute; inset: 0; margin: auto; }
 
-/* 입력창: 첨부가 붙으면 본문을 전폭 한 줄로 올리고, 첨부 버튼·보내기는 아래 줄로 내린다.
-   클립 폭만큼 본문이 밀려 칩 줄과 어긋나던 문제를 없앤다. 첨부가 없을 때는 한 줄 레이아웃 그대로. */
-.tk-composer[data-has-context] .tk-composer__row { flex-wrap: wrap; align-items: center; }
-.tk-composer[data-has-context] .tk-composer__input { order: -1; flex: 1 0 100%; padding-inline: var(--tk-space-2); }
-.tk-composer[data-has-context] .tk-composer__send { margin-left: auto; }
-.tk-composer[data-has-context] .tk-composer__send ~ .tk-composer__send { margin-left: 0; }
 .tk-composer .tk-attach__thumb { width: calc(var(--tk-size-control-lg) * 1.5); }

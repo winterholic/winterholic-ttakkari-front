@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { Icon } from "../../ui/Icon";
 import "./attachments.css";
+import "./composer.css";
 
 const DRAFT_PREFIX = "tk-draft:";
 
@@ -130,7 +131,7 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
         <div className="tk-composer__row">
           {onAttach && (
             <>
-              <button className="tk-icon-button" type="button" aria-label="파일 첨부" onClick={() => fileInput.current?.click()}>
+              <button className="tk-icon-button tk-composer__attach" type="button" aria-label="파일 첨부" onClick={() => fileInput.current?.click()}>
                 <Icon name="paperclip" />
               </button>
               <input

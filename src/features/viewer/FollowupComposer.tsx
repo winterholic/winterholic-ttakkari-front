@@ -6,6 +6,7 @@ import type { UUID } from "../../api/types";
 import { Icon } from "../../ui/Icon";
 import { errorText } from "./api";
 import { shouldSubmitOnEnter } from "./kinds";
+import "../chat/composer.css";
 
 /** 뷰어 아래 후속 지시(docs/09 §5). 지금 보는 결과물이 context_artifact_ids 로 붙은 채 새 Run 을 만들고 채팅으로 간다. */
 export function FollowupComposer({ sessionId, artifactId }: { sessionId: UUID; artifactId: UUID }) {
