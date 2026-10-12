@@ -14,7 +14,7 @@ import "./shell.css";
 import { ShellContext } from "./ShellContext";
 import type { ShellApi } from "./ShellContext";
 import { SessionList } from "./SessionList";
-import { AreaLinks, TabbarLinks, ToolLinks } from "./ShellNav";
+import { SidebarLinks, TabbarLinks } from "./ShellNav";
 import { useShortcuts } from "./useShortcuts";
 import { useConnection } from "./useConnection";
 import { useKeyboardOpen } from "./useKeyboardOpen";
@@ -93,11 +93,6 @@ export function AppShell() {
   const connection = useConnection(state === "in");
   useShortcuts();
   useKeyboardOpen();
-  // 작업 공간 링크가 마지막으로 본 세션으로 가도록, 세션이 있는 화면에서 id 를 기억한다.
-  const [lastSession, setLastSession] = useState<string | undefined>(sessionId);
-  if (sessionId && sessionId !== lastSession) setLastSession(sessionId);
-  const currentSession = sessionId ?? lastSession;
-
   // 드로어는 연 시점의 location.key 를 기억한다. 라우트가 바뀌면 key 가 달라져 저절로 닫힌다.
   const [drawerKey, setDrawerKey] = useState<string | null>(null);
   const drawerOpen = drawerKey === location.key;
@@ -132,10 +127,7 @@ export function AppShell() {
             </Link>
           </div>
           <nav className="tk-sidebar" aria-label="영역과 세션">
-            <div className="tk-nav">
-              <AreaLinks sessionId={currentSession} />
-            </div>
-            <ToolLinks />
+            <SidebarLinks />
             <SessionList currentId={sessionId} />
           </nav>
           <SidebarFooter connection={connection} />

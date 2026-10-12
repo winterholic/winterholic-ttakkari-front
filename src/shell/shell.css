@@ -47,3 +47,26 @@ dialog:focus { outline: none; }
 .tk-drawer { padding-bottom: 0; }
 /* 키보드가 올라와 있으면(useKeyboardOpen) 탭바를 숨긴다 */
 html[data-kbd] .tk-tabbar { display: none; }
+
+/* 데스크톱 사이드바의 부가 기능. 그 안의 화면에 있으면 글자만 켜고(data-active), 아래 들여 쓴 줄이 지금 기능을 채워 보여 준다 */
+button.tk-nav__link { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; }
+.tk-nav__link:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(-1 * var(--tk-focus-ring-width)); }
+.app-nav__features[data-active] { color: var(--tk-component-sidebar-item-active-text); }
+.app-nav__chevron { margin-left: auto; color: var(--tk-color-text-tertiary); }
+.tk-nav__link > .app-nav__chevron { --tk-_icon: var(--tk-size-icon-sm); }
+.app-nav__sub { margin-left: var(--tk-space-6); }
+/* 부가 기능 모달: 2열 타일. 아이콘 옆에 이름, 그 아래 한 줄 설명 */
+.feature-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--tk-space-2); }
+.feature-grid__item {
+  display: flex; align-items: center; gap: var(--tk-space-3); min-width: 0; min-height: var(--tk-size-touch-target-min);
+  padding: var(--tk-space-3); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-subtle);
+  color: var(--tk-color-text-primary); text-decoration: none;
+}
+.feature-grid__item > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-md); color: var(--tk-color-text-secondary); }
+.feature-grid__text { display: flex; flex-direction: column; min-width: 0; }
+.feature-grid__label { font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.feature-grid__desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+@media (hover: hover) { .feature-grid__item:hover { background: var(--tk-color-interactive-hover-overlay); } }
+.feature-grid__item[aria-current] { background: var(--tk-color-interactive-selected-bg); color: var(--tk-color-interactive-selected-text); }
+.feature-grid__item[aria-current] > .tk-icon { color: inherit; }
+.feature-grid__item:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }

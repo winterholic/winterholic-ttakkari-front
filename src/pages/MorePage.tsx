@@ -1,11 +1,12 @@
 import { Link } from "react-router";
 import { PageHeader } from "../shell/PageHeader";
-import { moreAreas } from "../shell/ShellNav";
+import { moreFeatures } from "../shell/features";
 import { Icon } from "../ui/Icon";
 import "./more.css";
 
 /**
- * 모바일 하단 탭의 더보기. 탭 다섯(채팅·회사·메모·캘린더·더보기)에 들지 못한 영역을 타일로 모은다.
+ * 모바일 하단 탭의 더보기. 탭 다섯(채팅·회사·메모·캘린더·더보기)에 들지 못한 기능(shell/features.ts)을 타일로 모은다.
+ * 데스크톱 사이드바의 부가 기능 모달과 같은 목록이라, 새 기능은 features.ts 에 넣으면 여기에도 나온다.
  * 바텀 시트를 쓰지 않기로 해서(ui/sheetGuard.test.ts) 시트 대신 화면 하나로 둔다.
  */
 export function MorePage() {
@@ -15,7 +16,7 @@ export function MorePage() {
       <div className="tk-screen__body">
         <div className="tk-container tk-container--md">
           <nav className="more-grid" aria-label="더보기 메뉴">
-            {moreAreas().map((a) => (
+            {moreFeatures().map((a) => (
               <Link key={a.root} className="more-grid__item" to={a.to}>
                 <Icon name={a.icon} />
                 <span>{a.label}</span>

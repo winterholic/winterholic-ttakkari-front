@@ -1,87 +1,85 @@
+import { useState } from "react";
 import { Link, useLocation } from "react-router";
+import { Dialog } from "../ui/Dialog";
 import { Icon } from "../ui/Icon";
-import type { IconName } from "../ui/Icon";
-
-interface Area {
-  /** 경로 첫 마디. 활성 판단 기준이다. */
-  root: string;
-  to: string;
-  icon: IconName;
-  label: string;
-}
-
-/** 영역 넷(docs/19 §5). 작업 공간만 기억해 둔 세션이 있으면 그 세션으로 간다. 데스크톱 사이드바가 쓴다. */
-export function areas(sessionId?: string): Area[] {
-  return [
-    // 새 세션 버튼을 따로 두지 않는다. 채팅 탭이 곧 새 세션 화면이다(⌘⇧O 도 같다).
-    { root: "chat", to: "/chat", icon: "chat", label: "채팅" },
-    // 회사 업무: 여기서 만든 대화는 회사 계정만 쓴다(설정 > 계정 > 회사 계정).
-    { root: "work", to: "/work", icon: "briefcase", label: "회사 업무" },
-    { root: "workspace", to: sessionId ? `/workspace/${sessionId}` : "/workspace", icon: "workspace", label: "작업 공간" },
-    { root: "library", to: "/library", icon: "library", label: "보관함" },
-    { root: "files", to: "/files", icon: "folder-search", label: "파일" },
-  ];
-}
-
-const MORE_ROOTS = ["workspace", "library", "files"];
+import { FEATURES, featureAt } from "./features";
 
 /**
- * 하단 탭에 자리가 없어 모바일에서는 더보기 화면(/more)으로 가는 영역.
- * 작업 공간은 마지막 세션이 아니라 개요(/workspace)로 보낸다. 더보기에서 맥락 없이 특정 세션이 뜨면 무슨 화면인지 알 수 없었다.
+ * 데스크톱 사이드바 맨 위: 채팅과 부가 기능 둘뿐이다. 채팅이 아닌 기능은 전부 부가 기능 모달(FEATURES)에 모은다.
+ * 부가 기능 안의 화면에 있으면 "부가 기능"을 켜고, 그 아래 줄에 지금 기능을 보여 준다.
  */
-export function moreAreas(): Area[] {
-  return areas().filter((a) => MORE_ROOTS.includes(a.root));
-}
-
-/**
- * 메모·캘린더. 데스크톱 사이드바의 영역 링크 아래에 둔다. 모바일은 하단 탭에 있다.
- * 영역(채팅·작업 공간…)과 달리 "생활 도구"라 한 묶음으로 나눈다.
- */
-const TOOLS: Area[] = [
-  { root: "memos", to: "/memos", icon: "memo", label: "메모" },
-  { root: "calendar", to: "/calendar", icon: "calendar", label: "캘린더" },
-];
-
-export function ToolLinks() {
-  const here = useLocation().pathname.split("/")[1];
+export function SidebarLinks() {
+  const { pathname } = useLocation();
+  const here = pathname.split("/")[1];
+  const current = featureAt(pathname);
+  const [open, setOpen] = useState(false);
   return (
-    <div className="tk-nav" role="group" aria-label="메모와 캘린더">
-      {TOOLS.map((t) => (
-        <Link key={t.root} className="tk-nav__link" to={t.to} aria-current={t.root === here ? "page" : undefined}>
-          <Icon name={t.icon} />
-          {t.label}
+    <div className="tk-nav">
+      {/* 새 세션 버튼을 따로 두지 않는다. 채팅이 곧 새 세션 화면이다(⌘⇧O 도 같다). */}
+      <Link className="tk-nav__link" to="/chat" aria-current={here === "chat" ? "page" : undefined}>
+        <Icon name="chat" />
+        채팅
+      </Link>
+      <button
+        type="button"
+        className="tk-nav__link app-nav__features"
+        aria-haspopup="dialog"
+        data-active={current ? "" : undefined}
+        onClick={() => setOpen(true)}
+      >
+        <Icon name="more" />
+        부가 기능
+        <Icon name="chevron-right" className="app-nav__chevron" />
+      </button>
+      {current && (
+        <Link className="tk-nav__link app-nav__sub" to={current.to} aria-current="page">
+          <Icon name={current.icon} />
+          {current.label}
         </Link>
-      ))}
+      )}
+      <FeaturesDialog open={open} onClose={() => setOpen(false)} currentRoot={current?.root} />
     </div>
   );
 }
 
-export function AreaLinks({ sessionId }: { sessionId?: string }) {
-  const here = useLocation().pathname.split("/")[1];
+/** 부가 기능 고르기. 기능이 늘어도 사이드바 길이는 그대로이고, 이름 아래 설명으로 무엇을 하는 곳인지 보인다. */
+function FeaturesDialog({ open, onClose, currentRoot }: { open: boolean; onClose: () => void; currentRoot?: string }) {
   return (
-    <>
-      {areas(sessionId).map((a) => (
-        <Link key={a.root} className="tk-nav__link" to={a.to} aria-current={a.root === here ? "page" : undefined}>
-          <Icon name={a.icon} />
-          {a.label}
-        </Link>
-      ))}
-    </>
+    <Dialog open={open} onClose={onClose} title="부가 기능" id="features-dialog">
+      <nav className="feature-grid" aria-label="부가 기능 목록">
+        {FEATURES.map((f) => (
+          <Link
+            key={f.root}
+            className="feature-grid__item"
+            to={f.to}
+            aria-current={f.root === currentRoot ? "page" : undefined}
+            onClick={onClose}
+          >
+            <Icon name={f.icon} />
+            <span className="feature-grid__text">
+              <span className="feature-grid__label">{f.label}</span>
+              <span className="feature-grid__desc">{f.description}</span>
+            </span>
+          </Link>
+        ))}
+      </nav>
+    </Dialog>
   );
 }
 
-/** 모바일 하단 탭 다섯. 칸이 좁아 회사 업무는 "회사"로 줄인다. */
-const TABS: Area[] = [
-  { root: "chat", to: "/chat", icon: "chat", label: "채팅" },
-  { root: "work", to: "/work", icon: "briefcase", label: "회사" },
-  ...TOOLS,
-  { root: "more", to: "/more", icon: "more", label: "더보기" },
+/** 모바일 하단 탭 다섯: 채팅, 하단 탭에 둔 기능(FEATURES 의 mobileTab), 더보기. */
+const TABS = [
+  { root: "chat", to: "/chat", icon: "chat" as const, label: "채팅" },
+  ...FEATURES.filter((f) => f.mobileTab).map((f) => ({ root: f.root, to: f.to, icon: f.icon, label: f.tabLabel ?? f.label })),
+  { root: "more", to: "/more", icon: "more" as const, label: "더보기" },
 ];
 
 export function TabbarLinks() {
-  const here = useLocation().pathname.split("/")[1];
+  const { pathname } = useLocation();
+  const here = pathname.split("/")[1];
   // 더보기로 옮긴 화면에 있을 때도 더보기 탭이 켜져 있어야 지금 어디인지 보인다.
-  const active = MORE_ROOTS.includes(here) ? "more" : here;
+  const feature = featureAt(pathname);
+  const active = feature && !feature.mobileTab ? "more" : here;
   return (
     <>
       {TABS.map((t) => (
