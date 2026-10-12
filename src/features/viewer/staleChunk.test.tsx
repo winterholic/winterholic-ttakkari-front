@@ -18,7 +18,7 @@ vi.mock("./renderers/CodeView", () => ({
 
 const code: ArtifactOut = {
   id: "a-ts", workspace_id: "w1", session_id: "s1", run_id: "r1", filename: "Dialog.tsx", mime_type: "text/x-typescript", kind: "code",
-  source: "agent_modified", rel_path: "front/src/ui/Dialog.tsx", storage_mode: "copy", size_bytes: 120, sha256: "0", preview_status: "not_required",
+  source: "agent_modified", area: "agent", rel_path: "front/src/ui/Dialog.tsx", storage_mode: "copy", size_bytes: 120, sha256: "0", preview_status: "not_required",
   preview_mime: null, preview_error: null, export_policy: "allow", downloadable: true, retention_until: null, created_at: "2026-10-12T09:00:00Z",
 };
 

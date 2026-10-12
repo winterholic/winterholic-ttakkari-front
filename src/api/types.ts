@@ -150,6 +150,8 @@ export interface RunOut {
 // ---- artifacts
 export type ArtifactKind = "markdown" | "html" | "pdf" | "pptx" | "docx" | "sheet" | "image" | "code" | "other";
 export type ArtifactSource = "agent_output" | "agent_modified" | "user_registered" | "upload";
+/** 보관함 분류. files 는 사용자가 올렸거나 넘겨받은 결과물, agent 는 에이전트가 작업 중 만든 파일. */
+export type ArtifactArea = "files" | "agent";
 export type PreviewStatus = "not_required" | "pending" | "processing" | "ready" | "failed" | "unavailable";
 export type ExportPolicy = "allow" | "deny" | "sensitive";
 export type ArtifactVariant = "original" | "preview";
@@ -163,6 +165,7 @@ export interface ArtifactOut {
   mime_type: string;
   kind: ArtifactKind;
   source: ArtifactSource;
+  area: ArtifactArea;
   rel_path: string | null;
   storage_mode: string;
   size_bytes: number;
@@ -189,6 +192,8 @@ export interface ArtifactListParams {
   session_id?: UUID;
   run_id?: UUID;
   kind?: ArtifactKind;
+  /** 보관함 탭. 생략하면 모두(세션 화면). */
+  area?: ArtifactArea;
   /** true 면 작업이 워크스페이스에서 바꾼 파일(agent_modified)만, false 면 그것을 뺀다. 생략하면 모두. */
   changed?: boolean;
   q?: string;

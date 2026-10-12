@@ -25,7 +25,7 @@ import { Icon } from "../../ui/Icon";
  * - followup: 뷰어 아래에 붙을 컴포저(현재 결과물을 문맥으로 가진 입력). 없으면 생략.
  * - alwaysOpen: 데스크톱에서 선택이 없어도 오른쪽 패널을 두고 placeholder 를 보여 준다(작업 공간).
  */
-export interface ArtifactViewerHostProps extends Pick<ArtifactViewerProps, "followup" | "onDelete" | "panel"> {
+export interface ArtifactViewerHostProps extends Pick<ArtifactViewerProps, "followup" | "onDelete" | "onMove" | "panel"> {
   children: ReactNode;
   alwaysOpen?: boolean;
   placeholder?: ReactNode;
@@ -45,7 +45,7 @@ function readSplit(): number | null {
   }
 }
 
-export function ArtifactViewerHost({ children, alwaysOpen, placeholder, followup, onDelete, panel, resolveInitial }: ArtifactViewerHostProps) {
+export function ArtifactViewerHost({ children, alwaysOpen, placeholder, followup, onDelete, onMove, panel, resolveInitial }: ArtifactViewerHostProps) {
   const { current, close } = useArtifactViewer();
   const desktop = useIsDesktop();
   const [split, setSplit] = useState<number | null>(readSplit);
@@ -53,7 +53,7 @@ export function ArtifactViewerHost({ children, alwaysOpen, placeholder, followup
 
   const viewer = current ? (
     <ViewerErrorBoundary resetKey={current} onClose={close} withToolbar>
-      <ArtifactViewer artifactId={current} initial={resolveInitial?.(current)} onClose={close} followup={followup} onDelete={onDelete} panel={panel} />
+      <ArtifactViewer artifactId={current} initial={resolveInitial?.(current)} onClose={close} followup={followup} onDelete={onDelete} onMove={onMove} panel={panel} />
     </ViewerErrorBoundary>
   ) : null;
 

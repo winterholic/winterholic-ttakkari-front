@@ -1,0 +1,2 @@
+/* 보관함의 파일 / 에이전트 파일 구분. 헤더와 첫 줄 사이는 파일(.files-tabs)·비서 관리(.assistant-tabs)와 같은 space-4. */
+.library-tabs { margin-top: var(--tk-space-4); }

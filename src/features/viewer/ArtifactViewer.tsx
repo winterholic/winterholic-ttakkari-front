@@ -30,6 +30,8 @@ export interface ArtifactViewerProps {
   followup?: ReactNode;
   /** 있으면 툴바 "더보기" 에 "삭제…" 가 생긴다. 확인 대화상자는 호출한 화면이 연다. */
   onDelete?: (a: ArtifactOut) => void;
+  /** 있으면 "더보기" 에 파일 ↔ 에이전트 파일 옮기기가 생긴다. 요청은 호출한 화면이 보낸다. */
+  onMove?: (a: ArtifactOut) => void;
   /** 작업 공간처럼 목록이 role=tablist 일 때 패널 연결. */
   panel?: { id: string; labelledBy: string };
 }
@@ -39,7 +41,7 @@ export function ArtifactViewer(props: ArtifactViewerProps) {
   return <ViewerInner key={props.artifactId} {...props} />;
 }
 
-function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }: ArtifactViewerProps) {
+function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove, panel }: ArtifactViewerProps) {
   const qc = useQueryClient();
   const q = useQuery({
     queryKey: ["artifact", artifactId],
@@ -266,7 +268,7 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
           >
             <Icon name="download" />
           </button>
-          {onDelete && <button className="tk-icon-button tk-icon-button--sm" type="button" aria-label="더보기" onClick={() => setMenuOpen(true)}><Icon name="more-vertical" /></button>}
+          {(onDelete || onMove) && <button className="tk-icon-button tk-icon-button--sm" type="button" aria-label="더보기" onClick={() => setMenuOpen(true)}><Icon name="more-vertical" /></button>}
           <button className="tk-icon-button tk-icon-button--sm tk-hide-below-lg" type="button" aria-label="닫기" title="닫기" onClick={onClose}><Icon name="x" /></button>
         </div>
       </div>
@@ -322,7 +324,7 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
 
       {followup && <div className="tk-viewer__followup">{followup}</div>}
 
-      {onDelete && (
+      {(onDelete || onMove) && (
         <ModalDialog open={menuOpen} onClose={() => setMenuOpen(false)} className="tk-dialog tk-dialog--sm" labelledBy="av-actions-title">
           <div className="tk-dialog__header">
             <h2 className="tk-dialog__title" id="av-actions-title">{a.filename}</h2>
@@ -334,11 +336,20 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
                 <Icon name="download" />원본 다운로드{!dl.enabled && <span className="tk-menu__meta">{dl.reason}</span>}
               </button>
             </li>
-            <li>
-              <button className="tk-menu__item tk-menu__item--danger" type="button" onClick={() => { setMenuOpen(false); onDelete(a); }}>
-                <Icon name="trash" />삭제…
-              </button>
-            </li>
+            {onMove && (
+              <li>
+                <button className="tk-menu__item" type="button" onClick={() => { setMenuOpen(false); onMove(a); }}>
+                  <Icon name="folder" />{a.area === "agent" ? "파일로 옮기기" : "에이전트 파일로 옮기기"}
+                </button>
+              </li>
+            )}
+            {onDelete && (
+              <li>
+                <button className="tk-menu__item tk-menu__item--danger" type="button" onClick={() => { setMenuOpen(false); onDelete(a); }}>
+                  <Icon name="trash" />삭제…
+                </button>
+              </li>
+            )}
           </ul>
         </ModalDialog>
       )}

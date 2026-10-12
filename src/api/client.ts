@@ -4,6 +4,7 @@ import type {
   AccountOut,
   AccountPatch,
   ApiErrorBody,
+  ArtifactArea,
   ArtifactListParams,
   ArtifactOut,
   ArtifactRegisterIn,
@@ -222,6 +223,8 @@ export const listArtifacts = (p: ArtifactListParams = {}): Promise<ArtifactOut[]
 export const getArtifact = (id: UUID): Promise<ArtifactOut> => json(`/api/artifacts/${id}`);
 export const registerArtifact = (body: ArtifactRegisterIn): Promise<ArtifactOut> =>
   json("/api/artifacts", { method: "POST", json: body });
+export const moveArtifact = (id: UUID, area: ArtifactArea): Promise<ArtifactOut> =>
+  json(`/api/artifacts/${id}`, { method: "PATCH", json: { area } });
 export const deleteArtifact = (id: UUID): Promise<void> => json(`/api/artifacts/${id}`, { method: "DELETE" });
 export const retryPreview = (id: UUID): Promise<ArtifactOut> =>
   json(`/api/artifacts/${id}/preview/retry`, { method: "POST" });
