@@ -77,7 +77,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
   const activeIds = new Set(groups.map((g) => g.rows.find(usable)?.id).filter(Boolean));
   const onCount = rows.filter((a) => a.enabled).length;
   return (
-    <Dialog kind="sheet" open={open} onClose={onClose} title="사용량" id="account-usage">
+    <Dialog kind="panel" open={open} onClose={onClose} title="사용량" id="account-usage">
       <div className="usage">
         <div className="usage__bar">
           <p className="usage__meta">

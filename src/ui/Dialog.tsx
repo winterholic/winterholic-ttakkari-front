@@ -2,8 +2,13 @@ import { useEffect, useRef } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { IconButton } from "./Button";
 import { Icon } from "./Icon";
+import { focusDialogBox } from "./dialogFocus";
 
-type Kind = "dialog" | "sheet" | "drawer";
+/**
+ * dialog: 가운데 모달(짧은 확인·입력). panel: 길거나 스크롤하는 내용. 모바일은 전체 화면, lg 이상은 가운데 상자. drawer: 모바일 세션 목록.
+ * 바텀 시트는 쓰지 않는다(사용성 이유로 없앴다).
+ */
+type Kind = "dialog" | "panel" | "drawer";
 
 export interface DialogProps {
   open: boolean;
@@ -36,13 +41,11 @@ export function Dialog({ open, onClose, kind = "dialog", size, label, title, mod
     if (open && !el.open) {
       opener.current = document.activeElement;
       el.showModal();
-      // 열면 브라우저가 첫 포커스 요소(드로어는 로고 링크, 시트·다이얼로그는 닫기 X)에 자동 포커스를 줘서 터치에서도 링이 그려진다.
-      // 첫 포커스 요소가 입력 칸이면 그대로 두고, 버튼·링크면 상자 자신에 포커스를 둔다. 키보드는 Tab 으로 들어간다.
-      if (!el.querySelector("input:not([type=hidden]), textarea, select, [autofocus]")) el.focus({ preventScroll: true });
+      focusDialogBox(el);
     } else if (!open && el.open) {
       el.close();
     }
-  }, [open, kind]);
+  }, [open]);
 
   const handleClose = () => {
     const o = opener.current;
@@ -52,11 +55,12 @@ export function Dialog({ open, onClose, kind = "dialog", size, label, title, mod
   };
 
   const onClick = (e: MouseEvent<HTMLDialogElement>) => {
-    if (e.target === e.currentTarget && !modal) e.currentTarget.close();
+    // 패널은 모바일에서 화면 전체라 상자 자신을 누르는 일은 safe-area 여백뿐이다. 스크림 클릭 닫기는 쓰지 않는다.
+    if (e.target === e.currentTarget && !modal && kind !== "panel") e.currentTarget.close();
   };
 
   const cls = [
-    `tk-${kind}`,
+    kind === "panel" ? "tk-dialog tk-panel" : `tk-${kind}`,
     kind === "dialog" && size && `tk-dialog--${size}`,
   ]
     .filter(Boolean)
@@ -87,7 +91,7 @@ export function Dialog({ open, onClose, kind = "dialog", size, label, title, mod
           </IconButton>
         </div>
       )}
-      {kind === "dialog" || kind === "sheet" ? <div className="tk-dialog__body">{children}</div> : children}
+      {kind !== "drawer" ? <div className="tk-dialog__body">{children}</div> : children}
       {footer && <div className="tk-dialog__footer">{footer}</div>}
     </dialog>
   );

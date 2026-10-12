@@ -325,12 +325,12 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
       {followup && <div className="tk-viewer__followup">{followup}</div>}
 
       {onDelete && (
-        <ModalDialog open={menuOpen} onClose={() => setMenuOpen(false)} className="tk-sheet" labelledBy="av-actions-title">
+        <ModalDialog open={menuOpen} onClose={() => setMenuOpen(false)} className="tk-dialog tk-dialog--sm" labelledBy="av-actions-title">
           <div className="tk-dialog__header">
             <h2 className="tk-dialog__title" id="av-actions-title">{a.filename}</h2>
             <button className="tk-icon-button" type="button" aria-label="닫기" onClick={() => setMenuOpen(false)}><Icon name="x" /></button>
           </div>
-          <ul className="tk-sheet__actions" role="list">
+          <ul className="dialog-actions" role="list">
             <li>
               <button className="tk-menu__item" type="button" aria-disabled={!dl.enabled || undefined} onClick={() => { if (dl.enabled) { setMenuOpen(false); void download(); } }}>
                 <Icon name="download" />원본 다운로드{!dl.enabled && <span className="tk-menu__meta">{dl.reason}</span>}

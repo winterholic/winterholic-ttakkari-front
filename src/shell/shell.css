@@ -22,11 +22,33 @@
 .app-user-menu__body .tk-presence { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 세션 목록의 회사 업무 표시 */
 .session-pool { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }
-/* 드로어·시트·다이얼로그 자신이 받은 프로그램 포커스는 링을 그리지 않는다. 안쪽 요소의 키보드 포커스 링은 그대로다 */
-:is(.tk-drawer, .tk-sheet, .tk-dialog):focus { outline: none; }
-/* 다이얼로그·시트 본문: flex 기준을 내용 크기(auto)로 둔다. vendor 의 `flex: 1`(= 0%)은 높이가 auto 인 세로 flex 상자에서
-   WebKit 이 본문을 padding 만큼으로 줄여, 모바일 사파리에서 사용량·알림 모달 내용이 잘렸다. */
-:is(.tk-dialog, .tk-sheet) .tk-dialog__body { flex: 1 1 auto; }
+/* 모달 상자 자신이 받은 프로그램 포커스(ui/dialogFocus.ts)는 링을 그리지 않는다. 안쪽 요소의 키보드 포커스 링은 그대로다 */
+dialog:focus { outline: none; }
+/* 다이얼로그·패널 본문: flex 기준을 내용 크기(auto)로 둔다. vendor 의 `flex: 1`(= 0%)은 높이가 auto 인 세로 flex 상자에서
+   iOS 사파리가 본문을 padding 만큼으로 줄였을 가능성이 있어(실기기 확인 필요) 방어로 둔다. */
+.tk-dialog .tk-dialog__body { flex: 1 1 auto; }
+
+/* 패널(Dialog kind="panel"): 길거나 스크롤하는 내용. 모바일은 전체 화면(제목·닫기 위, 본문 스크롤, safe-area 안쪽), lg 이상은 가운데 상자(.tk-dialog 그대로).
+   바텀 시트를 대신한다. vendor 의 .tk-sheet 는 쓰지 않는다. */
+@media (max-width: 1023px) {
+  .tk-panel {
+    position: fixed; inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0;
+    border: 0; border-radius: 0; box-shadow: none;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .tk-panel .tk-dialog__header {
+    align-items: center; flex: none; min-height: var(--tk-size-layout-header);
+    padding: var(--tk-space-2) var(--tk-space-3) var(--tk-space-2) var(--tk-_pad);
+    border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-default);
+  }
+  .tk-panel .tk-dialog__header > .tk-icon-button { margin: 0; }
+  .tk-panel .tk-dialog__body { min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .tk-panel .tk-dialog__footer { flex: none; padding-top: var(--tk-space-3); border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
+}
+/* 가운데 모달 안의 행동 목록(결과물 더보기). 메뉴 항목과 같은 모양을 큰 손가락 크기로 */
+.dialog-actions { display: flex; flex-direction: column; margin: 0; padding: var(--tk-space-2) var(--tk-space-2) var(--tk-space-3); list-style: none; }
+.dialog-actions .tk-menu__item { min-height: var(--tk-size-control-lg); font-size: var(--tk-font-size-md); }
+.dialog-actions .tk-menu__item > .tk-icon { --tk-_icon: var(--tk-size-icon-md); }
 
 /* 하단 여백: 홈 인디케이터 높이(env)를 통째로 비우면 탭바 아래가 휑해서 절반만 비운다(최소 space-2). */
 .tk-tabbar { padding-bottom: max(var(--tk-space-2), calc(env(safe-area-inset-bottom) / 2)); }
