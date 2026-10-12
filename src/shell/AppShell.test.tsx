@@ -95,7 +95,7 @@ describe("AppShell 인증 가드", () => {
     within(nav).getByRole("button", { name: "부가 기능" }).click();
     const dialog = await screen.findByRole("dialog", { name: "부가 기능" });
     const links = within(dialog).getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/work", "/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/resources"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/work", "/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/meetings", "/resources"]);
     expect(links.filter((l) => l.getAttribute("aria-current") === "page").map((l) => l.getAttribute("href"))).toEqual(["/memos"]);
   });
 
@@ -121,7 +121,7 @@ describe("AppShell 인증 가드", () => {
     expect(within(drawer).queryByRole("link", { name: "캘린더", hidden: true })).toBeNull();
   });
 
-  it("더보기 화면은 작업 공간·보관함·맥락 도서관·파일·서버 리소스를 모으고, 작업 공간은 마지막 세션이 아니라 개요로 간다", async () => {
+  it("더보기 화면은 작업 공간·보관함·맥락 도서관·파일·회의록·서버 리소스를 모으고, 작업 공간은 마지막 세션이 아니라 개요로 간다", async () => {
     renderAt("/chat/s9");
     // 세션 화면을 거쳐 와도 더보기의 작업 공간은 개요다.
     within(screen.getByRole("navigation", { name: "영역" })).getByRole("link", { name: "더보기" }).click();
@@ -132,6 +132,7 @@ describe("AppShell 인증 가드", () => {
       ["보관함", "/library"],
       ["맥락 도서관", "/context-library"],
       ["파일", "/files"],
+      ["회의록", "/meetings"],
       ["서버 리소스", "/resources"],
     ]);
   });

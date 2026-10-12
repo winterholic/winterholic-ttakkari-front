@@ -2,7 +2,7 @@ import {
   Briefcase, CalendarDays, Camera, ChevronDown, ChevronLeft, NotebookPen, Tag, GripVertical, Gauge, ChevronRight, ChevronUp, Plus, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
   Download, Ellipsis, EllipsisVertical, ExternalLink, Eye, FileArchive, FileCode, FileSpreadsheet, FileText, Folder,
   FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Lock, LogOut, Mail, Maximize,
-  Menu, MessageSquare, Moon, MoveHorizontal, OctagonAlert, PanelRight, Paperclip, Pin, Presentation, RefreshCw,
+  Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, PanelRight, Paperclip, Pin, Presentation, RefreshCw,
   Search, Send, Server, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, Square, SquarePen, Sun, Terminal, Trash2,
   TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut,
 } from "lucide-react";
@@ -26,7 +26,7 @@ const ICONS = {
   moon: Moon, sun: Sun, menu: Menu, x: X, back: ArrowLeft, more: Ellipsis, "more-vertical": EllipsisVertical,
   "arrow-down": ArrowDown,
   "chevron-up": ChevronUp, "chevron-down": ChevronDown, "chevron-right": ChevronRight, "chevron-left": ChevronLeft,
-  calendar: CalendarDays, memo: NotebookPen, tag: Tag, briefcase: Briefcase, grip: GripVertical, gauge: Gauge, server: Server, plus: Plus, logout: LogOut,
+  calendar: CalendarDays, mic: Mic, memo: NotebookPen, tag: Tag, briefcase: Briefcase, grip: GripVertical, gauge: Gauge, server: Server, plus: Plus, logout: LogOut,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

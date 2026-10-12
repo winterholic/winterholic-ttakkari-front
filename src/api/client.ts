@@ -317,6 +317,104 @@ export const listTransferTokens = (): Promise<TransferTokenOut[]> => json("/api/
 export const createTransferToken = (name: string): Promise<TransferTokenOut> => json("/api/transfer-tokens", { method: "POST", json: { name } });
 export const revokeTransferToken = (id: string): Promise<void> => json(`/api/transfer-tokens/${id}`, { method: "DELETE" });
 
+// ---- meetings (ADR 0010). 원본: back/src/ttakkari/api/meetings.py, back/docs/api-contract.md
+export type MeetingStatus = "uploaded" | "transcribing" | "transcribed" | "analyzing" | "analyzed" | "review" | "failed";
+export type MeetingItemKind = "discussion" | "decision" | "action" | "open_issue";
+export type MeetingItemStatus = "open" | "done" | "cancelled";
+export type MeetingScope = "personal" | "work";
+export interface MeetingCounts { discussion: number; decision: number; action: number; open_issue: number; pending_proposals: number }
+export interface MeetingSummary {
+  id: string;
+  title: string;
+  scope: MeetingScope;
+  status: MeetingStatus;
+  failed_stage: "transcription" | "analysis" | null;
+  error: string | null;
+  project: { id: string; name: string } | null;
+  held_at: string | null;
+  participants: string[];
+  source: "audio" | "text";
+  provider: string | null;
+  audio: { artifact_id: string; filename: string; size_bytes: number } | null;
+  transcript_chars: number;
+  transcript_source: string | null;
+  summary: string | null;
+  counts: MeetingCounts;
+  analysis_run_id: string | null;
+  analysis_session_id: string | null;
+  created_at: string;
+  updated_at: string;
+  analyzed_at: string | null;
+}
+export interface MeetingConflict { ref: string; type: "memory" | "action"; target_id: string; text: string; reason: string; change: "supersede" | "cancel" | "revise"; new_text: string | null }
+export interface MeetingItem {
+  id: string;
+  kind: MeetingItemKind;
+  position: number;
+  text: string;
+  detail: string | null;
+  owner: string | null;
+  due: string | null;
+  evidence: string | null;
+  status: MeetingItemStatus;
+  conflicts: MeetingConflict[];
+}
+export type MeetingProposalKind = "add_memory" | "supersede_memory" | "update_action_item";
+export interface MeetingProposal {
+  id: string;
+  item_id: string | null;
+  kind: MeetingProposalKind;
+  status: "pending" | "approved" | "rejected";
+  reason: string | null;
+  /** add_memory·supersede_memory: content, memory_kind, targets[{id, content}]. update_action_item: target_text, change, new_text, target_meeting_title. */
+  payload: {
+    content?: string;
+    memory_kind?: string;
+    targets?: { id: string; content: string }[];
+    target_text?: string;
+    change?: "cancel" | "revise";
+    new_text?: string | null;
+    target_meeting_title?: string | null;
+  };
+  result: Record<string, unknown>;
+  created_at: string;
+  resolved_at: string | null;
+}
+export interface MeetingDetail extends MeetingSummary {
+  transcript: string | null;
+  items: MeetingItem[];
+  proposals: MeetingProposal[];
+  analysis_context: { ref: string; type: "memory" | "action"; text: string; kind?: string; meeting_title?: string }[];
+}
+export interface MeetingProvider { id: string; label: string; state: "ready" | "unconfigured" | "not_implemented"; message: string; profile_configured: boolean }
+export interface MeetingIn {
+  title: string;
+  scope: MeetingScope;
+  project_id?: string | null;
+  held_at?: string | null;
+  audio_artifact_id?: string | null;
+  transcript?: string | null;
+  transcript_source?: "paste" | "file";
+}
+const M = "/api/meetings";
+export const meetingProviders = (): Promise<{ providers: MeetingProvider[] }> => json(`${M}/providers`);
+export const listMeetings = (p: { scope?: "personal" | "work"; q?: string } = {}): Promise<{ meetings: MeetingSummary[] }> =>
+  json(M, { query: { scope: p.scope ?? "all", q: p.q || undefined } });
+export const createMeeting = (body: MeetingIn): Promise<MeetingDetail> => json(M, { method: "POST", json: body });
+export const getMeeting = (id: string): Promise<MeetingDetail> => json(`${M}/${id}`);
+export const patchMeeting = (id: string, body: { title?: string; project_id?: string | null }): Promise<MeetingDetail> =>
+  json(`${M}/${id}`, { method: "PATCH", json: body });
+export const deleteMeeting = (id: string): Promise<void> => json(`${M}/${id}`, { method: "DELETE" });
+export const putMeetingTranscript = (id: string, text: string, source: "paste" | "file"): Promise<MeetingDetail> =>
+  json(`${M}/${id}/transcript`, { method: "POST", json: { text, source } });
+export const requestMeetingTranscription = (id: string): Promise<MeetingDetail> => json(`${M}/${id}/transcribe`, { method: "POST" });
+export const analyzeMeeting = (id: string): Promise<MeetingDetail> => json(`${M}/${id}/analyze`, { method: "POST" });
+export const cancelMeetingAnalysis = (id: string): Promise<MeetingDetail> => json(`${M}/${id}/analyze/cancel`, { method: "POST" });
+export const patchMeetingItem = (id: string, itemId: string, body: { status?: MeetingItemStatus }): Promise<MeetingItem> =>
+  json(`${M}/${id}/items/${itemId}`, { method: "PATCH", json: body });
+export const resolveMeetingProposal = (id: string, proposalId: string, action: "approve" | "reject"): Promise<MeetingDetail> =>
+  json(`${M}/${id}/proposals/${proposalId}/${action}`, { method: "POST" });
+
 
 // ---- 비서 관리(ADR 0007)
 export type MemoryKind = "fact" | "preference" | "decision" | "event" | "instruction" | "note";

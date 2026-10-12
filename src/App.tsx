@@ -7,6 +7,9 @@ import { LibraryPage } from "./pages/LibraryPage";
 import { FilesPage } from "./pages/FilesPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { AssistantPage } from "./pages/AssistantPage";
+import { MeetingDetailPage } from "./pages/MeetingDetailPage";
+import { MeetingNewPage } from "./pages/MeetingNewPage";
+import { MeetingsPage } from "./pages/MeetingsPage";
 import { MemosPage } from "./pages/MemosPage";
 import { MorePage } from "./pages/MorePage";
 import { ResourcesPage } from "./pages/ResourcesPage";
@@ -51,6 +54,9 @@ export function App() {
         <Route path="/assistant" element={<AssistantPage />} />
         <Route path="/more" element={<MorePage />} />
         <Route path="/resources" element={<ResourcesPage />} />
+        <Route path="/meetings" element={<MeetingsPage />} />
+        <Route path="/meetings/new" element={<MeetingNewPage />} />
+        <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
         <Route path="/memos" element={<MemosPage />} />
         <Route path="/memos/:memoId" element={<MemosPage />} />
         <Route
