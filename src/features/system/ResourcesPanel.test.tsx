@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { SystemResources } from "../../api/client";
-import { bytes, level, ResourcesDialog, uptime } from "./ResourcesDialog";
+import { bytes, level, ResourcesPanel, uptime } from "./ResourcesPanel";
 
 const api = vi.hoisted(() => ({ systemResources: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
@@ -24,12 +24,6 @@ const sample: SystemResources = {
 };
 
 beforeEach(() => {
-  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
-    this.setAttribute("open", "");
-  };
-  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
-    this.removeAttribute("open");
-  };
   api.systemResources.mockResolvedValue(sample);
 });
 
@@ -39,14 +33,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-function renderIt(open: boolean) {
+function renderIt(mounted: boolean) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const ui = (o: boolean) => <QueryClientProvider client={qc}><ResourcesDialog open={o} onClose={() => {}} /></QueryClientProvider>;
-  const r = render(ui(open));
-  return { rerender: (o: boolean) => r.rerender(ui(o)) };
+  const ui = (m: boolean) => <QueryClientProvider client={qc}>{m ? <ResourcesPanel /> : <p>다른 화면</p>}</QueryClientProvider>;
+  const r = render(ui(mounted));
+  return { rerender: (m: boolean) => r.rerender(ui(m)) };
 }
 
-describe("ResourcesDialog", () => {
+describe("ResourcesPanel", () => {
   it("임계치는 80% 경고, 90% 위험", () => {
     expect([level(79.9), level(80), level(89.9), level(90)]).toEqual(["ok", "warn", "warn", "danger"]);
     expect(bytes(1536)).toBe("1.5 KB");
@@ -65,7 +59,7 @@ describe("ResourcesDialog", () => {
     expect(screen.getByText(/mac · macOS 27.0 · 켜진 지 2일 3시간/)).toBeTruthy();
   });
 
-  it("열려 있는 동안만 폴링하고 닫으면 멈춘다", async () => {
+  it("페이지에 있는 동안만 폴링하고 벗어나면 멈춘다", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const r = renderIt(true);
     await screen.findByRole("progressbar", { name: "CPU 사용률" });
@@ -74,11 +68,5 @@ describe("ResourcesDialog", () => {
     r.rerender(false);
     await act(() => vi.advanceTimersByTimeAsync(20_000));
     expect(api.systemResources).toHaveBeenCalledTimes(2);
-  });
-
-  it("닫혀 있으면 부르지 않는다", async () => {
-    renderIt(false);
-    await act(() => Promise.resolve());
-    expect(api.systemResources).not.toHaveBeenCalled();
   });
 });

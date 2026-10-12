@@ -2,7 +2,6 @@ import type React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { systemResources } from "../../api/client";
 import type { ResourceProcess, SystemResources } from "../../api/client";
-import { Dialog } from "../../ui/Dialog";
 import { errorText } from "../viewer/api";
 import "./resources.css";
 
@@ -154,25 +153,25 @@ function Body({ d }: { d: SystemResources }) {
   );
 }
 
-/** 사용자 메뉴 > 서버 리소스. 열려 있는 동안만 4초마다 다시 읽고, 닫으면 멈춘다. */
-export function ResourcesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+/**
+ * 서버 리소스(/resources) 본문. 사용자 메뉴와 부가 기능이 모두 이 페이지로 온다.
+ * 마운트된 동안만 4초마다 다시 읽는다. 페이지를 벗어나면 옵저버가 없어져 폴링도 멈춘다.
+ */
+export function ResourcesPanel() {
   const q = useQuery({
     queryKey: ["system", "resources"],
     queryFn: () => systemResources(),
-    enabled: open,
-    refetchInterval: open ? POLL_MS : false,
+    refetchInterval: POLL_MS,
   });
   const d = q.data;
   return (
-    <Dialog size="lg" open={open} onClose={onClose} title="서버 리소스" id="server-resources">
-      <div className="res">
-        <p className="res-note res-host">
-          {d ? `${d.host.hostname.replace(/\.local$/, "")} · ${d.host.os} · 켜진 지 ${uptime(d.host.uptime_seconds)}` : "불러오는 중"}
-          {q.isError && d && " · 갱신 실패, 마지막 값"}
-        </p>
-        {q.isError && !d && <p className="tk-error" role="alert">{errorText(q.error).message}</p>}
-        {d && <Body d={d} />}
-      </div>
-    </Dialog>
+    <div className="res">
+      <p className="res-note res-host">
+        {d ? `${d.host.hostname.replace(/\.local$/, "")} · ${d.host.os} · 켜진 지 ${uptime(d.host.uptime_seconds)}` : "불러오는 중"}
+        {q.isError && d && " · 갱신 실패, 마지막 값"}
+      </p>
+      {q.isError && !d && <p className="tk-error" role="alert">{errorText(q.error).message}</p>}
+      {d && <Body d={d} />}
+    </div>
   );
 }

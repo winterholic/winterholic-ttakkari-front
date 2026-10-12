@@ -9,6 +9,7 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { AssistantPage } from "./pages/AssistantPage";
 import { MemosPage } from "./pages/MemosPage";
 import { MorePage } from "./pages/MorePage";
+import { ResourcesPage } from "./pages/ResourcesPage";
 import { AppShell } from "./shell/AppShell";
 
 const CalendarPage = lazy(() => import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage })));
@@ -39,6 +40,7 @@ export function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/assistant" element={<AssistantPage />} />
         <Route path="/more" element={<MorePage />} />
+        <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/memos" element={<MemosPage />} />
         <Route path="/memos/:memoId" element={<MemosPage />} />
         <Route

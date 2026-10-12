@@ -4,7 +4,6 @@ import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from "rea
 import { useAuth } from "../auth";
 import { PushSettingsDialog } from "../features/push/PushSettings";
 import { UsageDialog } from "../features/accounts/UsageDialog";
-import { ResourcesDialog } from "../features/system/ResourcesDialog";
 import { IconButton } from "../ui/Button";
 import { Dialog } from "../ui/Dialog";
 import { Icon } from "../ui/Icon";
@@ -52,7 +51,6 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
   const { isDark, toggle } = useTheme();
   const [pushOpen, setPushOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
-  const [resourcesOpen, setResourcesOpen] = useState(false);
   const out = async () => {
     await logout();
     qc.clear();
@@ -67,7 +65,7 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
         triggerClassName="app-user-menu__trigger"
         items={[
           { label: "사용량", icon: "gauge", onSelect: () => setUsageOpen(true) },
-          { label: "서버 리소스", icon: "server", onSelect: () => setResourcesOpen(true) },
+          { label: "서버 리소스", icon: "server", onSelect: () => navigate("/resources") },
           { label: "비서 관리", icon: "tip", onSelect: () => navigate("/assistant") },
           { label: "계정 관리", icon: "key", onSelect: () => navigate("/settings#accounts") },
           { label: "설정", icon: "settings", onSelect: () => navigate("/settings") },
@@ -85,7 +83,6 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
       </Menu>
       <PushSettingsDialog open={pushOpen} onClose={() => setPushOpen(false)} />
       <UsageDialog open={usageOpen} onClose={() => setUsageOpen(false)} />
-      <ResourcesDialog open={resourcesOpen} onClose={() => setResourcesOpen(false)} />
     </div>
   );
 }
