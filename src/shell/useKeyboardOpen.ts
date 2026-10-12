@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 const TEXT_INPUT = /^(text|search|email|url|tel|password|number|date|datetime-local|month|time|week)$/;
 
-function isTextEntry(el: Element | null): boolean {
+export function isTextEntry(el: Element | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   if (el.isContentEditable || el.tagName === "TEXTAREA") return true;
   return el instanceof HTMLInputElement && TEXT_INPUT.test(el.type);
