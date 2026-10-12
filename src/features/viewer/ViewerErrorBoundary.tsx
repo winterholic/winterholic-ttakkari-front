@@ -1,5 +1,6 @@
 import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
+import { applyUpdate, isStaleChunkError } from "../../pwaUpdate";
 import { Icon } from "../../ui/Icon";
 
 interface Props {
@@ -34,13 +35,19 @@ export class ViewerErrorBoundary extends Component<Props, State> {
   render() {
     const { error } = this.state;
     if (!error) return this.props.children;
+    // 배포 직후 옛 번들이 사라진 렌더러 청크를 부른 경우: 같은 페이지에서 다시 시도해도 또 실패한다. 새 버전으로 다시 읽어야 한다.
+    const stale = isStaleChunkError(error);
     const body = (
-      <div className="tk-empty tk-empty--boxed" role="alert" data-viewer-error="">
-        <Icon name="warning" />
-        <p className="tk-empty__title">이 결과물을 화면에 그리지 못했어요</p>
-        <p>원본 다운로드는 그대로 쓸 수 있어요. <code>{error.message.slice(0, 200)}</code></p>
+      <div className="tk-empty tk-empty--boxed" role="alert" data-viewer-error={stale ? "stale" : ""}>
+        <Icon name={stale ? "retry" : "warning"} />
+        <p className="tk-empty__title">{stale ? "새 버전으로 바뀌어 뷰어를 다시 읽어야 해요" : "이 결과물을 화면에 그리지 못했어요"}</p>
+        <p>{stale ? "앱이 업데이트되는 사이에 열었어요." : "원본 다운로드는 그대로 쓸 수 있어요."} <code>{error.message.slice(0, 200)}</code></p>
         <div className="tk-button-group">
-          <button className="tk-button" type="button" onClick={() => this.setState({ error: null })}><Icon name="retry" />다시 시도</button>
+          {stale ? (
+            <button className="tk-button" type="button" onClick={applyUpdate}><Icon name="retry" />다시 읽기</button>
+          ) : (
+            <button className="tk-button" type="button" onClick={() => this.setState({ error: null })}><Icon name="retry" />다시 시도</button>
+          )}
           <button className="tk-button tk-button--primary" type="button" onClick={this.props.onClose}>닫기</button>
         </div>
       </div>

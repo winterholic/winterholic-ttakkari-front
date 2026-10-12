@@ -1,0 +1,9 @@
+/* 앱 셸 밖에 그려지는 복구 화면. 탭바 위치는 셸이 정하므로 모바일에서는 탭바 높이만큼 띄운다. */
+@media (max-width: 1023.98px) { .tk-update-region { --tk-_toast-bottom: var(--tk-size-layout-tabbar); } }
+
+.tk-app-crash {
+  display: flex; align-items: center; justify-content: center; min-height: 100dvh;
+  padding: calc(env(safe-area-inset-top) + var(--tk-space-6)) var(--tk-size-layout-page-gutter) calc(env(safe-area-inset-bottom) + var(--tk-space-6));
+  background: var(--tk-color-surface-default);
+}
+.tk-app-crash > .tk-empty { width: 100%; max-width: 28rem; }

@@ -22,6 +22,17 @@ describe("ViewerErrorBoundary", () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it("청크 오류면 같은 자리 다시 시도 대신 새 버전 다시 읽기", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    function Stale(): never {
+      throw new TypeError("Importing a module script failed.");
+    }
+    render(<ViewerErrorBoundary onClose={() => {}}><Stale /></ViewerErrorBoundary>);
+    expect(screen.getByRole("alert").getAttribute("data-viewer-error")).toBe("stale");
+    expect(screen.queryByRole("button", { name: "다시 시도" })).toBeNull();
+    expect(screen.getByRole("button", { name: "다시 읽기" })).toBeTruthy();
+  });
+
   it("다른 결과물을 열면(resetKey) 오류 화면을 버린다", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { rerender } = render(<ViewerErrorBoundary onClose={() => {}} resetKey="a"><Boom /></ViewerErrorBoundary>);
