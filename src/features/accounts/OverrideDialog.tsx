@@ -53,6 +53,8 @@ export function OverrideBanner({ accounts, onEdit }: { accounts: AccountOut[]; o
       <div className="tk-callout__body">
         <strong className="tk-callout__title">임시 순서 적용 중 · {untilText(ov.data.until)}까지</strong>
         <p>{names.map((n, i) => `${i + 1}. ${n}`).join("  ·  ")}</p>
+        {/* 목록을 끌어 바꾼 기본 순서는 저장되지만, 임시 순서가 끝나기 전에는 실제로 쓰이지 않는다. */}
+        <p>아래 목록을 바꿔도 이 시각까지는 위 순서가 먼저 쓰여요. 기본 순서는 그 뒤부터 적용돼요.</p>
         <div className="tk-button-group">
           <button className="tk-button tk-button--xs" type="button" onClick={onEdit}>고치기</button>
           <button className="tk-button tk-button--xs tk-button--ghost" type="button" aria-busy={off.isPending || undefined} onClick={() => off.mutate()}>지금 끝내기</button>
