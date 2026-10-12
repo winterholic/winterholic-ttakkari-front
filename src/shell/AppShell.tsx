@@ -14,7 +14,7 @@ import "./shell.css";
 import { ShellContext } from "./ShellContext";
 import type { ShellApi } from "./ShellContext";
 import { SessionList } from "./SessionList";
-import { AreaLinks, ToolLinks } from "./ShellNav";
+import { AreaLinks, TabbarLinks, ToolLinks } from "./ShellNav";
 import { useShortcuts } from "./useShortcuts";
 import { useConnection } from "./useConnection";
 import { useKeyboardOpen } from "./useKeyboardOpen";
@@ -103,7 +103,10 @@ export function AppShell() {
   const drawerOpen = drawerKey === location.key;
   const openDrawer = useCallback(() => setDrawerKey(location.key), [location.key]);
 
-  const api = useMemo<ShellApi>(() => ({ openDrawer, connection }), [openDrawer, connection]);
+  const api = useMemo<ShellApi>(
+    () => ({ openDrawer, connection, lastSession: currentSession }),
+    [openDrawer, connection, currentSession],
+  );
 
   if (state === "out") return <Navigate to="/login" replace />;
   if (state === "loading") {
@@ -133,7 +136,7 @@ export function AppShell() {
           </div>
           <nav className="tk-sidebar" aria-label="영역과 세션">
             <div className="tk-nav">
-              <AreaLinks sessionId={currentSession} variant="nav" />
+              <AreaLinks sessionId={currentSession} />
             </div>
             <ToolLinks />
             <SessionList currentId={sessionId} />
@@ -146,7 +149,7 @@ export function AppShell() {
         </main>
 
         <nav className="tk-tabbar" aria-label="영역">
-          <AreaLinks sessionId={currentSession} variant="tabbar" />
+          <TabbarLinks />
         </nav>
 
         <Dialog kind="drawer" id="nav-drawer" label="세션 목록" open={drawerOpen} onClose={() => setDrawerKey(null)}>
@@ -160,7 +163,6 @@ export function AppShell() {
           </div>
           <div className="tk-drawer__body">
             <nav className="tk-sidebar" aria-label="세션">
-              <ToolLinks />
               <SessionList currentId={sessionId} />
             </nav>
           </div>

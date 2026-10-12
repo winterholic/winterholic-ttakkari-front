@@ -13,6 +13,7 @@ vi.mock("../api/client", () => ({
 }));
 
 import { AppShell } from "./AppShell";
+import { MorePage } from "../pages/MorePage";
 
 function renderAt(path: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -26,6 +27,8 @@ function renderAt(path: string) {
             <Route path="/chat/:sessionId" element={<p>세션 본문</p>} />
             <Route path="/workspace/:sessionId" element={<p>작업 공간 본문</p>} />
             <Route path="/library" element={<p>보관함 본문</p>} />
+            <Route path="/memos" element={<p>메모 본문</p>} />
+            <Route path="/more" element={<MorePage />} />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -78,13 +81,42 @@ describe("AppShell 인증 가드", () => {
     expect(current.map((l) => l.textContent)).toEqual(["보관함"]);
   });
 
-  it("메모·캘린더는 하단 탭이 아니라 사이드바·드로어 링크로 둔다 (탭은 다섯 개 그대로)", () => {
+  it("하단 탭은 채팅·회사·메모·캘린더·더보기 다섯이고, 더보기로 옮긴 화면에서는 더보기가 켜진다", () => {
     renderAt("/library");
     const tabbar = screen.getByRole("navigation", { name: "영역" });
-    expect(within(tabbar).getAllByRole("link").map((l) => l.textContent)).toEqual(["채팅", "회사", "작업 공간", "보관함", "파일"]);
+    const tabs = within(tabbar).getAllByRole("link");
+    expect(tabs.map((l) => l.textContent)).toEqual(["채팅", "회사", "메모", "캘린더", "더보기"]);
+    expect(tabs.map((l) => l.getAttribute("href"))).toEqual(["/chat", "/work", "/memos", "/calendar", "/more"]);
+    expect(tabs.filter((l) => l.getAttribute("aria-current") === "page").map((l) => l.textContent)).toEqual(["더보기"]);
+  });
+
+  it("메모 화면에서는 메모 탭이 켜지고, 데스크톱 사이드바에는 메모·캘린더 링크가 그대로 있다", () => {
+    renderAt("/memos");
+    const tabbar = screen.getByRole("navigation", { name: "영역" });
+    expect(within(tabbar).getByRole("link", { name: "메모" }).getAttribute("aria-current")).toBe("page");
     const nav = screen.getByRole("navigation", { name: "영역과 세션" });
     expect(within(nav).getByRole("link", { name: "메모" }).getAttribute("href")).toBe("/memos");
     expect(within(nav).getByRole("link", { name: "캘린더" }).getAttribute("href")).toBe("/calendar");
+  });
+
+  it("모바일 드로어에는 메모·캘린더 링크를 두지 않는다", () => {
+    renderAt("/library");
+    const drawer = screen.getByRole("navigation", { name: "세션", hidden: true });
+    expect(within(drawer).queryByRole("link", { name: "메모", hidden: true })).toBeNull();
+    expect(within(drawer).queryByRole("link", { name: "캘린더", hidden: true })).toBeNull();
+  });
+
+  it("더보기 화면은 작업 공간·보관함·파일을 모으고 작업 공간은 마지막 세션으로 간다", async () => {
+    renderAt("/chat/s9");
+    // 세션 화면을 거쳐 더보기로 가야 마지막 세션이 기억된다. 탭 링크를 눌러 이동한다.
+    within(screen.getByRole("navigation", { name: "영역" })).getByRole("link", { name: "더보기" }).click();
+    const more = await screen.findByRole("navigation", { name: "더보기 메뉴" });
+    const links = within(more).getAllByRole("link");
+    expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
+      ["작업 공간", "/workspace/s9"],
+      ["보관함", "/library"],
+      ["파일", "/files"],
+    ]);
   });
 
   it("세션 화면에서 작업 공간 링크는 그 세션으로 가고, 세션 행은 /chat/:id 를 가리킨다", async () => {

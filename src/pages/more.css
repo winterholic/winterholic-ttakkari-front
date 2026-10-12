@@ -1,0 +1,13 @@
+/* 더보기 화면의 3열 타일. 하단 탭 아이콘과 같은 크기의 아이콘 위, 이름 아래 */
+.more-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--tk-space-2); padding-block: var(--tk-space-4); }
+.more-grid__item {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--tk-space-2);
+  min-height: calc(2 * var(--tk-size-touch-target-min)); padding: var(--tk-space-2);
+  border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-subtle);
+  color: var(--tk-color-text-secondary); text-decoration: none;
+  font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / 1.2 var(--tk-font-family-sans);
+}
+.more-grid__item > .tk-icon { --tk-_icon: var(--tk-component-tabbar-icon); }
+.more-grid__item > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (hover: hover) { .more-grid__item:hover { background: var(--tk-color-interactive-selected-bg); color: var(--tk-color-interactive-selected-text); } }
+.more-grid__item:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }
