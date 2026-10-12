@@ -24,27 +24,18 @@
 .session-pool { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }
 /* 모달 상자 자신이 받은 프로그램 포커스(ui/dialogFocus.ts)는 링을 그리지 않는다. 안쪽 요소의 키보드 포커스 링은 그대로다 */
 dialog:focus { outline: none; }
-/* 다이얼로그·패널 본문: flex 기준을 내용 크기(auto)로 둔다. vendor 의 `flex: 1`(= 0%)은 높이가 auto 인 세로 flex 상자에서
-   iOS 사파리가 본문을 padding 만큼으로 줄였을 가능성이 있어(실기기 확인 필요) 방어로 둔다. */
-.tk-dialog .tk-dialog__body { flex: 1 1 auto; }
-
-/* 패널(Dialog kind="panel"): 길거나 스크롤하는 내용. 모바일은 전체 화면(제목·닫기 위, 본문 스크롤, safe-area 안쪽), lg 이상은 가운데 상자(.tk-dialog 그대로).
-   바텀 시트를 대신한다. vendor 의 .tk-sheet 는 쓰지 않는다. */
-@media (max-width: 1023px) {
-  .tk-panel {
-    position: fixed; inset: 0; width: 100%; max-width: none; height: 100dvh; max-height: none; margin: 0;
-    border: 0; border-radius: 0; box-shadow: none;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  }
-  .tk-panel .tk-dialog__header {
-    align-items: center; flex: none; min-height: var(--tk-size-layout-header);
-    padding: var(--tk-space-2) var(--tk-space-3) var(--tk-space-2) var(--tk-_pad);
-    border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-default);
-  }
-  .tk-panel .tk-dialog__header > .tk-icon-button { margin: 0; }
-  .tk-panel .tk-dialog__body { min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-  .tk-panel .tk-dialog__footer { flex: none; padding-top: var(--tk-space-3); border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
+/* 모달(Dialog kind="dialog")이 기본이다. 긴 목록도 모달로 하고, 바텀 시트·전체 화면 패널은 쓰지 않는다.
+   높이는 dvh 에서 위아래 여백과 safe-area 를 뺀 값으로 제한하고, 헤더·푸터는 고정, 본문만 안에서 스크롤한다.
+   모바일은 좌우 여백을 작게(space-3 + 좌우 safe-area) 둔다. vendor 의 .tk-dialog 는 높이를 100dvh - 64px 로만 잡는다. */
+.tk-dialog {
+  width: min(calc(100vw - 2 * var(--tk-space-3) - env(safe-area-inset-left) - env(safe-area-inset-right)), var(--tk-_w, var(--tk-component-dialog-width-md)));
+  max-width: none;
+  max-height: calc(100dvh - 2 * var(--tk-space-4) - env(safe-area-inset-top) - env(safe-area-inset-bottom));
 }
+.tk-dialog .tk-dialog__header, .tk-dialog .tk-dialog__footer { flex: none; }
+/* 본문 flex 기준은 내용 크기(auto)로 둔다. vendor 의 `flex: 1`(= 0%)은 높이가 auto 인 세로 flex 상자에서
+   iOS 사파리가 본문을 padding 만큼으로 줄였을 가능성이 있어(실기기 확인 필요) 방어로 둔다. */
+.tk-dialog .tk-dialog__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 /* 가운데 모달 안의 행동 목록(결과물 더보기). 메뉴 항목과 같은 모양을 큰 손가락 크기로 */
 .dialog-actions { display: flex; flex-direction: column; margin: 0; padding: var(--tk-space-2) var(--tk-space-2) var(--tk-space-3); list-style: none; }
 .dialog-actions .tk-menu__item { min-height: var(--tk-size-control-lg); font-size: var(--tk-font-size-md); }

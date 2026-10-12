@@ -292,7 +292,7 @@ function FolderPicker({ initial, roots, onPick, onClose }: { initial: string; ro
   const missing = q.isError;
   return (
     <Dialog
-      kind="panel"
+      size="lg"
       open
       onClose={onClose}
       title="받는 폴더"

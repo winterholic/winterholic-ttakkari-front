@@ -30,7 +30,7 @@ export function EventDialog({ target, onClose }: { target: EditorTarget | null; 
   const series = useQuery({ queryKey: ["calendar", "event", edit], queryFn: () => getEvent(edit!), enabled: !!edit, gcTime: 0 });
   const title = edit ? "일정 수정" : "새 일정";
   return (
-    <Dialog open={target !== null} onClose={onClose} kind="panel" size="lg" title={title} modal id="event-dialog">
+    <Dialog open={target !== null} onClose={onClose} size="lg" title={title} modal id="event-dialog">
       {target && edit && series.isPending && <p className="tk-status tk-status--agent" role="status"><span className="tk-spinner tk-spinner--sm" aria-hidden />불러오는 중</p>}
       {target && edit && series.isError && <ErrorState error={series.error} what="일정" onRetry={() => void series.refetch()} />}
       {target?.mode === "create" && <EventFormView key={`${target.date}${target.time ?? ""}`} initial={blankForm(target.date, target.time)} eventId={null} onClose={onClose} />}

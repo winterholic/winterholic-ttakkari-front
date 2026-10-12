@@ -5,10 +5,10 @@ import { Icon } from "./Icon";
 import { focusDialogBox } from "./dialogFocus";
 
 /**
- * dialog: 가운데 모달(짧은 확인·입력). panel: 길거나 스크롤하는 내용. 모바일은 전체 화면, lg 이상은 가운데 상자. drawer: 모바일 세션 목록.
- * 바텀 시트는 쓰지 않는다(사용성 이유로 없앴다).
+ * dialog: 가운데 모달. 짧은 확인·입력부터 긴 목록까지 기본이다(긴 내용은 헤더를 고정하고 본문만 안에서 스크롤, shell.css).
+ * drawer: 모바일 세션 목록. 바텀 시트·전체 화면 패널은 쓰지 않는다(사용성 이유로 없앴다. sheetGuard.test.ts 가 되살아나는 것을 막는다).
  */
-type Kind = "dialog" | "panel" | "drawer";
+type Kind = "dialog" | "drawer";
 
 export interface DialogProps {
   open: boolean;
@@ -55,12 +55,11 @@ export function Dialog({ open, onClose, kind = "dialog", size, label, title, mod
   };
 
   const onClick = (e: MouseEvent<HTMLDialogElement>) => {
-    // 패널은 모바일에서 화면 전체라 상자 자신을 누르는 일은 safe-area 여백뿐이다. 스크림 클릭 닫기는 쓰지 않는다.
-    if (e.target === e.currentTarget && !modal && kind !== "panel") e.currentTarget.close();
+    if (e.target === e.currentTarget && !modal) e.currentTarget.close();
   };
 
   const cls = [
-    kind === "panel" ? "tk-dialog tk-panel" : `tk-${kind}`,
+    `tk-${kind}`,
     kind === "dialog" && size && `tk-dialog--${size}`,
   ]
     .filter(Boolean)

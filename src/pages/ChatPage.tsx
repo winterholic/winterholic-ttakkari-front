@@ -410,7 +410,7 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
       )}
       </div>
       {isOrch && sessionId && (
-        <Dialog kind="panel" open={workersOpen} onClose={() => setWorkersOpen(false)} title="작업 세션" id="workers-panel">
+        <Dialog size="lg" open={workersOpen} onClose={() => setWorkersOpen(false)} title="작업 세션" id="workers-modal">
           <WorkerPanel orchestratorId={sessionId} inSheet />
         </Dialog>
       )}
