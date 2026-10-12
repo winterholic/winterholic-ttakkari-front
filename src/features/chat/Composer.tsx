@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent, KeyboardEvent, ReactNode } from "react";
 import { Icon } from "../../ui/Icon";
 import "./attachments.css";
@@ -28,6 +28,43 @@ export function shouldSubmit(e: Pick<KeyboardEvent, "key" | "shiftKey" | "metaKe
   if (e.key !== "Enter" || e.isComposing || e.keyCode === 229) return false;
   const mod = e.metaKey || e.ctrlKey;
   return mod || (!e.shiftKey && !coarse);
+}
+
+let measureCtx: CanvasRenderingContext2D | null | undefined;
+function textWidth(text: string, font: string): number | null {
+  if (measureCtx === undefined) {
+    try {
+      measureCtx = document.createElement("canvas").getContext("2d");
+    } catch {
+      measureCtx = null;
+    }
+  }
+  if (!measureCtx) return null;
+  measureCtx.font = font;
+  return measureCtx.measureText(text).width;
+}
+
+/**
+ * 한 줄에 들어가면 클립·입력·보내기를 한 줄에 두고, 넘치면 입력을 카드 전폭 윗줄로 올리고 버튼을 아래 줄로 내린다(data-stacked).
+ * 판정은 언제나 한 줄 배치의 입력 폭으로 한다. 펼친 폭으로 재면 펼침과 접힘이 번갈아 깜빡인다.
+ * React 상태 대신 속성을 직접 바꿔 글자마다 다시 그리지 않는다.
+ */
+function fitLayout(form: HTMLFormElement, el: HTMLTextAreaElement, text: string, hasContext: boolean) {
+  let stacked = hasContext || text.includes("\n");
+  if (!stacked && text) {
+    form.removeAttribute("data-stacked");
+    const cs = getComputedStyle(el);
+    const room = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const width = textWidth(text, cs.font || `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`);
+    // 캐럿 자리만큼 여유를 둔다. 측정이 안 되면 실제 줄 수로 가린다.
+    stacked = width != null ? width + 2 > room : el.scrollHeight > el.clientHeight + 1;
+  }
+  form.toggleAttribute("data-stacked", stacked);
+  // field-sizing 미지원 브라우저용 높이 맞춤.
+  if (!CSS.supports("field-sizing", "content")) {
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }
 }
 
 export interface ComposerProps {
@@ -74,13 +111,19 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
   useEffect(() => {
     if (fill) ref.current?.focus();
   }, [fill]);
-  useEffect(() => {
-    // field-sizing 미지원 브라우저용 높이 맞춤.
+  const formRef = useRef<HTMLFormElement>(null);
+  const hasContext = !!context;
+  useLayoutEffect(() => {
+    const form = formRef.current;
     const el = ref.current;
-    if (!el || CSS.supports("field-sizing", "content")) return;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  }, [text]);
+    if (!form || !el) return;
+    const fit = () => fitLayout(form, el, el.value, hasContext);
+    fit();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(fit);
+    ro.observe(form);
+    return () => ro.disconnect();
+  }, [text, hasContext]);
   useEffect(() => {
     if (!running || !onStop) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
@@ -126,7 +169,7 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
 
   return (
     <div className="tk-composer-tray">
-      <form className="tk-composer" aria-label={label} onSubmit={onFormSubmit} data-offline={online ? undefined : ""} data-has-context={context ? "" : undefined}>
+      <form ref={formRef} className="tk-composer" aria-label={label} onSubmit={onFormSubmit} data-offline={online ? undefined : ""} data-has-context={context ? "" : undefined}>
         {context}
         <div className="tk-composer__row">
           {onAttach && (

@@ -22,9 +22,13 @@
   .tk-composer__hint:has(> span:first-child:empty) { display: none; }
 }
 
-/* 첨부가 붙으면 본문을 전폭 한 줄로 올리고, 첨부 버튼·보내기는 아래 줄로 내린다.
-   클립 폭만큼 본문이 밀려 첨부 줄과 어긋나던 문제를 없앤다. 본문 시작선은 첨부 타일 왼쪽 끝에 맞춘다. */
-.tk-composer[data-has-context] .tk-composer__row { flex-wrap: wrap; align-items: center; }
-.tk-composer[data-has-context] .tk-composer__input { order: -1; flex: 1 0 100%; padding-inline: var(--tk-space-1); }
-.tk-composer[data-has-context] .tk-composer__send { margin-left: auto; }
-.tk-composer[data-has-context] .tk-composer__send ~ .tk-composer__send { margin-left: 0; }
+/* 첨부가 붙었거나 글이 한 줄을 넘으면(data-stacked, Composer.tsx fitLayout) 본문을 카드 전폭 윗줄로 올리고
+   클립·멈추기·보내기는 아래 줄로 내린다. 버튼 열 때문에 본문 오른쪽이 비거나 클립 폭만큼 들여쓰이지 않게 한다.
+   본문 시작선은 첨부 타일 왼쪽 끝(카드 패딩 + 4)에 맞추고 오른쪽도 같은 여백을 둔다. */
+.tk-composer[data-stacked] .tk-composer__row { flex-wrap: wrap; align-items: center; }
+.tk-composer[data-stacked] .tk-composer__input { order: -1; flex: 1 0 100%; padding-inline: var(--tk-space-1); }
+.tk-composer[data-stacked] .tk-composer__send { margin-left: auto; }
+.tk-composer[data-stacked] .tk-composer__send ~ .tk-composer__send { margin-left: 0; }
+
+/* 대기열 안내도 본문과 같은 시작선에 둔다 */
+.tk-composer .tk-composer__hint { padding-inline: var(--tk-space-1); }
