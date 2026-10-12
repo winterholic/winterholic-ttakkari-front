@@ -36,10 +36,12 @@ export function Dialog({ open, onClose, kind = "dialog", size, label, title, mod
     if (open && !el.open) {
       opener.current = document.activeElement;
       el.showModal();
+      // 터치로 연 드로어는 첫 링크에 자동 포커스가 가서 링이 그려진다. 드로어 자신에 포커스를 두고, 키보드는 Tab 으로 들어간다.
+      if (kind === "drawer") el.focus({ preventScroll: true });
     } else if (!open && el.open) {
       el.close();
     }
-  }, [open]);
+  }, [open, kind]);
 
   const handleClose = () => {
     const o = opener.current;
@@ -64,6 +66,7 @@ export function Dialog({ open, onClose, kind = "dialog", size, label, title, mod
       ref={ref}
       id={id}
       className={cls}
+      tabIndex={kind === "drawer" ? -1 : undefined}
       aria-label={title ? undefined : label}
       aria-labelledby={title ? titleId : undefined}
       data-tk-modal={modal ? (modal === "strict" ? "strict" : "") : undefined}

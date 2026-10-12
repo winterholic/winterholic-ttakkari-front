@@ -22,3 +22,5 @@
 .app-user-menu__body .tk-presence { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 세션 목록의 회사 업무 표시 */
 .session-pool { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }
+/* 드로어 자신이 받은 프로그램 포커스는 링을 그리지 않는다. 안쪽 요소의 키보드 포커스 링은 그대로다 */
+.tk-drawer:focus { outline: none; }
