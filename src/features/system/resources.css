@@ -1,5 +1,6 @@
-/* 사용자 메뉴 > 서버 리소스. usage.css 와 같은 결: 숫자를 크게, 막대는 굵게. 디자인 시스템 토큰만 쓴다. */
-.res { display: flex; flex-direction: column; gap: var(--tk-space-4); }
+/* 서버 리소스(/resources). usage.css 와 같은 결: 숫자를 크게, 막대는 굵게. 디자인 시스템 토큰만 쓴다. */
+/* 헤더와 첫 줄 사이는 파일(.files-tabs)·비서 관리(.assistant-tabs)와 같은 space-4. 필터바로 시작하는 메모·보관함은 필터바가 따로 12px 를 둔다. */
+.res { display: flex; flex-direction: column; gap: var(--tk-space-4); padding-top: var(--tk-space-4); }
 .res-note { margin: 0; color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); }
 .res-section-title { margin: 0; color: var(--tk-color-text-secondary); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
 .res-inline { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
