@@ -2,9 +2,8 @@ import { Fragment, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { libSearchLab } from "../../api/client";
 import type { LibScope, LibSearchHit, LibSearchLab } from "../../api/client";
-import { errorText } from "../viewer/api";
 import { Icon } from "../../ui/Icon";
-import { ScopeBadge, Section, categoryLabel, fileName, scopeLabel, when } from "./shared";
+import { ScopeBadge, Section, categoryLabel, fileName, libErrorMessage, scopeLabel, when } from "./shared";
 
 const TYPE_LABEL: Record<LibSearchHit["type"], string> = { chunk: "문서 조각", memory: "기억", entity: "엔터티" };
 const VIA_LABEL: Record<LibSearchHit["via"], string> = { keyword: "키워드 일치", entity: "엔터티 연결로 포함", fuzzy: "유사도(부분 일치)" };
@@ -93,7 +92,7 @@ export function SearchLabTab({ scope }: { scope: LibScope }) {
             <button key={s} type="button" className="cl-signal" onClick={() => { setQuery(s); run(s); }}>{s}</button>
           ))}
         </div>
-        {m.isError && <p className="tk-error" role="alert">{errorText(m.error).message}</p>}
+        {m.isError && <p className="tk-error" role="alert">{libErrorMessage(m.error)}</p>}
       </Section>
       {r && (
         <Section id="cl-se-result" title={`결과 ${r.results.length}개`} hint={`${r.elapsed_ms}ms · 문서당 최대 2조각 · 최대 10개`}>

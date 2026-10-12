@@ -4,10 +4,10 @@ import { useQuery } from "@tanstack/react-query";
 import { libDocumentChunks, libSourceDocuments, libTree } from "../../api/client";
 import type { LibScope, LibTreeCategory, LibTreeGroup, LibTreeSource } from "../../api/client";
 import { Icon } from "../../ui/Icon";
-import { EmptyState, ErrorState, ListSkeleton } from "../viewer/screenStates";
+import { EmptyState, ListSkeleton } from "../viewer/screenStates";
 import { inset, squarify, withFloor } from "./treemap";
 import type { Placed } from "./treemap";
-import { CATEGORY_COLOR, Legend, ScopeBadge, Section, ago, categoryLabel, fileName, n, shortPath, useWidth, when } from "./shared";
+import { CATEGORY_COLOR, Legend, LibError, ScopeBadge, Section, ago, categoryLabel, fileName, n, shortPath, useWidth, when } from "./shared";
 
 type View = "treemap" | "list";
 const gkey = (c: string, g: LibTreeGroup) => `${c}:${g.entity_id ?? "none"}`;
@@ -94,7 +94,7 @@ function GroupList({ cats, selected, onSelect }: { cats: LibTreeCategory[]; sele
 
 function DocumentPreview({ docId, scope }: { docId: string; scope: LibScope }) {
   const q = useQuery({ queryKey: ["ctxlib", "chunks", docId, scope], queryFn: () => libDocumentChunks(docId, scope) });
-  if (q.isError) return <ErrorState error={q.error} what="조각" onRetry={() => void q.refetch()} />;
+  if (q.isError) return <LibError error={q.error} what="조각" onRetry={() => void q.refetch()} />;
   if (!q.data) return <ListSkeleton rows={2} label="조각을 불러오는 중" />;
   return (
     <div className="cl-chunks" aria-label="조각 미리보기">
@@ -116,7 +116,7 @@ function DocumentPreview({ docId, scope }: { docId: string; scope: LibScope }) {
 function SourceDocs({ source, scope }: { source: LibTreeSource; scope: LibScope }) {
   const [doc, setDoc] = useState<string | null>(null);
   const q = useQuery({ queryKey: ["ctxlib", "docs", source.id, scope], queryFn: () => libSourceDocuments(source.id, scope) });
-  if (q.isError) return <ErrorState error={q.error} what="문서 목록" onRetry={() => void q.refetch()} />;
+  if (q.isError) return <LibError error={q.error} what="문서 목록" onRetry={() => void q.refetch()} />;
   if (!q.data) return <ListSkeleton rows={3} label="문서를 불러오는 중" />;
   return (
     <div className="cl-docs">
@@ -171,7 +171,7 @@ export function StructureTab({ scope }: { scope: LibScope }) {
   const q = useQuery({ queryKey: ["ctxlib", "tree", scope], queryFn: () => libTree(scope) });
   const [view, setView] = useState<View>(() => (typeof window !== "undefined" && window.matchMedia?.("(max-width: 640px)").matches ? "list" : "treemap"));
   const [sel, setSel] = useState<{ category: string; group: LibTreeGroup } | null>(null);
-  if (q.isError) return <ErrorState error={q.error} what="구조" onRetry={() => void q.refetch()} />;
+  if (q.isError) return <LibError error={q.error} what="구조" onRetry={() => void q.refetch()} />;
   if (!q.data) return <ListSkeleton rows={5} label="구조를 불러오는 중" />;
   const cats = q.data.categories;
   if (!cats.length) return <EmptyState icon="folder-search" title="등록된 출처가 없어요">비서 관리의 지식 탭에서 출처를 추가하면 여기에 나와요.</EmptyState>;

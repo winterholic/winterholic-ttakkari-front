@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
+import { ApiError } from "../api/client";
 import type { LibGraph, LibOverview, LibQuality, LibTree } from "../api/client";
 
 const h = vi.hoisted(() => ({
@@ -208,5 +209,18 @@ describe("맥락 도서관 화면", () => {
     h.libOverview.mockRejectedValue(new Error("boom"));
     mount();
     expect(await screen.findByRole("button", { name: "다시 시도" })).toBeTruthy();
+  });
+
+  it("서버가 도서관 API 를 모르면(라우터 404) 옛 버전이라고 알려 준다", async () => {
+    h.libOverview.mockRejectedValue(new ApiError(404, { code: "http_404", message: "Not Found" }));
+    mount();
+    expect(await screen.findByText(/백엔드를 최신 코드로 다시 시작/)).toBeTruthy();
+  });
+
+  it("대상 없음 404(not_found)는 서버 메시지를 그대로 보인다", async () => {
+    h.libOverview.mockRejectedValue(new ApiError(404, { code: "not_found", message: "출처이(가) 없어요." }));
+    mount();
+    expect(await screen.findByText("출처이(가) 없어요.")).toBeTruthy();
+    expect(screen.queryByText(/옛 버전/)).toBeNull();
   });
 });

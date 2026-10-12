@@ -2,8 +2,8 @@ import { lazy, Suspense, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { libEntity, libGraph } from "../../api/client";
 import type { EntityType, LibGraph, LibNode, LibScope } from "../../api/client";
-import { EmptyState, ErrorState, ListSkeleton } from "../viewer/screenStates";
-import { BarList, KIND_LABEL, Legend, ScopeBadge, Section, TYPE_COLOR, TYPE_LABEL, categoryLabel, n, shortPath } from "./shared";
+import { EmptyState, ListSkeleton } from "../viewer/screenStates";
+import { BarList, KIND_LABEL, Legend, LibError, ScopeBadge, Section, TYPE_COLOR, TYPE_LABEL, categoryLabel, n, shortPath } from "./shared";
 
 // 그래프 그리기·배치 코드는 이 탭을 열 때만 받는다.
 const GraphView = lazy(() => import("./GraphView").then((m) => ({ default: m.GraphView })));
@@ -31,7 +31,7 @@ function NodeDetail({ node, graph, scope, onSelect }: { node: LibNode; graph: Li
         {flags.map((f) => <span key={f.key} className="tk-badge tk-badge--warning" title={f.why}>{f.label}</span>)}
       </div>
       {node.summary && <p className="cl-summary">{node.summary}</p>}
-      {q.isError && <ErrorState error={q.error} what="연결된 근거" onRetry={() => void q.refetch()} />}
+      {q.isError && <LibError error={q.error} what="연결된 근거" onRetry={() => void q.refetch()} />}
       {!q.data && !q.isError && <ListSkeleton rows={2} label="연결된 근거를 불러오는 중" />}
       {q.data && (
         <>
@@ -109,7 +109,7 @@ export function OntologyTab({ scope }: { scope: LibScope }) {
   const [flag, setFlag] = useState<Flag | null>(null);
   const g = q.data;
   const highlight = useMemo(() => (g && flag ? new Set(g.nodes.filter((x) => x.flags[flag]).map((x) => x.id)) : null), [g, flag]);
-  if (q.isError) return <ErrorState error={q.error} what="온톨로지" onRetry={() => void q.refetch()} />;
+  if (q.isError) return <LibError error={q.error} what="온톨로지" onRetry={() => void q.refetch()} />;
   if (!g) return <ListSkeleton rows={5} label="온톨로지를 불러오는 중" />;
   if (!g.nodes.length) return <EmptyState icon="library" title="엔터티가 없어요">비서 관리에서 엔터티를 만들거나 목록을 등록하면 여기에 나와요.</EmptyState>;
   const selected = g.nodes.find((x) => x.id === selectedId) ?? null;

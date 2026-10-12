@@ -2,9 +2,9 @@ import type { CSSProperties } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { libOverview } from "../../api/client";
 import type { EntityType, LibScope } from "../../api/client";
-import { ErrorState, ListSkeleton } from "../viewer/screenStates";
+import { ListSkeleton } from "../viewer/screenStates";
 import {
-  BarList, CATEGORY_COLOR, CATEGORY_ORDER, KIND_LABEL, MEMORY_SOURCE_LABEL, ScopeBadge, Section, Stat, TYPE_COLOR, TYPE_LABEL,
+  BarList, CATEGORY_COLOR, CATEGORY_ORDER, KIND_LABEL, LibError, MEMORY_SOURCE_LABEL, ScopeBadge, Section, Stat, TYPE_COLOR, TYPE_LABEL,
   ago, categoryLabel, n, scopeLabel, shortPath, when,
 } from "./shared";
 
@@ -12,7 +12,7 @@ const NEUTRAL = "var(--tk-color-chart-categorical-1)";
 
 export function OverviewTab({ scope }: { scope: LibScope }) {
   const q = useQuery({ queryKey: ["ctxlib", "overview", scope], queryFn: () => libOverview(scope) });
-  if (q.isError) return <ErrorState error={q.error} what="도서관 개요" onRetry={() => void q.refetch()} />;
+  if (q.isError) return <LibError error={q.error} what="도서관 개요" onRetry={() => void q.refetch()} />;
   if (!q.data) return <ListSkeleton rows={5} label="개요를 불러오는 중" />;
   const o = q.data;
   const t = o.totals;

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode, RefObject } from "react";
-import { CATEGORY_LABEL, SCOPE_LABEL } from "../../api/client";
+import { ApiError, CATEGORY_LABEL, SCOPE_LABEL } from "../../api/client";
 import type { ContextScope, EntityType, LibScope } from "../../api/client";
+import { errorText } from "../viewer/api";
+import { ErrorState } from "../viewer/screenStates";
 
 /** 종류(category)마다 색을 하나로 고정한다. 필터·정렬로 개수가 바뀌어도 같은 종류는 같은 색이다(디자인 토큰 chart-categorical). */
 export const CATEGORY_COLOR: Record<string, string> = {
@@ -103,6 +105,21 @@ export function Legend({ items }: { items: { key: string; label: string; color: 
 
 export function ScopeBadge({ scope }: { scope: string }) {
   return <span className="tk-badge tk-badge--mono" data-scope={scope}>{scopeLabel(scope)}</span>;
+}
+
+/**
+ * 라우터 단계 404(code `http_404`)는 대상이 없다는 뜻이 아니라 서버가 이 API 를 모르는 옛 버전이라는 뜻이다.
+ * 대상 없음 404 는 `{code: "not_found"}` 로 오므로 구분된다. 원인을 모르면 "다시 시도"만 눌러 보게 되어 안내를 붙인다.
+ */
+const OUTDATED = "서버가 아직 이 화면의 API 를 모르는 옛 버전이에요. 백엔드를 최신 코드로 다시 시작해야 해요.";
+export const isOutdatedServer = (e: unknown): boolean => e instanceof ApiError && e.status === 404 && e.code === "http_404";
+
+export function libErrorMessage(e: unknown): string {
+  return isOutdatedServer(e) ? OUTDATED : errorText(e).message;
+}
+
+export function LibError({ error, what, onRetry }: { error: unknown; what: string; onRetry: () => void }) {
+  return <ErrorState error={isOutdatedServer(error) ? new Error(OUTDATED) : error} what={what} onRetry={onRetry} />;
 }
 
 export function Section({ title, hint, children, id }: { title: string; hint?: ReactNode; children: ReactNode; id: string }) {

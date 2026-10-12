@@ -4,8 +4,8 @@ import { libQuality } from "../../api/client";
 import type { EntityType, LibChunkExample, LibFinding, LibQuality, LibScope } from "../../api/client";
 import { Icon } from "../../ui/Icon";
 import type { IconName } from "../../ui/Icon";
-import { ErrorState, ListSkeleton } from "../viewer/screenStates";
-import { BarList, KIND_LABEL, MEMORY_SOURCE_LABEL, Section, Stat, TYPE_COLOR, TYPE_LABEL, n, shortPath } from "./shared";
+import { ListSkeleton } from "../viewer/screenStates";
+import { BarList, KIND_LABEL, LibError, MEMORY_SOURCE_LABEL, Section, Stat, TYPE_COLOR, TYPE_LABEL, n, shortPath } from "./shared";
 
 const LEVEL: Record<LibFinding["level"], { icon: IconName; label: string; badge: string; order: number }> = {
   warn: { icon: "warning", label: "손볼 만함", badge: "tk-badge--warning", order: 0 },
@@ -89,7 +89,7 @@ function Names({ label, names, total }: { label: string; names: string[]; total:
 
 export function QualityTab({ scope }: { scope: LibScope }) {
   const q = useQuery({ queryKey: ["ctxlib", "quality", scope], queryFn: () => libQuality(scope) });
-  if (q.isError) return <ErrorState error={q.error} what="품질 진단" onRetry={() => void q.refetch()} />;
+  if (q.isError) return <LibError error={q.error} what="품질 진단" onRetry={() => void q.refetch()} />;
   if (!q.data) return <ListSkeleton rows={5} label="품질 지표를 계산하는 중" />;
   const d = q.data;
   const s = d.chunks.stats;
