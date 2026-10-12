@@ -4,7 +4,6 @@ import { ApiError, clearAccountCooldown, createAccount, deleteAccount, listAccou
 import type { AccountEngine, AccountOut } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
-import { Menu } from "../../ui/Menu";
 import { Select } from "../../ui/Select";
 import { SortableList } from "../../ui/SortableList";
 import { OverrideBanner, OverrideDialog } from "./OverrideDialog";
@@ -65,6 +64,8 @@ export function AccountsSection() {
   const q = useQuery({ queryKey: ACCOUNTS_KEY, queryFn: listAccounts, refetchInterval: 30_000 });
   const [editing, setEditing] = useState<AccountOut | "new" | null>(null);
   const [removing, setRemoving] = useState<AccountOut | null>(null);
+  // 계정 ⋮ 는 드롭다운이 아니라 가운데 모달로 연다.
+  const [acting, setActing] = useState<string | null>(null);
   const [overriding, setOverriding] = useState(false);
   const rows = q.data ?? [];
   const set = (next: AccountOut[]) => qc.setQueryData(ACCOUNTS_KEY, next);
@@ -177,29 +178,62 @@ export function AccountsSection() {
                       onChange={() => toggle.mutate(a)}
                     />
                   </label>
-                  <Menu
-                    label={`${a.name} 메뉴`}
-                    triggerClassName="tk-icon-button tk-icon-button--sm"
-                    items={[
-                      { label: "위로", icon: "chevron-up", disabled: i === 0 || reorder.isPending, onSelect: () => moveBy(i, i - 1) },
-                      { label: "아래로", icon: "chevron-down", disabled: i === rows.length - 1 || reorder.isPending, onSelect: () => moveBy(i, i + 1) },
-                      ...(a.cooldown_seconds > 0 ? [{ label: "한도 대기 풀기", icon: "clock" as const, onSelect: () => clear.mutate(a) }] : []),
-                      { label: "이름 바꾸기", icon: "key", separatorBefore: true, onSelect: () => setEditing(a) },
-                      {
-                        label: a.pool === "work" ? "회사 그룹에서 빼기" : "회사 그룹에 넣기",
-                        icon: "briefcase",
-                        onSelect: () => tagWork.mutate(a),
-                      },
-                      { label: "삭제", icon: "trash", danger: true, onSelect: () => setRemoving(a) },
-                    ]}
+                  <button
+                    className="tk-icon-button tk-icon-button--sm"
+                    type="button"
+                    aria-label={`${a.name} 메뉴`}
+                    aria-haspopup="dialog"
+                    onClick={() => setActing(a.id)}
                   >
                     <Icon name="more-vertical" />
-                  </Menu>
+                  </button>
                 </span>
               </div>
           )}
         />
       )}
+      {(() => {
+        const a = rows.find((x) => x.id === acting);
+        const i = a ? rows.indexOf(a) : -1;
+        const done = (fn: () => void) => () => {
+          setActing(null);
+          fn();
+        };
+        return (
+          <Dialog open={!!a} onClose={() => setActing(null)} size="sm" title={a ? `${a.name} 관리` : "계정 관리"} id="account-actions">
+            {a && (
+              <div className="account-actions">
+                <button className="tk-button tk-button--block" type="button" disabled={i === 0 || reorder.isPending} onClick={done(() => moveBy(i, i - 1))}>
+                  <Icon name="chevron-up" />
+                  위로
+                </button>
+                <button className="tk-button tk-button--block" type="button" disabled={i === rows.length - 1 || reorder.isPending} onClick={done(() => moveBy(i, i + 1))}>
+                  <Icon name="chevron-down" />
+                  아래로
+                </button>
+                {a.cooldown_seconds > 0 && (
+                  <button className="tk-button tk-button--block" type="button" onClick={done(() => clear.mutate(a))}>
+                    <Icon name="clock" />
+                    한도 대기 풀기
+                  </button>
+                )}
+                <button className="tk-button tk-button--block" type="button" onClick={done(() => tagWork.mutate(a))}>
+                  <Icon name="briefcase" />
+                  {a.pool === "work" ? "회사 그룹에서 빼기" : "회사 그룹에 넣기"}
+                </button>
+                <button className="tk-button tk-button--block" type="button" onClick={done(() => setEditing(a))}>
+                  <Icon name="key" />
+                  이름 바꾸기
+                </button>
+                <button className="tk-button tk-button--block tk-button--danger" type="button" onClick={done(() => setRemoving(a))}>
+                  <Icon name="trash" />
+                  삭제
+                </button>
+              </div>
+            )}
+          </Dialog>
+        );
+      })()}
       {overriding && <OverrideDialog accounts={rows} onClose={() => setOverriding(false)} />}
       {editing && <AccountDialog account={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
       <Dialog

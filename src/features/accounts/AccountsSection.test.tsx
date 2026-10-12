@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { AccountOut } from "../../api/types";
@@ -17,6 +17,16 @@ const api = vi.hoisted(() => ({
   clearAccountCooldown: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
+
+beforeEach(() => {
+  // jsdom 의 showModal 은 미구현이라 open 속성만 흉내 낸다.
+  HTMLDialogElement.prototype.showModal = function (this: HTMLDialogElement) {
+    this.setAttribute("open", "");
+  };
+  HTMLDialogElement.prototype.close = function (this: HTMLDialogElement) {
+    this.removeAttribute("open");
+  };
+});
 
 afterEach(() => {
   cleanup();
@@ -58,7 +68,7 @@ describe("AccountsSection", () => {
     expect(screen.getByLabelText("2순위")).toBeTruthy();
     expect(screen.getAllByText("회사")).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "FDE 메뉴" }));
-    fireEvent.click(await screen.findByRole("menuitem", { name: "회사 그룹에서 빼기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "회사 그룹에서 빼기" }));
     await waitFor(() => expect(api.patchAccount).toHaveBeenCalledWith("w", { pool: "personal" }));
   });
 });
