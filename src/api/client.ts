@@ -416,8 +416,83 @@ export const addSource = (path: string, pattern?: string): Promise<SourceOut> =>
   json(`${A}/sources`, { method: "POST", json: { path, pattern: pattern || "**/*.md" } });
 export const reindexSource = (id: string): Promise<SourceOut> => json(`${A}/sources/${id}/reindex`, { method: "POST" });
 export const deleteSource = (id: string): Promise<void> => json(`${A}/sources/${id}`, { method: "DELETE" });
-export const recallTest = (query: string): Promise<{ results: RecallHit[] }> => json(`${A}/recall`, { method: "POST", json: { query, k: 8 } });
 export const listTools = (): Promise<{ tools: ToolInfo[] }> => json(`${A}/tools`);
+
+// ---- 맥락 도서관 화면(읽기 전용). back/src/ttakkari/context/insight.py 가 만든다.
+export type LibScope = "all" | "personal" | "work";
+export type LibCategory = "projects" | "work-history" | "knowledge" | "health";
+export interface LibErrorSource { id: string; path: string; category: string; scope: ContextScope; last_error: string | null; last_indexed_at: string | null }
+export interface LibOverview {
+  scope: LibScope;
+  retrieval: string;
+  totals: { sources: number; enabled_sources: number; documents: number; chunks: number; memories: number; entities: number; relations: number };
+  by_category: { category: string; scope: ContextScope; sources: number; documents: number; chunks: number }[];
+  memories: { by_scope: Record<string, number>; by_kind: Record<string, number>; by_source: Record<string, number> };
+  entities: { by_scope: Record<string, number>; by_type: Record<string, number> };
+  last_indexed_at: string | null;
+  never_indexed: number;
+  error_sources: LibErrorSource[];
+}
+export interface LibTreeSource {
+  id: string; path: string; pattern: string; scope: ContextScope; enabled: boolean;
+  documents: number; chunks: number; last_indexed_at: string | null; last_error: string | null;
+}
+export interface LibTreeGroup { entity_id: string | null; name: string; entity_type: string | null; sources: LibTreeSource[]; documents: number; chunks: number; scopes: ContextScope[] }
+export interface LibTreeCategory { category: string; groups: LibTreeGroup[]; sources: number; documents: number; chunks: number }
+export interface LibTree { scope: LibScope; categories: LibTreeCategory[] }
+export interface LibDocuments { source_id: string; path: string; total: number; documents: { id: string; path: string; title: string; chunks: number; indexed_at: string | null }[] }
+export interface LibChunks {
+  document_id: string; path: string; title: string; total: number;
+  chunks: { id: string; ord: number; heading: string | null; length: number; content: string }[];
+}
+export interface LibNode {
+  id: string; name: string; type: EntityType; scope: ContextScope; aliases: string[]; summary: string; pinned: boolean;
+  degree: number; memories: number; sources: number; documents: number; chunks: number;
+  flags: { isolated: boolean; no_alias: boolean; no_summary: boolean; no_evidence: boolean; duplicate_suspect: boolean };
+}
+export interface LibEdge { id: string; source: string; target: string; predicate: string; note: string | null; origin: string }
+export interface LibDuplicate { a: string; b: string; a_name: string; b_name: string; reason: string; score: number }
+export interface LibGraph { scope: LibScope; nodes: LibNode[]; edges: LibEdge[]; duplicates: LibDuplicate[]; predicates: Record<string, number> }
+export interface LibEntityEvidence extends EntityDetail {
+  sources: { id: string; path: string; category: string; scope: ContextScope; documents: number; chunks: number }[];
+}
+export interface LibChunkExample { id: string; document_id: string; path: string; title: string; heading: string | null; length: number; preview: string; copies?: number; documents?: number }
+export interface LibFinding { level: "ok" | "info" | "warn"; code: string; title: string; detail: string; count: number }
+export interface LibQuality {
+  scope: LibScope;
+  chunks: {
+    total: number; histogram: { label: string; min: number; max: number | null; count: number }[]; short_limit: number; long_limit: number; target: number;
+    stats: { min: number; median: number; p90: number; max: number; mean: number } | null;
+    short: number; long: number; short_examples: LibChunkExample[]; long_examples: LibChunkExample[]; no_heading: number;
+  };
+  duplicates: { groups: number; extra_chunks: number; examples: LibChunkExample[]; truncated: boolean };
+  documents: { total: number; empty: number; count_mismatch: number; empty_examples: { id: string; path: string }[]; chunks_per_doc: { mean: number; max: number }; largest: { id: string; path: string; title: string; chunks: number }[] };
+  sources: { total: number; disabled: number; errors: number; never_indexed: number; stale: { id: string; path: string; last_indexed_at: string | null }[]; empty: { id: string; path: string }[]; unlinked: number };
+  entities: {
+    total: number; no_alias: number; no_alias_names: string[]; no_summary: number; isolated: number; isolated_names: string[];
+    no_evidence: number; no_evidence_names: string[]; duplicate_pairs: LibDuplicate[]; by_type: Record<string, number>;
+  };
+  relations: { total: number; predicates: Record<string, number>; predicate_variants: string[][]; bidirectional_same_predicate: number };
+  memories: { total: number; unlinked: number; no_source_ref: number; pinned: number; duplicate: number; by_kind: Record<string, number>; by_source: Record<string, number>; length: { max: number; mean: number } };
+  findings: LibFinding[];
+}
+export interface LibSearchHit {
+  rank: number; type: "memory" | "chunk" | "entity"; id: string; score: number; text: string;
+  matched_terms: string[]; match_in: string[]; via: "keyword" | "entity" | "fuzzy"; coverage: number; entities: string[] | null;
+  path?: string; title?: string; heading?: string | null; name?: string; project?: string | null; category?: string; scope?: ContextScope;
+  source_ref?: string | null; indexed_at?: string; updated_at?: string; kind?: string; entity_type?: string; aliases?: string[];
+}
+export interface LibSearchLab { query: string; scope: LibScope; terms: string[]; anchors: string[]; elapsed_ms: number; results: LibSearchHit[] }
+const L = "/api/assistant/library";
+export const libOverview = (scope: LibScope): Promise<LibOverview> => json(`${L}/overview`, { query: { scope } });
+export const libTree = (scope: LibScope): Promise<LibTree> => json(`${L}/tree`, { query: { scope } });
+export const libSourceDocuments = (id: string, scope: LibScope): Promise<LibDocuments> => json(`${L}/sources/${id}/documents`, { query: { scope } });
+export const libDocumentChunks = (id: string, scope: LibScope): Promise<LibChunks> => json(`${L}/documents/${id}/chunks`, { query: { scope } });
+export const libGraph = (scope: LibScope): Promise<LibGraph> => json(`${L}/graph`, { query: { scope } });
+export const libEntity = (id: string, scope: LibScope): Promise<LibEntityEvidence> => json(`${L}/entities/${id}`, { query: { scope } });
+export const libQuality = (scope: LibScope): Promise<LibQuality> => json(`${L}/quality`, { query: { scope } });
+export const libSearchLab = (query: string, scope: LibScope, k = 10): Promise<LibSearchLab> =>
+  json(`${L}/search-lab`, { method: "POST", json: { query, scope, k } });
 
 // ---- 계정 임시 우선순위·사용량
 export interface OverrideOut {

@@ -12,6 +12,8 @@ import { MorePage } from "./pages/MorePage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { AppShell } from "./shell/AppShell";
 
+// 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
+const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
 const CalendarPage = lazy(() => import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 
 function RouteFallback() {
@@ -36,6 +38,14 @@ export function App() {
         <Route path="/workspace" element={<WorkspacePage />} />
         <Route path="/workspace/:sessionId" element={<WorkspacePage />} />
         <Route path="/library" element={<LibraryPage />} />
+        <Route
+          path="/context-library"
+          element={
+            <Suspense fallback={<RouteFallback />}>
+              <ContextLibraryPage />
+            </Suspense>
+          }
+        />
         <Route path="/files" element={<FilesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/assistant" element={<AssistantPage />} />

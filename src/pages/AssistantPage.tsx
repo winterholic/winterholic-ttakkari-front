@@ -1,12 +1,12 @@
 import { useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   addEntity, addMemory, addRelation, addSource, assistantStatus, deleteEntity, deleteMemory, deleteSource, getInstructions,
-  listEntities, listMemories, listSources, listTools, patchEntity, patchMemory, putInstructions, recallTest, reindexSource,
+  listEntities, listMemories, listSources, listTools, patchEntity, patchMemory, putInstructions, reindexSource,
   CATEGORY_LABEL, SCOPE_LABEL,
 } from "../api/client";
-import type { EntityType, MemoryKind, RecallHit } from "../api/client";
+import type { EntityType, MemoryKind } from "../api/client";
 import { errorText } from "../features/viewer/api";
 import { EmptyState, ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { PageHeader } from "../shell/PageHeader";
@@ -249,9 +249,6 @@ function KnowledgeTab() {
   const add = useMutation({ mutationFn: () => addSource(path.trim()), onSuccess: () => { setPath(""); void qc.invalidateQueries({ queryKey: ["assistant"] }); } });
   const re = useMutation({ mutationFn: (sid: string) => reindexSource(sid), onSuccess: () => void src.refetch() });
   const del = useMutation({ mutationFn: (sid: string) => deleteSource(sid), onSuccess: () => void qc.invalidateQueries({ queryKey: ["assistant"] }) });
-  const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<RecallHit[] | null>(null);
-  const test = useMutation({ mutationFn: () => recallTest(query.trim()), onSuccess: (r) => setHits(r.results) });
   const err = add.error ?? re.error ?? del.error;
   return (
     <>
@@ -290,35 +287,12 @@ function KnowledgeTab() {
         </ul>
       </section>
       <section className="tk-section" aria-labelledby={`${id}-r`}>
-        <div className="tk-section__head"><h2 className="tk-section__title" id={`${id}-r`}>찾기 시험</h2></div>
-        <p className="tk-fieldset__help">따까리가 recall 했을 때 무엇이 나오는지 미리 봐요.</p>
-        <form className="assistant-form__row" onSubmit={(e) => { e.preventDefault(); if (query.trim()) test.mutate(); }}>
-          <input className="tk-input tk-input--sm" value={query} onChange={(e) => { setQuery(e.target.value); setHits(null); }} placeholder="예) 내가 싫어하는 답변 방식" aria-label="찾을 말" />
-          <button className="tk-button tk-button--sm" type="submit" aria-busy={test.isPending || undefined}>찾기</button>
-        </form>
-        {test.error && <p className="tk-error" role="alert">{errorText(test.error).message}</p>}
-        {hits && hits.length === 0 && <p className="tk-fieldset__help">걸리는 게 없어요.</p>}
-        {hits && hits.length > 0 && (
-          <ul className="tk-list" aria-label="찾은 결과">
-            {hits.map((h) => (
-              <li key={`${h.type}-${h.id}`}>
-                <div className="tk-list__item">
-                  <span className="tk-list__body">
-                    <span className="tk-list__meta">
-                      <span>{h.type === "memory" ? "기억" : h.type === "entity" ? "항목" : "문서"}</span>
-                      <span className="tk-mono">{h.score.toFixed(3)}</span>
-                      {h.scope && <span>{SCOPE_LABEL[h.scope]}</span>}
-                      {h.project && <span>{h.project}</span>}
-                      {h.path && <span className="tk-mono">{h.path.split("/").slice(-1)[0]}</span>}
-                      {h.heading && <span>{h.heading}</span>}
-                    </span>
-                    <span className="assistant-hit">{h.text}</span>
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="tk-section__head"><h2 className="tk-section__title" id={`${id}-r`}>찾기 시험·구조 보기</h2></div>
+        <p className="tk-fieldset__help">검색 결과와 점수, 구조 트리, 온톨로지 그래프, 품질 진단은 맥락 도서관 화면으로 옮겼어요. 여기는 출처를 더하고 빼는 곳이에요.</p>
+        <div className="assistant-form__row">
+          <Link className="tk-button tk-button--sm" to="/context-library?tab=search"><Icon name="search" />검색 실험실 열기</Link>
+          <Link className="tk-button tk-button--sm" to="/context-library"><Icon name="context-library" />맥락 도서관 열기</Link>
+        </div>
       </section>
     </>
   );
