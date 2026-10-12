@@ -1,87 +1,28 @@
-import { useEffect, useRef, useState } from "react";
-import * as monaco from "monaco-editor/editor/editor.api";
-import "monaco-editor/features/find/register";
-import "monaco-editor/languages/definitions/register.all";
-import EditorWorker from "monaco-editor/editor/editor.worker?worker";
-import themes from "../../../vendor/ttakkari/monaco-theme.json";
+import { Fragment, useMemo, useState } from "react";
 import { Icon } from "../../../ui/Icon";
-import { useAppTheme } from "../hooks";
-import { extOf } from "../kinds";
+import { useIsDesktop } from "../hooks";
+import { HIGHLIGHT_MAX_CHARS, languageFor, tokenizeLines } from "./highlight";
 
-(self as unknown as { MonacoEnvironment: monaco.Environment }).MonacoEnvironment = { getWorker: () => new EditorWorker() };
-
-monaco.editor.defineTheme("tk-ink-light", themes["tk-ink-light"] as monaco.editor.IStandaloneThemeData);
-monaco.editor.defineTheme("tk-ink-dark", themes["tk-ink-dark"] as monaco.editor.IStandaloneThemeData);
-
-// json 은 전용 언어 서비스(워커)를 끌어오지 않으려고 javascript 문법 색으로 보여 준다.
-const EXT_ALIAS: Record<string, string> = { json: "javascript", jsonc: "javascript", jsx: "javascript", mjs: "javascript", cjs: "javascript", sh: "shell", zsh: "shell", bash: "shell", yml: "yaml", toml: "ini", md: "markdown", txt: "plaintext", log: "plaintext", csv: "plaintext", tsx: "typescript", htm: "html", h: "cpp", hpp: "cpp", cc: "cpp", rs: "rust", rb: "ruby", kt: "kotlin" };
-
-export function languageFor(filename: string): string {
-  const ext = extOf(filename);
-  if (EXT_ALIAS[ext]) return EXT_ALIAS[ext];
-  const found = monaco.languages.getLanguages().find((l) => l.extensions?.includes(`.${ext}`));
-  return found?.id ?? "plaintext";
-}
-
-const MAX_CHARS = 1_000_000;
+// Monaco 는 쓰지 않는다. 숨은 textarea(14px)·찾기 입력(13px)에 포커스가 가면 iOS 가 화면을 확대하고,
+// 찾기 위젯이 폭을 넘고 아이콘 폰트가 없어 깨졌다. 읽기 전용 뷰어라 <pre> 와 가벼운 강조로 충분하다.
+const MAX_CHARS = 500_000;
 
 export interface CodeViewProps {
   text: string;
   filename: string;
-  /** 값이 바뀔 때마다 Monaco 찾기 위젯을 연다(툴바 찾기 버튼). */
-  findSignal: number;
+  /** 툴바 찾기(findInDom)가 표시를 칠할 루트. */
+  codeRef?: React.Ref<HTMLElement>;
 }
 
-export default function CodeView({ text, filename, findSignal }: CodeViewProps) {
-  const host = useRef<HTMLDivElement>(null);
-  const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
-  const theme = useAppTheme();
-  const [wrap, setWrap] = useState(false);
+export default function CodeView({ text, filename, codeRef }: CodeViewProps) {
+  const desktop = useIsDesktop();
+  // 휴대폰에서는 처음부터 줄을 바꿔 가로로 밀지 않아도 읽게 한다. 끄면 코드 영역 안에서만 가로 스크롤한다.
+  const [wrap, setWrap] = useState(!desktop);
   const [copied, setCopied] = useState(false);
   const truncated = text.length > MAX_CHARS;
   const value = truncated ? text.slice(0, MAX_CHARS) : text;
   const lang = languageFor(filename);
-
-  useEffect(() => {
-    if (!host.current) return;
-    const ed = monaco.editor.create(host.current, {
-      value,
-      language: lang,
-      theme: theme === "dark" ? "tk-ink-dark" : "tk-ink-light",
-      readOnly: true,
-      domReadOnly: true,
-      automaticLayout: true,
-      minimap: { enabled: false },
-      scrollBeyondLastLine: false,
-      fontFamily: getComputedStyle(document.documentElement).getPropertyValue("--tk-font-family-mono").trim() || "monospace",
-      fontSize: 14,
-      lineNumbers: "on",
-      renderLineHighlight: "none",
-      wordWrap: "off",
-      ariaLabel: `${filename} 코드`,
-    });
-    editor.current = ed;
-    return () => {
-      ed.getModel()?.dispose();
-      ed.dispose();
-      editor.current = null;
-    };
-    // 테마·줄 바꿈은 아래 effect 가 인스턴스를 유지한 채 바꾼다.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value, lang, filename]);
-
-  useEffect(() => {
-    monaco.editor.setTheme(theme === "dark" ? "tk-ink-dark" : "tk-ink-light");
-  }, [theme]);
-  useEffect(() => {
-    editor.current?.updateOptions({ wordWrap: wrap ? "on" : "off" });
-  }, [wrap]);
-  useEffect(() => {
-    if (findSignal > 0) {
-      editor.current?.focus();
-      void editor.current?.getAction("actions.find")?.run();
-    }
-  }, [findSignal]);
+  const lines = useMemo(() => tokenizeLines(value, filename), [value, filename]);
 
   const copy = async () => {
     try {
@@ -94,7 +35,7 @@ export default function CodeView({ text, filename, findSignal }: CodeViewProps) 
   };
 
   return (
-    <figure className="tk-code tk-code--viewer">
+    <figure className="tk-code tk-code--viewer" data-wrap={wrap || undefined}>
       <figcaption className="tk-code__header">
         <span className="tk-code__lang">{lang}</span>
         <span className="tk-code__title">{filename}</span>
@@ -108,8 +49,20 @@ export default function CodeView({ text, filename, findSignal }: CodeViewProps) 
           <span className="tk-copy__done" role="status">복사됨</span>
         </button>
       </figcaption>
-      {truncated && <p className="tk-viewer__notice tk-viewer__notice--warning"><Icon name="warning" /><span>큰 파일이라 처음 1,000,000자만 보여 드려요. 전체는 원본을 받아 보세요.</span></p>}
-      <div className="tk-code__monaco" ref={host} />
+      {truncated && <p className="tk-viewer__notice tk-viewer__notice--warning"><Icon name="warning" /><span>큰 파일이라 처음 500,000자만 보여 드려요. 전체는 원본을 받아 보세요.</span></p>}
+      {!truncated && value.length > HIGHLIGHT_MAX_CHARS && <p className="tk-viewer__notice"><Icon name="info" /><span>큰 파일이라 구문 색은 끄고 보여 드려요.</span></p>}
+      <pre className="tk-code__pre" data-line-numbers tabIndex={0} aria-label={`${filename} 코드`}>
+        <code ref={codeRef}>
+          {lines.map((line, i) => (
+            <Fragment key={i}>
+              {i > 0 && "\n"}
+              <span className="tk-code__line">
+                {line.map((t, j) => (t.cls ? <span key={j} className={`token ${t.cls}`}>{t.text}</span> : t.text))}
+              </span>
+            </Fragment>
+          ))}
+        </code>
+      </pre>
     </figure>
   );
 }

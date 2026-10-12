@@ -1,0 +1,10 @@
+/* 코드 뷰어는 <pre> 가 스크롤 상자다. 뷰어 본문은 overflow:hidden 이라 pre 가 남은 높이 안에서 줄어들어야 한다. */
+.tk-code--viewer { width: 100%; }
+.tk-code--viewer .tk-code__pre { min-height: 0; overscroll-behavior: contain; }
+.tk-code--viewer > .tk-viewer__notice { flex: none; }
+/* 줄을 바꾸면 한 줄이 여러 줄이 된다. 번호는 첫 줄 옆에 둔다(기본은 마지막 줄 옆으로 내려간다). */
+.tk-code--viewer .tk-code__pre[data-line-numbers] .tk-code__line::after { top: 0; }
+
+/* 뷰어 오류 화면: 렌더러가 던져도 닫기·다시 시도가 남는다. */
+.tk-viewer-error { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.tk-viewer-error > .tk-empty { flex: 1 1 auto; }

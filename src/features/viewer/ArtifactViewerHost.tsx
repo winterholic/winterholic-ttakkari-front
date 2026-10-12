@@ -5,6 +5,7 @@ import type { ArtifactViewerProps } from "./ArtifactViewer";
 import { useIsDesktop } from "./hooks";
 import { ModalDialog } from "./ModalDialog";
 import { useArtifactViewer } from "./useArtifactViewer";
+import { ViewerErrorBoundary } from "./ViewerErrorBoundary";
 import { Icon } from "../../ui/Icon";
 
 /**
@@ -51,7 +52,9 @@ export function ArtifactViewerHost({ children, alwaysOpen, placeholder, followup
   const paneRef = useRef<HTMLElement>(null);
 
   const viewer = current ? (
-    <ArtifactViewer artifactId={current} initial={resolveInitial?.(current)} onClose={close} followup={followup} onDelete={onDelete} panel={panel} />
+    <ViewerErrorBoundary resetKey={current} onClose={close} withToolbar>
+      <ArtifactViewer artifactId={current} initial={resolveInitial?.(current)} onClose={close} followup={followup} onDelete={onDelete} panel={panel} />
+    </ViewerErrorBoundary>
   ) : null;
 
   const saveSplit = useCallback((w: number) => {

@@ -16,7 +16,9 @@ import type { IconName } from "../ui/Icon";
 const PAGE = 30;
 
 // 백엔드 kind 필터는 하나만 받으므로 칩 하나가 kind 하나다.
-const CHIPS: { kind: ArtifactKind | "all"; label: string; icon?: IconName }[] = [
+// 작업이 고친 소스 파일(agent_modified)은 결과물이 아니라서 기본 목록에서 빼고 "변경된 파일" 칩에서만 보여 준다.
+type Filter = ArtifactKind | "all" | "changed";
+const CHIPS: { kind: Filter; label: string; icon?: IconName }[] = [
   { kind: "all", label: "전체" },
   { kind: "markdown", label: "문서", icon: "file-text" },
   { kind: "docx", label: "Word", icon: "file-text" },
@@ -26,6 +28,7 @@ const CHIPS: { kind: ArtifactKind | "all"; label: string; icon?: IconName }[] = 
   { kind: "pptx", label: "발표", icon: "presentation" },
   { kind: "code", label: "코드", icon: "file-code" },
   { kind: "html", label: "HTML", icon: "globe" },
+  { kind: "changed", label: "변경된 파일", icon: "file-code" },
 ];
 
 export function LibraryPage() {
@@ -33,12 +36,19 @@ export function LibraryPage() {
   const { current, close } = useArtifactViewer();
   const [text, setText] = useState("");
   const q = useDebounced(text.trim(), 300);
-  const [kind, setKind] = useState<ArtifactKind | "all">("all");
+  const [kind, setKind] = useState<Filter>("all");
   const [toDelete, setToDelete] = useState<ArtifactOut | null>(null);
 
   const list = useInfiniteQuery({
     queryKey: ["artifacts", { q, kind }],
-    queryFn: ({ pageParam }) => listArtifacts({ q: q || undefined, kind: kind === "all" ? undefined : kind, limit: PAGE, offset: pageParam }),
+    queryFn: ({ pageParam }) =>
+      listArtifacts({
+        q: q || undefined,
+        kind: kind === "all" || kind === "changed" ? undefined : kind,
+        changed: kind === "changed",
+        limit: PAGE,
+        offset: pageParam,
+      }),
     initialPageParam: 0,
     getNextPageParam: (last, all) => (last.length === PAGE ? all.length * PAGE : undefined),
     // 필터·검색어를 바꾸면 새 결과가 올 때까지 이전 목록을 둔다. 없으면 매번 로딩 뼈대로 바뀌어 깜빡인다.

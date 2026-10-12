@@ -8,6 +8,8 @@ import { errorText, inlineViewLink } from "./api";
 import { clearHits, markHits, setCurrentHit } from "./findInDom";
 import { useBlobText, useBlobUrl } from "./hooks";
 import { ModalDialog } from "./ModalDialog";
+import { ViewerErrorBoundary } from "./ViewerErrorBoundary";
+import "./viewer.css";
 import { downloadState, extOf, formatSize, PREVIEW_POLL_MS, resolveViewMode, shouldPollPreview, stepZoom, toolsFor } from "./kinds";
 import type { ViewMode } from "./kinds";
 import { MarkdownView } from "./renderers/MarkdownView";
@@ -52,7 +54,6 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
   const [findQuery, setFindQuery] = useState("");
   const [hitCount, setHitCount] = useState(0);
   const [hitIndex, setHitIndex] = useState(0);
-  const [codeFind, setCodeFind] = useState(0);
   const [page, setPage] = useState({ current: 1, total: 0 });
   const onTotal = useCallback((total: number) => setPage((p) => ({ ...p, total })), []);
   const onCurrent = useCallback((current: number) => setPage((p) => ({ ...p, current })), []);
@@ -114,11 +115,8 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
   };
 
   const openFind = () => {
-    if (mode === "code") setCodeFind((n) => n + 1);
-    else {
-      setFindOpen(true);
-      applyFind(findQuery);
-    }
+    setFindOpen(true);
+    applyFind(findQuery);
   };
 
   if (!a) {
@@ -205,7 +203,7 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
       case "markdown":
         return <MarkdownBody id={a.id} articleRef={articleRef} />;
       case "code":
-        return <Suspense fallback={<LoadingBody label="코드 뷰어를 여는 중" />}><CodeBody a={a} findSignal={codeFind} /></Suspense>;
+        return <Suspense fallback={<LoadingBody label="코드 뷰어를 여는 중" />}><CodeBody a={a} codeRef={articleRef} /></Suspense>;
       case "pdf":
         return <PdfBody a={a} variant="original" zoom={zoom} onTotal={onTotal} onCurrent={onCurrent} />;
       case "preview-pdf":
@@ -273,7 +271,7 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
         </div>
       </div>
 
-      {findOpen && tools.find && mode === "markdown" && (
+      {findOpen && tools.find && (
         <div className="tk-findbar">
           <span className="tk-input-wrap">
             <Icon name="search" />
@@ -317,9 +315,9 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, panel }
       )}
 
       {noScrollBody || mode === "html" ? (
-        <div className="tk-viewer__body" ref={bodyRef} style={noScrollBody ? { overflow: "hidden" } : undefined}>{contentBody()}</div>
+        <div className="tk-viewer__body" ref={bodyRef} style={noScrollBody ? { overflow: "hidden" } : undefined}><ViewerErrorBoundary onClose={onClose}>{contentBody()}</ViewerErrorBoundary></div>
       ) : (
-        <div className="tk-viewer__body" ref={bodyRef} tabIndex={0} role="region" aria-label={label}>{contentBody()}</div>
+        <div className="tk-viewer__body" ref={bodyRef} tabIndex={0} role="region" aria-label={label}><ViewerErrorBoundary onClose={onClose}>{contentBody()}</ViewerErrorBoundary></div>
       )}
 
       {followup && <div className="tk-viewer__followup">{followup}</div>}
@@ -363,12 +361,12 @@ function MarkdownBody({ id, articleRef }: { id: UUID; articleRef: React.Ref<HTML
   return <MarkdownView text={t.text} articleRef={articleRef} />;
 }
 
-function CodeBody({ a, findSignal }: { a: ArtifactOut; findSignal: number }) {
+function CodeBody({ a, codeRef }: { a: ArtifactOut; codeRef: React.Ref<HTMLElement> }) {
   const t = useBlobText(a.id);
   const err = bodyError(t.error, t.refetch);
   if (err) return err;
   if (t.text === undefined) return <LoadingBody label="코드를 불러오는 중" />;
-  return <CodeView text={t.text} filename={a.filename} findSignal={findSignal} />;
+  return <CodeView text={t.text} filename={a.filename} codeRef={codeRef} />;
 }
 
 function PdfBody({ a, variant, zoom, slides, onTotal, onCurrent }: { a: ArtifactOut; variant: "original" | "preview"; zoom: number; slides?: boolean; onTotal: (n: number) => void; onCurrent: (n: number) => void }) {

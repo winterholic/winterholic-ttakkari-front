@@ -189,6 +189,8 @@ export interface ArtifactListParams {
   session_id?: UUID;
   run_id?: UUID;
   kind?: ArtifactKind;
+  /** true 면 작업이 워크스페이스에서 바꾼 파일(agent_modified)만, false 면 그것을 뺀다. 생략하면 모두. */
+  changed?: boolean;
   q?: string;
   limit?: number;
   offset?: number;
