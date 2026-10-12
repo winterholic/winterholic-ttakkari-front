@@ -8,6 +8,8 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
+      // 등록은 src/pwaUpdate.ts 가 한다. 기본 registerSW.js 는 load 때 한 번 등록만 해서, 홈 화면 앱이 백그라운드에서 돌아와도 새 버전을 안 찾는다.
+      injectRegister: false,
       manifest: {
         // 이름·색·아이콘은 디자인 시스템 dist/pwa.json 이 정본이다(docs/19 §6).
         name: pwa.name,
