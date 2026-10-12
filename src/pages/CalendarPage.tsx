@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/daygrid";
@@ -33,7 +34,17 @@ export function CalendarPage() {
   const [view, setView] = useState<ViewId>("dayGridMonth");
   const [title, setTitle] = useState("");
   const [range, setRange] = useState<{ from: string; to: string } | null>(null);
-  const [editor, setEditor] = useState<EditorTarget | null>(null);
+  // 일정 알림을 누르면 `/calendar?event=<id>&date=YYYY-MM-DD` 로 새로 열린다(서비스 워커가 창을 이동시킨다).
+  // 그 날짜에서 시작해 일정을 열어 두고, 새로고침해도 다시 열리지 않게 주소에서 지운다.
+  const [params, setParams] = useSearchParams();
+  const [linked] = useState(() => {
+    const date = params.get("date");
+    return { eventId: params.get("event"), date: date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : undefined };
+  });
+  const [editor, setEditor] = useState<EditorTarget | null>(() => (linked.eventId ? { mode: "edit", eventId: linked.eventId } : null));
+  useEffect(() => {
+    if (linked.eventId) setParams({}, { replace: true });
+  }, [linked, setParams]);
 
   const events = useQuery({
     queryKey: ["calendar", "events", range?.from, range?.to],
@@ -125,6 +136,7 @@ export function CalendarPage() {
           timeZone="UTC"
           now={seoulNow}
           initialView="dayGridMonth"
+          initialDate={linked.date}
           headerToolbar={false}
           height="100%"
           firstDay={0}

@@ -1,8 +1,6 @@
-import type { EventIn, EventOut } from "../../api/client";
-import { buildRrule, NO_REPEAT, parseRrule } from "./recurrence";
-import type { Repeat } from "./recurrence";
+import type { EventIn, EventOut, Reminder } from "../../api/client";
 
-/** 일정 편집 폼의 값. 날짜와 시각을 따로 둬 날짜·시간 입력 칸에 바로 연결한다. */
+/** 일정 편집 폼의 값. 날짜와 시각을 따로 둬 날짜·시간 입력 칸에 바로 연결한다. 반복은 보류(ADR 0008)라 없다. */
 export interface EventForm {
   title: string;
   allDay: boolean;
@@ -12,7 +10,29 @@ export interface EventForm {
   endTime: string;
   location: string;
   description: string;
-  repeat: Repeat;
+  /** null 이면 알림 없음(기본). */
+  reminder: Reminder | null;
+}
+
+export const TIMED_REMINDERS: { value: Reminder; label: string }[] = [
+  { value: "at_start", label: "정시" },
+  { value: "10m", label: "10분 전" },
+  { value: "30m", label: "30분 전" },
+  { value: "1h", label: "1시간 전" },
+  { value: "1d", label: "하루 전" },
+];
+export const ALL_DAY_REMINDERS: { value: Reminder; label: string }[] = [
+  { value: "day_9am", label: "당일 오전 9시" },
+  { value: "prev_day_9am", label: "전날 오전 9시" },
+];
+
+/** 종일 여부를 바꿀 때 켜 둔 알림을 가까운 옵션으로 옮긴다(조용히 꺼지지 않게). */
+export function reminderFor(allDay: boolean, r: Reminder | null): Reminder | null {
+  if (!r) return null;
+  const list = allDay ? ALL_DAY_REMINDERS : TIMED_REMINDERS;
+  if (list.some((o) => o.value === r)) return r;
+  if (allDay) return r === "1d" ? "prev_day_9am" : "day_9am";
+  return r === "prev_day_9am" ? "1d" : "10m";
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -21,7 +41,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 export function blankForm(date: string, time = "09:00"): EventForm {
   const [h, m] = time.split(":").map(Number);
   const end = `${pad((h + 1) % 24)}:${pad(m)}`;
-  return { title: "", allDay: false, startDate: date, startTime: time, endDate: date, endTime: end, location: "", description: "", repeat: NO_REPEAT };
+  return { title: "", allDay: false, startDate: date, startTime: time, endDate: date, endTime: end, location: "", description: "", reminder: null };
 }
 
 export function formFromEvent(e: EventOut): EventForm {
@@ -29,7 +49,7 @@ export function formFromEvent(e: EventOut): EventForm {
   const [endDate, endTime = "10:00"] = e.end.split("T");
   return {
     title: e.title, allDay: e.all_day, startDate, startTime, endDate, endTime,
-    location: e.location, description: e.description, repeat: parseRrule(e.rrule),
+    location: e.location, description: e.description, reminder: e.reminder,
   };
 }
 
@@ -41,13 +61,10 @@ export function validateForm(f: EventForm): string | null {
   const s = f.allDay ? f.startDate : `${f.startDate}T${f.startTime}`;
   const e = f.allDay ? f.endDate : `${f.endDate}T${f.endTime}`;
   if (e < s) return "끝이 시작보다 빠를 수 없어요.";
-  if (f.repeat.freq !== "none" && f.repeat.freq !== "custom" && f.repeat.end === "until" && !f.repeat.until) return "반복이 끝나는 날짜를 입력해 주세요.";
-  if (f.repeat.freq !== "none" && f.repeat.freq !== "custom" && f.repeat.end === "until" && f.repeat.until < f.startDate) return "반복 종료일이 시작일보다 빠를 수 없어요.";
   return null;
 }
 
 export function formToPayload(f: EventForm): EventIn {
-  const rrule = buildRrule(f.repeat);
   return {
     title: f.title.trim(),
     all_day: f.allDay,
@@ -55,6 +72,6 @@ export function formToPayload(f: EventForm): EventIn {
     end: f.allDay ? f.endDate : `${f.endDate}T${f.endTime}`,
     location: f.location.trim(),
     description: f.description,
-    rrule: rrule || null,
+    reminder: f.reminder,
   };
 }

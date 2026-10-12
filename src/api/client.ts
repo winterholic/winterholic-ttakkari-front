@@ -466,8 +466,13 @@ export interface EventOut {
   all_day: boolean;
   start: string;
   end: string;
+  /** 보류 전에 저장된 반복 규칙만 읽는다. 반복 입력은 보류(ADR 0008). */
   rrule: string | null;
   recurring: boolean;
+  reminder: Reminder | null;
+  /** 알림을 보낼 시각(서울 벽시계). */
+  remind_at: string | null;
+  reminder_sent: boolean;
   source: "user" | "agent";
   created_at: string;
   updated_at: string;
@@ -479,8 +484,10 @@ export interface EventIn {
   all_day: boolean;
   description?: string;
   location?: string;
-  rrule?: string | null;
+  /** null 이면 알림 없음. 시간 일정은 at_start~1d, 종일 일정은 day_9am·prev_day_9am. */
+  reminder?: Reminder | null;
 }
+export type Reminder = "at_start" | "10m" | "30m" | "1h" | "1d" | "day_9am" | "prev_day_9am";
 export type EventPatch = Partial<EventIn>;
 export interface HolidayOut {
   date: string;

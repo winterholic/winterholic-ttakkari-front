@@ -7,23 +7,13 @@ import { Select } from "../../ui/Select";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { ErrorState } from "../viewer/screenStates";
-import { blankForm, formFromEvent, formToPayload, validateForm } from "./eventForm";
+import { usePush } from "../push/usePush";
+import { ALL_DAY_REMINDERS, blankForm, formFromEvent, formToPayload, reminderFor, TIMED_REMINDERS, validateForm } from "./eventForm";
 import type { EventForm } from "./eventForm";
-import { FREQ_LABEL } from "./recurrence";
-import type { Freq, RepeatEnd } from "./recurrence";
+import type { Reminder } from "../../api/client";
 
 /** create: 날짜(와 시각)를 눌러 만든다. edit: 일정(시리즈) id 로 연다. */
 export type EditorTarget = { mode: "create"; date: string; time?: string } | { mode: "edit"; eventId: string };
-
-const FREQ_OPTIONS = [
-  { value: "none" as const, label: "반복 안 함" },
-  ...(Object.keys(FREQ_LABEL) as Freq[]).map((f) => ({ value: f, label: FREQ_LABEL[f] })),
-];
-const END_OPTIONS: { value: RepeatEnd; label: string }[] = [
-  { value: "never", label: "계속" },
-  { value: "until", label: "날짜까지" },
-  { value: "count", label: "횟수만큼" },
-];
 
 export function EventDialog({ target, onClose }: { target: EditorTarget | null; onClose: () => void }) {
   const edit = target?.mode === "edit" ? target.eventId : null;
@@ -46,16 +36,14 @@ function EventFormView({ initial, eventId, recurring, onClose }: { initial: Even
   const [problem, setProblem] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const set = (p: Partial<EventForm>) => setF((cur) => ({ ...cur, ...p }));
-  const setRepeat = (p: Partial<EventForm["repeat"]>) => setF((cur) => ({ ...cur, repeat: { ...cur.repeat, ...p } }));
+  const push = usePush();
+  const reminderOptions: { value: Reminder | "off"; label: string }[] = [{ value: "off", label: "알림 없음" }, ...(f.allDay ? ALL_DAY_REMINDERS : TIMED_REMINDERS)];
   const done = () => {
     void qc.invalidateQueries({ queryKey: ["calendar"] });
     onClose();
   };
   const save = useMutation({
-    mutationFn: () => {
-      const body = formToPayload(f);
-      return eventId ? patchEvent(eventId, { ...body, rrule: body.rrule ?? "" }) : createEvent(body);
-    },
+    mutationFn: () => (eventId ? patchEvent(eventId, formToPayload(f)) : createEvent(formToPayload(f))),
     onSuccess: () => {
       toast({ message: eventId ? "일정을 고쳤어요." : "일정을 만들었어요.", tone: "success" });
       done();
@@ -93,7 +81,7 @@ function EventFormView({ initial, eventId, recurring, onClose }: { initial: Even
         <input id={`${id}-title`} className="tk-input tk-input--lg" value={f.title} maxLength={200} autoComplete="off" onChange={(e) => set({ title: e.target.value })} />
       </div>
       <label className="tk-switch tk-switch--row">
-        <input type="checkbox" role="switch" checked={f.allDay} onChange={(e) => set({ allDay: e.target.checked })} />
+        <input type="checkbox" role="switch" checked={f.allDay} onChange={(e) => set({ allDay: e.target.checked, reminder: reminderFor(e.target.checked, f.reminder) })} />
         종일
       </label>
       <div className="planner-form__when">
@@ -115,27 +103,21 @@ function EventFormView({ initial, eventId, recurring, onClose }: { initial: Even
       <p className="tk-help">한국 표준시(Asia/Seoul) 기준이에요.</p>
 
       <div className="tk-field">
-        <span id={`${id}-rep`}>반복</span>
-        <div className="planner-form__pair">
-          <Select
-            id={`${id}-repsel`}
-            labelledBy={`${id}-rep`}
-            value={f.repeat.freq}
-            options={f.repeat.freq === "custom" ? [{ value: "custom" as const, label: "사용자 지정" }, ...FREQ_OPTIONS] : FREQ_OPTIONS}
-            onChange={(v) => setRepeat({ freq: v })}
-          />
-          {f.repeat.freq !== "none" && f.repeat.freq !== "custom" && (
-            <Select id={`${id}-repend`} labelledBy={`${id}-rep`} value={f.repeat.end} options={END_OPTIONS} onChange={(v) => setRepeat({ end: v })} />
-          )}
-        </div>
-        {f.repeat.freq === "custom" && <p className="tk-help">규칙 <code>{f.repeat.raw}</code> 은 그대로 유지돼요. 바꾸려면 위에서 다른 반복을 고르세요.</p>}
-        {f.repeat.end === "until" && f.repeat.freq !== "none" && f.repeat.freq !== "custom" && (
-          <input className="tk-input" type="date" aria-label="반복 종료일" min={f.startDate} value={f.repeat.until} onChange={(e) => setRepeat({ until: e.target.value })} />
+        <span id={`${id}-rem`}>알림</span>
+        {recurring ? (
+          <p className="tk-help">반복 일정에는 알림을 걸 수 없어요. 반복 기능은 다시 설계하는 중이라, 지금은 고치면 반복 전체가 함께 바뀌어요.</p>
+        ) : (
+          <>
+            <Select
+              id={`${id}-remsel`}
+              labelledBy={`${id}-rem`}
+              value={f.reminder ?? "off"}
+              options={reminderOptions}
+              onChange={(v) => set({ reminder: v === "off" ? null : (v as Reminder) })}
+            />
+            {f.reminder && push.state !== "on" && <p className="tk-help">이 기기는 푸시 알림이 꺼져 있어요. 설정의 알림에서 켜야 받을 수 있어요.</p>}
+          </>
         )}
-        {f.repeat.end === "count" && f.repeat.freq !== "none" && f.repeat.freq !== "custom" && (
-          <input className="tk-input" type="number" inputMode="numeric" aria-label="반복 횟수" min={1} max={999} value={f.repeat.count} onChange={(e) => setRepeat({ count: Number(e.target.value) })} />
-        )}
-        {recurring && <p className="tk-help">반복 일정은 전체가 함께 바뀌어요.</p>}
       </div>
 
       <div className="tk-field">
