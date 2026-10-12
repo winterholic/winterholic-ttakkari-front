@@ -439,6 +439,58 @@ export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });
 
+// ---- 서버 리소스(사용자 메뉴). 바이트·퍼센트 그대로 받고 화면에서 단위를 붙인다.
+export interface ResourceProcess {
+  pid: number;
+  name: string;
+  cpu_percent: number;
+  memory_bytes: number;
+  kind?: "backend" | "claude" | "codex" | "other";
+}
+export interface ResourceDisk {
+  name: string;
+  fstype: string;
+  mounts: string[];
+  total: number;
+  used: number;
+  free: number;
+  percent: number;
+  volumes: { mount: string; used: number }[];
+}
+export interface SystemResources {
+  collected_at: number;
+  host: { hostname: string; os: string; model: string | null; boot_time: number; uptime_seconds: number };
+  cpu: {
+    percent: number;
+    per_core: number[];
+    load_avg: number[];
+    cores_logical: number;
+    cores_physical: number | null;
+    performance_cores: number | null;
+    efficiency_cores: number | null;
+    chip: string | null;
+  };
+  memory: {
+    total: number;
+    used: number;
+    available: number;
+    percent: number;
+    wired: number | null;
+    pressure: "normal" | "warn" | "critical" | null;
+    pressure_free_percent: number | null;
+    swap: { total: number; used: number; percent: number };
+  };
+  disks: ResourceDisk[];
+  network: { rx_bytes_per_sec: number; tx_bytes_per_sec: number };
+  processes: {
+    top_cpu: ResourceProcess[];
+    top_memory: ResourceProcess[];
+    ttakkari: ResourceProcess[];
+    ttakkari_total: { cpu_percent: number; memory_bytes: number };
+  };
+}
+export const systemResources = (): Promise<SystemResources> => json("/api/system/resources");
+
 // ---- 메모·캘린더(ADR 0008). 시각은 Asia/Seoul 벽시계 문자열이다(시간 `YYYY-MM-DDTHH:MM`, 종일 `YYYY-MM-DD`, 끝 날짜 포함).
 export interface MemoSummary {
   id: string;
