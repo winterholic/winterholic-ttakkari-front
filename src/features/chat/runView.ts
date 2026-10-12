@@ -21,6 +21,25 @@ export const STATUS_LABEL: Record<RunStatus, string> = {
   interrupted: "중단됨",
 };
 
+/** 같은 Run 이 계정·엔진을 갈아탄 기록(engine.fallback). */
+export interface SwitchView {
+  seq: number;
+  at: string;
+  from: string;
+  to: string;
+  reason: "usage_limit" | "missing";
+  /** 넘어가게 한 계정이 한도에서 풀리는 시각 */
+  resetAt: string | null;
+  /** resume: 그 계정의 엔진 대화를 이어감 · handoff: 대화·진행 요약을 새 대화에 실어 보냄 */
+  mode: "resume" | "handoff" | null;
+}
+
+/** 모든 계정이 한도라 초기화를 기다리는 중. */
+export interface WaitingView {
+  until: string;
+  accounts: { name: string; engine: string; resetsAt: string }[];
+}
+
 export interface StepView {
   id: string;
   name: string;
@@ -53,6 +72,24 @@ export interface RunView {
   error: string | null;
   costUsd: number | null;
   blockedCount: number;
+  switches: SwitchView[];
+  waiting: WaitingView | null;
+}
+
+/** 진행 중으로 보이는 상태(멈추기 버튼·실시간 표시). 한도 대기도 아직 끝난 Run 이 아니다. */
+export function isLive(state: UiRunState): boolean {
+  return state === "running" || state === "queued" || state === "waiting";
+}
+
+export function stateLabel(view: Pick<RunView, "state" | "status">): string {
+  return view.state === "waiting" ? "한도 대기" : STATUS_LABEL[view.status];
+}
+
+/** 같은 날이면 시:분, 다른 날이면 월/일 시:분. */
+export function clockLabel(iso: string): string {
+  const d = new Date(iso);
+  const hm = d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toDateString() === new Date().toDateString() ? hm : `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
 }
 
 const TOOL_LABEL: Record<string, string> = {
@@ -112,6 +149,8 @@ export function buildRunView(run: RunOut, events: RunEvent[]): RunView {
   let costUsd: number | null = run.cost_usd;
   let diff: RunView["diff"] = null;
   let blockedCount = 0;
+  const switches: SwitchView[] = [];
+  let waiting: WaitingView | null = null;
   const steps: StepView[] = [];
   const byCall = new Map<string, StepView>();
   const log: LogLine[] = [];
@@ -121,6 +160,32 @@ export function buildRunView(run: RunOut, events: RunEvent[]): RunView {
     switch (e.type) {
       case "run.status":
         status = e.payload.status;
+        if (status === "running") waiting = null;
+        break;
+      case "account.limited": {
+        const reset = e.payload.reset_at ? ` · ${clockLabel(e.payload.reset_at)}에 초기화` : "";
+        log.push({ seq: e.seq, at: e.created_at, level: "warn", text: `${e.payload.account} 사용량 한도${reset}` });
+        break;
+      }
+      case "engine.fallback":
+        switches.push({
+          seq: e.seq,
+          at: e.created_at,
+          from: e.payload.from,
+          to: e.payload.to,
+          reason: e.payload.reason,
+          resetAt: e.payload.reset_at ?? null,
+          mode: e.payload.mode ?? null,
+        });
+        log.push({ seq: e.seq, at: e.created_at, level: "warn", text: `계정 전환: ${e.payload.from} → ${e.payload.to}` });
+        break;
+      case "run.waiting":
+        waiting = { until: e.payload.until, accounts: e.payload.accounts.map((a) => ({ name: a.name, engine: a.engine, resetsAt: a.resets_at })) };
+        log.push({ seq: e.seq, at: e.created_at, level: "warn", text: `모든 계정이 한도 · ${clockLabel(e.payload.until)}에 이어서 진행` });
+        break;
+      case "run.resumed":
+        waiting = null;
+        log.push({ seq: e.seq, at: e.created_at, level: "info", text: `한도가 풀려 ${e.payload.account} 계정에서 이어서 진행` });
         break;
       case "message":
         text = e.payload.text;
@@ -185,15 +250,18 @@ export function buildRunView(run: RunOut, events: RunEvent[]): RunView {
   }
 
   if (!events.length) text = run.result_text;
+  // 한도 대기 Run 은 상태가 queued 로 남는다. 끝난 것이 아니라 초기화를 기다리는 중이다.
+  if (status !== "queued") waiting = null;
   const finished = !["queued", "running"].includes(status);
   if (finished) {
     // 결과를 못 받고 끝난 단계는 멈춘 것으로 보인다.
     for (const s of steps) if (s.state === "running") s.state = status === "failed" ? "failed" : "cancelled";
   }
   const running = steps.findLast((s) => s.state === "running");
-  const doing = finished ? null : running ? `${running.name}${running.target ? ` · ${running.target}` : ""}` : thinking ? "생각하는 중" : "준비하는 중";
+  const doing = finished ? null : waiting ? `사용량 한도 초기화 대기 · ${clockLabel(waiting.until)}에 이어서` : running ? `${running.name}${running.target ? ` · ${running.target}` : ""}` : thinking ? "생각하는 중" : "준비하는 중";
 
-  return { status, state: STATE_OF[status], text, doing, steps, log, artifacts, diff, error, costUsd, blockedCount };
+  const state: UiRunState = waiting ? "waiting" : STATE_OF[status];
+  return { status, state, text, doing, steps, log, artifacts, diff, error, costUsd, blockedCount, switches, waiting };
 }
 
 export function formatElapsed(fromIso: string | null, toIso: string | null, now: number): string {

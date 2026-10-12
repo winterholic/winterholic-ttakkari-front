@@ -5,7 +5,7 @@ import type { ArtifactOut, RunOut } from "../../api/types";
 import { Icon, KIND_GLYPH } from "../../ui/Icon";
 import { SentAttachments } from "./Attachments";
 import { RunCard, StateBadge } from "./RunCard";
-import { STATUS_LABEL, formatBytes } from "./runView";
+import { formatBytes, isLive, stateLabel } from "./runView";
 import type { RunView } from "./runView";
 
 function time(iso: string): string {
@@ -105,14 +105,14 @@ export function AgentMessage({
   suggestions?: { label: string; text: string }[];
   onSuggest?: (text: string) => void;
 }) {
-  const live = view.state === "running" || view.state === "queued";
+  const live = isLive(view.state);
   const copy = () => view.text && void navigator.clipboard?.writeText(view.text);
   return (
     <article className="tk-message tk-message--agent" data-author="agent" aria-label="따까리의 응답" aria-busy={live || undefined}>
       <div className="tk-message__head">
         <span className="tk-avatar tk-avatar--agent tk-avatar--sm" aria-hidden />
         <span className="tk-message__name">따까리</span>
-        {live && <StateBadge state={view.state} label={STATUS_LABEL[view.status]} />}
+        {live && <StateBadge state={view.state} label={stateLabel(view)} />}
         <span className="tk-message__time">{time(run.finished_at ?? run.started_at ?? run.created_at)}</span>
       </div>
       <div className="tk-message__body">

@@ -226,8 +226,18 @@ export interface UsagePayload {
 }
 
 export type RunEvent =
-  | RunEventBase<"run.status", { status: RunStatus }>
-  | RunEventBase<"checkpoint", { ref: string }>
+  | RunEventBase<"run.status", { status: RunStatus; waiting?: boolean }>
+  | RunEventBase<"checkpoint", { ref: string; untracked?: string[] }>
+  /** 계정이 사용량 한도에 걸렸다. reset_at 까지 그 계정은 쉰다. */
+  | RunEventBase<"account.limited", { account: string; engine: AccountEngine; reset_at: ISODateTime | null; detail: string }>
+  /** 같은 Run 이 다음 계정으로 넘어갔다. resume: 그 계정의 엔진 대화를 이어감 · handoff: 대화·진행 요약을 새 대화에 실어 보냄. */
+  | RunEventBase<
+      "engine.fallback",
+      { from: string; to: string; reason: "usage_limit" | "missing"; detail: string; reset_at?: ISODateTime | null; mode?: "resume" | "handoff" }
+    >
+  /** 쓸 수 있는 계정이 없어 Run 이 queued 로 초기화를 기다린다. handoff 는 재개용 내부 인계문이라 화면에 쓰지 않는다. */
+  | RunEventBase<"run.waiting", { until: ISODateTime; accounts: { name: string; engine: AccountEngine; resets_at: ISODateTime }[]; handoff?: string }>
+  | RunEventBase<"run.resumed", { account: string }>
   | RunEventBase<"agent.session", { engine_session_id: string; model: string }>
   | RunEventBase<"message", { text: string }>
   | RunEventBase<"thinking", { text: string }>

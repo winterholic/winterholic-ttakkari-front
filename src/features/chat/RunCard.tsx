@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "../../ui/Icon";
 import type { RunOut } from "../../api/types";
-import { STATUS_LABEL, formatElapsed } from "./runView";
-import type { LogLine, RunView, StepView, UiRunState } from "./runView";
+import { clockLabel, formatElapsed, isLive, stateLabel } from "./runView";
+import type { LogLine, RunView, StepView, SwitchView, UiRunState } from "./runView";
 
 const VISIBLE_STEPS = 6;
 
@@ -39,6 +39,13 @@ function Step({ s, now }: { s: StepView; now: number }) {
       <span className="tk-step__time">{formatElapsed(s.startedAt, s.endedAt ?? null, now)}</span>
     </li>
   );
+}
+
+function switchText(s: SwitchView): string {
+  const why = s.reason === "usage_limit" ? "사용량 한도" : "실행 파일 없음";
+  const reset = s.resetAt ? ` · ${clockLabel(s.resetAt)} 초기화` : "";
+  const how = s.mode === "resume" ? " · 이전 대화 이어감" : s.mode === "handoff" ? " · 대화·진행 요약 전달" : "";
+  return `${s.from} → ${s.to} (${why}${reset}${how})`;
 }
 
 function clock(iso: string): string {
@@ -89,7 +96,7 @@ function Log({ lines, live }: { lines: LogLine[]; live: boolean }) {
 }
 
 export function RunCard({ run, view, onStop, onRetry }: { run: RunOut; view: RunView; onStop?: () => void; onRetry?: () => void }) {
-  const live = view.state === "running" || view.state === "queued";
+  const live = isLive(view.state);
   const now = useNow(live);
   const [showAll, setShowAll] = useState(false);
   const [showLog, setShowLog] = useState(false);
@@ -129,9 +136,29 @@ export function RunCard({ run, view, onStop, onRetry }: { run: RunOut; view: Run
     <div className="tk-run" data-state={view.state}>
       <div className="tk-run__head">
         <p className="tk-run__title">{title}</p>
-        <StateBadge state={view.state} label={STATUS_LABEL[view.status]} />
+        <StateBadge state={view.state} label={stateLabel(view)} />
       </div>
       {meta}
+      {view.waiting && (
+        <p className="tk-run__summary" role="status">
+          모든 계정이 사용량 한도예요. {clockLabel(view.waiting.until)}에 가장 먼저 풀리고, 그때 이어서 진행해요.
+          {view.waiting.accounts.length > 0 && ` (${view.waiting.accounts.map((a) => `${a.name} ${clockLabel(a.resetsAt)}`).join(" · ")})`}
+        </p>
+      )}
+      {view.switches.length > 0 && (
+        <details className="tk-run__more" open={live || undefined}>
+          <summary>계정 전환 {view.switches.length}번</summary>
+          <ul className="tk-steps">
+            {view.switches.map((s) => (
+              <li key={s.seq} data-state="waiting">
+                <Icon name="retry" />
+                <span className="tk-step__name">{switchText(s)}</span>
+                <span className="tk-step__time">{clock(s.at)}</span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {(view.status === "failed" || view.status === "interrupted") && view.error && (
         <p className="tk-run__summary">{view.status === "interrupted" ? "서버가 다시 시작돼서 멈췄어요. 같은 세션에서 이어서 지시하면 돼요." : view.error.slice(0, 300)}</p>
       )}

@@ -57,6 +57,52 @@ describe("buildRunView", () => {
   });
 });
 
+describe("buildRunView 사용량 한도 전환·대기", () => {
+  const queued: RunOut = { ...base, status: "queued", started_at: null };
+
+  it("같은 Run 의 계정 전환 이력을 모은다", () => {
+    const v = buildRunView(base, [
+      ev("account.limited", { account: "claude", engine: "claude", reset_at: "2026-10-12T10:20:00Z", detail: "limit" }),
+      ev("engine.fallback", {
+        from: "claude", to: "codex", reason: "usage_limit", detail: "limit", reset_at: "2026-10-12T10:20:00Z", mode: "handoff",
+      }),
+    ]);
+    expect(v.switches).toHaveLength(1);
+    expect(v.switches[0]).toMatchObject({ from: "claude", to: "codex", reason: "usage_limit", mode: "handoff" });
+    expect(v.log.map((l) => l.level)).toEqual(["warn", "warn"]);
+    expect(v.state).toBe("running");
+  });
+
+  it("모든 계정이 한도면 queued Run 이 waiting 으로 보이고, 재개하면 풀린다", () => {
+    const waitingEvent = ev("run.waiting", {
+      until: "2026-10-12T10:20:00Z",
+      accounts: [{ name: "claude", engine: "claude", resets_at: "2026-10-12T10:20:00Z" }],
+    });
+    const v = buildRunView(queued, [ev("run.status", { status: "queued" }), waitingEvent]);
+    expect(v.state).toBe("waiting");
+    expect(v.status).toBe("queued");
+    expect(v.waiting?.accounts[0].name).toBe("claude");
+    expect(v.doing).toContain("한도");
+
+    const resumed = buildRunView({ ...queued, status: "running" }, [
+      waitingEvent,
+      ev("run.status", { status: "running" }),
+      ev("run.resumed", { account: "claude" }),
+    ]);
+    expect(resumed.state).toBe("running");
+    expect(resumed.waiting).toBeNull();
+  });
+
+  it("대기 중 취소하면 대기 표시가 사라진다", () => {
+    const v = buildRunView({ ...queued, status: "cancelled" }, [
+      ev("run.waiting", { until: "2026-10-12T10:20:00Z", accounts: [] }),
+      ev("run.finished", { status: "cancelled", error: null, result_text: null, cost_usd: null, exit_code: null }),
+    ]);
+    expect(v.state).toBe("cancelled");
+    expect(v.waiting).toBeNull();
+  });
+});
+
 describe("describeTool", () => {
   it("긴 경로는 끝 두 조각만", () => {
     expect(describeTool("Write", { file_path: "/a/b/c/d/e.md" })).toEqual({ name: "파일 쓰기", target: "…/d/e.md" });
