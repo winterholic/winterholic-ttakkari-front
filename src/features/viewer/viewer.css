@@ -2,8 +2,27 @@
 .tk-code--viewer { width: 100%; }
 .tk-code--viewer .tk-code__pre { min-height: 0; overscroll-behavior: contain; }
 .tk-code--viewer > .tk-viewer__notice { flex: none; }
-/* 줄을 바꾸면 한 줄이 여러 줄이 된다. 번호는 첫 줄 옆에 둔다(기본은 마지막 줄 옆으로 내려간다). */
-.tk-code--viewer .tk-code__pre[data-line-numbers] .tk-code__line::after { top: 0; }
+/* 줄마다 한 행: [번호 칸(왼쪽 고정)][글]. 번호는 ::before 라 복사·찾기에 섞이지 않는다.
+   줄을 바꾸면 한 줄이 여러 줄이 되는데, 번호 칸이 행 맨 위에 붙어 첫 줄 옆에 남는다. */
+.tk-code--viewer .tk-code__pre { padding-inline: 0; padding-block: var(--tk-space-2); }
+.tk-code__row { display: flex; align-items: flex-start; min-height: 1lh; }
+.tk-code__row[data-marked] { background: var(--tk-color-ink-line-highlight); box-shadow: inset var(--tk-border-width-accent) 0 0 var(--tk-color-ink-line-highlight-marker); }
+@media (hover: hover) { .tk-code__row:not([data-marked]):hover { background: var(--tk-color-ink-hover); } }
+.tk-code__no {
+  position: sticky; left: 0; z-index: 1; flex: none; align-self: stretch; box-sizing: content-box;
+  width: var(--tk-_no-w, 3ch); margin: 0; padding: 0 var(--tk-space-3);
+  border: 0; border-right: var(--tk-border-width-hairline) solid var(--tk-color-ink-border); border-radius: 0;
+  background: var(--tk-component-code-block-bg); color: var(--tk-color-ink-line-number);
+  display: flex; align-items: flex-start; justify-content: flex-end; /* 버튼은 내용을 세로 가운데에 두므로, 줄이 바뀐 행에서도 번호는 첫 줄 옆에 */
+  font: inherit; text-align: right; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.tk-code__no::before { content: attr(data-ln); }
+.tk-code__row[data-marked] .tk-code__no {
+  background: linear-gradient(var(--tk-color-ink-line-highlight), var(--tk-color-ink-line-highlight)), var(--tk-component-code-block-bg);
+  color: var(--tk-color-ink-text);
+}
+.tk-code__text { flex: 1 0 auto; min-width: 0; padding: 0 var(--tk-space-4) 0 var(--tk-space-3); }
+.tk-code[data-wrap] .tk-code__text { flex: 1 1 0; }
 
 /* 뷰어 오류 화면: 렌더러가 던져도 닫기·다시 시도가 남는다. */
 .tk-viewer-error { display: flex; flex-direction: column; height: 100%; min-height: 0; }
