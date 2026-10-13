@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { runEvents } from "../../api/client";
 import type { RunEvent, RunOut } from "../../api/types";
 import { useRunStream } from "../../hooks/useRunStream";
+import { DeskFeedback, deskDecision } from "./DeskFeedback";
 import { AgentMessage, ReportMessage, UserMessage } from "./Messages";
 import { buildRunView } from "./runView";
 
@@ -36,6 +37,8 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
   // 끝난 Run 은 이벤트가 더 생기지 않는다. 한 번 읽고 캐시한다.
   const past = useQuery({ queryKey: ["runEvents", run.id], queryFn: () => allEvents(run.id), enabled: !active, staleTime: Infinity });
   const view = useMemo(() => buildRunView(run, active ? stream.events : (past.data ?? [])), [run, active, stream.events, past.data]);
+  // desk.route 는 접수 세션의 사용자 메시지에만 생긴다. 그래서 세션 종류를 따로 받지 않는다.
+  const decided = !active && run.origin === "user" ? deskDecision(run, past.data ?? []) : null;
 
   useEffect(() => {
     if (active && stream.finished) onSettled();
@@ -60,6 +63,7 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
         onRetry={isLast ? () => onRetry(run.prompt) : undefined}
         suggestions={suggestions}
         onSuggest={onSuggest}
+        footer={decided ? <DeskFeedback run={run} decided={decided} /> : undefined}
       />
     </>
   );

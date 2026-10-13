@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { downloadLink } from "../../api/client";
@@ -105,6 +106,7 @@ export function AgentMessage({
   onRetry,
   suggestions,
   onSuggest,
+  footer,
 }: {
   run: RunOut;
   view: RunView;
@@ -113,6 +115,8 @@ export function AgentMessage({
   onRetry?: () => void;
   suggestions?: { label: string; text: string }[];
   onSuggest?: (text: string) => void;
+  /** 본문 맨 아래(제안 칩 다음). 접수 판정 칩 자리. */
+  footer?: ReactNode;
 }) {
   const live = isLive(view.state);
   const copy = () => view.text && void navigator.clipboard?.writeText(view.text);
@@ -155,6 +159,7 @@ export function AgentMessage({
             ))}
           </div>
         )}
+        {footer}
       </div>
       {!live && view.text && (
         <div className="tk-message__actions">

@@ -146,6 +146,36 @@ export interface RunOut {
   created_at: ISODateTime;
   started_at: ISODateTime | null;
   finished_at: ISODateTime | null;
+  /** 접수 세션의 사용자 메시지 Run 에 남긴 판정. 목록·단건 조회에서만 채워지고, 없으면 null. */
+  desk_feedback?: DeskFeedbackBrief | null;
+}
+
+// ---- 접수 판정(back ADR 0013)
+export type DeskAction = "answer" | "delegate";
+/** ok: 접수가 맞았다 · should_delegate: 넘겼어야 했다 · should_answer: 바로 답했어야 했다 */
+export type DeskVerdict = "ok" | "should_delegate" | "should_answer";
+export interface DeskFeedbackIn {
+  verdict: DeskVerdict;
+  note?: string | null;
+  /** should_delegate 이고 접수가 바로 답했던 Run 이면 그 메시지를 새 기획 세션에 넘긴다. */
+  redo?: boolean;
+}
+export interface DeskFeedbackBrief {
+  verdict: DeskVerdict;
+  /** 판정 시점에 접수가 고른 쪽 */
+  decided: DeskAction;
+  /** 사용자가 맞다고 한 쪽 */
+  expected: DeskAction;
+  note: string | null;
+  updated_at: ISODateTime;
+}
+export interface DeskFeedbackOut extends DeskFeedbackBrief {
+  run_id: UUID;
+  session_id: UUID;
+  message: string;
+  created_at: ISODateTime;
+  /** redo 로 넘긴 기획 세션. 넘기지 않았으면 null. */
+  lead_id: UUID | null;
 }
 
 // ---- artifacts
@@ -240,6 +270,11 @@ export type RunEvent =
   /** 쓸 수 있는 계정이 없어 Run 이 queued 로 초기화를 기다린다. handoff 는 재개용 내부 인계문이라 화면에 쓰지 않는다. */
   | RunEventBase<"run.waiting", { until: ISODateTime; accounts: { name: string; engine: AccountEngine; resets_at: ISODateTime }[]; handoff?: string }>
   | RunEventBase<"run.resumed", { account: string }>
+  /** 접수(desk)가 고른 쪽. fallback 이면 모든 계정이 실패해 기획으로 넘긴 것이다. */
+  | RunEventBase<"desk.route", { action: DeskAction; account: string | null; engine: AccountEngine | null; ms?: number; fallback?: boolean }>
+  | RunEventBase<"desk.retry", { account: string; engine: AccountEngine; ms: number; reason: string }>
+  /** redo: 사용자가 "넘겼어야 해"로 판정해 나중에 넘긴 것 */
+  | RunEventBase<"desk.delegated", { lead_id: UUID; title: string; redo?: boolean }>
   | RunEventBase<"agent.session", { engine_session_id: string; model: string }>
   | RunEventBase<"message", { text: string }>
   | RunEventBase<"thinking", { text: string }>
