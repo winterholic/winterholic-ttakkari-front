@@ -114,10 +114,6 @@
 .home__result-title, .home__result-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home__result-title { color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
 .home__result-path { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
-.home__empty {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-width: 40ch; text-align: center; cursor: default;
-  color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
-}
 .home__notice { position: absolute; left: 50%; top: calc(var(--tk-space-4) + var(--tk-size-control-lg) + var(--tk-space-2)); transform: translateX(-50%); }
 .home__composer { position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--tk-z-index-raised); pointer-events: none; }
 .home__composer .tk-composer-tray { position: static; background: none; pointer-events: none; }

@@ -243,13 +243,6 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
                         </button>
                       </p>
                     )}
-                    {active.isSuccess && forest.length === 0 && (
-                      <p className="home__empty" data-no-pan>
-                        지금 도는 일이 없어요. 아래에 시키면 따까리 밑으로 가지가 뻗어요.
-                        <br />
-                        끝난 일은 위에서 찾거나 <Link to="/tasks">작업</Link>에서 볼 수 있어요.
-                      </p>
-                    )}
                   </>
                 }
               />
