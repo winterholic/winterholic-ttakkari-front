@@ -68,6 +68,13 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("메모 목록 거르기", () => {
+  it("검색어는 디바운스한 뒤 목록 요청에 포함한다", async () => {
+    mount("/memos");
+    const search = await screen.findByLabelText("메모 검색");
+    fireEvent.change(search, { target: { value: "주간" } });
+    await waitFor(() => expect(h.listMemos).toHaveBeenLastCalledWith({ q: "주간", tags: [], category: undefined }));
+  });
+
   it("주소의 카테고리·태그로 묻고, 목록에 카테고리와 태그를 보인다", async () => {
     mount("/memos?c=c1&t=업무");
     await waitFor(() => expect(h.listMemos).toHaveBeenLastCalledWith({ q: undefined, tags: ["업무"], category: "c1" }));
