@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { analyzeMeeting, createMeeting, listEntities, meetingProviders, uploadFile } from "../../api/client";
+import { createMeeting, listEntities, uploadFile } from "../../api/client";
 import type { MeetingScope } from "../../api/client";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
@@ -11,6 +11,7 @@ import { errorText } from "../viewer/api";
 import { formatSize } from "../viewer/kinds";
 import { useDefaultWorkspace } from "../workspace/useDefaultWorkspace";
 import { Callout, SCOPE_OPTIONS } from "./shared";
+import { ClovaBar, useClovaStatus } from "./clova";
 import { TranscriptField } from "./TranscriptField";
 
 type Mode = "audio" | "text";
@@ -33,7 +34,7 @@ export function NewMeetingForm() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const ws = useDefaultWorkspace();
-  const providers = useQuery({ queryKey: ["meetings", "providers"], queryFn: meetingProviders });
+  const clova = useClovaStatus();
   const [mode, setMode] = useState<Mode>("text");
   const [title, setTitle] = useState("");
   const [scope, setScope] = useState<MeetingScope>("personal");
@@ -51,24 +52,20 @@ export function NewMeetingForm() {
       if (mode === "audio") {
         if (!file || !ws.data) throw new Error("녹음 파일을 골라 주세요.");
         const art = await uploadFile(file, ws.data.id);
-        return { meeting: await createMeeting({ ...base, audio_artifact_id: art.id }), analyze: false };
+        return createMeeting({ ...base, audio_artifact_id: art.id, auto_process: true });
       }
-      return { meeting: await createMeeting({ ...base, transcript, transcript_source: source }), analyze: true };
+      return createMeeting({ ...base, transcript, transcript_source: source, auto_process: true });
     },
-    onSuccess: async ({ meeting, analyze }) => {
+    // 서버가 만들자마자 처리(녹음: 클로바노트 전사 → 분석, 텍스트: 분석)를 건다. 막힌 사유는 회의는 만든 채로 알려 준다.
+    onSuccess: (meeting) => {
       void qc.invalidateQueries({ queryKey: ["meetings"] });
-      if (analyze) {
-        try {
-          await analyzeMeeting(meeting.id);
-        } catch (e) {
-          toast({ message: `분석을 시작하지 못했어요. ${errorText(e).message}` });
-        }
-      }
+      void qc.invalidateQueries({ queryKey: ["clovanote"] });
+      if (meeting.auto_error) toast({ message: `처리를 시작하지 못했어요. ${meeting.auto_error.message}` });
       navigate(`/meetings/${meeting.id}`);
     },
   });
 
-  const clovanote = providers.data?.providers.find((p) => p.id === "clovanote");
+  const clovaReady = clova.data?.state === "ready";
   const ready = !!title.trim() && (mode === "audio" ? !!file && !!ws.data : !!transcript.trim());
 
   return (
@@ -131,22 +128,19 @@ export function NewMeetingForm() {
           <div className="tk-field">
             <span className="tk-label" id={`${id}-file-label`}>녹음 파일</span>
             <div className="mt-file">
-              <input ref={fileRef} type="file" hidden aria-labelledby={`${id}-file-label`} accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg,.flac"
+              <input ref={fileRef} type="file" hidden aria-labelledby={`${id}-file-label`} accept=".m4a,.mp3,.aac,.amr,.wav,audio/mp4,audio/mpeg,audio/aac,audio/wav"
                 onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
               <button className="tk-button" type="button" onClick={() => fileRef.current?.click()}><Icon name="paperclip" />{file ? "다른 파일 고르기" : "파일 고르기"}</button>
               <span className="mt-file__name">{file ? `${file.name} · ${formatSize(file.size)}` : "고른 파일 없음"}</span>
             </div>
-            <p className="tk-help">MP3, M4A, WAV 등. 올린 파일은 보관함에 저장돼요.</p>
+            <p className="tk-help">M4A, MP3, AAC, AMR, WAV · 300MB까지(클로바노트 기준). 올린 파일은 보관함에도 저장돼요.</p>
           </div>
-          {clovanote?.state === "ready" ? (
-            <Callout tone="note" icon="info" title="전사를 요청할 수 있어요">
-              <p>올리면 {clovanote.label}로 전사를 요청하고, 끝나면 이어서 분석해요.</p>
+          {clovaReady ? (
+            <Callout tone="note" icon="info" title="올리면 바로 처리해요">
+              <p>클로바노트에 올려 전사하고(1시간 녹음은 보통 몇 분), 끝나면 결정·액션을 분석해요. 진행 상황은 회의록 화면에서 보여요.</p>
             </Callout>
           ) : (
-            <Callout tone="note" icon="info" title="클로바노트 연동 준비 중">
-              <p>지금은 녹음이 보관함에 저장되기만 해요. 전사 텍스트가 있다면 아래 버튼으로 바꿔 붙여 넣으면 바로 분석할 수 있어요.</p>
-              <button className="tk-button tk-button--sm" type="button" onClick={() => setMode("text")}>전사 텍스트로 입력</button>
-            </Callout>
+            <ClovaBar />
           )}
         </>
       )}

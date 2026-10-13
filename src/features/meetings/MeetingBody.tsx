@@ -15,6 +15,7 @@ import { errorText } from "../viewer/api";
 import { EmptyState } from "../viewer/screenStates";
 import { useProjectOptions } from "./NewMeetingForm";
 import { Callout, PipelineSteps, isRunning, scopeLabel } from "./shared";
+import { JobProgress, VectorLine, isJobActive } from "./clova";
 import { TranscriptField } from "./TranscriptField";
 
 type Tab = "summary" | "discussion" | "decision" | "action" | "open_issue" | "proposals" | "transcript";
@@ -32,7 +33,7 @@ function useActions(m: MeetingDetail) {
   return {
     analyze: useMutation({ mutationFn: () => analyzeMeeting(m.id), onSuccess: put, onError: fail }),
     cancel: useMutation({ mutationFn: () => cancelMeetingAnalysis(m.id), onSuccess: put, onError: fail }),
-    transcribe: useMutation({ mutationFn: () => requestMeetingTranscription(m.id), onSuccess: put }),
+    transcribe: useMutation({ mutationFn: () => requestMeetingTranscription(m.id), onSuccess: (d) => { put(d); void qc.invalidateQueries({ queryKey: ["clovanote"] }); } }),
     transcript: useMutation({ mutationFn: (v: { text: string; source: "paste" | "file" }) => putMeetingTranscript(m.id, v.text, v.source), onSuccess: put }),
     project: useMutation({ mutationFn: (projectId: string) => patchMeeting(m.id, { project_id: projectId || null }), onSuccess: put, onError: fail }),
     item: useMutation({
@@ -91,27 +92,31 @@ export function MeetingBody({ m }: { m: MeetingDetail }) {
 function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
   const noTranscript = !m.transcript;
   const transcribeErr = a.transcribe.error ? errorText(a.transcribe.error) : null;
+  const job = m.clovanote?.job ?? null;
+  // 전사 중이거나 방금 끝난(실패 포함) 클로바노트 작업만 보인다. 오래된 성공 기록은 단계 표시로 충분하다.
+  const showJob = !!job && (m.status === "transcribing" || isJobActive(job) || (job.status === "failed" && m.failed_stage === "transcription"));
+  const canTranscribe = !!m.audio && (m.status === "uploaded" || (m.status === "failed" && m.failed_stage === "transcription"));
   return (
     <section className="mt-panel" aria-label="진행 상태">
       <PipelineSteps m={m} />
-      {m.status === "failed" && (
+      {showJob && job && <JobProgress job={job} title="클로바노트 전사" />}
+      {m.status === "failed" && !(showJob && job?.status === "failed") && (
         <Callout tone="caution" icon="caution" title={m.failed_stage === "transcription" ? "전사에 실패했어요" : "분석에 실패했어요"}>
           <p>{m.error}</p>
         </Callout>
       )}
-      {m.status === "uploaded" && (
-        <Callout tone="note" icon="info" title="클로바노트 연동 준비 중">
-          <p>녹음은 보관함에 저장돼 있어요. 전사 텍스트를 직접 넣으면(전사 탭) 지금도 분석할 수 있어요.</p>
+      {m.status === "uploaded" && !transcribeErr && (
+        <Callout tone="note" icon="info" title="녹음이 전사를 기다려요">
+          <p>클로바노트에 올려 전사하고, 끝나면 이어서 분석해요. 전사 텍스트가 이미 있으면 전사 탭에 넣어도 돼요.</p>
         </Callout>
       )}
       {transcribeErr && <p className="tk-error" role="alert"><Icon name="warning" />{transcribeErr.message}</p>}
       <div className="tk-button-group">
-        {m.audio && m.status === "uploaded" && (
-          <Button size="sm" busy={a.transcribe.isPending} onClick={() => a.transcribe.mutate()}>
-            <Icon name="send" />전사 요청
+        {canTranscribe && (
+          <Button size="sm" variant="primary" busy={a.transcribe.isPending} onClick={() => a.transcribe.mutate()}>
+            <Icon name="send" />{m.status === "failed" ? "클로바노트로 다시 전사" : "클로바노트로 전사"}
           </Button>
         )}
-        {m.status === "transcribing" && <span className="tk-status tk-status--agent" role="status"><span className="tk-spinner tk-spinner--xs" aria-hidden="true" />전사가 끝나길 기다리는 중</span>}
         {m.status === "analyzing" && (
           <>
             <span className="tk-status tk-status--agent" role="status"><span className="tk-spinner tk-spinner--xs" aria-hidden="true" />분석 중이에요. 보통 1~3분 걸려요</span>
@@ -125,6 +130,7 @@ function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
           </Button>
         )}
       </div>
+      {m.vector && <VectorLine v={m.vector} />}
     </section>
   );
 }
@@ -171,6 +177,7 @@ function SummaryTab({ m }: { m: MeetingDetail }) {
 function Pending({ m, what }: { m: MeetingDetail; what: string }) {
   if (m.status === "analyzed" || m.status === "review") return <EmptyState icon="info" title={`${what}이(가) 없어요`}>이 회의에서는 찾지 못했어요.</EmptyState>;
   if (m.status === "failed") return <EmptyState icon="warning" title="분석 결과가 없어요">위 오류를 확인하고 다시 분석해 주세요.</EmptyState>;
+  if (m.status === "transcribing") return <EmptyState icon="clock" title="전사 중이에요">전사가 끝나면 분석해서 이 자리에 보여 줘요.</EmptyState>;
   if (isRunning(m.status)) return <EmptyState icon="clock" title="분석 중이에요">끝나면 이 자리에 나와요.</EmptyState>;
   return <EmptyState icon="info" title="아직 분석 전이에요">{m.transcript ? "위에서 분석을 시작하세요." : "전사 텍스트가 있어야 분석할 수 있어요."}</EmptyState>;
 }

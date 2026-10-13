@@ -5,7 +5,7 @@ import { Icon } from "../../ui/Icon";
 
 export const STATUS_LABEL: Record<MeetingStatus, string> = {
   uploaded: "업로드됨",
-  transcribing: "전사 대기",
+  transcribing: "전사 중",
   transcribed: "전사 완료",
   analyzing: "분석 중",
   analyzed: "분석 완료",

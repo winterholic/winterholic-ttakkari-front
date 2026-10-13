@@ -79,6 +79,37 @@
 /* 전사 원문 */
 .mt-transcript { margin: 0; max-height: 28rem; overflow: auto; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); color: var(--tk-color-text-primary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); white-space: pre-wrap; overflow-wrap: anywhere; }
 
+/* 클로바노트 연결 줄(ADR 0021). 정상이면 한 줄, 끊기면 Callout 으로 커진다(clova.tsx). */
+.mt-clova-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1) var(--tk-space-3); margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.mt-clova-line__state { display: inline-flex; align-items: center; gap: var(--tk-space-1-5); color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-medium); }
+.mt-clova-line__meta { display: inline-flex; flex-wrap: wrap; gap: var(--tk-space-0-5) var(--tk-space-3); color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.mt-clova-line__action { margin-left: auto; }
+
+/* 처리 중인 작업: 제목·단계 → 막대 → 지금 하는 일. 카드가 아니라 패널 안 한 덩어리라 테두리만 얇게 */
+.mt-jobs { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.mt-job { display: flex; flex-direction: column; gap: var(--tk-space-2); padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-default); min-width: 0; }
+.mt-panel .mt-job, .mt-note .mt-job { padding: 0; border: 0; background: none; }
+.mt-job__head { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-2); }
+.mt-job__title { display: inline-flex; align-items: center; gap: var(--tk-space-1-5); min-width: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.mt-job__title > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); flex: none; color: var(--tk-color-run-succeeded-icon); }
+.mt-job[data-status="failed"] .mt-job__title > .tk-icon { color: var(--tk-color-run-failed-icon); }
+.mt-job__link { margin-left: var(--tk-space-2); font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-regular); }
+.mt-job__stage { flex: none; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.mt-job__msg { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.mt-job__msg--error { color: var(--tk-color-text-danger); }
+.mt-job__steps { margin-top: var(--tk-space-2); }
+.mt-job .mt-details { font-size: var(--tk-font-size-xs); }
+
+/* 클로바노트 노트 줄: 오른쪽에 가져오기·회의록 열기 */
+.mt-note { align-items: flex-start; }
+.mt-note__end { display: flex; flex: none; align-items: center; align-self: center; }
+.mt-note__end .tk-badge { margin-right: var(--tk-space-1-5); }
+
+/* 맥락 도서관 저장 상태(회의 상세 패널 맨 아래) */
+.mt-vector { display: flex; align-items: center; gap: var(--tk-space-1-5); margin: 0; padding-top: var(--tk-space-2); border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.mt-vector > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); flex: none; }
+.mt-vector--error { color: var(--tk-color-text-danger); }
+
 @media (max-width: 480px) {
   .mt-panel { padding: var(--tk-space-3); }
   .mt-block { padding: var(--tk-space-3); }
@@ -88,4 +119,7 @@
   .mt-meta__project { max-width: none; flex-basis: auto; }
   .mt-tabs__count:not([data-alert]) { display: none; }
   .mt-tabs > label { padding-inline: 0; }
+  .mt-note { flex-wrap: wrap; }
+  .mt-note__end { width: 100%; justify-content: flex-end; }
+  .mt-clova-line__action { margin-left: 0; }
 }

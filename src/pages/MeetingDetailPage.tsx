@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 import { deleteMeeting, getMeeting } from "../api/client";
 import { MeetingBody, detailKey } from "../features/meetings/MeetingBody";
+import { isJobActive } from "../features/meetings/clova";
 import { StatusBadge, isRunning, meetingWhen, scopeLabel } from "../features/meetings/shared";
 import { errorText } from "../features/viewer/api";
 import { ErrorState, ListSkeleton } from "../features/viewer/screenStates";
@@ -21,7 +22,13 @@ export function MeetingDetailPage() {
   const q = useQuery({
     queryKey: detailKey(meetingId),
     queryFn: () => getMeeting(meetingId),
-    refetchInterval: (query) => (query.state.data && isRunning(query.state.data.status) ? 2500 : false),
+    // 전사·분석·도서관 저장·클로바노트 작업 중 하나라도 진행 중이면 따라간다.
+    refetchInterval: (query) => {
+      const d = query.state.data;
+      if (!d) return false;
+      const busy = isRunning(d.status) || d.vector?.status === "pending" || isJobActive(d.clovanote?.job);
+      return busy ? 2500 : false;
+    },
   });
   const del = useMutation({
     mutationFn: () => deleteMeeting(meetingId),
