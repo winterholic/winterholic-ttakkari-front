@@ -123,3 +123,7 @@
 .home__composer .tk-composer-tray { position: static; background: none; pointer-events: none; }
 .home__composer .tk-composer { pointer-events: auto; box-shadow: var(--tk-shadow-md); }
 
+
+/* 판 오류 경계: 판 자리를 그대로 채운다 */
+.tcanvas__boundary { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.tcanvas__crash { margin: auto; }

@@ -99,7 +99,9 @@ export function usePanZoom() {
       if (pointers.size === 1) drag = { x: e.clientX, y: e.clientY, vx: viewRef.current.x, vy: viewRef.current.y, moved: false };
       if (pointers.size === 2) {
         const [a, b] = [...pointers.values()];
-        pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), k: viewRef.current.k };
+        const d = Math.hypot(a.x - b.x, a.y - b.y);
+        // 두 손가락이 같은 자리면 비율이 0/0 이 되어 판이 사라진다.
+        pinch = d >= 1 ? { d, k: viewRef.current.k } : null;
         drag = null;
       }
     };
@@ -118,7 +120,10 @@ export function usePanZoom() {
       if (!drag.moved && Math.hypot(dx, dy) < 4) return;
       drag.moved = true;
       el.dataset.panning = "";
-      setView((v) => ({ ...v, x: drag!.vx + dx, y: drag!.vy + dy }));
+      // 값은 지금 꺼내 둔다. 갱신 함수는 나중에 돌고, 그 사이 손을 떼면 drag 가 null 이 된다.
+      const x = drag.vx + dx;
+      const y = drag.vy + dy;
+      setView((v) => ({ ...v, x, y }));
     };
     const onUp = (e: PointerEvent) => {
       pointers.delete(e.pointerId);

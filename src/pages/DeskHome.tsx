@@ -18,6 +18,7 @@ import { useActiveTasks } from "../features/tasks/useTasks";
 import { TaskCanvas } from "../features/canvas/TaskCanvas";
 import { DeskThread } from "../features/canvas/DeskThread";
 import { DESK_ID } from "../features/canvas/layout";
+import { CanvasBoundary } from "../features/canvas/CanvasBoundary";
 import "../features/canvas/canvas.css";
 import "../features/tasks/tasks.css";
 
@@ -100,21 +101,30 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
     void qc.invalidateQueries({ queryKey: ["runs", deskId] });
   });
 
-  // 판에 올릴 숲: 이 모드의 진행 중·최근 일 + 서고·검색에서 불러온 지난 일(pin).
+  // 판에 올릴 숲: 이 모드에서 지금 도는 일 + 검색·서고에서 불러온 지난 일(pin) + 지금 고른 노드가 든 일.
+  // 끝난 일은 올리지 않는다. 쌓이면 판이 끝없이 넓어지고, 결과는 대화·서고·검색으로 다시 본다.
+  // 부모 없는 뿌리(옛 메인 오케스트레이터 시절 데이터)는 지금 구조가 아니라 판에 올리지 않는다(서고에는 남는다).
   const forest = useMemo(() => {
     const nodes = new Map<UUID, TaskNode>();
-    const roots: UUID[] = [];
+    const pinnedRoots = new Set<UUID>();
+    const candidates: UUID[] = [];
     if (active.data) {
       for (const n of active.data.nodes) nodes.set(n.id, n);
-      for (const r of active.data.roots) if (nodes.get(r)?.pool === pool) roots.push(r);
+      for (const r of active.data.roots) {
+        const n = nodes.get(r);
+        if (n?.pool === pool && n.parent_id !== null) candidates.push(r);
+      }
     }
     for (const q of pinned) {
       if (!q.data) continue;
       for (const n of q.data.nodes) nodes.set(n.id, n);
-      if (!roots.includes(q.data.root_id)) roots.push(q.data.root_id);
+      pinnedRoots.add(q.data.root_id);
+      if (!candidates.includes(q.data.root_id)) candidates.push(q.data.root_id);
     }
-    return buildForest(roots, [...nodes.values()]);
-  }, [active.data, pinned, pool]);
+    const all = buildForest(candidates, [...nodes.values()]);
+    const contains = (t: (typeof all)[number], id: UUID): boolean => t.node.id === id || t.children.some((c) => contains(c, id));
+    return all.filter((t) => pinnedRoots.has(t.node.id) || t.activeBelow > 0 || isActive(t.node.status) || (!!selected && contains(t, selected)));
+  }, [active.data, pinned, pool, selected]);
 
   const runList = runs.data ?? [];
   const lastRun = runList[runList.length - 1];
@@ -205,6 +215,7 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
                 맡긴 일을 불러오는 중
               </p>
             ) : (
+              <CanvasBoundary>
               <TaskCanvas
                 forest={forest}
                 desk={deskCard}
@@ -234,24 +245,26 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
                     )}
                     {active.isSuccess && forest.length === 0 && (
                       <p className="home__empty" data-no-pan>
-                        지금 맡긴 일이 없어요. 아래에 시키면 따까리 밑으로 가지가 뻗어요.
+                        지금 도는 일이 없어요. 아래에 시키면 따까리 밑으로 가지가 뻗어요.
                         <br />
-                        지난 일은 위에서 찾거나 <Link to="/tasks">작업</Link>에서 볼 수 있어요.
+                        끝난 일은 위에서 찾거나 <Link to="/tasks">작업</Link>에서 볼 수 있어요.
                       </p>
                     )}
-                    <div className="home__composer" data-no-pan>
-                      <Composer
-                        draftKey={`desk:${deskId}`}
-                        running={send.isPending}
-                        queued={0}
-                        onSubmit={(text) => send.mutate(text)}
-                        fill={fill}
-                      />
-                    </div>
                   </>
                 }
               />
+              </CanvasBoundary>
             )}
+            {/* 입력창은 판 밖에 둔다. 판이 오류로 멈춰도 따까리에게 지시할 수 있어야 한다. */}
+            <div className="home__composer">
+              <Composer
+                draftKey={`desk:${deskId}`}
+                running={send.isPending}
+                queued={0}
+                onSubmit={(text) => send.mutate(text)}
+                fill={fill}
+              />
+            </div>
           </div>
           {showPanel && (
             <aside className="home__panel" aria-label={selected ? "고른 세션" : "따까리 대화"}>
