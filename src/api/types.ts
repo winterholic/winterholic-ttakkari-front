@@ -300,3 +300,168 @@ export interface AccountPatch {
   work_enabled?: boolean;
 }
 
+// ---- 프로젝트 관리 PMS · WBS (ADR 0012)
+export type PmsScope = "personal" | "work";
+export type PmsProjectStatus = "planning" | "active" | "on_hold" | "done";
+export type PmsTaskStatus = "todo" | "doing" | "review" | "done";
+export type PmsPriority = "low" | "normal" | "high" | "urgent";
+export type PmsNoteKind = "issue" | "risk" | "note";
+export type PmsSeverity = "low" | "medium" | "high";
+/** 말단 작업 기준 개수. overdue·due_soon 은 끝나지 않은 작업만 센다. */
+export interface PmsCounts {
+  total: number;
+  todo: number;
+  doing: number;
+  review: number;
+  done: number;
+  overdue: number;
+  due_soon: number;
+  no_dates: number;
+}
+export interface PmsMilestone {
+  id: UUID;
+  project_id: UUID;
+  title: string;
+  due_date: string;
+  done: boolean;
+  /** 오늘까지 남은 일수(지났으면 음수) */
+  days: number;
+  overdue: boolean;
+}
+export interface PmsProject {
+  id: UUID;
+  name: string;
+  description: string;
+  scope: PmsScope;
+  status: PmsProjectStatus;
+  start_date: string | null;
+  end_date: string | null;
+  /** 담당자 자동완성용 이름표(계정 아님) */
+  members: string[];
+  created_at: string;
+  updated_at: string;
+  /** 0-100. 최상위 작업의 기간 가중 평균 */
+  progress: number;
+  counts: PmsCounts;
+  next_milestone: PmsMilestone | null;
+  open_notes: number;
+}
+export interface PmsProjectIn {
+  name: string;
+  description?: string;
+  scope?: PmsScope;
+  status?: PmsProjectStatus;
+  start_date?: string | null;
+  end_date?: string | null;
+  members?: string[];
+  /** 처음부터 만들 최상위 단계 이름 */
+  phases?: string[];
+}
+export type PmsProjectPatch = Partial<Omit<PmsProjectIn, "phases">>;
+export interface PmsTask {
+  id: UUID;
+  project_id: UUID;
+  parent_id: UUID | null;
+  position: number;
+  depth: number;
+  /** 1.1.2 형식 번호. 서버가 트리 순서로 매긴다 */
+  wbs: string;
+  has_children: boolean;
+  title: string;
+  description: string;
+  priority: PmsPriority;
+  assignee: string | null;
+  /** 하위 작업이 있으면 자식에서 집계한 값 */
+  status: PmsTaskStatus;
+  progress: number;
+  start_date: string | null;
+  end_date: string | null;
+  /** 기간이 자식에서 집계된 값이면 직접 고칠 수 없다 */
+  dates_rollup: boolean;
+  overdue: boolean;
+  predecessors: UUID[];
+  created_at: string;
+  updated_at: string;
+  done_at: string | null;
+}
+export interface PmsTaskIn {
+  title: string;
+  parent_id?: UUID | null;
+  /** 이 작업 바로 뒤 형제로 넣는다(parent_id 무시) */
+  after_id?: UUID | null;
+  description?: string;
+  priority?: PmsPriority;
+  assignee?: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  status?: PmsTaskStatus;
+  progress?: number;
+  predecessors?: UUID[];
+}
+export type PmsTaskPatch = Partial<Omit<PmsTaskIn, "parent_id" | "after_id">>;
+/** 작업을 바꾸는 호출의 응답: 바뀐 작업과 번호·집계가 다시 계산된 전체 목록 */
+export interface PmsTaskResult {
+  task: PmsTask;
+  tasks: PmsTask[];
+}
+export interface PmsTaskBrief {
+  id: UUID;
+  wbs: string;
+  title: string;
+  assignee: string | null;
+  status: PmsTaskStatus;
+  progress: number;
+  end_date: string | null;
+  /** 마감까지 남은 일수(지났으면 음수) */
+  days: number | null;
+  priority: PmsPriority;
+}
+export interface PmsAssigneeRow {
+  /** 빈 문자열이 미배정 */
+  name: string;
+  total: number;
+  todo: number;
+  doing: number;
+  review: number;
+  done: number;
+  overdue: number;
+}
+export interface PmsNote {
+  id: UUID;
+  project_id: UUID;
+  task_id: UUID | null;
+  kind: PmsNoteKind;
+  title: string;
+  body: string;
+  severity: PmsSeverity;
+  status: "open" | "resolved";
+  owner: string | null;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+}
+export interface PmsNoteIn {
+  kind?: PmsNoteKind;
+  title: string;
+  body?: string;
+  severity?: PmsSeverity;
+  owner?: string | null;
+  task_id?: UUID | null;
+}
+export type PmsNotePatch = Partial<PmsNoteIn> & { status?: "open" | "resolved" };
+export interface PmsDashboard {
+  project: Omit<PmsProject, "progress" | "counts" | "next_milestone" | "open_notes">;
+  today: string;
+  progress: number;
+  /** 기간 대비 오늘까지 흘러간 비율. 기간이 없으면 null */
+  planned_progress: number | null;
+  days_left: number | null;
+  counts: PmsCounts;
+  overdue: PmsTaskBrief[];
+  due_soon: PmsTaskBrief[];
+  by_assignee: PmsAssigneeRow[];
+  phases: { id: UUID; wbs: string; title: string; progress: number; status: PmsTaskStatus; start_date: string | null; end_date: string | null }[];
+  milestones: PmsMilestone[];
+  notes: { open: number; issues: number; risks: number; high: number; top: PmsNote[] };
+}
+

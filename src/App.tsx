@@ -18,6 +18,11 @@ import { AppShell } from "./shell/AppShell";
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
 const CalendarPage = lazy(() => import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage })));
+// PMS·WBS 는 간트·칸반 코드가 모여 있어 열 때만 받는다.
+const PmsListPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default: m.PmsListPage })));
+const PmsProjectPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default: m.PmsProjectPage })));
+const WbsListPage = lazy(() => import("./pages/WbsPage").then((m) => ({ default: m.WbsListPage })));
+const WbsProjectPage = lazy(() => import("./pages/WbsPage").then((m) => ({ default: m.WbsProjectPage })));
 
 function RouteFallback() {
   return (
@@ -57,6 +62,12 @@ export function App() {
         <Route path="/meetings" element={<MeetingsPage />} />
         <Route path="/meetings/new" element={<MeetingNewPage />} />
         <Route path="/meetings/:meetingId" element={<MeetingDetailPage />} />
+        <Route path="/pms" element={<Suspense fallback={<RouteFallback />}><PmsListPage /></Suspense>} />
+        <Route path="/pms/:projectId" element={<Suspense fallback={<RouteFallback />}><PmsProjectPage /></Suspense>} />
+        <Route path="/pms/:projectId/:tab" element={<Suspense fallback={<RouteFallback />}><PmsProjectPage /></Suspense>} />
+        <Route path="/wbs" element={<Suspense fallback={<RouteFallback />}><WbsListPage /></Suspense>} />
+        <Route path="/wbs/:projectId" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
+        <Route path="/wbs/:projectId/:view" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/memos" element={<MemosPage />} />
         <Route path="/memos/:memoId" element={<MemosPage />} />
         <Route

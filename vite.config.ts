@@ -28,7 +28,8 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,svg,ico}", "brand/{app-icon-512,app-icon-maskable-512,apple-touch-icon-180}.png"],
         // 뷰어의 무거운 렌더러(pdf.js·SheetJS)는 쓸 때만 네트워크로 받는다. precache 한도(2MiB)를 넘으면 빌드가 실패한다.
         // CodeView 는 7KB 라 precache 한다. 빼 두면 배포 직후 옛 페이지가 사라진 청크를 불러 코드 뷰어가 깨진다.
-        globIgnores: ["**/PdfView-*.js", "**/SheetView-*.js"],
+        // xlsx 청크는 SheetView 와 WBS 내보내기가 같이 쓰는데, 내보낼 때만 받으면 되니 같이 뺀다.
+        globIgnores: ["**/PdfView-*.js", "**/SheetView-*.js", "**/xlsx-*.js"],
         // API 는 인증·실시간 데이터라 서비스워커가 절대 캐시하지 않는다.
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [

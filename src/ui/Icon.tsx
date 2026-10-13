@@ -4,7 +4,7 @@ import {
   FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Lock, LogOut, Mail, Maximize,
   Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, PanelRight, Paperclip, Pin, Presentation, RefreshCw,
   Search, Send, Server, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, Square, SquarePen, Sun, Terminal, Trash2,
-  TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut,
+  TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, ChartGantt, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -27,6 +27,7 @@ const ICONS = {
   "arrow-down": ArrowDown,
   "chevron-up": ChevronUp, "chevron-down": ChevronDown, "chevron-right": ChevronRight, "chevron-left": ChevronLeft,
   calendar: CalendarDays, mic: Mic, memo: NotebookPen, tag: Tag, briefcase: Briefcase, grip: GripVertical, gauge: Gauge, server: Server, plus: Plus, logout: LogOut,
+  child: CornerDownRight, kanban: SquareKanban, wbs: ListTree, gantt: ChartGantt, flag: Flag, indent: IndentIncrease, outdent: IndentDecrease, users: Users,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

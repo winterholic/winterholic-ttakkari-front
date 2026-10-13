@@ -13,6 +13,20 @@ import type {
   DownloadLinkOut,
   FileEntry,
   MeOut,
+  PmsDashboard,
+  PmsMilestone,
+  PmsNote,
+  PmsNoteIn,
+  PmsNotePatch,
+  PmsProject,
+  PmsProjectIn,
+  PmsProjectPatch,
+  PmsProjectStatus,
+  PmsScope,
+  PmsTask,
+  PmsTaskIn,
+  PmsTaskPatch,
+  PmsTaskResult,
   RunEvent,
   RunIn,
   RunOut,
@@ -794,3 +808,33 @@ export const createEvent = (body: EventIn): Promise<EventOut> => json("/api/cale
 export const patchEvent = (id: string, body: EventPatch): Promise<EventOut> =>
   json(`/api/calendar/events/${id}`, { method: "PATCH", json: body });
 export const deleteEvent = (id: string): Promise<void> => json(`/api/calendar/events/${id}`, { method: "DELETE" });
+
+// ---- 프로젝트 관리 PMS · WBS (ADR 0012)
+const PMS = "/api/pms";
+export const listPmsProjects = (p: { scope?: PmsScope; status?: PmsProjectStatus; q?: string } = {}): Promise<{ projects: PmsProject[] }> =>
+  json(`${PMS}/projects`, { query: { scope: p.scope ?? "all", status: p.status, q: p.q || undefined } });
+export const createPmsProject = (body: PmsProjectIn): Promise<PmsProject> => json(`${PMS}/projects`, { method: "POST", json: body });
+export const getPmsProject = (id: string): Promise<PmsProject> => json(`${PMS}/projects/${id}`);
+export const patchPmsProject = (id: string, body: PmsProjectPatch): Promise<PmsProject> =>
+  json(`${PMS}/projects/${id}`, { method: "PATCH", json: body });
+export const deletePmsProject = (id: string): Promise<void> => json(`${PMS}/projects/${id}`, { method: "DELETE" });
+export const getPmsDashboard = (id: string): Promise<PmsDashboard> => json(`${PMS}/projects/${id}/dashboard`);
+export const listPmsTasks = (id: string): Promise<{ tasks: PmsTask[] }> => json(`${PMS}/projects/${id}/tasks`);
+export const createPmsTask = (id: string, body: PmsTaskIn): Promise<PmsTaskResult> =>
+  json(`${PMS}/projects/${id}/tasks`, { method: "POST", json: body });
+export const patchPmsTask = (id: string, body: PmsTaskPatch): Promise<PmsTaskResult> =>
+  json(`${PMS}/tasks/${id}`, { method: "PATCH", json: body });
+export const movePmsTask = (id: string, body: { parent_id: string | null; index?: number }): Promise<PmsTaskResult> =>
+  json(`${PMS}/tasks/${id}/move`, { method: "POST", json: body });
+export const deletePmsTask = (id: string): Promise<{ removed: number; tasks: PmsTask[] }> => json(`${PMS}/tasks/${id}`, { method: "DELETE" });
+export const listPmsMilestones = (id: string): Promise<{ milestones: PmsMilestone[] }> => json(`${PMS}/projects/${id}/milestones`);
+export const createPmsMilestone = (id: string, body: { title: string; due_date: string; done?: boolean }): Promise<PmsMilestone> =>
+  json(`${PMS}/projects/${id}/milestones`, { method: "POST", json: body });
+export const patchPmsMilestone = (id: string, body: { title?: string; due_date?: string; done?: boolean }): Promise<PmsMilestone> =>
+  json(`${PMS}/milestones/${id}`, { method: "PATCH", json: body });
+export const deletePmsMilestone = (id: string): Promise<void> => json(`${PMS}/milestones/${id}`, { method: "DELETE" });
+export const listPmsNotes = (id: string, status: "open" | "resolved" | "all" = "all"): Promise<{ notes: PmsNote[] }> =>
+  json(`${PMS}/projects/${id}/notes`, { query: { status } });
+export const createPmsNote = (id: string, body: PmsNoteIn): Promise<PmsNote> => json(`${PMS}/projects/${id}/notes`, { method: "POST", json: body });
+export const patchPmsNote = (id: string, body: PmsNotePatch): Promise<PmsNote> => json(`${PMS}/notes/${id}`, { method: "PATCH", json: body });
+export const deletePmsNote = (id: string): Promise<void> => json(`${PMS}/notes/${id}`, { method: "DELETE" });
