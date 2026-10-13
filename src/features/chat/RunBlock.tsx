@@ -4,8 +4,10 @@ import { runEvents } from "../../api/client";
 import type { RunEvent, RunOut } from "../../api/types";
 import { useRunStream } from "../../hooks/useRunStream";
 import { DeskFeedback, deskDecision } from "./DeskFeedback";
+import { TaskTreeCard } from "../tasks/TaskTreeCard";
 import { AgentMessage, ReportMessage, UserMessage } from "./Messages";
 import { buildRunView } from "./runView";
+import { Icon } from "../../ui/Icon";
 
 const ACTIVE = ["queued", "running"];
 
@@ -29,9 +31,22 @@ export interface RunBlockProps {
   onSuggest: (text: string) => void;
   /** 스트림이 끝났을 때 목록을 다시 읽게 한다. */
   onSettled: () => void;
+  /** 따까리 대화에서만 준다. 넘긴 일의 트리 카드를 답 아래에 붙이고, 줄을 누르면 옆 서랍을 연다(ADR 0014). */
+  onOpenNode?: (id: string) => void;
+  selectedNode?: string | null;
 }
 
-export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettled }: RunBlockProps) {
+/** 이 Run 이 일을 넘긴 기획 세션. 접수 메시지는 desk.delegated 이벤트, 기획 보고는 프롬프트의 lead_id 로 안다. */
+export function leadOf(run: RunOut, events: RunEvent[]): string | null {
+  if (run.origin === "report") return /lead_id=([0-9a-f-]{36})/.exec(run.prompt)?.[1] ?? null;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.type === "desk.delegated") return e.payload.lead_id;
+  }
+  return null;
+}
+
+export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettled, onOpenNode, selectedNode }: RunBlockProps) {
   const active = ACTIVE.includes(run.status);
   const stream = useRunStream(active ? run.id : null);
   // 끝난 Run 은 이벤트가 더 생기지 않는다. 한 번 읽고 캐시한다.
@@ -39,6 +54,19 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
   const view = useMemo(() => buildRunView(run, active ? stream.events : (past.data ?? [])), [run, active, stream.events, past.data]);
   // desk.route 는 접수 세션의 사용자 메시지에만 생긴다. 그래서 세션 종류를 따로 받지 않는다.
   const decided = !active && run.origin === "user" ? deskDecision(run, past.data ?? []) : null;
+  const lead = onOpenNode ? leadOf(run, active ? stream.events : (past.data ?? [])) : null;
+  // 같은 기획 세션의 보고는 매 턴 붙는다. 트리는 처음 넘긴 자리의 카드가 보여 주므로 보고에는 여는 버튼만 둔다.
+  const attached =
+    lead && onOpenNode ? (
+      run.origin === "report" ? (
+        <button className="tk-chip lead-chip" type="button" aria-pressed={selectedNode === lead} onClick={() => onOpenNode(lead)}>
+          <Icon name="tasks" />
+          맡긴 일 열기
+        </button>
+      ) : (
+        <TaskTreeCard rootId={lead} selectedId={selectedNode} onSelect={onOpenNode} />
+      )
+    ) : undefined;
 
   useEffect(() => {
     if (active && stream.finished) onSettled();
@@ -64,6 +92,8 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
         suggestions={suggestions}
         onSuggest={onSuggest}
         footer={decided ? <DeskFeedback run={run} decided={decided} /> : undefined}
+        attached={attached}
+        hideCard={!!onOpenNode && run.status === "succeeded"}
       />
     </>
   );

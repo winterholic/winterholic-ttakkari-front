@@ -107,6 +107,8 @@ export function AgentMessage({
   suggestions,
   onSuggest,
   footer,
+  attached,
+  hideCard,
 }: {
   run: RunOut;
   view: RunView;
@@ -117,6 +119,10 @@ export function AgentMessage({
   onSuggest?: (text: string) => void;
   /** 본문 맨 아래(제안 칩 다음). 접수 판정 칩 자리. */
   footer?: ReactNode;
+  /** 답 바로 아래. 따까리가 넘긴 일의 트리 카드 자리(ADR 0014). */
+  attached?: ReactNode;
+  /** 실행 카드를 숨긴다. 접수의 끝난 답은 지시 반복·단계 0개만 담겨 대화를 가린다. */
+  hideCard?: boolean;
 }) {
   const live = isLive(view.state);
   const copy = () => view.text && void navigator.clipboard?.writeText(view.text);
@@ -142,7 +148,8 @@ export function AgentMessage({
             </p>
           )
         )}
-        <RunCard run={run} view={view} onStop={onStop} onRetry={onRetry} />
+        {attached}
+        {!hideCard && <RunCard run={run} view={view} onStop={onStop} onRetry={onRetry} />}
         {view.artifacts.length > 0 && (
           <div className="tk-artifacts">
             {view.artifacts.map((a) => (

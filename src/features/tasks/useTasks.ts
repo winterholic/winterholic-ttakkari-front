@@ -16,12 +16,15 @@ export function useActiveTasks() {
   });
 }
 
-/** 세션이 속한 일의 트리 전체와 뿌리부터의 경로. */
-export function useTaskTree(sessionId: string | undefined) {
+/**
+ * 세션이 속한 일의 트리 전체와 뿌리부터의 경로. 도는 일이 있으면 4초마다 다시 읽는다.
+ * 대화 안 트리 카드는 긴 대화에 여럿 쌓이므로 끝난 트리는 다시 읽지 않는다(idlePoll=false). 돌아오면 전경 재동기화가 갱신한다.
+ */
+export function useTaskTree(sessionId: string | undefined, { idlePoll = true }: { idlePoll?: boolean } = {}) {
   return useQuery({
     enabled: !!sessionId,
     queryKey: ["tasks", "tree", sessionId],
     queryFn: () => taskTree(sessionId!),
-    refetchInterval: (q) => (anyActive(q.state.data?.nodes) ? 4_000 : 30_000),
+    refetchInterval: (q) => (anyActive(q.state.data?.nodes) ? 4_000 : idlePoll ? 30_000 : false),
   });
 }

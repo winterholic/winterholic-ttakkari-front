@@ -37,7 +37,16 @@ button.task-row__toggle { cursor: pointer; }
 :is(.task-row__link, button.task-row__toggle):focus-visible {
   outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(-1 * var(--tk-focus-ring-width));
 }
-.task-row__title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+button.task-row__link { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; }
+.task-row__link[aria-pressed="true"] { background: var(--tk-component-sidebar-item-active-bg); color: var(--tk-component-sidebar-item-active-text); }
+.task-row__body { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+.task-row__title, .task-row__result { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-row__result { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+/* 카드: 결과 줄이 붙으면 두 줄이 되므로 상태 표시를 첫 줄에 맞춘다 */
+.task-tree[data-variant="card"] .task-row__link { align-items: flex-start; padding-block: var(--tk-space-1-5); }
+.task-tree[data-variant="card"] .task-row__link > .task-glyph,
+.task-tree[data-variant="card"] .task-row__link > .task-row__meta { margin-top: calc((var(--tk-font-size-sm) * var(--tk-font-line-height-normal) - var(--tk-size-icon-sm)) / 2); }
+.task-tree[data-variant="card"] .task-row__toggle { margin-top: calc((var(--tk-font-size-sm) * var(--tk-font-line-height-normal) + 2 * var(--tk-space-1-5) - var(--tk-size-control-xs)) / 2); align-self: flex-start; }
 .task-row__pool { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }
 .task-row__meta {
   flex: none; color: var(--tk-color-text-tertiary);
@@ -100,3 +109,73 @@ button.task-row__toggle { cursor: pointer; }
   color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
 }
 .tasks-hit__field { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }
+
+/* 대화 안 트리 카드. 실행 카드(.tk-run)와 같은 면·테두리·왼쪽 레일 문법이고, 일이 돌면 레일이 에이전트 색이 된다 */
+.tree-card {
+  display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0;
+  padding: var(--tk-component-card-padding); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default);
+  border-left-width: var(--tk-border-width-accent); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default);
+}
+.tree-card[data-live] { border-left-color: var(--tk-color-agent-live); }
+.tree-card__head { display: flex; align-items: center; gap: var(--tk-space-2); min-width: 0; flex-wrap: wrap; }
+.tree-card__title {
+  display: inline-flex; align-items: center; gap: var(--tk-space-1); min-width: 0; max-width: 100%; padding: 0; border: 0; background: none;
+  color: var(--tk-color-text-primary); text-align: left; cursor: pointer;
+  font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.tree-card__title > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
+@media (hover: hover) { .tree-card__title:hover { color: var(--tk-color-text-link); } }
+.tree-card__title[aria-pressed="true"] { color: var(--tk-color-text-link); }
+.tree-card__title:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); border-radius: var(--tk-radius-sm); }
+.tree-card__summary { margin-left: auto; color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); font-variant-numeric: tabular-nums; }
+.tree-card[data-live] .tree-card__summary { color: var(--tk-color-text-agent); }
+.tree-card__result {
+  margin: 0; color: var(--tk-color-text-secondary);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
+}
+.tree-card__note { display: flex; align-items: center; gap: var(--tk-space-2); margin: 0; color: var(--tk-color-text-secondary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+/* 카드 안 트리는 카드 패딩 안쪽에서 시작하므로 토글 칸만큼 왼쪽으로 당겨 첫 줄 상태 표시와 세로로 맞춘다 */
+.tree-card > .task-tree { margin-left: calc(-1 * var(--tk-space-1)); }
+
+/* 따까리 대화 옆 서랍(데스크톱). 왼쪽 경계선 하나로 대화와 나누고, 서랍 안에서만 스크롤한다.
+   .tk-split 을 쓰지 않는다: 그 규칙은 자손 선택자라 안쪽 결과물 뷰어의 분할까지 같이 열린다. */
+.desk-split { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.desk-split__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: var(--tk-size-layout-pane-min); min-height: 0; }
+.desk-split__node { display: none; }
+@media (min-width: 1024px) {
+  .desk-split[data-open] > .desk-split__node {
+    display: flex; flex: 0 0 var(--tk-size-layout-workspace); min-width: var(--tk-size-layout-pane-min); min-height: 0;
+    max-width: calc(100% - var(--tk-size-layout-pane-min));
+    border-left: var(--tk-border-width-hairline) solid var(--tk-color-border-default); background: var(--tk-color-surface-canvas);
+  }
+}
+.node-panel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.node-panel__head {
+  display: flex; align-items: flex-start; gap: var(--tk-space-2); flex: none;
+  padding: var(--tk-space-3) var(--tk-space-3) var(--tk-space-3) var(--tk-space-4);
+  border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); background: var(--tk-color-surface-subtle);
+}
+.node-panel__titles { display: flex; flex-direction: column; gap: var(--tk-space-0-5); flex: 1 1 auto; min-width: 0; }
+.node-panel__crumbs {
+  margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tk-color-text-tertiary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.node-panel__crumbs button { padding: 0; border: 0; background: none; color: var(--tk-color-text-link); font: inherit; cursor: pointer; }
+@media (hover: hover) { .node-panel__crumbs button:hover { text-decoration: underline; } }
+.node-panel__crumbs button:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); border-radius: var(--tk-radius-xs); }
+.node-panel__title {
+  display: flex; align-items: center; gap: var(--tk-space-2); min-width: 0; margin: 0; color: var(--tk-color-text-primary);
+  font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.node-panel__title > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.node-panel__meta { margin: 0; color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.node-panel__actions { display: flex; gap: var(--tk-space-1); flex: none; }
+.node-panel__body { padding: var(--tk-space-4); }
+.node-panel__branches { margin-bottom: var(--tk-space-4); padding-bottom: var(--tk-space-4); border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); }
+.node-panel__label { margin: 0 0 var(--tk-space-2); color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.node-panel__thread { padding: 0; }
+.node-panel > .tk-composer, .node-panel .tk-composer-wrap { flex: none; }
+/* 기획 보고 아래 "맡긴 일 열기" */
+.lead-chip { align-self: flex-start; }
+.lead-chip > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); }

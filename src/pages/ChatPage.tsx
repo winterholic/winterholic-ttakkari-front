@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, cancelRun, createRun, ensureDesk, getArtifact, getSession, getWorkspace, listRuns, patchSession, stopAll, uploadFile } from "../api/client";
 import { Menu } from "../ui/Menu";
@@ -18,6 +18,7 @@ import { Button } from "../ui/Button";
 import { useForegroundResync } from "../hooks/useForegroundResync";
 import { buildForest, isActive } from "../features/tasks/buildTree";
 import { useActiveTasks, useTaskTree } from "../features/tasks/useTasks";
+import { NodePanel } from "../features/tasks/NodePanel";
 import "../features/orchestrator/orchestrator.css";
 
 const FOLLOW_THRESHOLD = 96;
@@ -43,12 +44,19 @@ function useThreadFollow(dep: unknown) {
   const atBottom = useRef(true);
   // 위에 이전 대화를 붙일 때는 아래로부터의 거리를 지켜 읽던 자리에 머문다. 새 메시지 알림도 띄우지 않는다.
   const keepFromBottom = useRef<number | null>(null);
+  // 우리가 바꾼 스크롤에서 온 scroll 이벤트. 트리 카드처럼 늦게 커지는 내용이 그 사이에 붙으면
+  // 이 이벤트가 "사용자가 위로 올렸다"로 잘못 읽혀 바닥 따라가기가 풀렸다.
+  const ownScroll = useRef(false);
   const [jump, setJump] = useState(false);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const onScroll = () => {
+      if (ownScroll.current) {
+        ownScroll.current = false;
+        return;
+      }
       atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD;
       if (atBottom.current) setJump(false);
     };
@@ -61,10 +69,15 @@ function useThreadFollow(dep: unknown) {
     const body = inner.current;
     if (!el || !body) return;
     const ro = new ResizeObserver(() => {
+      const set = (top: number) => {
+        // 값이 그대로면 scroll 이벤트가 오지 않으니 표시하지 않는다.
+        if (Math.abs(el.scrollTop - top) >= 1) ownScroll.current = true;
+        el.scrollTop = top;
+      };
       if (keepFromBottom.current !== null) {
-        el.scrollTop = el.scrollHeight - keepFromBottom.current;
+        set(el.scrollHeight - keepFromBottom.current);
         keepFromBottom.current = null;
-      } else if (atBottom.current) el.scrollTop = el.scrollHeight;
+      } else if (atBottom.current) set(el.scrollHeight - el.clientHeight);
       else setJump(true);
     });
     ro.observe(body);
@@ -252,6 +265,30 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
   );
 
   const { ref: threadRef, inner: innerRef, jump, toBottom, holdPosition } = useThreadFollow(sessionId);
+  // 따까리 대화 안 트리 카드에서 고른 세션. 주소(?node=)에 두어 뒤로 가기로 닫힌다.
+  const [params, setParams] = useSearchParams();
+  const nodeId = params.get("node");
+  const openNode = useCallback(
+    (id: string) => {
+      // 폰은 옆 서랍을 둘 폭이 없어 그 세션 화면으로 간다.
+      if (!isDesktop) return navigate(`/chat/${id}`);
+      setParams((p) => {
+        const next = new URLSearchParams(p);
+        next.set("node", id);
+        return next;
+      });
+    },
+    [isDesktop, navigate, setParams],
+  );
+  const closeNode = useCallback(
+    () =>
+      setParams((p) => {
+        const next = new URLSearchParams(p);
+        next.delete("node");
+        return next;
+      }),
+    [setParams],
+  );
   const hasOlder = runList.length >= runLimit;
   const loadOlder = () => {
     holdPosition();
@@ -381,6 +418,8 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
           )
         }
       />
+      <div className="desk-split" data-open={nodeId && isDesktop ? "" : undefined}>
+      <div className="desk-split__main">
       <ArtifactViewerHost
         followup={
           // 데스크톱은 채팅 입력창이 그대로 보여 문맥 칩으로 이어 지시한다. 모바일 전체 화면 뷰어에만 따로 둔다.
@@ -431,6 +470,8 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
                 onRetry={(p) => onSubmit(p)}
                 onSuggest={(text) => setFill({ text, nonce: Date.now() })}
                 onSettled={refreshAll}
+                onOpenNode={kind === "desk" ? openNode : undefined}
+                selectedNode={nodeId}
               />
               </Fragment>
             ))}
@@ -492,6 +533,13 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
         }
       />
       </ArtifactViewerHost>
+      </div>
+      {nodeId && isDesktop && (
+        <aside className="desk-split__node" aria-label="고른 세션">
+          <NodePanel key={nodeId} nodeId={nodeId} onSelect={openNode} onClose={closeNode} onOpenArtifact={viewer.open} />
+        </aside>
+      )}
+      </div>
     </div>
   );
 }
