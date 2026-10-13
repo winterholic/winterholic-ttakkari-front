@@ -111,6 +111,14 @@ export function setupPwaUpdate(): void {
 
   const start = () => {
     void sw.register("/sw.js", { scope: "/", updateViaCache: "none" }).then((reg) => {
+      const activateWaiting = () => reg.waiting?.postMessage({ type: "SKIP_WAITING" });
+      activateWaiting();
+      reg.addEventListener("updatefound", () => {
+        const installing = reg.installing;
+        installing?.addEventListener("statechange", () => {
+          if (installing.state === "installed") activateWaiting();
+        });
+      });
       const check = () => void reg.update().catch(() => {});
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") check();

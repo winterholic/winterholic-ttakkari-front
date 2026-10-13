@@ -174,12 +174,12 @@ export function CalendarPage() {
             const day = a.dayNumberText.replace("일", "");
             const date = a.date.toISOString().slice(0, 10);
             const compact = showLunar && a.view.type === "dayGridMonth" ? formatLunarDateCompact(lunarDate(date)) : null;
-            return compact ? (
+            return (
               <span className="planner-cal__day-content">
                 <span>{day}</span>
-                <span className="planner-cal__lunar" aria-label={compact}>{compact}</span>
+                {compact && <span className="planner-cal__lunar" aria-label={compact}>{compact}</span>}
               </span>
-            ) : day;
+            );
           }}
           datesSet={onDates}
           eventClick={onEventClick}

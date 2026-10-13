@@ -22,6 +22,9 @@ export default defineConfig({
         icons: pwa.icons,
       },
       workbox: {
+        // injectRegister:false 에서는 registerType:autoUpdate 가 이 옵션을 자동 설정하지 않는다.
+        skipWaiting: true,
+        clientsClaim: true,
         // 푸시 수신·알림 클릭 처리는 생성되는 SW 에 이 파일을 끼워 넣어 쓴다.
         importScripts: ["/push-sw.js"],
         // 셸·CSS·아이콘은 precache. 결과물 원본은 캐시하지 않는다(민감 자료가 기기에 남는다).
