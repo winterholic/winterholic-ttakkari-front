@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { accountUsage, codexReset } from "../../api/client";
 import type { AccountUsage, UsageWindow } from "../../api/client";
+import type { AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
@@ -44,8 +45,9 @@ function ago(ts: number | null, now: number): string {
 
 type Status = { tone: "success" | "warning" | "neutral" | "info"; text: string };
 
-function statusOf(a: AccountUsage, isActive: boolean): Status {
-  if (!a.enabled) return { tone: "neutral", text: "꺼짐" };
+/** pool 모드에서의 상태. 켜기는 개인·회사 모드가 따로라 그 모드의 값으로 본다. */
+function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status {
+  if (!(pool === "work" ? a.work_enabled : a.enabled)) return { tone: "neutral", text: "꺼짐" };
   if (a.login !== "ok" && a.engine === "claude") return { tone: "warning", text: "로그인 필요" };
   if (a.cooldown_seconds > 0) return { tone: "warning", text: `한도 대기 ${Math.ceil(a.cooldown_seconds / 60)}분` };
   if (a.windows.some((w) => w.percent >= 100)) return { tone: "warning", text: "한도 도달" };
@@ -69,23 +71,26 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     return () => window.clearInterval(t);
   }, [open]);
   const rows = q.data ?? [];
-  const usable = (a: AccountUsage) => a.enabled && a.cooldown_seconds === 0 && !a.windows.some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex");
-  // 전체 목록이 기본이고, 회사 업무 탭은 그중 회사 그룹만 쓰므로 지금 쓰는 계정이 따로 있을 수 있다.
-  const work = rows.filter((a) => a.pool === "work");
-  const nowAll = rows.find(usable);
-  const nowWork = work.find(usable);
-  const summaries = [
-    { key: "all", label: "지금 쓰는 계정", title: "전체", active: nowAll },
-    ...(work.length > 0 ? [{ key: "work", label: "회사 업무에 지금 쓰는 계정", title: "회사 그룹", active: nowWork }] : []),
-  ];
-  const activeIds = new Set([nowAll?.id, nowWork?.id].filter(Boolean));
+  const usable = (a: AccountUsage, pool: AccountPool) =>
+    (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 && !a.windows.some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex");
+  // 개인·회사 모드가 켜기·순서를 따로 가지므로 지금 쓰는 계정도 모드마다 따로 있다.
+  // 회사 계정은 개인 계정 중 회사 모드에 들인 계정이고, 순서는 회사 순위(work_rank)다.
+  const groups = (["personal", "work"] as const)
+    .map((pool) => ({
+      pool,
+      title: pool === "work" ? "회사 계정" : "개인 계정",
+      rows: pool === "work" ? rows.filter((a) => a.work_rank != null).sort((a, b) => a.work_rank! - b.work_rank!) : rows,
+    }))
+    .filter((g) => g.rows.length > 0);
+  const rankOf = (a: AccountUsage, pool: AccountPool) => (pool === "work" ? a.work_rank! : a.rank);
   const onCount = rows.filter((a) => a.enabled).length;
+  const workOnCount = rows.filter((a) => a.work_rank != null && a.work_enabled).length;
   return (
     <Dialog size="lg" open={open} onClose={onClose} title="사용량" id="account-usage">
       <div className="usage">
         <div className="usage__bar">
           <p className="usage__meta">
-            {q.isFetching ? "불러오는 중" : q.dataUpdatedAt ? `${ago(Math.round(q.dataUpdatedAt / 1000), now)} 갱신 · 켜진 계정 ${onCount}개` : ""}
+            {q.isFetching ? "불러오는 중" : q.dataUpdatedAt ? `${ago(Math.round(q.dataUpdatedAt / 1000), now)} 갱신 · 켜진 계정 개인 ${onCount}개${workOnCount || groups.length > 1 ? ` · 회사 ${workOnCount}개` : ""}` : ""}
           </p>
           <button
             className="tk-icon-button tk-icon-button--sm"
@@ -98,11 +103,11 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
           </button>
         </div>
 
-        {summaries.map((g) => {
-          const active = g.active;
+        {groups.map((g) => {
+          const active = g.rows.find((a) => usable(a, g.pool));
           return active ? (
-            <section key={g.key} className="usage-now" aria-label={`${g.title} 지금 쓰는 계정`}>
-              <span className="usage-now__label">{g.label}</span>
+            <section key={g.pool} className="usage-now" aria-label={`${g.title} 지금 쓰는 계정`}>
+              <span className="usage-now__label">{g.pool === "work" ? "회사 업무에 지금 쓰는 계정" : "지금 쓰는 계정"}</span>
               <span className="usage-now__name">{active.name}</span>
               <span className="usage-now__stats">
                 {active.windows.slice(0, 2).map((w) => (
@@ -116,41 +121,46 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
         {q.isPending && <p className="usage__note">사용량을 불러오는 중이에요.</p>}
         {q.isError && <p className="tk-error" role="alert">{errorText(q.error).message}</p>}
 
-        {rows.length > 0 && (
-          <section className="usage__group" aria-label="계정">
-            <ol className="usage__list" aria-label="계정 사용량">
-          {rows.map((a) => {
-            const st = statusOf(a, activeIds.has(a.id));
-            return (
-              <li key={a.id} className="usage-card" data-off={!a.enabled || undefined} data-active={activeIds.has(a.id) || undefined}>
-                <div className="usage-card__head">
-                  <span className="usage-card__rank" aria-label={`${a.rank}순위`}>{a.rank}</span>
-                  <span className="usage-card__title">
-                    <span className="usage-card__name">{a.name}{a.pool === "work" && <span className="tk-badge tk-badge--info account-group">회사</span>}</span>
-                    <span className="usage-card__sub">{ENGINE[a.engine]}{a.plan ? ` · ${a.plan}` : ""}</span>
-                  </span>
-                  <span className={st.tone === "neutral" ? "tk-badge" : `tk-badge tk-badge--${st.tone}`}>{st.text}</span>
-                </div>
-                {a.windows.length > 0 ? (
-                  <div className="usage-card__windows">
-                    {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} />)}
-                  </div>
-                ) : (
-                  <p className="usage__note">{a.error ?? "아직 사용량 기록이 없어요."}</p>
-                )}
-                {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => void q.refetch()} />}
-                {a.windows.length > 0 && (
-                  <p className="usage-card__foot">
-                    {a.source ? (a.source === "api" ? (a.engine === "codex" ? "ChatGPT 사용량 기준" : "Claude 구독 사용량 기준") : SOURCE[a.source]) : ""}
-                    {a.updated_at ? ` · ${ago(a.updated_at, now)}` : ""}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-            </ol>
-          </section>
-        )}
+        {groups.map((g) => {
+          const activeId = g.rows.find((a) => usable(a, g.pool))?.id;
+          return (
+            <section key={g.pool} className="usage__group" aria-label={g.title}>
+              {groups.length > 1 && <h3 className="usage__group-title">{g.title}</h3>}
+              <ol className="usage__list" aria-label={`${g.title} 사용량`}>
+                {g.rows.map((a) => {
+                  const on = g.pool === "work" ? a.work_enabled : a.enabled;
+                  const st = statusOf(a, activeId === a.id, g.pool);
+                  return (
+                    <li key={a.id} className="usage-card" data-off={!on || undefined} data-active={activeId === a.id || undefined}>
+                      <div className="usage-card__head">
+                        <span className="usage-card__rank" aria-label={`${rankOf(a, g.pool)}순위`}>{rankOf(a, g.pool)}</span>
+                        <span className="usage-card__title">
+                          <span className="usage-card__name">{a.name}</span>
+                          <span className="usage-card__sub">{ENGINE[a.engine]}{a.plan ? ` · ${a.plan}` : ""}</span>
+                        </span>
+                        <span className={st.tone === "neutral" ? "tk-badge" : `tk-badge tk-badge--${st.tone}`}>{st.text}</span>
+                      </div>
+                      {a.windows.length > 0 ? (
+                        <div className="usage-card__windows">
+                          {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} />)}
+                        </div>
+                      ) : (
+                        <p className="usage__note">{a.error ?? "아직 사용량 기록이 없어요."}</p>
+                      )}
+                      {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => void q.refetch()} />}
+                      {a.windows.length > 0 && (
+                        <p className="usage-card__foot">
+                          {a.source ? (a.source === "api" ? (a.engine === "codex" ? "ChatGPT 사용량 기준" : "Claude 구독 사용량 기준") : SOURCE[a.source]) : ""}
+                          {a.updated_at ? ` · ${ago(a.updated_at, now)}` : ""}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          );
+        })}
         <p className="usage__note">
           순서와 켜기는 <Link to="/settings#accounts" onClick={onClose}>계정 관리</Link>에서 바꿔요. 한도에 걸린 계정은 자동으로 건너뛰어요.
         </p>

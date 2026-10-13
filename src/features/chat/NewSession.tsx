@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { listAccounts, systemInfo } from "../../api/client";
+import { isOn, modeRows } from "../accounts/mode";
 import { useOverride } from "../accounts/OverrideDialog";
 import { errorText } from "../viewer/api";
 import { useDefaultWorkspace } from "../workspace/useDefaultWorkspace";
@@ -49,16 +50,19 @@ const EFFORTS: SelectOption<Effort | "">[] = [
 export function NewSession({ value, onChange, pool = "personal" }: { value: NewSessionChoice | null; onChange: (v: NewSessionChoice) => void; pool?: AccountPool }) {
   const ws = useDefaultWorkspace();
   const accs = useQuery({ queryKey: ["accounts"], queryFn: listAccounts, staleTime: 30_000 });
-  const ov = useOverride();
+  const ov = useOverride(pool);
   const top = (() => {
-    // 회사 업무는 같은 전체 순서에서 회사 그룹만 걸러 쓴다.
-    const list = (accs.data ?? []).filter((a) => pool === "personal" || a.pool === "work");
+    // 개인·회사 모드가 각자 순서·켜기·임시 순서를 가진다. 회사 업무는 회사에 들어온 계정만 회사 순서로 본다.
+    const list = modeRows(accs.data ?? [], pool);
     const ids = ov.data?.active ? ov.data.ids : [];
-    const ordered = [...list].sort((a, b) => {
-      const ra = ids.indexOf(a.id), rb = ids.indexOf(b.id);
-      return (ra < 0 ? ids.length : ra) - (rb < 0 ? ids.length : rb) || a.priority - b.priority;
-    });
-    return ordered.find((a) => a.enabled);
+    const ordered = list
+      .map((a, i) => ({ a, i }))
+      .sort((x, y) => {
+        const rx = ids.indexOf(x.a.id), ry = ids.indexOf(y.a.id);
+        return (rx < 0 ? ids.length : rx) - (ry < 0 ? ids.length : ry) || x.i - y.i;
+      })
+      .map((x) => x.a);
+    return ordered.find((a) => isOn(a, pool));
   })();
   const info = useQuery({ queryKey: ["systemInfo"], queryFn: systemInfo, staleTime: 60_000 });
   const first = ws.data;
@@ -108,7 +112,7 @@ export function NewSession({ value, onChange, pool = "personal" }: { value: NewS
         <p className="tk-empty__title">{pool === "work" ? "회사 일, 무엇을 시킬까요?" : "무엇을 시킬까요?"}</p>
         <p>
           {pool === "work"
-            ? "여기서 시킨 일은 회사 계정만 써요. 작업 세션과 결과 보고까지 전부요. 회사 그룹에 넣은 계정만, 설정 > 계정의 순서대로 써요."
+            ? "여기서 시킨 일은 회사 계정만 써요. 작업 세션과 결과 보고까지 전부요. 개인 계정에서 회사 계정에 넣은 계정만, 설정 > 계정 > 회사 계정의 순서·켜기대로 써요."
             : "무엇이든 말로 지시하세요. 따까리가 일을 나눠 작업 세션에 맡기고, 끝나면 정리해서 알려 줘요. Claude Code 를 먼저 쓰고, 사용량 한도에 걸리면 다음 계정(마지막엔 Codex)으로 이어가요."}
         </p>
       </div>
@@ -129,7 +133,7 @@ export function NewSession({ value, onChange, pool = "personal" }: { value: NewS
           />
           {top ? (
             <p className="tk-help">
-              <span>{pool === "work" ? "회사 그룹" : "지금"} 1순위: {top.name} ({top.engine === "codex" ? "Codex" : "Claude Code"}). 고른 모델은 그 엔진 계정에서만 쓰여요.</span>
+              <span>{pool === "work" ? "회사 계정" : "지금"} 1순위: {top.name} ({top.engine === "codex" ? "Codex" : "Claude Code"}). 고른 모델은 그 엔진 계정에서만 쓰여요.</span>
             </p>
           ) : accs.isSuccess && (
             <p className="tk-error"><span>켜진 {pool === "work" ? "회사" : "개인"} 계정이 없어요. 설정 &gt; 계정에서 켜 주세요.</span></p>

@@ -256,8 +256,9 @@ export const createAccount = (body: AccountIn): Promise<AccountOut> => json("/ap
 export const patchAccount = (id: UUID, body: AccountPatch): Promise<AccountOut> =>
   json(`/api/accounts/${id}`, { method: "PATCH", json: body });
 export const deleteAccount = (id: UUID): Promise<void> => json(`/api/accounts/${id}`, { method: "DELETE" });
-export const reorderAccounts = (ids: UUID[]): Promise<AccountOut[]> =>
-  json("/api/accounts/reorder", { method: "POST", json: { ids } });
+/** pool 모드의 기본 순서. work 는 회사에 들어온 계정만 보내고 그 모드 목록을 돌려받는다. */
+export const reorderAccounts = (ids: UUID[], pool: AccountPool = "personal"): Promise<AccountOut[]> =>
+  json("/api/accounts/reorder", { method: "POST", json: { ids }, query: { pool } });
 export const clearAccountCooldown = (id: UUID): Promise<AccountOut> =>
   json(`/api/accounts/${id}/cooldown/clear`, { method: "POST" });
 
@@ -609,8 +610,12 @@ export interface AccountUsage {
   name: string;
   engine: "claude" | "codex";
   pool: AccountPool;
+  /** 개인 모드 켜기·순위 */
   enabled: boolean;
   rank: number;
+  /** 회사 모드 켜기·순위. 회사에 안 들어온 계정은 work_rank 가 null */
+  work_enabled: boolean;
+  work_rank: number | null;
   login: "ok" | "unknown" | "missing";
   cooldown_seconds: number;
   windows: UsageWindow[];
@@ -621,10 +626,11 @@ export interface AccountUsage {
   error: string | null;
   updated_at: number | null;
 }
-export const getOverride = (): Promise<OverrideOut> => json("/api/accounts/override");
-export const putOverride = (ids: string[], until: string): Promise<OverrideOut> =>
-  json("/api/accounts/override", { method: "PUT", json: { ids, until } });
-export const deleteOverride = (): Promise<void> => json("/api/accounts/override", { method: "DELETE" });
+export const getOverride = (pool: AccountPool = "personal"): Promise<OverrideOut> => json("/api/accounts/override", { query: { pool } });
+export const putOverride = (ids: string[], until: string, pool: AccountPool = "personal"): Promise<OverrideOut> =>
+  json("/api/accounts/override", { method: "PUT", json: { ids, until }, query: { pool } });
+export const deleteOverride = (pool: AccountPool = "personal"): Promise<void> =>
+  json("/api/accounts/override", { method: "DELETE", query: { pool } });
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });

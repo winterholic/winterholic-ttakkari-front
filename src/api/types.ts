@@ -259,7 +259,10 @@ export type RunEventType = RunEvent["type"];
 
 // ---- engine accounts (ADR 0006)
 export type AccountEngine = "claude" | "codex";
-/** 회사 그룹 태그. 계정 순서·켜기는 전체 목록 하나이고, work 는 회사 업무 탭이 쓰는 부분집합이다. */
+/**
+ * 계정이 어느 모드에 쓰이는지. 모든 계정은 개인 목록에 있고, work 는 그중 회사 모드에도 쓰려고 고른 계정이다.
+ * 개인·회사 모드는 켜기·순서·임시 순서를 따로 가진다. 세션의 pool 은 그 대화가 쓰는 모드다.
+ */
 export type AccountPool = "personal" | "work";
 export interface AccountOut {
   id: UUID;
@@ -267,8 +270,12 @@ export interface AccountOut {
   engine: AccountEngine;
   pool: AccountPool;
   config_dir: string | null;
+  /** 개인 모드 켜기·순서 */
   enabled: boolean;
   priority: number;
+  /** 회사 모드 켜기·순서. pool 이 work 인 계정에만 의미가 있고 개인 모드 값과 독립이다. */
+  work_enabled: boolean;
+  work_priority: number;
   /** ok: 로그인 확인 · unknown: 확인 못 함 · missing: 계정 폴더 없음 */
   login: "ok" | "unknown" | "missing";
   login_label: string | null;
@@ -287,6 +294,9 @@ export interface AccountPatch {
   name?: string;
   pool?: AccountPool;
   config_dir?: string | null;
+  /** 개인 모드 켜기 */
   enabled?: boolean;
+  /** 회사 모드 켜기 */
+  work_enabled?: boolean;
 }
 

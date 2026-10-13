@@ -1,11 +1,12 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
-import type { AccountEngine, AccountOut } from "../../api/types";
+import type { AccountEngine, AccountOut, AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { Select } from "../../ui/Select";
 import { SortableList } from "../../ui/SortableList";
+import { applyOrder, isOn, modeRows } from "./mode";
 import { OverrideBanner, OverrideDialog } from "./OverrideDialog";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
@@ -55,46 +56,81 @@ function minutes(sec: number): string {
 }
 
 /**
- * 설정 > 계정. 개인 목록이 전체 계정이고, 그 안의 일부가 「회사」 그룹이다.
- * 순서·켜기·임시 순서는 이 목록 하나가 정한다. 회사 업무 탭은 이 순서에서 회사 그룹만 걸러 쓴다(ADR 0006).
+ * 설정 > 계정. 개인 계정·회사 계정 두 섹션이다(ADR 0006).
+ * 계정은 개인 계정에서만 추가·삭제하고, 그중 회사 모드에도 쓸 계정을 골라 회사 계정에 들인다.
+ * 켜기·순서·임시 순서는 개인과 회사가 서로 독립이다(같은 계정을 개인에선 끄고 회사에선 켤 수 있다).
  */
 export function AccountsSection() {
+  return (
+    <>
+      <AccountModeSection pool="personal" />
+      <AccountModeSection pool="work" />
+    </>
+  );
+}
+
+const MODE_TEXT: Record<AccountPool, { title: string; help: string[]; empty: string }> = {
+  personal: {
+    title: "개인 계정",
+    help: [
+      "채팅 탭에서 시킨 일이 써요. 계정을 추가하고 삭제하는 곳은 여기뿐이에요. 손잡이를 끌어 순서를 바꾸고, 위에서부터 차례로 써요. 사용량 한도에 걸리면 그 계정은 잠시 쉬고 다음 계정으로 이어서 해요(Claude Code 가 다 막히면 Codex 까지).",
+      "회사 업무에도 쓸 계정은 ⋮ 메뉴의 「회사 계정에 넣기」로 골라요. 켜기·순서는 개인 계정과 회사 계정이 따로예요.",
+    ],
+    empty: "개인 계정이 없어요.",
+  },
+  work: {
+    title: "회사 계정",
+    help: [
+      "회사 업무 탭에서 시킨 일만 써요(작업 세션·결과 보고까지). 개인 계정에서 고른 계정만 보이고, 켜기·순서·임시 순서는 개인 계정과 따로예요. 계정을 넣고 빼는 건 개인 계정의 ⋮ 메뉴에서 해요.",
+    ],
+    empty: "회사 계정이 없어요. 개인 계정의 ⋮ 메뉴에서 「회사 계정에 넣기」로 골라요.",
+  },
+};
+
+/** 한 모드(개인·회사)의 계정 목록. 위에서부터 차례로 쓰고, 사용량 한도면 다음 계정으로 넘어간다(ADR 0006). */
+function AccountModeSection({ pool }: { pool: AccountPool }) {
   const qc = useQueryClient();
   const id = useId();
+  const personal = pool === "personal";
   const q = useQuery({ queryKey: ACCOUNTS_KEY, queryFn: listAccounts, refetchInterval: 30_000 });
   const [editing, setEditing] = useState<AccountOut | "new" | null>(null);
   const [removing, setRemoving] = useState<AccountOut | null>(null);
   // 계정 ⋮ 는 드롭다운이 아니라 가운데 모달로 연다.
   const [acting, setActing] = useState<string | null>(null);
   const [overriding, setOverriding] = useState(false);
-  const rows = q.data ?? [];
-  const set = (next: AccountOut[]) => qc.setQueryData(ACCOUNTS_KEY, next);
-  const replace = (a: AccountOut) => set(rows.map((x) => (x.id === a.id ? a : x)));
+  const all = q.data ?? [];
+  const rows = modeRows(all, pool);
+  // 캐시는 두 섹션이 함께 쓴다. 이 섹션은 자기 모드의 값만 바꾼다.
+  const setAll = (next: AccountOut[]) => qc.setQueryData(ACCOUNTS_KEY, next);
+  const replace = (a: AccountOut) => setAll(all.map((x) => (x.id === a.id ? a : x)));
 
-  const toggle = useMutation({ mutationFn: (a: AccountOut) => patchAccount(a.id, { enabled: !a.enabled }), onSuccess: replace });
+  const toggle = useMutation({
+    mutationFn: (a: AccountOut) => patchAccount(a.id, personal ? { enabled: !a.enabled } : { work_enabled: !a.work_enabled }),
+    onSuccess: replace,
+  });
   const clear = useMutation({ mutationFn: (a: AccountOut) => clearAccountCooldown(a.id), onSuccess: replace });
   const reorderLock = useRef(false);
   const reorder = useMutation({
     mutationFn: async (next: AccountOut[]) => {
       const ids = next.map((a) => a.id);
       try {
-        return await reorderAccounts(ids);
+        return await reorderAccounts(ids, pool);
       } catch (e) {
-        // 다른 탭에서 삭제된 계정이 stale 목록에 남으면 최신 목록에 사용자 순서를 합쳐 재시도한다.
+        // 다른 탭에서 삭제·제외된 계정이 stale 목록에 남으면 최신 목록에 사용자 순서를 합쳐 재시도한다.
         if (!(e instanceof ApiError) || e.status !== 400 || !e.message.includes("모든 계정 id")) throw e;
-        const latest = await listAccounts();
+        const latest = modeRows(await listAccounts(), pool);
         const latestIds = new Set(latest.map((a) => a.id));
         const merged = [...new Set(ids.filter((id) => latestIds.has(id)))];
         for (const a of latest) if (!merged.includes(a.id)) merged.push(a.id);
-        return reorderAccounts(merged);
+        return reorderAccounts(merged, pool);
       }
     },
     onMutate: async (next) => {
       // 30초 폴링이 저장 중에 끝나면 옛 순서로 덮으므로 진행 중인 목록 요청을 먼저 취소한다.
       await qc.cancelQueries({ queryKey: ACCOUNTS_KEY });
-      set(next);
+      setAll(applyOrder(qc.getQueryData<AccountOut[]>(ACCOUNTS_KEY) ?? all, next, pool));
     },
-    onSuccess: set,
+    onSuccess: (saved) => setAll(applyOrder(qc.getQueryData<AccountOut[]>(ACCOUNTS_KEY) ?? all, saved, pool)),
     onError: () => void q.refetch(),
     onSettled: () => {
       reorderLock.current = false;
@@ -109,7 +145,7 @@ export function AccountsSection() {
     mutationFn: (a: AccountOut) => patchAccount(a.id, { pool: a.pool === "work" ? "personal" : "work" }),
     onSuccess: (a) => {
       replace(a);
-      toast({ message: a.pool === "work" ? `${a.name} 을(를) 회사 그룹에 넣었어요.` : `${a.name} 을(를) 회사 그룹에서 뺐어요.` });
+      toast({ message: a.pool === "work" ? `${a.name} 을(를) 회사 계정에 넣었어요.` : `${a.name} 을(를) 회사 계정에서 뺐어요.` });
     },
   });
   const moveBy = (from: number, to: number) => {
@@ -126,45 +162,38 @@ export function AccountsSection() {
     },
   });
   const rowError = toggle.error ?? clear.error ?? reorder.error ?? tagWork.error;
-  const enabledCount = rows.filter((a) => a.enabled).length;
-  const workCount = rows.filter((a) => a.pool === "work").length;
-  const workEnabled = rows.filter((a) => a.pool === "work" && a.enabled).length;
+  const enabledCount = rows.filter((a) => isOn(a, pool)).length;
+  const text = MODE_TEXT[pool];
 
   return (
-    <section className="tk-section" id="accounts" aria-labelledby={`${id}-title`}>
+    <section className="tk-section" id={personal ? "accounts" : "work-accounts"} aria-labelledby={`${id}-title`}>
       <div className="tk-section__head">
-        <h2 className="tk-section__title" id={`${id}-title`}>계정</h2>
+        <h2 className="tk-section__title" id={`${id}-title`}>{text.title}</h2>
         <div className="tk-button-group">
           <button className="tk-button tk-button--sm" type="button" onClick={() => setOverriding(true)} disabled={rows.length < 2}>
             <Icon name="clock" />
             임시 순서
           </button>
-          <button className="tk-button tk-button--sm" type="button" onClick={() => setEditing("new")}>
-            <Icon name="plus" />
-            계정 추가
-          </button>
+          {/* 계정 추가·삭제는 개인 계정에서만 한다. 회사 계정은 그중 고른 계정이다(사용자 결정 10-13). */}
+          {personal && (
+            <button className="tk-button tk-button--sm" type="button" onClick={() => setEditing("new")}>
+              <Icon name="plus" />
+              계정 추가
+            </button>
+          )}
         </div>
       </div>
-      <p className="tk-fieldset__help">
-        손잡이를 끌어 순서를 바꾸고, 위에서부터 차례로 써요. 사용량 한도에 걸리면 그 계정은 잠시 쉬고 다음 계정으로 이어서 해요(Claude Code 가 다 막히면 Codex 까지).
-      </p>
-      <p className="tk-fieldset__help">
-        「회사」 표시가 붙은 계정은 회사 그룹이에요. 채팅 탭은 회사 그룹까지 모든 계정을, 회사 업무 탭은 이 순서에서 회사 그룹 계정만 써요. 계정의 ⋮ 메뉴에서 회사 그룹에 넣거나 뺄 수 있어요.
-      </p>
-      <OverrideBanner accounts={rows} onEdit={() => setOverriding(true)} />
-      {q.isSuccess && rows.length === 0 && <p className="tk-fieldset__help">계정이 없어요.</p>}
+      {text.help.map((h) => (
+        <p key={h} className="tk-fieldset__help">{h}</p>
+      ))}
+      <OverrideBanner accounts={rows} pool={pool} onEdit={() => setOverriding(true)} />
+      {q.isSuccess && rows.length === 0 && <p className="tk-fieldset__help">{text.empty}</p>}
       {q.isPending && <ListSkeleton rows={2} label="계정을 불러오는 중" />}
       {q.isError && <ErrorState error={q.error} what="계정" onRetry={() => void q.refetch()} />}
       {q.isSuccess && rows.length > 0 && enabledCount === 0 && (
         <aside className="tk-callout tk-callout--warning" role="status">
           <Icon name="warning" className="tk-callout__icon" />
-          <div className="tk-callout__body"><p>켜진 계정이 없어요. 하나 이상 켜야 지시를 실행할 수 있어요.</p></div>
-        </aside>
-      )}
-      {q.isSuccess && workCount > 0 && workEnabled === 0 && enabledCount > 0 && (
-        <aside className="tk-callout tk-callout--warning" role="status">
-          <Icon name="warning" className="tk-callout__icon" />
-          <div className="tk-callout__body"><p>회사 그룹에 켜진 계정이 없어요. 회사 업무 탭에서 지시하려면 하나 이상 켜 주세요.</p></div>
+          <div className="tk-callout__body"><p>켜진 {personal ? "개인" : "회사"} 계정이 없어요. 하나 이상 켜야 {personal ? "채팅" : "회사 업무"} 탭에서 지시를 실행할 수 있어요.</p></div>
         </aside>
       )}
       {rowError && (
@@ -175,17 +204,17 @@ export function AccountsSection() {
       {q.isSuccess && (
         <SortableList
           items={rows}
-          label="계정 우선순위"
+          label={`${text.title} 우선순위`}
           disabled={reorder.isPending}
           onReorder={saveOrder}
           render={(a, i, handle) => (
-              <div className="tk-list__item account-row" aria-disabled={!a.enabled || undefined}>
+              <div className="tk-list__item account-row" aria-disabled={!isOn(a, pool) || undefined}>
                 {handle}
                 <span className="account-row__rank" aria-label={`${i + 1}순위`}>{i + 1}</span>
                 <span className="tk-list__body">
                   <span className="tk-list__title">
                     {a.name}
-                    {a.pool === "work" && <span className="tk-badge tk-badge--info account-group">회사</span>}
+                    {personal && a.pool === "work" && <span className="tk-badge tk-badge--info account-group">회사</span>}
                   </span>
                   <span className="tk-list__meta">
                     <span>{ENGINE_LABEL[a.engine]}</span>
@@ -199,8 +228,8 @@ export function AccountsSection() {
                     <input
                       type="checkbox"
                       role="switch"
-                      checked={a.enabled}
-                      aria-label={`${a.name} 사용`}
+                      checked={isOn(a, pool)}
+                      aria-label={`${a.name} ${personal ? "" : "회사 "}사용`}
                       disabled={toggle.isPending}
                       onChange={() => toggle.mutate(a)}
                     />
@@ -227,7 +256,7 @@ export function AccountsSection() {
           fn();
         };
         return (
-          <Dialog open={!!a} onClose={() => setActing(null)} size="sm" title={a ? `${a.name} 관리` : "계정 관리"} id="account-actions">
+          <Dialog open={!!a} onClose={() => setActing(null)} size="sm" title={a ? `${a.name} 관리` : "계정 관리"} id={`account-actions-${pool}`}>
             {a && (
               <div className="account-actions">
                 <button className="tk-button tk-button--block" type="button" disabled={i === 0 || reorder.isPending} onClick={() => { setActing(null); moveBy(i, i - 1); }}>
@@ -244,45 +273,51 @@ export function AccountsSection() {
                     한도 대기 풀기
                   </button>
                 )}
-                <button className="tk-button tk-button--block" type="button" onClick={done(() => tagWork.mutate(a))}>
-                  <Icon name="briefcase" />
-                  {a.pool === "work" ? "회사 그룹에서 빼기" : "회사 그룹에 넣기"}
-                </button>
-                <button className="tk-button tk-button--block" type="button" onClick={done(() => setEditing(a))}>
-                  <Icon name="key" />
-                  이름 바꾸기
-                </button>
-                <button className="tk-button tk-button--block tk-button--danger" type="button" onClick={done(() => setRemoving(a))}>
-                  <Icon name="trash" />
-                  삭제
-                </button>
+                {personal && (
+                  <>
+                    <button className="tk-button tk-button--block" type="button" onClick={done(() => tagWork.mutate(a))}>
+                      <Icon name="briefcase" />
+                      {a.pool === "work" ? "회사 계정에서 빼기" : "회사 계정에 넣기"}
+                    </button>
+                    <button className="tk-button tk-button--block" type="button" onClick={done(() => setEditing(a))}>
+                      <Icon name="key" />
+                      이름 바꾸기
+                    </button>
+                    <button className="tk-button tk-button--block tk-button--danger" type="button" onClick={done(() => setRemoving(a))}>
+                      <Icon name="trash" />
+                      삭제
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </Dialog>
         );
       })()}
-      {overriding && <OverrideDialog accounts={rows} onClose={() => setOverriding(false)} />}
-      {editing && <AccountDialog account={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
-      <Dialog
-        open={!!removing}
-        onClose={() => setRemoving(null)}
-        size="sm"
-        title="계정을 삭제할까요?"
-        id="account-remove"
-        footer={
-          <>
-            <button className="tk-button" type="button" onClick={() => setRemoving(null)}>
-              취소
-            </button>
-            <button className="tk-button tk-button--danger" type="button" aria-busy={remove.isPending || undefined} onClick={() => removing && remove.mutate(removing)}>
-              계정 삭제
-            </button>
-          </>
-        }
-      >
-        <p>따까리 목록에서만 빠져요. 그 계정의 로그인 정보는 Mac Studio 에 그대로 남아요.</p>
-        {remove.error && <p className="tk-error" role="alert">{errMessage(remove.error)}</p>}
-      </Dialog>
+      {overriding && <OverrideDialog accounts={rows} pool={pool} onClose={() => setOverriding(false)} />}
+      {personal && editing && <AccountDialog account={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
+      {personal && (
+        <Dialog
+          open={!!removing}
+          onClose={() => setRemoving(null)}
+          size="sm"
+          title="계정을 삭제할까요?"
+          id="account-remove"
+          footer={
+            <>
+              <button className="tk-button" type="button" onClick={() => setRemoving(null)}>
+                취소
+              </button>
+              <button className="tk-button tk-button--danger" type="button" aria-busy={remove.isPending || undefined} onClick={() => removing && remove.mutate(removing)}>
+                계정 삭제
+              </button>
+            </>
+          }
+        >
+          <p>따까리 목록에서만 빠져요{removing?.pool === "work" ? "(회사 계정에서도 사라져요)" : ""}. 그 계정의 로그인 정보는 Mac Studio 에 그대로 남아요.</p>
+          {remove.error && <p className="tk-error" role="alert">{errMessage(remove.error)}</p>}
+        </Dialog>
+      )}
     </section>
   );
 }
