@@ -16,7 +16,7 @@ describe.skipIf(!base)("백엔드 통합", () => {
     const ws = await c.listWorkspaces();
     expect(Array.isArray(ws)).toBe(true);
     const info = await c.systemInfo();
-    expect(typeof info.max_concurrent_runs).toBe("number");
+    expect(typeof info.max_concurrent.workers).toBe("number");
     expect(Array.isArray(await c.listSessions({ limit: 5 }))).toBe(true);
     console.log("IT workspaces:", ws.length, "engines:", JSON.stringify(info.engines));
     await expect(c.getWorkspace("00000000-0000-0000-0000-000000000000")).rejects.toMatchObject({ status: 404 });

@@ -506,8 +506,19 @@ export interface ToolInfo {
 }
 const A = "/api/assistant";
 export const assistantStatus = (): Promise<AssistantStatus> => json(`${A}/status`);
-export const getInstructions = (): Promise<{ text: string }> => json(`${A}/instructions`);
-export const putInstructions = (text: string): Promise<{ text: string }> => json(`${A}/instructions`, { method: "PUT", json: { text } });
+/** common: 접수를 뺀 모든 실행 · desk: 접수 · lead: 기획 세션 · worker: 작업 세션 (ADR 0013) */
+export type InstructionRole = "common" | "desk" | "lead" | "worker";
+export interface InstructionsOut {
+  text: string;
+  role: InstructionRole;
+  /** 저장한 적 없이 기본값을 보여 주는 중(접수만 기본값이 있다) */
+  is_default: boolean;
+}
+export const getInstructions = (role: InstructionRole): Promise<InstructionsOut> => json(`${A}/instructions`, { query: { role } });
+export const putInstructions = (role: InstructionRole, text: string): Promise<InstructionsOut> =>
+  json(`${A}/instructions`, { method: "PUT", json: { text }, query: { role } });
+export const resetInstructions = (role: InstructionRole): Promise<InstructionsOut> =>
+  json(`${A}/instructions`, { method: "DELETE", query: { role } });
 export const listMemories = (p: { q?: string; kind?: MemoryKind; pinned?: boolean } = {}): Promise<{ memories: MemoryOut[] }> =>
   json(`${A}/memories`, { query: p });
 export const addMemory = (body: { content: string; kind: MemoryKind; entities: string[]; pinned: boolean }): Promise<MemoryOut> =>

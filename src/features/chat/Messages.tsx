@@ -55,16 +55,23 @@ export function ArtifactCard({ a, onOpen, isNew }: { a: ArtifactOut; onOpen: (id
   );
 }
 
-/** 작업 세션이 끝나 오케스트레이터에게 들어온 결과 보고. 사용자 말풍선이 아니라 접힌 시스템 줄로 보인다. */
+/**
+ * 결과 보고. 사용자 말풍선이 아니라 접힌 시스템 줄로 보인다.
+ * 작업 보고: 작업 세션 → 오케스트레이터·기획 세션. 기획 보고: 기획 세션 → 접수 대화(ADR 0013), 내용은 아래 따까리 답으로 보인다.
+ */
 export function ReportMessage({ run }: { run: RunOut }) {
-  const count = (run.prompt.match(/\[작업 보고\]/g) ?? []).length;
-  const titles = [...run.prompt.matchAll(/\[작업 보고\] 작업 세션 '([^']*)'.*?(완료|실패|취소|중단)/g)].map((m) => `${m[1]} ${m[2]}`);
+  const kind = run.prompt.startsWith("[기획 보고]") ? "기획 보고" : "작업 보고";
+  const count = (run.prompt.match(/\[(작업|기획) 보고\]/g) ?? []).length;
+  const titles = [...run.prompt.matchAll(/\[(?:작업|기획) 보고\] (?:작업|기획) 세션 '([^']*)'.*?(완료|실패|취소|중단)/g)].map((m) => `${m[1]} ${m[2]}`);
   return (
-    <article className="report-message" data-author="system" aria-label="작업 보고">
+    <article className="report-message" data-author="system" aria-label={kind}>
       <details>
         <summary>
           <Icon name="workspace" />
-          <span>작업 보고{count > 1 ? ` ${count}건` : ""}</span>
+          <span>
+            {kind}
+            {count > 1 ? ` ${count}건` : ""}
+          </span>
           {titles.length > 0 && <span className="report-message__titles">{titles.join(" · ")}</span>}
           <span className="tk-message__time">{time(run.created_at)}</span>
         </summary>
@@ -74,14 +81,16 @@ export function ReportMessage({ run }: { run: RunOut }) {
   );
 }
 
+const FROM_LABEL: Partial<Record<RunOut["origin"], string>> = { orchestrator: "오케스트레이터 지시", desk: "접수에서 넘긴 요청" };
+
 export function UserMessage({ run, onOpen }: { run: RunOut; onOpen: (id: string) => void }) {
-  const byOrchestrator = run.origin === "orchestrator";
+  const from = FROM_LABEL[run.origin];
   return (
-    <article className="tk-message tk-message--user" data-author="user" aria-label={byOrchestrator ? "오케스트레이터 지시" : "내 지시"}>
+    <article className="tk-message tk-message--user" data-author="user" aria-label={from ?? "내 지시"}>
       {run.context_artifact_ids.length > 0 && <SentAttachments ids={run.context_artifact_ids} onOpen={onOpen} />}
       <div className="tk-message__body">{run.prompt}</div>
       <p className="tk-message__meta">
-        {byOrchestrator && <span>오케스트레이터 지시 · </span>}
+        {from && <span>{from} · </span>}
         <span className="tk-message__time">{time(run.created_at)}</span>
       </p>
     </article>

@@ -3,10 +3,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 import {
   addEntity, addMemory, addRelation, addSource, assistantStatus, deleteEntity, deleteMemory, deleteSource, getInstructions,
-  listEntities, listMemories, listSources, listTools, patchEntity, patchMemory, putInstructions, reindexSource,
+  listEntities, listMemories, listSources, listTools, patchEntity, patchMemory, putInstructions, reindexSource, resetInstructions,
   CATEGORY_LABEL, SCOPE_LABEL,
 } from "../api/client";
-import type { EntityType, MemoryKind } from "../api/client";
+import type { EntityType, InstructionRole, MemoryKind } from "../api/client";
 import { errorText } from "../features/viewer/api";
 import { EmptyState, ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { PageHeader } from "../shell/PageHeader";
@@ -79,46 +79,106 @@ export function AssistantPage() {
   );
 }
 
+const ROLES: { id: InstructionRole; label: string; help: string; placeholder: string }[] = [
+  {
+    id: "common",
+    label: "공통",
+    help: "기획·작업 세션과 일반 대화의 시스템 프롬프트에 붙어요. 접수에는 안 들어가요.",
+    placeholder: "예)\n- 확실하지 않은 건 '확인 필요'라고 표시한다.\n- 맥락은 recall → work-history 순으로 찾는다.",
+  },
+  {
+    id: "desk",
+    label: "접수",
+    help: "메시지를 받자마자 바로 답할지 기획 세션에 넘길지 고르는 가벼운 모델(luna → haiku)의 지침이에요. 전역 하네스와 공통 지침 없이 이것만 받아요. 답은 JSON 한 줄 형식을 지켜야 해요.",
+    placeholder: "",
+  },
+  {
+    id: "lead",
+    label: "기획",
+    help: "접수가 넘긴 일을 맡아 작업 세션을 나눠 돌리는 기획 세션(Opus·Sol)에만 붙어요. 모델 배정, 계정, 컨텍스트 교체 방침을 여기에 둬요.",
+    placeholder: "예)\n- 간단한 작업은 Luna high 부터 배정한다.\n- 컨텍스트 70% 이상이면 새 세션으로 교체한다.",
+  },
+  {
+    id: "worker",
+    label: "작업",
+    help: "기획 세션이 만든 작업 세션(Sonnet·Luna)에만 붙어요.",
+    placeholder: "예)\n- 받은 지시 범위만 고친다.\n- 끝나면 실행한 검증 명령과 결과를 보고한다.",
+  },
+];
+
 function InstructionsTab({ brief }: { brief: string }) {
   const id = useId();
-  const q = useQuery({ queryKey: ["assistant", "instructions"], queryFn: getInstructions });
-  const [text, setText] = useState<string | null>(null);
-  const value = text ?? q.data?.text ?? "";
-  const save = useMutation({
-    mutationFn: () => putInstructions(value),
-    onSuccess: () => {
-      setText(null);
-      void q.refetch();
-      toast({ message: "지침을 저장했어요. 다음 지시부터 적용돼요.", tone: "success" });
-    },
-  });
-  const dirty = text !== null && text !== q.data?.text;
+  const [role, setRole] = useState<InstructionRole>("common");
+  const meta = ROLES.find((r) => r.id === role) ?? ROLES[0];
   return (
     <section className="tk-section" aria-labelledby={`${id}-t`}>
       <div className="tk-section__head">
         <h2 className="tk-section__title" id={`${id}-t`}>비서 지침</h2>
-        <button className="tk-button tk-button--sm tk-button--primary" type="button" aria-disabled={!dirty || undefined} aria-busy={save.isPending || undefined} onClick={() => dirty && save.mutate()}>
-          저장
-        </button>
+      </div>
+      <div className="tk-segmented assistant-roles" role="radiogroup" aria-label="지침 대상">
+        {ROLES.map((r) => (
+          <label key={r.id}>
+            <input type="radio" name="instruction-role" checked={role === r.id} onChange={() => setRole(r.id)} />
+            {r.label}
+          </label>
+        ))}
       </div>
       <p className="tk-fieldset__help">
-        따까리에서 도는 모든 실행의 시스템 프롬프트에 붙어요. 전역 Claude Code 설정(~/.claude)과는 따로예요. 에이전트는 이 지침을 고칠 수 없어요.
+        {meta.help} 전역 Claude Code·Codex 설정(~/.claude, ~/.codex)과는 따로예요. 에이전트는 이 지침을 고칠 수 없어요.
       </p>
+      {/* 역할을 바꾸면 고치던 글을 버리고 그 역할의 저장본을 새로 읽는다 */}
+      <RoleEditor key={role} role={role} label={meta.label} placeholder={meta.placeholder} />
+      {role !== "desk" && (
+        <>
+          <h3 className="assistant-sub">접수를 뺀 모든 실행에 같이 들어가는 고정 기억</h3>
+          {brief ? <pre className="assistant-brief">{brief}</pre> : <p className="tk-fieldset__help">기억 탭에서 핀을 꽂은 기억이 여기에 모여요.</p>}
+        </>
+      )}
+    </section>
+  );
+}
+
+function RoleEditor({ role, label, placeholder }: { role: InstructionRole; label: string; placeholder: string }) {
+  const q = useQuery({ queryKey: ["assistant", "instructions", role], queryFn: () => getInstructions(role) });
+  const [text, setText] = useState<string | null>(null);
+  const value = text ?? q.data?.text ?? "";
+  const done = (message: string) => {
+    setText(null);
+    void q.refetch();
+    toast({ message, tone: "success" });
+  };
+  const save = useMutation({ mutationFn: () => putInstructions(role, value), onSuccess: () => done(`${label} 지침을 저장했어요. 다음 지시부터 적용돼요.`) });
+  const reset = useMutation({ mutationFn: () => resetInstructions(role), onSuccess: () => done(`${label} 지침을 기본값으로 되돌렸어요.`) });
+  const dirty = text !== null && text !== q.data?.text;
+  const canReset = role === "desk" && q.data && !q.data.is_default;
+  return (
+    <>
       {q.isError && <ErrorState error={q.error} what="지침" onRetry={() => void q.refetch()} />}
       <textarea
         className="tk-textarea assistant-instructions"
         rows={14}
         value={value}
         onChange={(e) => setText(e.target.value)}
-        placeholder={"예)\n- 반말로 짧게 답한다.\n- 확실하지 않은 건 '확인 필요'라고 표시한다.\n- 결과물은 가능하면 마크다운 문서로 남긴다."}
-        aria-label="비서 지침"
+        placeholder={placeholder}
+        aria-label={`${label} 지침`}
         maxLength={20000}
       />
-      <p className="assistant-count">{value.length.toLocaleString()} / 20,000자</p>
-      {save.error && <p className="tk-error" role="alert">{errorText(save.error).message}</p>}
-      <h3 className="assistant-sub">지금 모든 실행에 같이 들어가는 고정 기억</h3>
-      {brief ? <pre className="assistant-brief">{brief}</pre> : <p className="tk-fieldset__help">기억 탭에서 핀을 꽂은 기억이 여기에 모여요.</p>}
-    </section>
+      <div className="assistant-editor__foot">
+        <p className="assistant-count">
+          {q.data?.is_default && !dirty ? "기본값 · " : ""}
+          {value.length.toLocaleString()} / 20,000자
+        </p>
+        {canReset && (
+          <button className="tk-button tk-button--sm tk-button--ghost" type="button" aria-busy={reset.isPending || undefined} onClick={() => reset.mutate()}>
+            기본값으로
+          </button>
+        )}
+        <button className="tk-button tk-button--sm tk-button--primary" type="button" aria-disabled={!dirty || undefined} aria-busy={save.isPending || undefined} onClick={() => dirty && save.mutate()}>
+          저장
+        </button>
+      </div>
+      {(save.error || reset.error) && <p className="tk-error" role="alert">{errorText(save.error ?? reset.error).message}</p>}
+    </>
   );
 }
 

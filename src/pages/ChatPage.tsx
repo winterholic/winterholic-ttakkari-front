@@ -165,8 +165,8 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
       let sid = sessionId;
       if (!sid) {
         if (!choice) throw new Error("작업 공간을 먼저 골라 주세요.");
-        // 새 세션은 오케스트레이터다. 엔진은 서버가 auto(Claude 우선, 한도면 다음 계정)로 정한다(ADR 0006).
-        const s = await createSession({ workspace_id: choice.workspaceId, kind: "orchestrator", model: choice.model, effort: choice.effort, pool });
+        // 새 세션은 접수다. 가벼운 모델이 바로 답하거나 기획 세션에 넘긴다(ADR 0013).
+        const s = await createSession({ workspace_id: choice.workspaceId, kind: "desk", model: choice.model, effort: choice.effort, pool });
         sid = s.id;
       }
       const run = await createRun(sid, { prompt, context_artifact_ids: contextIds });
@@ -205,8 +205,12 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
   const { ref: threadRef, inner: innerRef, jump, toBottom } = useThreadFollow(sessionId);
 
   const kind = session.data?.kind;
-  const isOrch = kind === "orchestrator";
-  const parentId = kind === "worker" ? session.data?.parent_id : null;
+  // 오른쪽 패널: 접수는 기획 세션, 기획·옛 오케스트레이터는 작업 세션을 보여 준다.
+  const isOrch = kind === "orchestrator" || kind === "desk";
+  const isLead = kind === "orchestrator" && !!session.data?.parent_id;
+  const childLabel = kind === "desk" ? "기획 세션" : "작업 세션";
+  const parentId = kind === "worker" || isLead ? session.data?.parent_id : null;
+  const parentLabel = isLead ? "따까리" : "기획 세션";
   const workers = useWorkers(isOrch && sessionId ? sessionId : "");
   const [workersOpen, setWorkersOpen] = useState(false);
   const workerCount = isOrch ? (workers.data?.length ?? 0) : 0;
@@ -218,7 +222,7 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
     <>
       {activeRun ? <span className="tk-dot tk-dot--live" aria-hidden /> : null}
       {session.data.pool === "work" ? "회사 · " : ""}
-      {isOrch ? "오케스트레이터" : kind === "worker" ? "작업 세션" : (workspace.data?.name ?? "작업 공간")} · {engineText}
+      {kind === "desk" ? "접수" : isLead ? "기획 세션" : isOrch ? "오케스트레이터" : kind === "worker" ? "작업 세션" : (workspace.data?.name ?? "작업 공간")} · {engineText}
       {session.data.model ? ` · ${session.data.model}` : ""}
     </>
   );
@@ -264,13 +268,13 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
               {parentId && (
                 <Link className="tk-button tk-button--sm tk-button--ghost" to={`/chat/${parentId}`}>
                   <Icon name="back" />
-                  오케스트레이터
+                  {parentLabel}
                 </Link>
               )}
               {isOrch && (
                 <button className="tk-button tk-button--sm orch-workers-toggle" type="button" onClick={() => setWorkersOpen(true)} aria-haspopup="dialog">
                   <Icon name="workspace" />
-                  작업 세션{workerCount > 0 ? ` ${workerCount}` : ""}
+                  {childLabel}{workerCount > 0 ? ` ${workerCount}` : ""}
                 </button>
               )}
               <Link className="tk-icon-button" to={`/workspace/${sessionId}`} aria-label="작업 공간 열기">
@@ -421,14 +425,14 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
       </ArtifactViewerHost>
       </div>
       {isOrch && sessionId && (
-        <aside className="orch-layout__aside" aria-label="작업 세션">
-          <WorkerPanel orchestratorId={sessionId} />
+        <aside className="orch-layout__aside" aria-label={childLabel}>
+          <WorkerPanel orchestratorId={sessionId} label={childLabel} />
         </aside>
       )}
       </div>
       {isOrch && sessionId && (
-        <Dialog size="lg" open={workersOpen} onClose={() => setWorkersOpen(false)} title="작업 세션" id="workers-modal">
-          <WorkerPanel orchestratorId={sessionId} inSheet />
+        <Dialog size="lg" open={workersOpen} onClose={() => setWorkersOpen(false)} title={childLabel} id="workers-modal">
+          <WorkerPanel orchestratorId={sessionId} label={childLabel} inSheet />
         </Dialog>
       )}
     </div>

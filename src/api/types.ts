@@ -78,8 +78,8 @@ export interface SessionIn {
   engine?: EngineName | null;
   model?: string | null;
   effort?: Effort | null;
-  /** orchestrator 면 엔진은 서버가 auto(Claude 우선, 한도면 다음 계정)로 고정한다. */
-  kind?: "chat" | "orchestrator";
+  /** orchestrator·desk 면 엔진은 서버가 auto 로 고정한다. desk 는 접수(ADR 0013): 바로 답하거나 기획 세션에 넘긴다. */
+  kind?: "chat" | "orchestrator" | "desk";
   pool?: AccountPool;
 }
 export interface SessionPatch {
@@ -96,7 +96,8 @@ export interface SessionOut {
   model: string | null;
   effort: string | null;
   engine_session_id: string | null;
-  kind: "chat" | "orchestrator" | "worker";
+  /** desk: 접수 · orchestrator: parent_id 가 있으면 접수가 만든 기획 세션, 없으면 옛 메인 오케스트레이터 · worker: 작업 세션 */
+  kind: "chat" | "orchestrator" | "worker" | "desk";
   parent_id: UUID | null;
   /** personal | work(회사 업무 탭) */
   pool: AccountPool;
@@ -137,8 +138,8 @@ export interface RunOut {
   cost_usd: number | null;
   usage: Record<string, unknown>;
   checkpoint_ref: string | null;
-  /** user: 내 지시 · report: 작업 세션 결과 보고 · orchestrator: 오케스트레이터가 작업 세션에 보낸 지시 */
-  origin: "user" | "report" | "orchestrator";
+  /** user: 내 지시 · report: 작업·기획 세션 결과 보고 · orchestrator: 오케스트레이터가 작업 세션에 보낸 지시 · desk: 접수가 기획 세션에 넘긴 요청 */
+  origin: "user" | "report" | "orchestrator" | "desk";
   /** 실제로 실행한 엔진 계정 이름(폴백하면 마지막 계정) */
   profile: string | null;
   last_seq: number;
@@ -206,7 +207,8 @@ export interface SystemInfo {
   engines: Record<EngineName, boolean>;
   preview_converter: boolean;
   allowed_roots: string[];
-  max_concurrent_runs: number;
+  /** 역할별 동시 실행 자리(ADR 0013) */
+  max_concurrent: { desk: number; leads: number; workers: number };
 }
 export interface StopAllOut {
   stopped: UUID[];

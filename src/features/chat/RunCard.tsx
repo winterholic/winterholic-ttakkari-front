@@ -101,7 +101,7 @@ export function RunCard({ run, view, onStop, onRetry }: { run: RunOut; view: Run
   const [showAll, setShowAll] = useState(false);
   const [showLog, setShowLog] = useState(false);
   // 결과 보고 Run 은 원문(작업 세션 ID 등)이 길어 제목으로 쓰지 않는다.
-  const title = run.origin === "report" ? "작업 보고 정리" : run.prompt.split("\n")[0].slice(0, 60);
+  const title = run.origin === "report" ? (run.prompt.startsWith("[기획 보고]") ? "기획 보고" : "작업 보고 정리") : run.prompt.split("\n")[0].slice(0, 60);
   const writes = view.steps.filter((s) => s.name.startsWith("파일 쓰기") || s.name.startsWith("파일 고치기")).length;
   const steps = live && !showAll ? view.steps.slice(-VISIBLE_STEPS) : view.steps;
   const hidden = view.steps.length - steps.length;
