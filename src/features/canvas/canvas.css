@@ -1,0 +1,125 @@
+/* 작업 트리 캔버스(back ADR 0014). 디자인 시스템 토큰만 쓴다.
+   노드는 카드(surface.default + border.default), 선은 border.strong, 일이 도는 가지만 agent.live.
+   사람이 고른 것(선택 노드)은 파랑(interactive.selected), 에이전트가 하고 있는 것은 민트 계열 — 01 절대 규칙 3. */
+.tcanvas {
+  position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden;
+  background-color: var(--tk-color-surface-canvas); cursor: grab; touch-action: none; user-select: none;
+}
+.tcanvas[data-panning] { cursor: grabbing; }
+.tcanvas__stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+.tcanvas__edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
+.tcanvas__edge { fill: none; stroke: var(--tk-color-border-strong); stroke-width: var(--tk-border-width-hairline); transition: opacity var(--tk-motion-duration-fast) var(--tk-motion-easing-standard); }
+.tcanvas__edge[data-live] { stroke: var(--tk-color-agent-live); stroke-width: var(--tk-border-width-strong); stroke-dasharray: 6 4; animation: tc-flow var(--tk-motion-duration-live) var(--tk-motion-easing-linear) infinite; }
+.tcanvas__edge[data-dim] { opacity: 0.35; }
+.tcanvas__arrow { fill: none; stroke: var(--tk-color-border-strong); stroke-width: 1.5; }
+.tcanvas__arrow--live { stroke: var(--tk-color-agent-live); }
+/* 선을 따라 흐르는 점선: 일이 아래로 내려가고 있다는 뜻. 움직임 줄이기를 켜면 멈춘 점선으로 둔다 */
+@keyframes tc-flow { to { stroke-dashoffset: -20; } }
+@media (prefers-reduced-motion: reduce) { .tcanvas__edge[data-live] { animation: none; } }
+
+.tnode {
+  position: absolute; display: flex; box-sizing: border-box;
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg);
+  background: var(--tk-color-surface-default); box-shadow: var(--tk-shadow-sm);
+  transition: opacity var(--tk-motion-duration-fast) var(--tk-motion-easing-standard), border-color var(--tk-motion-duration-fast) var(--tk-motion-easing-standard);
+}
+/* 일이 도는 노드: 실행 카드처럼 왼쪽 레일 */
+.tnode[data-live] { border-left: var(--tk-border-width-accent) solid var(--tk-color-agent-live); }
+.tnode[data-status="failed"] { border-left: var(--tk-border-width-accent) solid var(--tk-color-run-failed-icon); }
+.tnode[data-selected] { border-color: var(--tk-color-interactive-selected-border); box-shadow: 0 0 0 var(--tk-border-width-hairline) var(--tk-color-interactive-selected-border), var(--tk-shadow-md); }
+.tnode[data-dim] { opacity: 0.45; }
+.tnode--desk { background: var(--tk-color-surface-raised); border-color: var(--tk-color-border-strong); }
+.tnode__main {
+  display: flex; align-items: center; gap: var(--tk-space-3); flex: 1 1 auto; min-width: 0;
+  padding: var(--tk-space-3) var(--tk-space-4); border: 0; border-radius: inherit; background: none; color: inherit; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .tnode__main:hover { background: var(--tk-color-interactive-hover-overlay); } }
+.tnode__main:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }
+.tnode__main > .task-glyph { flex: none; }
+.tnode__text { display: flex; flex-direction: column; gap: var(--tk-space-0-5); flex: 1 1 auto; min-width: 0; }
+.tnode__title, .tnode__sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tnode__title { color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.tnode__sub { color: var(--tk-color-text-secondary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.tnode[data-live] .tnode__sub { color: var(--tk-color-text-agent); }
+.tnode__kind { margin-right: var(--tk-space-1-5); color: var(--tk-color-text-tertiary); font-weight: var(--tk-font-weight-medium); }
+.tnode__pool { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }
+/* 접기·펴기: 카드 아래 가운데, 선이 나가는 자리에 걸친다 */
+.tnode__fold {
+  position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 50%);
+  display: inline-grid; place-items: center; min-width: var(--tk-size-control-xs); height: var(--tk-size-control-xs); padding-inline: var(--tk-space-1-5);
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-strong); border-radius: var(--tk-radius-full);
+  background: var(--tk-color-surface-default); color: var(--tk-color-text-secondary); cursor: pointer;
+  font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1 var(--tk-font-family-sans); font-variant-numeric: tabular-nums;
+}
+.tnode__fold > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); }
+.tnode__fold[data-live] { border-color: var(--tk-color-agent-live); color: var(--tk-color-text-agent); }
+@media (hover: hover) { .tnode__fold:hover { border-color: var(--tk-color-interactive-selected-border); color: var(--tk-color-text-primary); } }
+.tnode__fold:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }
+@media (prefers-reduced-motion: reduce) { .tnode, .tcanvas__edge { transition: none; } }
+
+/* 확대 막대: 오른쪽 아래 */
+.tcanvas__zoom {
+  /* 아래에 떠 있는 입력창(--tc-inset, TaskCanvas 가 넣는다) 위로 올린다 */
+  position: absolute; right: var(--tk-space-4); bottom: calc(var(--tk-space-4) + var(--tc-inset, 0px)); display: flex; align-items: center; gap: var(--tk-space-0-5);
+  padding: var(--tk-space-1); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-full);
+  background: var(--tk-color-surface-raised); box-shadow: var(--tk-shadow-md); cursor: default;
+}
+.tcanvas__pct {
+  min-width: calc(var(--tk-size-control-sm) * 1.5); height: var(--tk-size-control-sm); padding: 0 var(--tk-space-2); border: 0; border-radius: var(--tk-radius-full);
+  background: none; color: var(--tk-color-text-secondary); cursor: pointer;
+  font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1 var(--tk-font-family-sans); font-variant-numeric: tabular-nums;
+}
+@media (hover: hover) { .tcanvas__pct:hover { background: var(--tk-color-interactive-hover-overlay); color: var(--tk-color-text-primary); } }
+.tcanvas__pct:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }
+
+/* 홈: 왼쪽 캔버스 + 오른쪽 패널(데스크톱). 패널 폭은 분할 화면 토큰 사이에서 화면에 맞춘다 */
+.home { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.home__canvas { position: relative; display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.home__loading { margin: auto; }
+.home__panel {
+  display: flex; flex-direction: column; flex: 0 0 clamp(var(--tk-size-layout-pane-min), 32vw, var(--tk-size-layout-workspace)); min-width: 0; min-height: 0;
+  border-left: var(--tk-border-width-hairline) solid var(--tk-color-border-default); background: var(--tk-color-surface-canvas);
+}
+.home__panel-head {
+  display: flex; align-items: center; gap: var(--tk-space-2); flex: none; min-height: var(--tk-size-layout-toolbar);
+  padding: 0 var(--tk-space-3) 0 var(--tk-space-4); border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); background: var(--tk-color-surface-subtle);
+}
+.home__panel-head > h2 { flex: 1 1 auto; margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.desk-thread { flex: 1 1 auto; min-height: 0; }
+.desk-thread__inner { padding: var(--tk-space-4); }
+
+/* 판 위에 뜨는 것들 */
+.home__top {
+  position: absolute; top: var(--tk-space-4); left: 50%; transform: translateX(-50%); z-index: var(--tk-z-index-raised);
+  display: flex; align-items: center; gap: var(--tk-space-2); width: min(calc(100% - 2 * var(--tk-space-4)), var(--tk-size-container-sm)); cursor: default;
+}
+.home__search { position: relative; flex: 1 1 auto; min-width: 0; }
+.home__search .tk-input { box-shadow: var(--tk-shadow-sm); background: var(--tk-color-surface-raised); }
+.home__pins { flex: none; }
+.home__pins > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); }
+.home__results {
+  position: absolute; top: calc(100% + var(--tk-space-1)); left: 0; right: 0; max-height: 50vh; overflow-y: auto;
+  padding: var(--tk-space-1); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg);
+  background: var(--tk-color-surface-raised); box-shadow: var(--tk-shadow-md);
+}
+.home__results-list { margin: 0; padding: 0; list-style: none; }
+.home__results-note { margin: 0; padding: var(--tk-space-2) var(--tk-space-3); color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.home__result {
+  display: flex; align-items: center; gap: var(--tk-space-2); width: 100%; min-height: var(--tk-size-control-lg); padding: var(--tk-space-1-5) var(--tk-space-3);
+  border: 0; border-radius: var(--tk-radius-md); background: none; color: inherit; text-align: left; cursor: pointer;
+}
+@media (hover: hover) { .home__result:hover { background: var(--tk-color-interactive-hover-overlay); } }
+.home__result:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(-1 * var(--tk-focus-ring-width)); }
+.home__result-text { display: flex; flex-direction: column; min-width: 0; }
+.home__result-title, .home__result-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home__result-title { color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.home__result-path { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.home__empty {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; max-width: 40ch; text-align: center; cursor: default;
+  color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
+}
+.home__notice { position: absolute; left: 50%; top: calc(var(--tk-space-4) + var(--tk-size-control-lg) + var(--tk-space-2)); transform: translateX(-50%); }
+.home__composer { position: absolute; left: 0; right: 0; bottom: 0; z-index: var(--tk-z-index-raised); pointer-events: none; }
+.home__composer .tk-composer-tray { position: static; background: none; pointer-events: none; }
+.home__composer .tk-composer { pointer-events: auto; box-shadow: var(--tk-shadow-md); }
+

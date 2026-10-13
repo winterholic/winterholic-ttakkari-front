@@ -21,6 +21,13 @@ const SCOPES: { value: AccountPool | null; label: string }[] = [
 const FIELD_LABEL: Record<TaskHit["field"], string> = { title: "제목", prompt: "지시", result: "결과" };
 const SEARCH_DEBOUNCE_MS = 250;
 
+/** 지난 일은 캔버스에 그 뿌리를 불러와(pin) 그 노드를 고른 채로 연다. 접수 대화는 대화 화면으로 간다. */
+function boardLink(pool: AccountPool, rootId: string | null, nodeId: string): string {
+  const base = pool === "work" ? "/work" : "/chat";
+  if (!rootId) return `${base}/thread`;
+  return `${base}?${new URLSearchParams([["pin", rootId], ["node", nodeId]])}`;
+}
+
 /**
  * 작업: 위에는 지금 도는 일의 트리, 아래는 지난 일을 뿌리 단위로 모아 둔 서고와 검색(back ADR 0014).
  * 서고의 줄은 뿌리 하나다. 펼치면 그 일의 트리 전체를 그 자리에서 불러온다.
@@ -211,7 +218,7 @@ function LibraryRow({ root }: { root: TaskRoot }) {
         ) : (
           <span className="task-row__toggle" aria-hidden="true" />
         )}
-        <Link className="tasks-row__link" to={`/chat/${root.id}`}>
+        <Link className="tasks-row__link" to={boardLink(root.pool, root.kind === "desk" ? null : root.id, root.id)}>
           <span className="tk-list__body">
             <span className="tasks-row__top">
               <StatusGlyph status={status} />
@@ -286,7 +293,7 @@ function SearchResults({ q, pool }: { q: string; pool: AccountPool | null }) {
       <ul className="tk-list tk-list--inset">
         {r.data.map((h) => (
           <li key={h.node.id}>
-            <Link className="tk-list__item tk-list__item--interactive tasks-hit" to={`/chat/${h.node.id}`}>
+            <Link className="tk-list__item tk-list__item--interactive tasks-hit" to={boardLink(h.node.pool, h.node.kind === "desk" ? null : h.root_id, h.node.id)}>
               <span className="tk-list__body">
                 {h.path.length > 1 && (
                   <span className="tasks-hit__path">

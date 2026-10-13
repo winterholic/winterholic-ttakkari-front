@@ -91,6 +91,7 @@ export function AppShell() {
   const { state } = useAuth();
   const { sessionId } = useParams();
   const location = useLocation();
+  const isHome = location.pathname === "/chat" || location.pathname === "/work";
   const connection = useConnection(state === "in");
   useShortcuts();
   useKeyboardOpen();
@@ -129,7 +130,8 @@ export function AppShell() {
           </div>
           <nav className="tk-sidebar" aria-label="영역과 진행 중인 일">
             <SidebarLinks />
-            <ActiveTasks currentId={sessionId} />
+            {/* 캔버스 홈은 판 자체가 트리라 사이드바 트리를 숨긴다 */}
+            {!isHome && <ActiveTasks currentId={sessionId} />}
           </nav>
           <SidebarFooter connection={connection} />
         </aside>

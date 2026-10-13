@@ -14,6 +14,7 @@ import { MemosPage } from "./pages/MemosPage";
 import { MorePage } from "./pages/MorePage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { TasksPage } from "./pages/TasksPage";
+import { DeskHome } from "./pages/DeskHome";
 import { AppShell } from "./shell/AppShell";
 
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
@@ -40,9 +41,12 @@ export function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route element={<AppShell />}>
-        <Route path="/chat" element={<ChatPage />} />
+        {/* /chat·/work 는 맡긴 일의 계층 캔버스(ADR 0014), /thread 는 따까리 대화 전체 화면 */}
+        <Route path="/chat" element={<DeskHome pool="personal" />} />
+        <Route path="/chat/thread" element={<ChatPage />} />
         <Route path="/chat/:sessionId" element={<ChatPage />} />
-        <Route path="/work" element={<ChatPage pool="work" />} />
+        <Route path="/work" element={<DeskHome pool="work" />} />
+        <Route path="/work/thread" element={<ChatPage pool="work" />} />
         <Route path="/work/:sessionId" element={<ChatPage pool="work" />} />
         <Route path="/tasks" element={<TasksPage />} />
         <Route path="/workspace" element={<WorkspacePage />} />

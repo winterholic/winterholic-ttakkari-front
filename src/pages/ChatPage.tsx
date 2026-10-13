@@ -141,11 +141,11 @@ function PoolSwitch({ pool }: { pool: AccountPool }) {
   return (
     <div className="tk-segmented" role="radiogroup" aria-label="모드">
       <label>
-        <input type="radio" name="desk-pool" checked={pool === "personal"} onChange={() => navigate("/chat")} />
+        <input type="radio" name="desk-pool" checked={pool === "personal"} onChange={() => navigate("/chat/thread")} />
         개인
       </label>
       <label>
-        <input type="radio" name="desk-pool" checked={pool === "work"} onChange={() => navigate("/work")} />
+        <input type="radio" name="desk-pool" checked={pool === "work"} onChange={() => navigate("/work/thread")} />
         <Icon name="briefcase" />
         회사
       </label>
@@ -378,6 +378,12 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
         actions={
           session.data && (
             <>
+              {isDesk && (
+                <Link className="tk-button tk-button--sm tk-button--ghost" to={deskHome}>
+                  <Icon name="tasks" />
+                  판 보기
+                </Link>
+              )}
               {isDesk && <PoolSwitch pool={pool} />}
               <Link className="tk-icon-button" to={`/workspace/${sessionId}`} aria-label="작업 공간 열기">
                 <Icon name="workspace" />

@@ -34,6 +34,8 @@ export interface RunBlockProps {
   /** 따까리 대화에서만 준다. 넘긴 일의 트리 카드를 답 아래에 붙이고, 줄을 누르면 옆 서랍을 연다(ADR 0014). */
   onOpenNode?: (id: string) => void;
   selectedNode?: string | null;
+  /** chip: 트리 카드 대신 여는 버튼만(캔버스 옆 패널처럼 트리가 이미 보이는 곳). */
+  leadAs?: "card" | "chip";
 }
 
 /** 이 Run 이 일을 넘긴 기획 세션. 접수 메시지는 desk.delegated 이벤트, 기획 보고는 프롬프트의 lead_id 로 안다. */
@@ -46,7 +48,7 @@ export function leadOf(run: RunOut, events: RunEvent[]): string | null {
   return null;
 }
 
-export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettled, onOpenNode, selectedNode }: RunBlockProps) {
+export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettled, onOpenNode, selectedNode, leadAs = "card" }: RunBlockProps) {
   const active = ACTIVE.includes(run.status);
   const stream = useRunStream(active ? run.id : null);
   // 끝난 Run 은 이벤트가 더 생기지 않는다. 한 번 읽고 캐시한다.
@@ -58,10 +60,10 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
   // 같은 기획 세션의 보고는 매 턴 붙는다. 트리는 처음 넘긴 자리의 카드가 보여 주므로 보고에는 여는 버튼만 둔다.
   const attached =
     lead && onOpenNode ? (
-      run.origin === "report" ? (
+      run.origin === "report" || leadAs === "chip" ? (
         <button className="tk-chip lead-chip" type="button" aria-pressed={selectedNode === lead} onClick={() => onOpenNode(lead)}>
           <Icon name="tasks" />
-          맡긴 일 열기
+          {run.origin === "report" ? "맡긴 일 열기" : "판에서 보기"}
         </button>
       ) : (
         <TaskTreeCard rootId={lead} selectedId={selectedNode} onSelect={onOpenNode} />

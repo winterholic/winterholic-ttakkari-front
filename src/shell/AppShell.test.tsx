@@ -177,8 +177,14 @@ describe("AppShell 인증 가드", () => {
   });
 
   it("도는 일이 없으면 빈 상태 안내를 보여 준다", async () => {
-    renderAt("/chat");
+    renderAt("/library");
     const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
     expect(await within(nav).findByText(/지금 도는 일이 없어요/)).toBeTruthy();
+  });
+
+  it("캔버스 홈(/chat)은 판 자체가 트리라 사이드바 트리를 숨긴다", () => {
+    renderAt("/chat");
+    const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
+    expect(within(nav).queryByText("진행 중")).toBeNull();
   });
 });
