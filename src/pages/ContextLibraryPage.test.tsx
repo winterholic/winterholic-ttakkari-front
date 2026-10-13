@@ -121,6 +121,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   for (const f of Object.values(h)) f.mockReset();
 });
 
@@ -153,6 +154,14 @@ describe("맥락 도서관 화면", () => {
     fireEvent.click(await screen.findByRole("button", { name: /README/ }));
     expect(await screen.findByText("알파 설명 본문")).toBeTruthy();
     expect(h.libDocumentChunks).toHaveBeenCalledWith("d1", "all");
+  });
+
+  it("좁은 화면에서는 작은 트리맵 조각 대신 모음 목록으로 탐색한다", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    mount("/context-library?tab=structure");
+    expect(await screen.findByRole("button", { name: /Alpha/ })).toBeTruthy();
+    expect(screen.queryByRole("radio", { name: "트리맵" })).toBeNull();
+    expect(screen.queryByRole("group", { name: /트리맵/ })).toBeNull();
   });
 
   it("구조 트리맵: 모음 타일이 면적 설명과 함께 버튼으로 나온다", async () => {

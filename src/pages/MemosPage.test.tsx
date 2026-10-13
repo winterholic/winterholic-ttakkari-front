@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 
@@ -55,6 +55,7 @@ function mount(url: string) {
 }
 
 beforeEach(() => {
+  vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   h.listMemos.mockReset().mockResolvedValue({ memos: MEMOS });
   h.listMemoTags.mockReset().mockResolvedValue({ tags: [{ name: "업무", count: 1 }, { name: "생활", count: 1 }] });
   h.listMemoCategories.mockReset().mockResolvedValue(CATS);
@@ -65,7 +66,7 @@ beforeEach(() => {
     this.removeAttribute("open");
   };
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("메모 목록 거르기", () => {
   it("검색어는 디바운스한 뒤 목록 요청에 포함한다", async () => {
@@ -92,5 +93,38 @@ describe("메모 목록 거르기", () => {
     const tagGroup = await screen.findByRole("group", { name: "태그로 좁히기" });
     fireEvent.click(tagGroup.querySelector("button")!);
     await waitFor(() => expect(h.listMemos).toHaveBeenLastCalledWith({ q: undefined, tags: ["업무"], category: "c1" }));
+  });
+});
+
+
+describe("메모 편집 화면", () => {
+  it("모바일에서는 목록과 모달 대신 편집 페이지를 열고 목록으로 돌아간다", async () => {
+    vi.stubGlobal("matchMedia", vi.fn(() => ({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
+    mount("/memos/new?c=c1&t=업무");
+    expect(await screen.findByRole("textbox", { name: "본문" })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "새 메모" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "메모 목록" })).toBeNull();
+    const back = screen.getByRole("link", { name: "메모 목록으로" });
+    expect(back.getAttribute("href")).toBe("/memos?c=c1&t=%EC%97%85%EB%AC%B4");
+    fireEvent.click(back);
+    expect(await screen.findByRole("region", { name: "메모 목록" })).toBeTruthy();
+  });
+
+  it("작성 도중 화면을 회전해도 편집기를 새로 만들지 않는다", async () => {
+    const listeners = new Set<() => void>();
+    const media = { matches: true, addEventListener: (_: string, f: () => void) => listeners.add(f), removeEventListener: (_: string, f: () => void) => listeners.delete(f) };
+    vi.stubGlobal("matchMedia", vi.fn(() => media));
+    mount("/memos/new");
+    const body = await screen.findByRole("textbox", { name: "본문" });
+    fireEvent.change(body, { target: { value: "회전해도 남아야 하는 초안" } });
+    act(() => { media.matches = false; listeners.forEach(f => f()); });
+    expect((screen.getByRole("textbox", { name: "본문" }) as HTMLTextAreaElement).value).toBe("회전해도 남아야 하는 초안");
+    expect(screen.queryByRole("dialog", { name: "새 메모" })).toBeNull();
+  });
+
+  it("데스크톱에서는 기존 메모 모달을 유지한다", async () => {
+    mount("/memos/new");
+    expect(await screen.findByRole("dialog", { name: "새 메모" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "메모 목록" })).toBeTruthy();
   });
 });

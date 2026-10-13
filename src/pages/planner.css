@@ -1,6 +1,6 @@
 /* 메모·캘린더. 디자인 시스템 토큰만 쓴다(hex·dark: 금지). */
 
-/* ---- 메모: 화면은 목록, 상세·편집은 가운데 모달(#memo-dialog). 모달 본문만 안에서 스크롤한다(shell.css .tk-dialog) */
+/* ---- 메모: 모바일 편집은 페이지, 데스크톱 편집은 가운데 모달(#memo-dialog). */
 .planner-memos__list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: var(--tk-space-3) var(--tk-space-4) var(--tk-space-6); }
 .planner-memos__list .tk-list__title { display: flex; align-items: center; gap: var(--tk-space-1); }
 .planner-memos__list .tk-list__title > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-brand); }
@@ -102,6 +102,14 @@
 .memo-editor__preview { flex: 1 1 auto; }
 .memo-editor__preview-title { margin: 0 0 var(--tk-space-3); color: var(--tk-color-text-primary); font: var(--tk-font-weight-bold) var(--tk-font-size-xl) / var(--tk-font-line-height-heading) var(--tk-font-family-sans); }
 .memo-editor__note { margin: 0; }
+.memo-page__body { padding: var(--tk-space-3) var(--tk-size-layout-page-gutter); }
+.memo-page .memo-editor { min-height: 100%; }
+.memo-page .memo-editor__body { flex: 1 0 auto; min-height: 20rem; }
+.memo-page .memo-editor__bar { flex-wrap: wrap; position: sticky; top: 0; z-index: var(--tk-z-index-sticky); padding-block: var(--tk-space-1); background: var(--tk-color-surface-default); }
+.memo-page .memo-editor__status { overflow-wrap: anywhere; }
+.memo-editor__tag { max-width: 100%; }
+.memo-editor__tag > span { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
+.memo-editor__tag-add > .tk-input { min-width: 0; }
 
 /* ---- 일정 편집 폼 */
 .planner-form { display: flex; flex-direction: column; gap: var(--tk-space-4); }

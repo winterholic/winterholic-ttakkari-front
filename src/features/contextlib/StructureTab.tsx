@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { libDocumentChunks, libSourceDocuments, libTree } from "../../api/client";
 import type { LibScope, LibTreeCategory, LibTreeGroup, LibTreeSource } from "../../api/client";
 import { Icon } from "../../ui/Icon";
+import { useMediaQuery } from "../../shell/useMediaQuery";
 import { EmptyState, ListSkeleton } from "../viewer/screenStates";
 import { inset, squarify, withFloor } from "./treemap";
 import type { Placed } from "./treemap";
@@ -169,7 +170,8 @@ function GroupDetail({ group, category, scope }: { group: LibTreeGroup; category
 
 export function StructureTab({ scope }: { scope: LibScope }) {
   const q = useQuery({ queryKey: ["ctxlib", "tree", scope], queryFn: () => libTree(scope) });
-  const [view, setView] = useState<View>(() => (typeof window !== "undefined" && window.matchMedia?.("(max-width: 640px)").matches ? "list" : "treemap"));
+  const compact = useMediaQuery("(max-width: 640px)");
+  const [view, setView] = useState<View>("treemap");
   const [sel, setSel] = useState<{ category: string; group: LibTreeGroup } | null>(null);
   if (q.isError) return <LibError error={q.error} what="구조" onRetry={() => void q.refetch()} />;
   if (!q.data) return <ListSkeleton rows={5} label="구조를 불러오는 중" />;
@@ -181,16 +183,16 @@ export function StructureTab({ scope }: { scope: LibScope }) {
   const selKey = sel && current ? gkey(sel.category, current) : null;
   return (
     <div className="cl-stack">
-      <Section id="cl-st-map" title="구조" hint="종류 → 프로젝트·모음 → 출처 → 문서 순서예요. 면적은 조각 수, 색은 종류예요. 눌러서 안을 봐요.">
+      <Section id="cl-st-map" title="구조" hint={compact ? "종류별 프로젝트·모음 목록이에요. 누르면 출처·문서·조각을 볼 수 있어요." : "종류 → 프로젝트·모음 → 출처 → 문서 순서예요. 면적은 조각 수, 색은 종류예요. 눌러서 안을 봐요."}>
         <div className="cl-toolbar">
           <Legend items={cats.map((c) => ({ key: c.category, label: categoryLabel(c.category), color: CATEGORY_COLOR[c.category] ?? CATEGORY_COLOR.health }))} />
-          <div className="tk-segmented" role="radiogroup" aria-label="보기 방식">
+          {!compact && <div className="tk-segmented" role="radiogroup" aria-label="보기 방식">
             {(["treemap", "list"] as const).map((v) => (
               <label key={v}><input type="radio" name="cl-structure-view" checked={view === v} onChange={() => setView(v)} />{v === "treemap" ? "트리맵" : "목록"}</label>
             ))}
-          </div>
+          </div>}
         </div>
-        {view === "treemap" ? <Treemap cats={cats} selected={selKey} onSelect={pick} /> : <GroupList cats={cats} selected={selKey} onSelect={pick} />}
+        {!compact && view === "treemap" ? <Treemap cats={cats} selected={selKey} onSelect={pick} /> : <GroupList cats={cats} selected={selKey} onSelect={pick} />}
         <p className="cl-note">건강 종류는 아직 데이터가 없어서 나오지 않아요(ADR 0009).</p>
       </Section>
       {sel && current ? <GroupDetail key={selKey} group={current} category={sel.category} scope={scope} /> : <p className="cl-note">위에서 프로젝트나 모음을 누르면 출처·문서·조각을 볼 수 있어요.</p>}

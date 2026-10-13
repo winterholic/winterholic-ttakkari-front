@@ -172,10 +172,10 @@ function OverrideEditor({ accounts, pool, onClose, current }: {
           )}
         />
         {rest.length > 0 && (
-          <div className="tk-chips" role="group" aria-label="더할 계정">
+          <div className="tk-chips override-accounts" role="group" aria-label="더할 계정">
             {rest.map((a) => (
               <button key={a.id} className="tk-chip" type="button" disabled={save.isPending} onClick={() => setOrder([...order, a])}>
-                <Icon name="plus" />{a.name}
+                <Icon name="plus" /><span>{a.name}</span>
               </button>
             ))}
           </div>

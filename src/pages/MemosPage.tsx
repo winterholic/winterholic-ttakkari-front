@@ -8,6 +8,7 @@ import { MemoEditor } from "../features/planner/MemoEditor";
 import { formatWhen } from "../features/viewer/kinds";
 import { EmptyState, ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { PageHeader } from "../shell/PageHeader";
+import { useMediaQuery } from "../shell/useMediaQuery";
 import { Dialog } from "../ui/Dialog";
 import { Icon } from "../ui/Icon";
 import "./planner.css";
@@ -23,8 +24,8 @@ function useDebounced<T>(value: T, ms = 300): T {
 }
 
 /**
- * 메모(ADR 0008). 화면은 목록이고, 메모 상세·편집은 `/memos/:id` 일 때 가운데 모달로 연다(전체 화면 패널은 쓰지 않는다).
- * `/memos/new` 는 아직 저장 전인 새 메모다. 모달을 닫으면 편집기가 내려가며 남은 변경을 바로 저장한다.
+ * 메모 상세·편집은 모바일에서 페이지, 데스크톱에서 가운데 모달로 연다.
+ * `/memos/new` 는 아직 저장 전인 새 메모다. 편집기를 떠나면 남은 변경을 바로 저장한다.
  *
  * 거르기는 세 겹이다: 카테고리(하나 고르기, 맨 위 칩 줄) → 태그(여러 개, 모두 가진 메모만) → 검색어.
  * 카테고리·태그는 주소(`?c=`, `?t=`)에 두어 메모를 열고 닫거나 새로 고쳐도 보던 자리가 그대로다.
@@ -32,6 +33,10 @@ function useDebounced<T>(value: T, ms = 300): T {
  */
 export function MemosPage() {
   const { memoId } = useParams();
+  const mobile = useMediaQuery("(max-width: 767px)");
+  // 작성 중 회전으로 편집기가 재생성되면 아직 저장 전인 새 메모의 초안과 서버 ID를 잃는다.
+  const [editorLayout, setEditorLayout] = useState({ memoId, mobile });
+  if (editorLayout.memoId !== memoId) setEditorLayout({ memoId, mobile });
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState("");
@@ -79,6 +84,23 @@ export function MemosPage() {
   const tagNames = [...tags, ...(tagCounts.data?.tags ?? []).map((t) => t.name).filter((n) => !tags.includes(n))];
   const current = category && category !== "none" ? catById.get(category) : undefined;
   const showCategoryOnItems = !category && catList.length > 0;
+
+  if (editorLayout.mobile && memoId) {
+    return (
+      <div className="tk-screen memo-page">
+        <header className="tk-header">
+          <div className="tk-header__inner">
+            <Link className="tk-icon-button" to={`/memos${qs}`} aria-label="메모 목록으로"><Icon name="back" /></Link>
+            <div className="tk-header__title"><h1>{memoId === "new" ? "새 메모" : "메모"}</h1></div>
+            <Link className="tk-button tk-button--ghost tk-button--sm" to={`/memos${qs}`}>완료</Link>
+          </div>
+        </header>
+        <section className="tk-screen__body memo-page__body" aria-label="메모 편집">
+          <MemoEditor key={memoId} memoId={memoId} defaultCategory={category && category !== "none" ? category : null} />
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="tk-screen planner-memos">
