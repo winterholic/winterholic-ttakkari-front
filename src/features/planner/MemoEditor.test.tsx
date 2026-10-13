@@ -212,17 +212,84 @@ describe("메모 편집기 카테고리·태그", () => {
     await wait(10);
     const input = screen.getByLabelText("태그 추가");
     fireEvent.focus(input);
-    const suggest = screen.getByRole("group", { name: "태그 제안" });
-    expect(suggest.textContent).toContain("#장보기");
+    expect(screen.queryByRole("group", { name: "태그 제안" })).toBeNull(); // 포커스만으로는 제안을 열지 않는다
     type("태그 추가", "wo");
     expect(screen.getByRole("group", { name: "태그 제안" }).textContent).toContain("#Work");
     expect(screen.getByRole("group", { name: "태그 제안" }).textContent).not.toContain("#장보기");
     fireEvent.click(screen.getByRole("button", { name: "#Work" }));
-    type("태그 추가", "work");
-    fireEvent.keyDown(input, { key: "Enter" });
+    expect((input as HTMLInputElement).value).toBe("");
     type("태그 추가", "새태그");
-    fireEvent.click(screen.getByRole("button", { name: "새태그" }));
+    fireEvent.click(screen.getByRole("button", { name: "추가" }));
     await wait(900);
     expect(patchMemo).toHaveBeenLastCalledWith("m1", expect.objectContaining({ tags: ["Work", "새태그"] }));
+  });
+
+  describe("태그는 명시할 때만 붙는다", () => {
+    const tagsShown = () => [...document.querySelectorAll(".memo-editor__tag > span")].map((e) => e.textContent);
+
+    it("쓰다가 입력칸을 떠나도(blur) 태그가 붙지 않고, 쓰던 글자는 남는다", async () => {
+      getMemo.mockResolvedValue(memo({ tags: [] }));
+      mount("m1");
+      await screen.findByLabelText("본문");
+      const input = screen.getByLabelText("태그 추가") as HTMLInputElement;
+      input.focus();
+      type("태그 추가", "우연히");
+      // 본문을 눌러 포커스를 옮기는 상황
+      fireEvent.blur(input);
+      screen.getByLabelText("본문").focus();
+      await wait(2000);
+      expect(tagsShown()).toEqual([]);
+      expect(input.value).toBe("우연히");
+      expect(patchMemo).not.toHaveBeenCalled();
+    });
+
+    it("추가 버튼은 쓴 글자가 있을 때만 켜지고, 누르면 붙은 뒤 입력칸이 비워진다", async () => {
+      getMemo.mockResolvedValue(memo({ tags: [] }));
+      patchMemo.mockResolvedValue(memo({ tags: ["#새"], rev: 2 }));
+      mount("m1");
+      await screen.findByLabelText("본문");
+      const add = screen.getByRole("button", { name: "추가" }) as HTMLButtonElement;
+      expect(add.disabled).toBe(true);
+      type("태그 추가", "  ##새  ");
+      expect(add.disabled).toBe(false);
+      fireEvent.click(add);
+      expect(tagsShown()).toEqual(["새"]);
+      expect((screen.getByLabelText("태그 추가") as HTMLInputElement).value).toBe("");
+      expect(add.disabled).toBe(true);
+    });
+
+    it("Enter 로 붙고, 한글 조합 중의 Enter 는 붙이지 않는다", async () => {
+      getMemo.mockResolvedValue(memo({ tags: [] }));
+      mount("m1");
+      await screen.findByLabelText("본문");
+      const input = screen.getByLabelText("태그 추가");
+      type("태그 추가", "가나");
+      fireEvent.keyDown(input, { key: "Enter", isComposing: true });
+      expect(tagsShown()).toEqual([]);
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(tagsShown()).toEqual(["가나"]);
+    });
+
+    it("이미 있는 태그는 안내하고 붙이지 않는다. 빈 입력칸에서 Backspace 로 태그를 지우지도 않는다", async () => {
+      getMemo.mockResolvedValue(memo({ tags: ["집"] }));
+      mount("m1");
+      await screen.findByLabelText("본문");
+      const input = screen.getByLabelText("태그 추가");
+      fireEvent.keyDown(input, { key: "Backspace" });
+      expect(tagsShown()).toEqual(["집"]);
+      type("태그 추가", "집");
+      expect(screen.getByText("이미 붙어 있는 태그예요.")).toBeTruthy();
+      expect((screen.getByRole("button", { name: "추가" }) as HTMLButtonElement).disabled).toBe(true);
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect(tagsShown()).toEqual(["집"]);
+    });
+
+    it("붙인 태그는 x 버튼으로만 뺀다", async () => {
+      getMemo.mockResolvedValue(memo({ tags: ["집", "장보기"] }));
+      mount("m1");
+      await screen.findByLabelText("본문");
+      fireEvent.click(screen.getByRole("button", { name: "태그 집 빼기" }));
+      expect(tagsShown()).toEqual(["장보기"]);
+    });
   });
 });

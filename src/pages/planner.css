@@ -27,13 +27,13 @@
 .memo-tags { align-items: center; }
 .memo-tags > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
 .memo-tags__clear { color: var(--tk-color-text-tertiary); }
-/* 메모 화면 조작부는 iPhone에서도 44px 이상으로 누를 수 있게 한다. */
-.planner-memos .tk-chip { height: auto; min-height: var(--tk-size-touch-target-min); touch-action: manipulation; }
-.planner-memos .tk-filterbar .tk-input { --tk-_h: var(--tk-size-touch-target-min); }
-.planner-memos .memo-editor__bar > .tk-icon-button,
-.planner-memos .tk-dialog__header > .tk-icon-button { --tk-_h: var(--tk-size-touch-target-min); }
-.planner-memos .tk-button { min-height: var(--tk-size-touch-target-min); }
-.memo-editor__tag-x { min-width: var(--tk-size-touch-target-min); min-height: var(--tk-size-touch-target-min); align-items: center; justify-content: center; touch-action: manipulation; }
+/* 터치 영역: 보이는 크기는 디자인 시스템 그대로(칩 32px, 버튼 sm 32px)이고, 손가락으로는 투명한 ::after 로 44px 이상 눌린다.
+   칩 줄은 가로 스크롤 상자라 안쪽만 눌리므로, 줄 위아래에 같은 만큼 안쪽 여백을 주고 바깥 여백으로 되돌려 배치는 그대로 둔다. */
+.planner-memos .tk-chip { touch-action: manipulation; }
+@media (pointer: coarse) {
+  .planner-memos .tk-chips { padding-block: var(--tk-space-1-5); margin-block: calc(-1 * var(--tk-space-1)); }
+  .planner-memos .tk-chip::after { inset: calc(-1 * var(--tk-space-1-5)) 0; }
+}
 @media (min-width: 640px) {
   .memo-cats, .memo-tags { flex-wrap: wrap; overflow: visible; }
 }
@@ -62,28 +62,41 @@
 .memo-cats-manage__add { display: flex; gap: var(--tk-space-2); }
 .memo-cats-manage__add > .tk-input { flex: 1 1 auto; min-width: 0; }
 
-.memo-editor { display: flex; flex-direction: column; flex: 1 1 auto; gap: var(--tk-space-3); min-height: 0; }
+.memo-editor { display: flex; flex-direction: column; flex: 1 1 auto; gap: var(--tk-space-3); min-height: 0; padding-bottom: var(--memo-kbd-inset, 0px); }
 .memo-editor__bar { display: flex; align-items: center; gap: var(--tk-space-2); }
+/* 마지막 버튼의 오른쪽 끝을 모달 머리의 닫기 버튼(같은 -space-2 여백)과 맞춘다 */
+.memo-editor__bar > .tk-icon-button:last-child { margin-right: calc(-1 * var(--tk-space-2)); }
 .memo-editor__status { flex: 1 1 auto; min-width: 0; text-align: right; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .memo-editor__status[data-status="error"], .memo-editor__status[data-status="conflict"] { color: var(--tk-color-text-danger); }
 .memo-editor__fields { display: flex; flex-direction: column; flex: 1 1 auto; gap: var(--tk-space-3); min-height: 0; }
 .memo-editor__title { font-weight: var(--tk-font-weight-semibold); }
-.memo-editor__tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1-5); color: var(--tk-color-text-tertiary); }
-.memo-editor__tag-input {
-  flex: 1 1 8rem; min-width: 6rem; min-height: var(--tk-size-touch-target-min); width: auto; height: auto; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--tk-color-text-primary);
-  font-weight: var(--tk-font-weight-regular); font-size: var(--tk-font-size-md); line-height: var(--tk-font-line-height-normal);
-}
-.memo-editor__tag-input:focus { outline: none; }
-.memo-editor__tag-input:focus-visible { box-shadow: none; }
-.memo-editor__tag-x { display: inline-flex; margin: calc(-1 * var(--tk-space-2)); padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
-.memo-editor__tag-x > .tk-icon { --tk-_icon: var(--tk-size-icon-xs); }
 .memo-editor__cats { align-items: center; }
-.memo-editor__cats > .tk-icon, .memo-editor__suggest-new > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
-.memo-editor__suggest { margin-top: calc(-1 * var(--tk-space-2)); }
-.memo-editor__suggest-new { color: var(--tk-color-text-brand); border-style: dashed; }
+.memo-editor__cats > .tk-icon, .memo-editor__tags > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
+
+/* 태그: 아이콘 + (붙인 태그 → 입력과 추가 버튼 → 안내 → 제안) 세로로. 아이콘은 첫 줄 높이에 맞춘다 */
+.memo-editor__tags { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; column-gap: var(--tk-space-2); row-gap: var(--tk-space-2); }
+.memo-editor__tags > .tk-icon { margin-top: calc((var(--tk-component-chip-height) - var(--tk-size-icon-sm)) / 2); }
+.memo-editor__tags:not(:has(> .memo-editor__tag-list)) > .tk-icon { margin-top: calc((var(--tk-size-control-md) - var(--tk-size-icon-sm)) / 2); }
+.memo-editor__tags > :not(.tk-icon) { grid-column: 2; }
+.memo-editor__tag-list { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+.memo-editor__tag { cursor: default; padding-right: var(--tk-space-1); }
+.tk-chip.memo-editor__tag::after { content: none; }
+.memo-editor__tag-x {
+  position: relative; display: inline-grid; place-items: center; flex: none; width: var(--tk-size-control-xs); height: var(--tk-size-control-xs);
+  padding: 0; border: 0; border-radius: var(--tk-radius-full); background: transparent; color: var(--tk-color-text-tertiary); cursor: pointer; touch-action: manipulation;
+}
+.memo-editor__tag-x > .tk-icon { --tk-_icon: var(--tk-size-icon-xs); }
+@media (hover: hover) { .memo-editor__tag-x:hover { background: var(--tk-color-interactive-hover-overlay); color: var(--tk-color-text-primary); } }
+@media (pointer: coarse) { .memo-editor__tag-x::after { content: ""; position: absolute; inset: calc(-1 * var(--tk-space-2)) calc(-1 * var(--tk-space-1)); } }
+.memo-editor__tag-add { display: flex; align-items: center; gap: var(--tk-space-2); }
+.memo-editor__tag-add > .tk-input { flex: 1 1 auto; }
+.memo-editor__tag-add > .tk-button { flex: none; }
+.memo-editor__tag-issue { margin: 0; }
+.memo-editor__suggest { flex-wrap: wrap; overflow: visible; margin-block: calc(-1 * var(--tk-space-0-5)); }
 .memo-editor__preview-meta { margin: calc(-1 * var(--tk-space-2)) 0 var(--tk-space-3); }
+/* 높이는 내용만큼 자바스크립트가 맞춘다(caret.ts). 안에서 스크롤하지 않고 모달 본문 하나만 스크롤한다 */
 .memo-editor__body {
-  flex: 1 1 auto; min-height: 16rem; resize: none;
+  flex: none; min-height: 16rem; resize: none; overflow-y: hidden;
   font: var(--tk-font-weight-regular) var(--tk-font-size-md) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
 }
 .memo-editor__preview { flex: 1 1 auto; }

@@ -6,12 +6,13 @@ import remarkGfm from "remark-gfm";
 import { useNavigate } from "react-router";
 import { createMemo, deleteMemo, getMemo, listMemoTags, patchMemo } from "../../api/client";
 import type { MemoOut } from "../../api/client";
-import { Button } from "../../ui/Button";
+import { Button, IconButton } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { ErrorState } from "../viewer/screenStates";
+import { useCaretVisible } from "./caret";
 import { CategoryDot, useMemoCategories } from "./MemoCategories";
 import { useAutosave } from "./useAutosave";
 import type { SaveStatus } from "./useAutosave";
@@ -31,6 +32,9 @@ const isBlank = (d: Doc) => !d.title.trim() && !d.body.trim() && d.tags.length =
 const blank = (category_id: string | null): Doc => ({ title: "", body: "", tags: [], category_id, pinned: false });
 const docOf = (m: MemoOut): Doc => ({ title: m.title, body: m.body, tags: m.tags, category_id: m.category_id, pinned: m.pinned });
 const MAX_SUGGESTIONS = 12;
+const MAX_TAG_LENGTH = 30;
+const MAX_TAGS = 20;
+const cleanTag = (raw: string) => raw.trim().replace(/^#+/, "").trim();
 
 const STATUS_TEXT: Record<SaveStatus, string> = {
   saved: "저장됨",
@@ -67,13 +71,14 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
   const [doc, setDoc] = useState<Doc>(memo ? docOf(memo) : blank(defaultCategory));
   const [mode, setMode] = useState<"edit" | "preview">("edit");
   const [tagDraft, setTagDraft] = useState("");
-  const [tagFocus, setTagFocus] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
   const cats = useMemoCategories();
   const knownTags = useQuery({ queryKey: ["memos", "tags", null], queryFn: () => listMemoTags() });
   const [confirmDelete, setConfirmDelete] = useState(false);
   // 서버에 만든 뒤의 id 와 마지막으로 받은 버전. 렌더와 무관한 값이라 ref 로 둔다.
   const meta = useRef({ id: memo?.id ?? null, rev: memo?.rev ?? 0 });
   const [initial] = useState<Doc>(memo ? docOf(memo) : blank(defaultCategory));
+  useCaretVisible(bodyRef, doc.body, mode === "edit");
 
   const { status, flush, reset } = useAutosave(
     doc,
@@ -125,23 +130,34 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
 
   const set = (p: Partial<Doc>) => setDoc((d) => ({ ...d, ...p }));
   const all = knownTags.data?.tags ?? [];
-  const addTag = (raw: string) => {
-    let t = raw.trim().replace(/^#+/, "").trim();
-    // 대소문자만 다른 기존 태그가 있으면 그것을 다시 쓴다(같은 태그가 둘로 갈리지 않게).
-    t = all.find((x) => x.name.toLowerCase() === t.toLowerCase())?.name ?? t;
-    if (!t || t.length > 30 || doc.tags.includes(t) || doc.tags.length >= 20) return;
-    set({ tags: [...doc.tags, t] });
-  };
-  const needle = tagDraft.trim().replace(/^#+/, "").trim().toLowerCase();
-  const suggestions = all
-    .filter((t) => !doc.tags.includes(t.name) && (!needle || t.name.toLowerCase().includes(needle)))
-    .sort((a, b) => Number(b.name.toLowerCase().startsWith(needle)) - Number(a.name.toLowerCase().startsWith(needle)))
-    .slice(0, MAX_SUGGESTIONS);
-  const isNewTag = needle !== "" && !all.some((t) => t.name.toLowerCase() === needle) && !doc.tags.some((t) => t.toLowerCase() === needle);
-  const pickTag = (name: string) => {
-    addTag(name);
+  // 태그는 '추가' 버튼이나 Enter 로 명시할 때만 붙는다. 입력칸을 떠나거나(blur) 다른 곳을 눌러도 붙지 않는다.
+  const needle = cleanTag(tagDraft);
+  // 대소문자만 다른 기존 태그가 있으면 그것을 다시 쓴다(같은 태그가 둘로 갈리지 않게).
+  const canonical = all.find((x) => x.name.toLowerCase() === needle.toLowerCase())?.name ?? needle;
+  const draftIssue = !needle
+    ? ""
+    : needle.length > MAX_TAG_LENGTH
+      ? `태그는 ${MAX_TAG_LENGTH}자까지 쓸 수 있어요.`
+      : doc.tags.some((t) => t.toLowerCase() === needle.toLowerCase())
+        ? "이미 붙어 있는 태그예요."
+        : doc.tags.length >= MAX_TAGS
+          ? `태그는 ${MAX_TAGS}개까지 붙일 수 있어요.`
+          : "";
+  const canAddTag = needle !== "" && draftIssue === "";
+  const addTag = (name: string) => {
+    set({ tags: [...doc.tags, name] });
     setTagDraft("");
   };
+  const submitTag = () => {
+    if (canAddTag) addTag(canonical);
+  };
+  // 쓰는 중에만 이어서 고를 기존 태그를 보인다. 입력칸에 포커스만 가도 열리면 손가락 밑에서 칩이 바뀌어 잘못 눌린다.
+  const suggestions = needle
+    ? all
+        .filter((t) => !doc.tags.includes(t.name) && t.name.toLowerCase().includes(needle.toLowerCase()))
+        .sort((a, b) => Number(b.name.toLowerCase().startsWith(needle.toLowerCase())) - Number(a.name.toLowerCase().startsWith(needle.toLowerCase())))
+        .slice(0, MAX_SUGGESTIONS)
+    : [];
   const catList = cats.data?.categories ?? [];
   const docCat = catList.find((c) => c.id === doc.category_id);
   const onTagKey = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -149,10 +165,7 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
     if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
-      addTag(tagDraft);
-      setTagDraft("");
-    } else if (e.key === "Backspace" && !tagDraft && doc.tags.length) {
-      set({ tags: doc.tags.slice(0, -1) });
+      submitTag();
     }
   };
   const agentOwned = memo?.source === "agent";
@@ -173,12 +186,12 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
         <span className="memo-editor__status" role="status" data-status={status}>
           {STATUS_TEXT[status]}
         </span>
-        <button className="tk-icon-button" type="button" aria-pressed={doc.pinned} aria-label={doc.pinned ? "고정 풀기" : "맨 위에 고정"} onClick={() => set({ pinned: !doc.pinned })}>
+        <IconButton size="sm" aria-pressed={doc.pinned} aria-label={doc.pinned ? "고정 풀기" : "맨 위에 고정"} onClick={() => set({ pinned: !doc.pinned })}>
           <Icon name="pin" />
-        </button>
-        <button className="tk-icon-button" type="button" aria-label="메모 지우기" onClick={() => (meta.current.id ? setConfirmDelete(true) : navigate("/memos", { replace: true }))}>
+        </IconButton>
+        <IconButton size="sm" aria-label="메모 지우기" onClick={() => (meta.current.id ? setConfirmDelete(true) : navigate("/memos", { replace: true }))}>
           <Icon name="trash" />
-        </button>
+        </IconButton>
       </div>
 
       {conflict && (
@@ -224,49 +237,56 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
           )}
           <div className="memo-editor__tags">
             <Icon name="tag" />
-            {doc.tags.map((t) => (
-              <span className="tk-chip" key={t}>
-                {t}
-                <button type="button" className="memo-editor__tag-x" aria-label={`태그 ${t} 빼기`} onClick={() => set({ tags: doc.tags.filter((x) => x !== t) })}>
-                  <Icon name="x" />
-                </button>
-              </span>
-            ))}
-            <input
-              className="tk-input memo-editor__tag-input"
-              value={tagDraft}
-              placeholder={doc.tags.length ? "태그 추가" : "태그 추가 (입력 후 Enter)"}
-              aria-label="태그 추가"
-              aria-controls={`${id}-tag-suggest`}
-              autoComplete="off"
-              enterKeyHint="done"
-              onChange={(e) => setTagDraft(e.target.value)}
-              onKeyDown={onTagKey}
-              onFocus={() => setTagFocus(true)}
-              onBlur={() => {
-                setTagFocus(false);
-                addTag(tagDraft);
-                setTagDraft("");
-              }}
-            />
-          </div>
-          {tagFocus && (suggestions.length > 0 || isNewTag) && (
-            // 누르는 동안 입력칸이 포커스를 잃지 않게 pointerdown 을 막는다(키보드가 내려갔다 올라오지 않게).
-            <div className="tk-chips memo-editor__suggest" id={`${id}-tag-suggest`} role="group" aria-label="태그 제안" onPointerDown={(e) => e.preventDefault()}>
-              {isNewTag && (
-                <button type="button" className="tk-chip memo-editor__suggest-new" onClick={() => pickTag(tagDraft)}>
-                  <Icon name="plus" />
-                  <span>{tagDraft.trim().replace(/^#+/, "")}</span>
-                </button>
-              )}
-              {suggestions.map((t) => (
-                <button type="button" className="tk-chip" key={t.name} onClick={() => pickTag(t.name)}>
-                  #{t.name}
-                </button>
-              ))}
+            {doc.tags.length > 0 && (
+              <ul className="memo-editor__tag-list" aria-label="붙인 태그">
+                {doc.tags.map((t) => (
+                  <li className="tk-chip memo-editor__tag" key={t}>
+                    <span>{t}</span>
+                    <button type="button" className="memo-editor__tag-x" aria-label={`태그 ${t} 빼기`} onClick={() => set({ tags: doc.tags.filter((x) => x !== t) })}>
+                      <Icon name="x" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="memo-editor__tag-add">
+              <input
+                className="tk-input"
+                value={tagDraft}
+                placeholder="태그 입력"
+                aria-label="태그 추가"
+                aria-describedby={draftIssue ? `${id}-tag-issue` : undefined}
+                aria-invalid={draftIssue ? true : undefined}
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="done"
+                onChange={(e) => setTagDraft(e.target.value)}
+                onKeyDown={onTagKey}
+              />
+              <Button disabled={!canAddTag} onClick={submitTag}>
+                <Icon name="plus" />
+                추가
+              </Button>
             </div>
-          )}
+            {draftIssue && (
+              <p className="tk-help memo-editor__tag-issue" id={`${id}-tag-issue`}>
+                {draftIssue}
+              </p>
+            )}
+            {suggestions.length > 0 && (
+              <div className="tk-chips memo-editor__suggest" role="group" aria-label="태그 제안">
+                {suggestions.map((t) => (
+                  <button type="button" className="tk-chip" key={t.name} onClick={() => addTag(t.name)}>
+                    #{t.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <textarea
+            ref={bodyRef}
             className="tk-textarea memo-editor__body"
             value={doc.body}
             placeholder="마크다운으로 적어요. 예) # 제목, - 목록, **굵게**"
