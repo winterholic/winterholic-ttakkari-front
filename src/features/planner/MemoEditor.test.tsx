@@ -159,6 +159,12 @@ describe("메모 편집기 자동 저장", () => {
 });
 
 describe("메모 편집기 카테고리·태그", () => {
+  it("태그 입력은 공통 16px 입력 스타일을 사용해 iOS 자동 확대를 막는다", async () => {
+    mount("new");
+    const tagInput = await screen.findByLabelText("태그 추가");
+    expect(tagInput.classList.contains("tk-input")).toBe(true);
+  });
+
   it("새 메모는 목록에서 고른 카테고리로 만들어진다", async () => {
     createMemo.mockResolvedValue(memo({ id: "new1", category_id: "c1" }));
     mount("new", "c1");

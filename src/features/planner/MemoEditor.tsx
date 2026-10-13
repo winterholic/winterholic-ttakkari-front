@@ -233,7 +233,7 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
               </span>
             ))}
             <input
-              className="memo-editor__tag-input"
+              className="tk-input memo-editor__tag-input"
               value={tagDraft}
               placeholder={doc.tags.length ? "태그 추가" : "태그 추가 (입력 후 Enter)"}
               aria-label="태그 추가"

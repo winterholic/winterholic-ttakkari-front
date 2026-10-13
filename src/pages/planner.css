@@ -27,6 +27,13 @@
 .memo-tags { align-items: center; }
 .memo-tags > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
 .memo-tags__clear { color: var(--tk-color-text-tertiary); }
+/* 메모 화면 조작부는 iPhone에서도 44px 이상으로 누를 수 있게 한다. */
+.planner-memos .tk-chip { height: auto; min-height: var(--tk-size-touch-target-min); touch-action: manipulation; }
+.planner-memos .tk-filterbar .tk-input { --tk-_h: var(--tk-size-touch-target-min); }
+.planner-memos .memo-editor__bar > .tk-icon-button,
+.planner-memos .tk-dialog__header > .tk-icon-button { --tk-_h: var(--tk-size-touch-target-min); }
+.planner-memos .tk-button { min-height: var(--tk-size-touch-target-min); }
+.memo-editor__tag-x { min-width: var(--tk-size-touch-target-min); min-height: var(--tk-size-touch-target-min); align-items: center; justify-content: center; touch-action: manipulation; }
 @media (min-width: 640px) {
   .memo-cats, .memo-tags { flex-wrap: wrap; overflow: visible; }
 }
@@ -63,11 +70,12 @@
 .memo-editor__title { font-weight: var(--tk-font-weight-semibold); }
 .memo-editor__tags { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1-5); color: var(--tk-color-text-tertiary); }
 .memo-editor__tag-input {
-  flex: 1 1 8rem; min-width: 6rem; min-height: var(--tk-size-control-sm); padding: 0; border: 0; background: transparent; color: var(--tk-color-text-primary);
-  font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+  flex: 1 1 8rem; min-width: 6rem; min-height: var(--tk-size-touch-target-min); width: auto; height: auto; padding: 0; border: 0; border-radius: 0; background: transparent; color: var(--tk-color-text-primary);
+  font-weight: var(--tk-font-weight-regular); font-size: var(--tk-font-size-md); line-height: var(--tk-font-line-height-normal);
 }
 .memo-editor__tag-input:focus { outline: none; }
-.memo-editor__tag-x { display: inline-flex; margin-left: var(--tk-space-1); padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
+.memo-editor__tag-input:focus-visible { box-shadow: none; }
+.memo-editor__tag-x { display: inline-flex; margin: calc(-1 * var(--tk-space-2)); padding: 0; border: 0; background: transparent; color: inherit; cursor: pointer; }
 .memo-editor__tag-x > .tk-icon { --tk-_icon: var(--tk-size-icon-xs); }
 .memo-editor__cats { align-items: center; }
 .memo-editor__cats > .tk-icon, .memo-editor__suggest-new > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
