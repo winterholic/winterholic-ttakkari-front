@@ -4,7 +4,7 @@ import {
   FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Lock, LogOut, Mail, Maximize,
   Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, PanelRight, Paperclip, Pin, Presentation, RefreshCw,
   Search, Send, Server, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, Square, SquarePen, Sun, Terminal, Trash2,
-  TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, ChartGantt, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users,
+  TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, ChartGantt, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users, Workflow,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -28,6 +28,8 @@ const ICONS = {
   "chevron-up": ChevronUp, "chevron-down": ChevronDown, "chevron-right": ChevronRight, "chevron-left": ChevronLeft,
   calendar: CalendarDays, mic: Mic, memo: NotebookPen, tag: Tag, briefcase: Briefcase, grip: GripVertical, gauge: Gauge, server: Server, plus: Plus, logout: LogOut,
   child: CornerDownRight, kanban: SquareKanban, wbs: ListTree, gantt: ChartGantt, flag: Flag, indent: IndentIncrease, outdent: IndentDecrease, users: Users,
+  // 따까리에게 맡긴 일의 트리(작업 화면)
+  tasks: Workflow,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof ICONS;

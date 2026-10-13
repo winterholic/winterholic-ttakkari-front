@@ -13,6 +13,7 @@ import { MeetingsPage } from "./pages/MeetingsPage";
 import { MemosPage } from "./pages/MemosPage";
 import { MorePage } from "./pages/MorePage";
 import { ResourcesPage } from "./pages/ResourcesPage";
+import { TasksPage } from "./pages/TasksPage";
 import { AppShell } from "./shell/AppShell";
 
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
@@ -43,6 +44,7 @@ export function App() {
         <Route path="/chat/:sessionId" element={<ChatPage />} />
         <Route path="/work" element={<ChatPage pool="work" />} />
         <Route path="/work/:sessionId" element={<ChatPage pool="work" />} />
+        <Route path="/tasks" element={<TasksPage />} />
         <Route path="/workspace" element={<WorkspacePage />} />
         <Route path="/workspace/:sessionId" element={<WorkspacePage />} />
         <Route path="/library" element={<LibraryPage />} />

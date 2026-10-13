@@ -32,10 +32,15 @@ import type {
   RunOut,
   SessionIn,
   SessionOut,
+  TaskForest,
+  TaskHit,
+  TaskLibrary,
+  TaskTreeOut,
   SessionPatch,
   StopAllOut,
   SystemInfo,
   TokenOut,
+  ISODateTime,
   UUID,
   WorkspaceIn,
   WorkspaceOut,
@@ -216,11 +221,23 @@ export const listSessions = (p: { workspace_id?: UUID; include_archived?: boolea
   json("/api/sessions", { query: p });
 export const createSession = (body: SessionIn): Promise<SessionOut> => json("/api/sessions", { method: "POST", json: body });
 export const getSession = (id: UUID): Promise<SessionOut> => json(`/api/sessions/${id}`);
+/** 모드(개인·회사)마다 하나뿐인 따까리 대화. 없으면 서버가 만든다. */
+export const ensureDesk = (pool: AccountPool): Promise<SessionOut> => json("/api/desk", { method: "POST", json: { pool } });
 export const patchSession = (id: UUID, body: SessionPatch): Promise<SessionOut> =>
   json(`/api/sessions/${id}`, { method: "PATCH", json: body });
 
+// ---- 작업 트리(back ADR 0014)
+export const activeTasks = (recentHours?: number): Promise<TaskForest> =>
+  json("/api/tasks/active", { query: { recent_hours: recentHours } });
+export const taskLibrary = (p: { pool?: AccountPool; before?: ISODateTime; limit?: number } = {}): Promise<TaskLibrary> =>
+  json("/api/tasks/library", { query: p });
+export const searchTasks = (q: string, pool?: AccountPool): Promise<TaskHit[]> => json("/api/tasks/search", { query: { q, pool } });
+export const taskTree = (sessionId: UUID): Promise<TaskTreeOut> => json(`/api/tasks/${sessionId}/tree`);
+
 // ---- runs
-export const listRuns = (sessionId: UUID): Promise<RunOut[]> => json(`/api/sessions/${sessionId}/runs`);
+/** limit 을 주면 최근 limit 개만 시간순으로 온다(접수 대화는 하나뿐이라 끝없이 길어진다). */
+export const listRuns = (sessionId: UUID, p: { limit?: number; before?: ISODateTime } = {}): Promise<RunOut[]> =>
+  json(`/api/sessions/${sessionId}/runs`, { query: p });
 export const createRun = (sessionId: UUID, body: RunIn): Promise<RunOut> =>
   json(`/api/sessions/${sessionId}/runs`, { method: "POST", json: body });
 export const getRun = (id: UUID): Promise<RunOut> => json(`/api/runs/${id}`);

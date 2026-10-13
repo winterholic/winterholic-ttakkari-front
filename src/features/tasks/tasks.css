@@ -1,0 +1,102 @@
+/* 작업 트리(back ADR 0014). 디자인 시스템 토큰만 쓴다. 안내선은 .tk-tree(파일 트리)와 같은 문법이고,
+   일이 도는 가지만 안내선이 에이전트 색(agent.live)으로 바뀐다. 파랑은 사람이 고른 것(지금 보는 세션)에만 쓴다. */
+.task-tree, .task-tree__children { display: flex; flex-direction: column; gap: var(--tk-space-0-5); margin: 0; padding: 0; list-style: none; }
+.task-tree { min-width: 0; }
+.task-tree > .task-tree__item + .task-tree__item { margin-top: var(--tk-space-1); }
+.task-tree__children {
+  /* 토글 버튼(control-xs) 한가운데에서 선이 내려온다 */
+  margin-left: calc(var(--tk-size-control-xs) / 2);
+  padding-left: var(--tk-space-1);
+  border-left: var(--tk-border-width-hairline) solid var(--tk-color-border-default);
+}
+.task-tree__item[data-live] > .task-tree__children { border-left-color: var(--tk-color-agent-live); }
+
+.task-row { display: flex; align-items: center; gap: var(--tk-space-0-5); min-width: 0; }
+.task-row__toggle {
+  display: inline-grid; place-items: center; flex: none; width: var(--tk-size-control-xs); height: var(--tk-size-control-xs);
+  padding: 0; border: 0; border-radius: var(--tk-radius-sm); background: none; color: var(--tk-color-text-tertiary);
+}
+button.task-row__toggle { cursor: pointer; }
+.task-row__toggle > .tk-icon {
+  --tk-_icon: var(--tk-size-icon-sm);
+  transition: transform var(--tk-motion-duration-fast) var(--tk-motion-easing-standard);
+}
+.task-row__toggle[aria-expanded="true"] > .tk-icon { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .task-row__toggle > .tk-icon { transition: none; } }
+@media (hover: hover) { button.task-row__toggle:hover { background: var(--tk-color-interactive-hover-overlay); color: var(--tk-color-text-primary); } }
+
+.task-row__link {
+  display: flex; align-items: center; gap: var(--tk-space-2); flex: 1 1 auto; min-width: 0; min-height: var(--tk-size-control-sm);
+  padding-inline: var(--tk-space-2); border-radius: var(--tk-radius-md); text-decoration: none;
+  color: var(--tk-color-text-secondary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.task-tree__item[data-root] > .task-row > .task-row__link { color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-medium); }
+@media (hover: hover) { .task-row__link:hover { background: var(--tk-color-interactive-hover-overlay); color: var(--tk-color-text-primary); } }
+.task-row__link[aria-current] { background: var(--tk-component-sidebar-item-active-bg); color: var(--tk-component-sidebar-item-active-text); }
+:is(.task-row__link, button.task-row__toggle):focus-visible {
+  outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(-1 * var(--tk-focus-ring-width));
+}
+.task-row__title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-row__pool { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }
+.task-row__meta {
+  flex: none; color: var(--tk-color-text-tertiary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / 1 var(--tk-font-family-sans); font-variant-numeric: tabular-nums;
+}
+.task-tree__item[data-live] > .task-row .task-row__meta { color: var(--tk-color-text-agent); }
+/* 손가락으로 누르는 기기는 줄을 터치 최소 높이로 */
+@media (pointer: coarse) {
+  .task-row__link { min-height: var(--tk-size-touch-target-min); }
+  .task-row__toggle { width: var(--tk-size-touch-target-min); height: var(--tk-size-touch-target-min); }
+  .task-tree__children { margin-left: calc(var(--tk-size-touch-target-min) / 2); }
+}
+
+.task-glyph { display: inline-grid; place-items: center; flex: none; width: var(--tk-size-icon-sm); height: var(--tk-size-icon-sm); }
+.task-glyph > [aria-hidden] { display: inline-grid; place-items: center; }
+.task-glyph .tk-icon { --tk-_icon: var(--tk-size-icon-sm); }
+.task-glyph[data-status="succeeded"] { color: var(--tk-color-run-succeeded-icon); }
+.task-glyph[data-status="failed"] { color: var(--tk-color-run-failed-icon); }
+.task-glyph:is([data-status="cancelled"], [data-status="interrupted"]) { color: var(--tk-color-run-cancelled-icon); }
+.task-glyph__ring {
+  display: block; width: var(--tk-component-presence-dot); height: var(--tk-component-presence-dot); border-radius: var(--tk-radius-full);
+  border: var(--tk-border-width-strong) solid var(--tk-color-run-queued-icon);
+}
+
+/* 사이드바·드로어의 진행 중 묶음. 줄 안쪽 여백은 사이드바 항목(item-padding-x)에 맞춘다 */
+.active-tasks .tk-sidebar__label { padding-inline: var(--tk-component-sidebar-item-padding-x); }
+.active-tasks__empty {
+  margin: 0; padding: var(--tk-space-1) var(--tk-component-sidebar-item-padding-x) var(--tk-space-2);
+  color: var(--tk-color-text-tertiary);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
+}
+.active-tasks__more { color: var(--tk-color-text-tertiary); }
+
+/* 작업 화면(/tasks): 검색·모드 줄, 진행 중 트리, 날짜별 서고 */
+.tasks-page__filters { margin-top: var(--tk-space-4); }
+/* 데스크톱은 사이드바가 같은 트리를 늘 보여 주므로 여기서는 숨긴다 */
+@media (min-width: 1024px) { .tasks-page__active { display: none; } .tasks-page__active + .tk-section { border-top: 0; } }
+.tasks-page__tree { padding-top: var(--tk-space-1); }
+.tasks-page__skeleton + .tasks-page__skeleton { margin-top: var(--tk-space-2); }
+.tasks-page__group { margin: 0; padding: 0; list-style: none; }
+.tasks-page__group > li + li { border-top: var(--tk-border-width-hairline) solid var(--tk-component-list-divider); }
+.tasks-page__more { display: flex; justify-content: center; padding-top: var(--tk-space-3); }
+
+.tasks-row__head { align-items: flex-start; gap: var(--tk-space-1); padding-left: var(--tk-space-2); }
+/* 토글 높이를 제목 줄 높이에 맞춰 첫 줄과 나란히 둔다 */
+.tasks-row__head > .task-row__toggle { margin-top: calc((var(--tk-font-size-md) * var(--tk-font-line-height-normal) - var(--tk-size-control-xs)) / 2); }
+.tasks-row__link { display: flex; align-items: flex-start; gap: var(--tk-component-list-row-gap); flex: 1 1 auto; min-width: 0; color: inherit; text-decoration: none; }
+.tasks-row__link:focus-visible, .tasks-hit:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); border-radius: var(--tk-radius-sm); }
+@media (hover: hover) { .tasks-row__link:hover .tk-list__title { color: var(--tk-color-text-link); } }
+.tasks-row__top { display: flex; align-items: center; gap: var(--tk-space-2); min-width: 0; }
+.tasks-row__top > .tk-list__title { min-width: 0; }
+.tasks-row__tree, .tasks-row__note {
+  margin: 0; padding: 0 var(--tk-component-list-row-padding-x) var(--tk-space-3) calc(var(--tk-space-2) + var(--tk-size-control-xs) + var(--tk-space-1));
+}
+.tasks-row__note { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+
+.tasks-hit { align-items: flex-start; text-decoration: none; color: inherit; }
+.tasks-hit__path {
+  display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: var(--tk-space-0-5);
+  color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.tasks-hit__field { margin-right: var(--tk-space-1-5); vertical-align: text-bottom; }

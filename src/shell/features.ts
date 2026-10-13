@@ -21,8 +21,6 @@ export interface Feature {
  * 새 기능은 라우트를 만들고 여기에 항목 하나만 넣으면 양쪽에 같이 나타난다. 순서도 이 순서다.
  */
 export const FEATURES: readonly Feature[] = [
-  // 회사 업무: 여기서 만든 대화는 회사 계정만 쓴다(설정 > 계정 > 회사 계정).
-  { root: "work", to: "/work", icon: "briefcase", label: "회사 업무", tabLabel: "회사", description: "회사 계정만 쓰는 대화", mobileTab: true },
   // 작업 공간은 마지막 세션이 아니라 개요로 보낸다. 맥락 없이 특정 세션이 뜨면 무슨 화면인지 알 수 없었다.
   { root: "workspace", to: "/workspace", icon: "workspace", label: "작업 공간", description: "세션별 결과물을 보며 이어서 지시" },
   { root: "library", to: "/library", icon: "library", label: "보관함", description: "모든 결과물을 날짜별로" },

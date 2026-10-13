@@ -467,3 +467,47 @@ export interface PmsDashboard {
   notes: { open: number; issues: number; risks: number; high: number; top: PmsNote[] };
 }
 
+
+// ---- 작업 트리(back ADR 0014)
+/** 트리 한 칸. 세션 하나에 마지막 Run 상태를 붙인 것이다. */
+export interface TaskNode {
+  id: UUID;
+  parent_id: UUID | null;
+  kind: SessionOut["kind"];
+  title: string;
+  pool: AccountPool;
+  created_at: ISODateTime;
+  updated_at: ISODateTime;
+  archived_at: ISODateTime | null;
+  status: RunStatus | null;
+  profile: string | null;
+  model: string | null;
+  last_result: string | null;
+}
+/** roots 는 보여 줄 순서다. 뿌리의 parent_id 는 접수일 수 있어 parent_id 만으로 뿌리를 가리지 않는다. */
+export interface TaskForest {
+  roots: UUID[];
+  nodes: TaskNode[];
+}
+export interface TaskTreeOut {
+  root_id: UUID;
+  /** 뿌리부터 요청한 세션까지(양끝 포함) */
+  path: TaskNode[];
+  nodes: TaskNode[];
+}
+export interface TaskRoot extends TaskNode {
+  descendants: number;
+  active: number;
+  failed: number;
+}
+export interface TaskLibrary {
+  roots: TaskRoot[];
+  next_before: ISODateTime | null;
+}
+export interface TaskHit {
+  node: TaskNode;
+  root_id: UUID;
+  path: TaskNode[];
+  field: "title" | "prompt" | "result";
+  snippet: string;
+}

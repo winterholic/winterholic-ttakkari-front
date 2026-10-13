@@ -13,7 +13,7 @@ import { ToastRegion } from "../ui/Toast";
 import "./shell.css";
 import { ShellContext } from "./ShellContext";
 import type { ShellApi } from "./ShellContext";
-import { SessionList } from "./SessionList";
+import { ActiveTasks } from "./ActiveTasks";
 import { SidebarLinks, TabbarLinks } from "./ShellNav";
 import { useShortcuts } from "./useShortcuts";
 import { useConnection } from "./useConnection";
@@ -127,9 +127,9 @@ export function AppShell() {
               {BRAND}
             </Link>
           </div>
-          <nav className="tk-sidebar" aria-label="영역과 세션">
+          <nav className="tk-sidebar" aria-label="영역과 진행 중인 일">
             <SidebarLinks />
-            <SessionList currentId={sessionId} />
+            <ActiveTasks currentId={sessionId} />
           </nav>
           <SidebarFooter connection={connection} />
         </aside>
@@ -142,7 +142,7 @@ export function AppShell() {
           <TabbarLinks />
         </nav>
 
-        <Dialog kind="drawer" id="nav-drawer" label="세션 목록" open={drawerOpen} onClose={() => setDrawerKey(null)}>
+        <Dialog kind="drawer" id="nav-drawer" label="진행 중인 일" open={drawerOpen} onClose={() => setDrawerKey(null)}>
           <div className="tk-drawer__header">
             <Link className="tk-header__brand" to="/chat">
               {BRAND}
@@ -152,8 +152,8 @@ export function AppShell() {
             </IconButton>
           </div>
           <div className="tk-drawer__body">
-            <nav className="tk-sidebar" aria-label="세션">
-              <SessionList currentId={sessionId} />
+            <nav className="tk-sidebar" aria-label="진행 중인 일">
+              <ActiveTasks currentId={sessionId} />
             </nav>
           </div>
           <SidebarFooter connection={connection} />

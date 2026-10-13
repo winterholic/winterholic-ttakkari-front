@@ -1,28 +1,12 @@
-/* 오케스트레이터 화면: 왼쪽 메인 대화 + 오른쪽 작업 세션 탭(lg 이상). lg 미만은 헤더 버튼이 시트로 연다. 디자인 시스템 토큰만 쓴다. */
-.orch-layout { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
-.orch-layout__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; min-height: 0; }
-.orch-layout__aside { display: none; }
-@media (min-width: 1024px) {
-  .orch-layout__aside {
-    display: flex; flex-direction: column; flex: 0 0 var(--tk-size-layout-sidebar); min-height: 0; overflow-y: auto;
-    border-left: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); background: var(--tk-color-surface-subtle);
-  }
-  .orch-workers-toggle { display: none; }
-}
-
-.worker-panel { display: flex; flex-direction: column; gap: var(--tk-space-2); padding: var(--tk-space-4) var(--tk-space-3); }
-.worker-panel__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--tk-space-2); padding-inline: var(--tk-space-2); }
-.worker-panel__title { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
-.worker-panel__count { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
-.worker-panel__note { margin: 0; padding: var(--tk-space-2); color: var(--tk-color-text-secondary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); }
-.worker-tab { align-items: flex-start; border-radius: var(--tk-radius-md); text-decoration: none; }
-.worker-tab__top { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-2); min-width: 0; }
-.worker-tab__top > .tk-badge { flex: none; }
-.worker-tab__snippet {
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  color: var(--tk-color-text-secondary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans);
-}
-.worker-tab__go { flex: none; align-self: center; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
+/* 대화 스레드 보조 규칙(따까리 대화·세션 화면 공용). 디자인 시스템 토큰만 쓴다. */
+/* 헤더 메타의 경로(따까리 › 기획 › 작업). 위로 가는 길은 이것뿐이라 링크로 둔다 */
+.chat-crumbs { display: inline; }
+.chat-crumbs > .tk-dot { margin-right: var(--tk-space-1-5); vertical-align: middle; }
+.chat-crumbs a { color: var(--tk-color-text-link); text-decoration: none; }
+@media (hover: hover) { .chat-crumbs a:hover { text-decoration: underline; } }
+.chat-crumbs a:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); border-radius: var(--tk-radius-xs); }
+/* 이전 대화 더 보기: 스레드 맨 위 가운데 */
+.thread-older { display: flex; justify-content: center; }
 
 /* 대화 턴 사이 구분선. 간격은 스레드의 턴 간격이 맡는다 */
 .thread-divider { align-self: stretch; width: 100%; margin-block: 0; }

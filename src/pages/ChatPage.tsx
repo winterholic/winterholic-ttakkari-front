@@ -2,23 +2,23 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import type React from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, cancelRun, createRun, createSession, getArtifact, getSession, getWorkspace, listRuns, patchSession, stopAll, uploadFile } from "../api/client";
+import { ApiError, cancelRun, createRun, ensureDesk, getArtifact, getSession, getWorkspace, listRuns, patchSession, stopAll, uploadFile } from "../api/client";
 import { Menu } from "../ui/Menu";
 import { toast } from "../ui/toastStore";
 import type { AccountPool } from "../api/types";
 import { PendingAttachment, releaseFileUrl } from "../features/chat/Attachments";
 import { checkAttachFiles } from "../features/chat/clipboardFiles";
 import { Composer } from "../features/chat/Composer";
-import { NewSession } from "../features/chat/NewSession";
-import type { NewSessionChoice } from "../features/chat/NewSession";
 import { RunBlock } from "../features/chat/RunBlock";
 import { ArtifactViewerHost, FollowupComposer, useArtifactViewer } from "../features/viewer";
 import { useIsDesktop } from "../features/viewer/hooks";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
-import { Dialog } from "../ui/Dialog";
+import { Button } from "../ui/Button";
 import { useForegroundResync } from "../hooks/useForegroundResync";
-import { WorkerPanel, useWorkers } from "../features/orchestrator/WorkerPanel";
+import { buildForest, isActive } from "../features/tasks/buildTree";
+import { useActiveTasks, useTaskTree } from "../features/tasks/useTasks";
+import "../features/orchestrator/orchestrator.css";
 
 const FOLLOW_THRESHOLD = 96;
 
@@ -33,12 +33,16 @@ interface Attachment {
 const ACTIVE = ["queued", "running"];
 // 백엔드 RunIn.prompt max_length 와 같다.
 const MAX_PROMPT = 100_000;
+// 대화는 따까리 하나뿐이라 끝없이 길어진다. 최근 것부터 이만큼씩 읽는다.
+const RUN_PAGE = 40;
 
 /** 바닥 근처일 때만 새 내용을 따라가고, 위로 올려 읽는 중이면 '새 메시지' 버튼을 띄운다(docs/07 §5). */
 function useThreadFollow(dep: unknown) {
   const ref = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
+  // 위에 이전 대화를 붙일 때는 아래로부터의 거리를 지켜 읽던 자리에 머문다. 새 메시지 알림도 띄우지 않는다.
+  const keepFromBottom = useRef<number | null>(null);
   const [jump, setJump] = useState(false);
 
   useEffect(() => {
@@ -57,7 +61,10 @@ function useThreadFollow(dep: unknown) {
     const body = inner.current;
     if (!el || !body) return;
     const ro = new ResizeObserver(() => {
-      if (atBottom.current) el.scrollTop = el.scrollHeight;
+      if (keepFromBottom.current !== null) {
+        el.scrollTop = el.scrollHeight - keepFromBottom.current;
+        keepFromBottom.current = null;
+      } else if (atBottom.current) el.scrollTop = el.scrollHeight;
       else setJump(true);
     });
     ro.observe(body);
@@ -70,36 +77,90 @@ function useThreadFollow(dep: unknown) {
     atBottom.current = true;
     setJump(false);
   };
-  return { ref, inner, jump, toBottom };
+  const holdPosition = () => {
+    const el = ref.current;
+    if (el) keepFromBottom.current = el.scrollHeight - el.scrollTop;
+  };
+  return { ref, inner, jump, toBottom, holdPosition };
 }
 
-/** pool="work" 는 회사 업무 탭(/work). 거기서 만든 대화는 회사 계정만 쓴다. */
+/**
+ * /chat·/work 는 모드(개인·회사)마다 하나뿐인 따까리 대화다(back ADR 0014). 새 대화 만들기는 없다.
+ * /chat/:id 는 그 대화에서 뻗은 일(기획·작업 세션) 하나를 연다. 회사 모드(/work)는 회사 계정만 쓴다.
+ */
 export function ChatPage({ pool = "personal" }: { pool?: AccountPool }) {
   const { sessionId } = useParams();
   // 세션이 바뀌면 대기열·초안·스크롤 상태를 통째로 새로 시작한다.
-  return <ChatScreen key={`${pool}:${sessionId ?? "new"}`} sessionId={sessionId} pool={pool} />;
+  if (sessionId) return <ChatScreen key={sessionId} sessionId={sessionId} />;
+  return <DeskScreen key={pool} pool={pool} />;
 }
 
-function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: AccountPool }) {
+function DeskScreen({ pool }: { pool: AccountPool }) {
+  const desk = useQuery({ queryKey: ["desk", pool], queryFn: () => ensureDesk(pool), staleTime: Infinity });
+  if (desk.isSuccess) return <ChatScreen key={desk.data.id} sessionId={desk.data.id} />;
+  return (
+    <div className="tk-screen">
+      <PageHeader title="따까리" actions={<PoolSwitch pool={pool} />} />
+      <div className="tk-screen__body">
+        {desk.isError ? (
+          <div className="tk-empty">
+            <p className="tk-empty__title">따까리 대화를 열지 못했어요</p>
+            <p className="tk-body-sm tk-text-tertiary">{desk.error instanceof Error ? desk.error.message : "Mac Studio 연결을 확인해 주세요."}</p>
+            <Button size="sm" onClick={() => void desk.refetch()}>
+              <Icon name="retry" />
+              다시 시도
+            </Button>
+          </div>
+        ) : (
+          <p className="tk-thinking">
+            <span className="tk-spinner tk-spinner--sm" aria-hidden />
+            따까리 대화를 여는 중
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 개인·회사 모드 전환. 대화창은 하나이고 모드마다 대화 기록이 따로다. */
+function PoolSwitch({ pool }: { pool: AccountPool }) {
+  const navigate = useNavigate();
+  return (
+    <div className="tk-segmented" role="radiogroup" aria-label="모드">
+      <label>
+        <input type="radio" name="desk-pool" checked={pool === "personal"} onChange={() => navigate("/chat")} />
+        개인
+      </label>
+      <label>
+        <input type="radio" name="desk-pool" checked={pool === "work"} onChange={() => navigate("/work")} />
+        <Icon name="briefcase" />
+        회사
+      </label>
+    </div>
+  );
+}
+
+function ChatScreen({ sessionId }: { sessionId: string }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const viewer = useArtifactViewer();
   const isDesktop = useIsDesktop();
-  const [choice, setChoice] = useState<NewSessionChoice | null>(null);
   const [fill, setFill] = useState<{ text: string; nonce: number } | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
 
-  const session = useQuery({ queryKey: ["session", sessionId], queryFn: () => getSession(sessionId!), enabled: !!sessionId });
+  const session = useQuery({ queryKey: ["session", sessionId], queryFn: () => getSession(sessionId) });
   const workspace = useQuery({
     queryKey: ["workspace", session.data?.workspace_id],
     queryFn: () => getWorkspace(session.data!.workspace_id),
     enabled: !!session.data,
     staleTime: 60_000,
   });
+  const [runLimit, setRunLimit] = useState(RUN_PAGE);
   const runs = useQuery({
-    queryKey: ["runs", sessionId],
-    queryFn: () => listRuns(sessionId!),
-    enabled: !!sessionId,
+    // 앞부분이 ["runs", sessionId] 라 기존 무효화가 그대로 닿는다.
+    queryKey: ["runs", sessionId, runLimit],
+    queryFn: () => listRuns(sessionId, { limit: runLimit }),
+    placeholderData: (prev) => prev,
     // 워커 보고로 서버가 새 run 을 만들어도 클라이언트는 모른다. 진행 중이 아니어도 느리게 계속 확인한다.
     refetchInterval: (q) => ((q.state.data ?? []).some((r) => ACTIVE.includes(r.status)) ? 10_000 : 30_000),
   });
@@ -119,7 +180,7 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
   const uploading = attachments.some((a) => a.state === "uploading");
   const attachedIds = attachments.flatMap((a) => (a.state === "done" && a.id ? [a.id] : []));
   const contextIds = [...(contextShown ? [contextShown.id] : []), ...attachedIds];
-  const workspaceId = session.data?.workspace_id ?? choice?.workspaceId ?? null;
+  const workspaceId = session.data?.workspace_id ?? null;
 
   const startUpload = (file: File) => {
     if (!workspaceId) return;
@@ -151,34 +212,22 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
   const refreshAll = useCallback(() => {
     void qc.invalidateQueries({ queryKey: ["runs", sessionId] });
     void qc.invalidateQueries({ queryKey: ["sessions"] });
+    void qc.invalidateQueries({ queryKey: ["tasks"] });
     void qc.invalidateQueries({ queryKey: ["artifacts"] });
   }, [qc, sessionId]);
 
   useForegroundResync(() => {
     refreshAll();
     void qc.invalidateQueries({ queryKey: ["session", sessionId] });
-    void qc.invalidateQueries({ queryKey: ["workers"] });
   });
 
   const send = useMutation({
-    mutationFn: async (prompt: string) => {
-      let sid = sessionId;
-      if (!sid) {
-        if (!choice) throw new Error("작업 공간을 먼저 골라 주세요.");
-        // 새 세션은 접수다. 가벼운 모델이 바로 답하거나 기획 세션에 넘긴다(ADR 0013).
-        const s = await createSession({ workspace_id: choice.workspaceId, kind: "desk", model: choice.model, effort: choice.effort, pool });
-        sid = s.id;
-      }
-      const run = await createRun(sid, { prompt, context_artifact_ids: contextIds });
-      return { sid, run };
-    },
-    onSuccess: ({ sid }) => {
+    mutationFn: (prompt: string) => createRun(sessionId, { prompt, context_artifact_ids: contextIds }),
+    onSuccess: () => {
       setSendError(null);
       attachments.forEach((a) => releaseFileUrl(a.file));
       setAttachments([]);
-      void qc.invalidateQueries({ queryKey: ["sessions"] });
-      if (sid !== sessionId) navigate(`/${pool === "work" ? "work" : "chat"}/${sid}`);
-      else void qc.invalidateQueries({ queryKey: ["runs", sid] });
+      refreshAll();
     },
     onError: (e, prompt) => {
       setSendError(e instanceof ApiError || e instanceof Error ? e.message : "보내지 못했어요.");
@@ -202,29 +251,56 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
     [refreshAll],
   );
 
-  const { ref: threadRef, inner: innerRef, jump, toBottom } = useThreadFollow(sessionId);
+  const { ref: threadRef, inner: innerRef, jump, toBottom, holdPosition } = useThreadFollow(sessionId);
+  const hasOlder = runList.length >= runLimit;
+  const loadOlder = () => {
+    holdPosition();
+    setRunLimit((n) => n + RUN_PAGE);
+  };
 
   const kind = session.data?.kind;
-  // 오른쪽 패널: 접수는 기획 세션, 기획·옛 오케스트레이터는 작업 세션을 보여 준다.
-  const isOrch = kind === "orchestrator" || kind === "desk";
-  const isLead = kind === "orchestrator" && !!session.data?.parent_id;
-  const childLabel = kind === "desk" ? "기획 세션" : "작업 세션";
-  const parentId = kind === "worker" || isLead ? session.data?.parent_id : null;
-  const parentLabel = isLead ? "따까리" : "기획 세션";
-  const workers = useWorkers(isOrch && sessionId ? sessionId : "");
-  const [workersOpen, setWorkersOpen] = useState(false);
-  const workerCount = isOrch ? (workers.data?.length ?? 0) : 0;
+  const pool = session.data?.pool ?? "personal";
+  const isDesk = kind === "desk";
+  const deskHome = pool === "work" ? "/work" : "/chat";
   const lastProfile = [...runList].reverse().find((r) => r.profile)?.profile;
   const engineText = session.data?.engine === "auto" ? (lastProfile ?? "Claude Code 우선") : session.data?.engine === "codex" ? "Codex" : "Claude Code";
+  // 따까리에서 뻗은 일이면 뿌리부터의 경로를 헤더에 보여 준다. 세션 목록이 없으니 위로 가는 길은 이것뿐이다.
+  const tree = useTaskTree(isDesk || !session.data ? undefined : sessionId);
+  const ancestors = (tree.data?.path ?? []).slice(0, -1);
+  // 뿌리는 부모가 없거나 부모가 접수다. 부모가 있으면 따까리에서 뻗은 일이다.
+  const fromDesk = !!tree.data?.path[0]?.parent_id;
+  const active = useActiveTasks();
+  const liveRoots = isDesk && active.data
+    ? buildForest(active.data.roots, active.data.nodes).filter((t) => t.node.pool === pool && (t.activeBelow > 0 || isActive(t.node.status))).length
+    : 0;
 
-  const title = sessionId ? (session.data?.title ?? "불러오는 중") : pool === "work" ? "새 회사 업무" : "새 세션";
-  const meta = sessionId && session.data && (
-    <>
-      {activeRun ? <span className="tk-dot tk-dot--live" aria-hidden /> : null}
-      {session.data.pool === "work" ? "회사 · " : ""}
-      {kind === "desk" ? "접수" : isLead ? "기획 세션" : isOrch ? "오케스트레이터" : kind === "worker" ? "작업 세션" : (workspace.data?.name ?? "작업 공간")} · {engineText}
-      {session.data.model ? ` · ${session.data.model}` : ""}
-    </>
+  const title = isDesk ? "따까리" : (session.data?.title ?? "불러오는 중");
+  const kindLabel = kind === "orchestrator" ? (session.data?.parent_id ? "기획" : "오케스트레이터") : kind === "worker" ? "작업" : (workspace.data?.name ?? "대화");
+  const meta = session.data && (
+    isDesk ? (
+      <>
+        {activeRun ? <span className="tk-dot tk-dot--live" aria-hidden /> : null}
+        {/* 모바일은 헤더 폭이 좁아 모드 전환 옆에 한 마디만 남긴다 */}
+        {liveRoots > 0 ? `맡긴 일 ${liveRoots}개 진행 중` : pool === "work" ? "회사 계정만 써요" : "무엇이든 맡겨요"}
+      </>
+    ) : (
+      <span className="chat-crumbs">
+        {activeRun ? <span className="tk-dot tk-dot--live" aria-hidden /> : null}
+        {fromDesk && (
+          <>
+            <Link to={deskHome}>따까리</Link>
+            <span aria-hidden="true"> › </span>
+          </>
+        )}
+        {ancestors.map((a) => (
+          <Fragment key={a.id}>
+            <Link to={`/chat/${a.id}`}>{a.title}</Link>
+            <span aria-hidden="true"> › </span>
+          </Fragment>
+        ))}
+        <span>{pool === "work" ? "회사 · " : ""}{kindLabel} · {engineText}{session.data.model ? ` · ${session.data.model}` : ""}</span>
+      </span>
+    )
   );
 
   const [dragging, setDragging] = useState(false);
@@ -263,20 +339,9 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
         title={title}
         meta={meta}
         actions={
-          sessionId && (
+          session.data && (
             <>
-              {parentId && (
-                <Link className="tk-button tk-button--sm tk-button--ghost" to={`/chat/${parentId}`}>
-                  <Icon name="back" />
-                  {parentLabel}
-                </Link>
-              )}
-              {isOrch && (
-                <button className="tk-button tk-button--sm orch-workers-toggle" type="button" onClick={() => setWorkersOpen(true)} aria-haspopup="dialog">
-                  <Icon name="workspace" />
-                  {childLabel}{workerCount > 0 ? ` ${workerCount}` : ""}
-                </button>
-              )}
+              {isDesk && <PoolSwitch pool={pool} />}
               <Link className="tk-icon-button" to={`/workspace/${sessionId}`} aria-label="작업 공간 열기">
                 <Icon name="workspace" />
               </Link>
@@ -284,14 +349,17 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
                 label="세션 메뉴"
                 items={[
                   {
-                    label: "세션 보관",
+                    // 따까리 대화를 보관하면 다음에 열 때 빈 대화로 새로 시작한다. 옛 대화는 지난 작업에 남는다.
+                    label: isDesk ? "대화 보관하고 새로 시작" : "세션 보관",
                     icon: "library",
                     disabled: !!activeRun,
                     onSelect: () =>
                       void patchSession(sessionId, { archived: true }).then(() => {
                         void qc.invalidateQueries({ queryKey: ["sessions"] });
-                        toast({ message: "세션을 보관했어요." });
-                        navigate(pool === "work" ? "/work" : "/chat");
+                        void qc.invalidateQueries({ queryKey: ["tasks"] });
+                        if (isDesk) void qc.removeQueries({ queryKey: ["desk", pool] });
+                        toast({ message: isDesk ? "대화를 보관했어요. 지난 작업에서 다시 볼 수 있어요." : "세션을 보관했어요." });
+                        navigate(deskHome);
                       }),
                   },
                   {
@@ -313,18 +381,13 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
           )
         }
       />
-      <div className={isOrch ? "orch-layout" : "orch-layout orch-layout--single"}>
-      <div className="orch-layout__main">
       <ArtifactViewerHost
         followup={
           // 데스크톱은 채팅 입력창이 그대로 보여 문맥 칩으로 이어 지시한다. 모바일 전체 화면 뷰어에만 따로 둔다.
-          !isDesktop && sessionId && viewer.current ? <FollowupComposer sessionId={sessionId} artifactId={viewer.current} /> : undefined
+          !isDesktop && viewer.current ? <FollowupComposer sessionId={sessionId} artifactId={viewer.current} /> : undefined
         }
       >
       <div className="tk-thread tk-screen__body" role="log" aria-label="대화" aria-live="polite" ref={threadRef}>
-        {!sessionId ? (
-          <NewSession value={choice} onChange={setChoice} pool={pool} />
-        ) : (
           <div className="tk-thread__inner" ref={innerRef}>
             {session.isError && (
               <div className="tk-empty">
@@ -341,6 +404,13 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
                 <span className="tk-spinner tk-spinner--sm" aria-hidden />
                 대화를 불러오는 중
               </p>
+            )}
+            {hasOlder && (
+              <div className="thread-older">
+                <Button size="sm" variant="ghost" onClick={loadOlder} disabled={runs.isFetching}>
+                  {runs.isFetching ? "불러오는 중" : "이전 대화 더 보기"}
+                </Button>
+              </div>
             )}
             {runs.isError && (
               <p className="tk-message tk-message--system">
@@ -371,7 +441,6 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
               </button>
             )}
           </div>
-        )}
       </div>
       {sendError && (
         <p className="tk-message tk-message--system" role="alert">
@@ -379,7 +448,7 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
         </p>
       )}
       <Composer
-        draftKey={sessionId ?? "new"}
+        draftKey={sessionId}
         running={!!activeRun || send.isPending}
         queued={runList.filter((r) => r.status === "queued").length}
         onSubmit={onSubmit}
@@ -423,18 +492,6 @@ function ChatScreen({ sessionId, pool }: { sessionId: string | undefined; pool: 
         }
       />
       </ArtifactViewerHost>
-      </div>
-      {isOrch && sessionId && (
-        <aside className="orch-layout__aside" aria-label={childLabel}>
-          <WorkerPanel orchestratorId={sessionId} label={childLabel} />
-        </aside>
-      )}
-      </div>
-      {isOrch && sessionId && (
-        <Dialog size="lg" open={workersOpen} onClose={() => setWorkersOpen(false)} title={childLabel} id="workers-modal">
-          <WorkerPanel orchestratorId={sessionId} label={childLabel} inSheet />
-        </Dialog>
-      )}
     </div>
   );
 }

@@ -6,9 +6,11 @@ import { MemoryRouter, Route, Routes } from "react-router";
 const auth = { state: "in" as "in" | "out" | "loading", login: vi.fn(), logout: vi.fn() };
 vi.mock("../auth", () => ({ useAuth: () => auth }));
 
-const listSessions = vi.fn();
+const activeTasks = vi.fn();
+const taskTree = vi.fn();
 vi.mock("../api/client", () => ({
-  listSessions: (...a: unknown[]) => listSessions(...a),
+  activeTasks: (...a: unknown[]) => activeTasks(...a),
+  taskTree: (...a: unknown[]) => taskTree(...a),
   apiUrl: (p: string) => `http://test${p}`,
 }));
 
@@ -25,6 +27,7 @@ function renderAt(path: string) {
           <Route element={<AppShell />}>
             <Route path="/chat" element={<p>채팅 본문</p>} />
             <Route path="/chat/:sessionId" element={<p>세션 본문</p>} />
+            <Route path="/work" element={<p>회사 모드 본문</p>} />
             <Route path="/workspace/:sessionId" element={<p>작업 공간 본문</p>} />
             <Route path="/library" element={<p>보관함 본문</p>} />
             <Route path="/memos" element={<p>메모 본문</p>} />
@@ -38,8 +41,10 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   auth.state = "in";
-  listSessions.mockReset();
-  listSessions.mockResolvedValue([]);
+  activeTasks.mockReset();
+  activeTasks.mockResolvedValue({ roots: [], nodes: [] });
+  taskTree.mockReset();
+  taskTree.mockRejectedValue(new Error("없음"));
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"ok":true}', { status: 200 })));
   // jsdom 에는 dialog.showModal 이 없을 수 있다. 계약(open 속성)만 흉내 낸다.
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
@@ -77,12 +82,12 @@ describe("AppShell 인증 가드", () => {
     expect(screen.getByText("불러오는 중")).toBeTruthy();
   });
 
-  it("데스크톱 사이드바 맨 위는 채팅과 부가 기능 둘이고, 부가 기능 화면에서는 그 기능을 아래 줄에 켠다", () => {
+  it("데스크톱 사이드바 맨 위는 채팅·작업·부가 기능 셋이고, 부가 기능 화면에서는 그 기능을 아래 줄에 켠다", () => {
     renderAt("/library");
     expect(screen.getByText("보관함 본문")).toBeTruthy();
-    const nav = screen.getByRole("navigation", { name: "영역과 세션" });
+    const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
     const top = nav.querySelector(".tk-nav")!;
-    expect([...top.querySelectorAll(".tk-nav__link")].map((l) => l.textContent)).toEqual(["채팅", "부가 기능", "보관함"]);
+    expect([...top.querySelectorAll(".tk-nav__link")].map((l) => l.textContent)).toEqual(["채팅", "작업", "부가 기능", "보관함"]);
     expect(within(nav).getByRole("button", { name: "부가 기능" }).hasAttribute("data-active")).toBe(true);
     const current = within(nav).getAllByRole("link").filter((l) => l.getAttribute("aria-current") === "page");
     expect(current.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([["보관함", "/library"]]);
@@ -90,27 +95,27 @@ describe("AppShell 인증 가드", () => {
 
   it("채팅 화면에서는 채팅이 켜지고 부가 기능은 꺼져 있다", () => {
     renderAt("/chat");
-    const nav = screen.getByRole("navigation", { name: "영역과 세션" });
+    const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
     expect(within(nav).getByRole("link", { name: "채팅" }).getAttribute("aria-current")).toBe("page");
     expect(within(nav).getByRole("button", { name: "부가 기능" }).hasAttribute("data-active")).toBe(false);
   });
 
   it("부가 기능 모달은 채팅이 아닌 기능 전부를 모으고, 지금 기능을 표시한다", async () => {
     renderAt("/memos");
-    const nav = screen.getByRole("navigation", { name: "영역과 세션" });
+    const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
     within(nav).getByRole("button", { name: "부가 기능" }).click();
     const dialog = await screen.findByRole("dialog", { name: "부가 기능" });
     const links = within(dialog).getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/work", "/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/meetings", "/pms", "/wbs", "/resources"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/meetings", "/pms", "/wbs", "/resources"]);
     expect(links.filter((l) => l.getAttribute("aria-current") === "page").map((l) => l.getAttribute("href"))).toEqual(["/memos"]);
   });
 
-  it("하단 탭은 채팅·회사·메모·캘린더·더보기 다섯이고, 더보기로 옮긴 화면에서는 더보기가 켜진다", () => {
+  it("하단 탭은 채팅·작업·메모·캘린더·더보기 다섯이고, 더보기로 옮긴 화면에서는 더보기가 켜진다", () => {
     renderAt("/library");
     const tabbar = screen.getByRole("navigation", { name: "영역" });
     const tabs = within(tabbar).getAllByRole("link");
-    expect(tabs.map((l) => l.textContent)).toEqual(["채팅", "회사", "메모", "캘린더", "더보기"]);
-    expect(tabs.map((l) => l.getAttribute("href"))).toEqual(["/chat", "/work", "/memos", "/calendar", "/more"]);
+    expect(tabs.map((l) => l.textContent)).toEqual(["채팅", "작업", "메모", "캘린더", "더보기"]);
+    expect(tabs.map((l) => l.getAttribute("href"))).toEqual(["/chat", "/tasks", "/memos", "/calendar", "/more"]);
     expect(tabs.filter((l) => l.getAttribute("aria-current") === "page").map((l) => l.textContent)).toEqual(["더보기"]);
   });
 
@@ -122,7 +127,7 @@ describe("AppShell 인증 가드", () => {
 
   it("모바일 드로어에는 메모·캘린더 링크를 두지 않는다", () => {
     renderAt("/library");
-    const drawer = screen.getByRole("navigation", { name: "세션", hidden: true });
+    const drawer = screen.getByRole("navigation", { name: "진행 중인 일", hidden: true });
     expect(within(drawer).queryByRole("link", { name: "메모", hidden: true })).toBeNull();
     expect(within(drawer).queryByRole("link", { name: "캘린더", hidden: true })).toBeNull();
   });
@@ -145,15 +150,35 @@ describe("AppShell 인증 가드", () => {
     ]);
   });
 
-  it("세션 행은 /chat/:id 를 가리키고 지금 세션을 켠다", async () => {
-    listSessions.mockResolvedValue([
-      { id: "s1", title: "첫 세션", updated_at: new Date().toISOString(), last_run_status: "running", active_run_id: "r1" },
-    ]);
-    renderAt("/chat/s1");
-    const nav = screen.getByRole("navigation", { name: "영역과 세션" });
-    const row = await within(nav).findByRole("link", { name: /첫 세션/ });
-    expect(row.getAttribute("href")).toBe("/chat/s1");
+  it("회사 모드(/work)에서도 채팅이 켜진다", () => {
+    renderAt("/work");
+    const tabbar = screen.getByRole("navigation", { name: "영역" });
+    expect(within(tabbar).getByRole("link", { name: "채팅" }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("사이드바는 세션 목록 대신 진행 중인 일의 트리를 보여 주고 지금 세션을 켠다", async () => {
+    const at = new Date().toISOString();
+    const n = (id: string, parent: string | null, title: string, status: string) => ({
+      id, parent_id: parent, kind: parent === "desk" ? "orchestrator" : "worker", title, pool: "personal",
+      created_at: at, updated_at: at, archived_at: null, status, profile: null, model: null, last_result: null,
+    });
+    const nodes = [n("lead", "desk", "보고서 정리", "succeeded"), n("w1", "lead", "표 만들기", "running"), n("w2", "lead", "요약", "succeeded")];
+    activeTasks.mockResolvedValue({ roots: ["lead"], nodes });
+    taskTree.mockResolvedValue({ root_id: "lead", path: [nodes[0], nodes[1]], nodes });
+    renderAt("/chat/w1");
+    const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
+    const row = await within(nav).findByRole("link", { name: /표 만들기/ });
+    expect(row.getAttribute("href")).toBe("/chat/w1");
     expect(row.getAttribute("aria-current")).toBe("page");
     expect(row.textContent).toContain("실행 중");
+    // 일이 도는 가지는 펼쳐져 있고, 접기 버튼이 하위 수를 말한다
+    expect(within(nav).getByRole("button", { name: "보고서 정리 하위 2개 접기" }).getAttribute("aria-expanded")).toBe("true");
+    expect(within(nav).getByRole("link", { name: /지난 작업 모두 보기/ }).getAttribute("href")).toBe("/tasks");
+  });
+
+  it("도는 일이 없으면 빈 상태 안내를 보여 준다", async () => {
+    renderAt("/chat");
+    const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
+    expect(await within(nav).findByText(/지금 도는 일이 없어요/)).toBeTruthy();
   });
 });

@@ -5,7 +5,7 @@ import { Icon } from "../ui/Icon";
 import { FEATURES, featureAt } from "./features";
 
 /**
- * 데스크톱 사이드바 맨 위: 채팅과 부가 기능 둘뿐이다. 채팅이 아닌 기능은 전부 부가 기능 모달(FEATURES)에 모은다.
+ * 데스크톱 사이드바 맨 위: 채팅·작업·부가 기능 셋뿐이다. 채팅이 아닌 기능은 전부 부가 기능 모달(FEATURES)에 모은다.
  * 부가 기능 안의 화면에 있으면 "부가 기능"을 켜고, 그 아래 줄에 지금 기능을 보여 준다.
  */
 export function SidebarLinks() {
@@ -16,9 +16,15 @@ export function SidebarLinks() {
   return (
     <div className="tk-nav">
       {/* 새 세션 버튼을 따로 두지 않는다. 채팅이 곧 새 세션 화면이다(⌘⇧O 도 같다). */}
-      <Link className="tk-nav__link" to="/chat" aria-current={here === "chat" ? "page" : undefined}>
+      {/* 채팅은 따까리 대화 하나다. 회사 모드는 같은 화면 위쪽에서 바꾼다(/work). */}
+      {/* 따까리에서 뻗은 세션(/chat/:id)에서는 사이드바 트리의 그 줄이 켜지므로 채팅은 끈다 */}
+      <Link className="tk-nav__link" to="/chat" aria-current={pathname === "/chat" || pathname === "/work" ? "page" : undefined}>
         <Icon name="chat" />
         채팅
+      </Link>
+      <Link className="tk-nav__link" to="/tasks" aria-current={here === "tasks" ? "page" : undefined}>
+        <Icon name="tasks" />
+        작업
       </Link>
       <button
         type="button"
@@ -67,9 +73,10 @@ function FeaturesDialog({ open, onClose, currentRoot }: { open: boolean; onClose
   );
 }
 
-/** 모바일 하단 탭 다섯: 채팅, 하단 탭에 둔 기능(FEATURES 의 mobileTab), 더보기. */
+/** 모바일 하단 탭 다섯: 채팅, 작업, 하단 탭에 둔 기능(FEATURES 의 mobileTab), 더보기. */
 const TABS = [
   { root: "chat", to: "/chat", icon: "chat" as const, label: "채팅" },
+  { root: "tasks", to: "/tasks", icon: "tasks" as const, label: "작업" },
   ...FEATURES.filter((f) => f.mobileTab).map((f) => ({ root: f.root, to: f.to, icon: f.icon, label: f.tabLabel ?? f.label })),
   { root: "more", to: "/more", icon: "more" as const, label: "더보기" },
 ];
@@ -79,7 +86,7 @@ export function TabbarLinks() {
   const here = pathname.split("/")[1];
   // 더보기로 옮긴 화면에 있을 때도 더보기 탭이 켜져 있어야 지금 어디인지 보인다.
   const feature = featureAt(pathname);
-  const active = feature && !feature.mobileTab ? "more" : here;
+  const active = feature && !feature.mobileTab ? "more" : here === "work" ? "chat" : here;
   return (
     <>
       {TABS.map((t) => (
