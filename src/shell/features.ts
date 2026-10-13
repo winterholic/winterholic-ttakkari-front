@@ -33,7 +33,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "meetings", to: "/meetings", icon: "mic", label: "회의록", description: "녹음·전사에서 결정과 할 일을 정리" },
   { root: "pms", to: "/pms", icon: "kanban", label: "PMS", description: "프로젝트 현황·칸반·이슈를 한눈에" },
   { root: "wbs", to: "/wbs", icon: "wbs", label: "WBS", description: "작업 분해 트리와 간트 일정" },
-  { root: "resources", to: "/resources", icon: "server", label: "서버 리소스", description: "Mac Studio CPU·메모리·저장공간 현황", mobileMore: false },
+  { root: "resources", to: "/resources", icon: "server", label: "서버 리소스", description: "Mac Studio CPU·메모리·저장공간 현황" },
 ];
 
 /** 지금 경로가 어느 부가 기능 안인가. 채팅·설정처럼 목록에 없는 화면이면 undefined. */
