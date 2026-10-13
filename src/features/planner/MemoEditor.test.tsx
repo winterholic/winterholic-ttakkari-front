@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 
@@ -155,6 +155,23 @@ describe("메모 편집기 자동 저장", () => {
     fireEvent.click(screen.getByRole("button", { name: "맨 위에 고정" }));
     await wait(900);
     expect(patchMemo).toHaveBeenCalledWith("m1", expect.objectContaining({ pinned: true, rev: 1 }));
+  });
+
+  it("삭제를 확인하기 전에는 보존하고, 확인한 뒤에만 지운다", async () => {
+    getMemo.mockResolvedValue(memo());
+    deleteMemo.mockResolvedValue(undefined);
+    mount("m1");
+    await screen.findByLabelText("본문");
+
+    fireEvent.click(screen.getByRole("button", { name: "메모 지우기" }));
+    const confirm = await screen.findByRole("dialog", { name: "메모를 지울까요?" });
+    fireEvent.click(within(confirm).getByRole("button", { name: "취소" }));
+    expect(deleteMemo).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "메모 지우기" }));
+    const reopened = await screen.findByRole("dialog", { name: "메모를 지울까요?" });
+    fireEvent.click(within(reopened).getByRole("button", { name: "지우기" }));
+    await waitFor(() => expect(deleteMemo).toHaveBeenCalledWith("m1"));
   });
 });
 
