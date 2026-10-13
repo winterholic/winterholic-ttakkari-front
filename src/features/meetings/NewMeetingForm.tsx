@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { createMeeting, listEntities, uploadFile } from "../../api/client";
+import { createMeeting, listPmsProjects, uploadFile } from "../../api/client";
 import type { MeetingScope } from "../../api/client";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
@@ -16,11 +16,11 @@ import { TranscriptField } from "./TranscriptField";
 
 type Mode = "audio" | "text";
 
-/** 프로젝트 선택지. 회의 범위와 맞는(같은 범위이거나 공통) 프로젝트만 보인다(서버도 같은 규칙으로 거절한다). */
+/** 프로젝트 선택지. 회의 범위와 맞는(같은 개인·회사 범위의 PMS) 프로젝트만 보인다(서버도 같은 규칙으로 거절한다). */
 export function useProjectOptions(scope: MeetingScope) {
-  const q = useQuery({ queryKey: ["assistant", "entities", "project"], queryFn: () => listEntities({ type: "project" }) });
-  const options = [{ value: "", label: "연결 안 함" }, ...(q.data?.entities ?? [])
-    .filter((e) => !e.scope || e.scope === scope || e.scope === "shared")
+  const q = useQuery({ queryKey: ["pms", "projects", { scope }], queryFn: () => listPmsProjects({ scope }) });
+  const options = [{ value: "", label: "연결 안 함" }, ...(q.data?.projects ?? [])
+    .filter((e) => e.scope === scope)
     .map((e) => ({ value: e.id, label: e.name }))];
   return { options, isPending: q.isPending };
 }
@@ -108,7 +108,7 @@ export function NewMeetingForm() {
       </div>
 
       <div className="tk-field">
-        <label className="tk-label" id={`${id}-project-label`} htmlFor={`${id}-project`}>프로젝트 <span className="mt-optional">선택</span></label>
+        <label className="tk-label" id={`${id}-project-label`} htmlFor={`${id}-project`}>PMS 프로젝트 <span className="mt-optional">선택</span></label>
         <Select id={`${id}-project`} labelledBy={`${id}-project-label`} value={project} options={options} onChange={setProject} />
         <p className="tk-help">연결하면 그 프로젝트의 기존 결정·열린 액션과 비교해 충돌을 찾아요.</p>
       </div>

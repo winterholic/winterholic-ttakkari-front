@@ -8,7 +8,7 @@ const h = vi.hoisted(() => ({
   listMeetings: vi.fn(), getMeeting: vi.fn(), createMeeting: vi.fn(), analyzeMeeting: vi.fn(), meetingProviders: vi.fn(),
   resolveMeetingProposal: vi.fn(), requestMeetingTranscription: vi.fn(), putMeetingTranscript: vi.fn(), patchMeetingItem: vi.fn(),
   patchMeeting: vi.fn(), deleteMeeting: vi.fn(), cancelMeetingAnalysis: vi.fn(), listEntities: vi.fn(), uploadFile: vi.fn(),
-  getDefaultWorkspace: vi.fn(),
+  getDefaultWorkspace: vi.fn(), listPmsProjects: vi.fn(),
   clovaStatus: vi.fn(), clovaJobs: vi.fn(), clovaNotes: vi.fn(), clovaSync: vi.fn(), clovaOpenLogin: vi.fn(), clovaImport: vi.fn(), clovaRetryJob: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({
@@ -26,6 +26,7 @@ vi.mock("../../api/client", async (orig) => ({
   deleteMeeting: (...a: unknown[]) => h.deleteMeeting(...a),
   cancelMeetingAnalysis: (...a: unknown[]) => h.cancelMeetingAnalysis(...a),
   listEntities: (...a: unknown[]) => h.listEntities(...a),
+  listPmsProjects: (...a: unknown[]) => h.listPmsProjects(...a),
   uploadFile: (...a: unknown[]) => h.uploadFile(...a),
   getDefaultWorkspace: (...a: unknown[]) => h.getDefaultWorkspace(...a),
   clovaStatus: (...a: unknown[]) => h.clovaStatus(...a),
@@ -117,6 +118,10 @@ beforeEach(() => {
     { id: "p1", type: "project", name: "Alpha", aliases: [], summary: null, pinned: false, scope: "personal" },
     { id: "p2", type: "project", name: "WorkOnly", aliases: [], summary: null, pinned: false, scope: "work" },
   ] });
+  h.listPmsProjects.mockImplementation(({ scope }) => Promise.resolve({ projects: [
+    { id: "pms-personal", name: "PMS 개인 프로젝트", scope: "personal" },
+    { id: "pms-work", name: "WorkOnly", scope: "work" },
+  ].filter(p => p.scope === scope) }));
   h.getDefaultWorkspace.mockResolvedValue({ id: "ws1" });
   h.clovaStatus.mockResolvedValue(clovaReady());
   h.clovaJobs.mockResolvedValue({ jobs: [] });
@@ -179,8 +184,10 @@ describe("클로바노트", () => {
     expect(within(list).getByRole("link", { name: /가져온 회의 회의록 열기/ }).getAttribute("href")).toBe("/meetings/m5");
     fireEvent.click(within(list).getByRole("button", { name: "가져오기" }));
     const dialog = await screen.findByRole("dialog", { name: "회의록으로 가져오기" });
+    fireEvent.click(within(dialog).getByRole("combobox", { name: /프로젝트/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "PMS 개인 프로젝트" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "가져오기" }));
-    await waitFor(() => expect(h.clovaImport).toHaveBeenCalledWith("n1", { scope: "personal", project_id: null, analyze: true }));
+    await waitFor(() => expect(h.clovaImport).toHaveBeenCalledWith("n1", { scope: "personal", project_id: "pms-personal", analyze: true }));
   });
 
   it("처리 중인 동기화 작업이 있으면 목록 위에 진행을 보여 준다", async () => {
@@ -196,6 +203,19 @@ describe("클로바노트", () => {
 });
 
 describe("새 회의록", () => {
+  it("맥락 도서관 대신 PMS 프로젝트를 선택해 회의록을 만든다", async () => {
+    h.createMeeting.mockResolvedValue(detail({ id: "m-pms" }));
+    renderAt("/meetings/new");
+    fireEvent.click(await screen.findByRole("combobox", { name: /프로젝트/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "PMS 개인 프로젝트" }));
+    expect(h.listEntities).not.toHaveBeenCalled();
+    expect(h.listPmsProjects).toHaveBeenCalledWith({ scope: "personal" });
+    fireEvent.change(screen.getByLabelText("제목"), { target: { value: "PMS 회의" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "전사 텍스트" }), { target: { value: "프로젝트 점검" } });
+    fireEvent.click(screen.getByRole("button", { name: "분석 시작" }));
+    await waitFor(() => expect(h.createMeeting).toHaveBeenCalledWith(expect.objectContaining({ project_id: "pms-personal" })));
+  });
+
   it("전사 텍스트로 만들면 바로 분석을 시작하고 상세로 간다", async () => {
     h.createMeeting.mockResolvedValue(detail({ id: "m9", status: "transcribed" }));
     h.analyzeMeeting.mockResolvedValue(detail({ id: "m9", status: "analyzing" }));

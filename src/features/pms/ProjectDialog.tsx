@@ -113,23 +113,23 @@ function ProjectForm({ project, onClose, onCreated, onDeleted, defaultScope }: {
 
   return (
     <form
-      className="pms-form"
+      className="tk-stack pms-form pms-project-form"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
       <div className="tk-field">
-        <label htmlFor={`${id}-name`}>이름</label>
-        <input id={`${id}-name`} className="tk-input tk-input--lg" value={f.name} maxLength={200} autoComplete="off" autoFocus placeholder="예) 웹사이트 리뉴얼" onChange={(e) => set({ name: e.target.value })} />
+        <label className="tk-label" htmlFor={`${id}-name`}>이름</label>
+        <input id={`${id}-name`} className="tk-input" value={f.name} maxLength={200} autoComplete="off" autoFocus placeholder="예) 웹사이트 리뉴얼" onChange={(e) => set({ name: e.target.value })} />
       </div>
       <div className="tk-field">
-        <label htmlFor={`${id}-desc`}>설명 <span className="pms-optional">선택</span></label>
-        <textarea id={`${id}-desc`} className="tk-textarea" rows={3} value={f.description} maxLength={10000} onChange={(e) => set({ description: e.target.value })} />
+        <label className="tk-label" htmlFor={`${id}-desc`}>설명 <span className="pms-optional">선택</span></label>
+        <textarea id={`${id}-desc`} className="tk-textarea" rows={2} value={f.description} maxLength={10000} onChange={(e) => set({ description: e.target.value })} />
       </div>
-      <div className="pms-form__pair">
+      <div className="tk-grid pms-form__pair">
         <div className="tk-field">
-          <span id={`${id}-scope`}>범위</span>
+          <span className="tk-label" id={`${id}-scope`}>범위</span>
           <div className="tk-segmented tk-segmented--block" role="radiogroup" aria-labelledby={`${id}-scope`}>
             {SCOPES.map((s) => (
               <label key={s.value}><input type="radio" name={`${id}-scope`} checked={f.scope === s.value} onChange={() => set({ scope: s.value })} />{s.label}</label>
@@ -137,22 +137,22 @@ function ProjectForm({ project, onClose, onCreated, onDeleted, defaultScope }: {
           </div>
         </div>
         <div className="tk-field">
-          <span id={`${id}-status`}>상태</span>
+          <span className="tk-label" id={`${id}-status`}>상태</span>
           <Select id={`${id}-statussel`} labelledBy={`${id}-status`} value={f.status} options={PROJECT_STATUSES.map((s) => ({ value: s, label: PROJECT_STATUS_LABEL[s] }))} onChange={(v) => set({ status: v })} />
         </div>
       </div>
-      <div className="pms-form__pair">
+      <div className="tk-grid pms-form__pair">
         <div className="tk-field">
-          <label htmlFor={`${id}-start`}>시작일 <span className="pms-optional">선택</span></label>
+          <label className="tk-label" htmlFor={`${id}-start`}>시작일 <span className="pms-optional">선택</span></label>
           <input id={`${id}-start`} className="tk-input" type="date" value={f.start} onChange={(e) => set({ start: e.target.value })} />
         </div>
         <div className="tk-field">
-          <label htmlFor={`${id}-end`}>종료일 <span className="pms-optional">선택</span></label>
+          <label className="tk-label" htmlFor={`${id}-end`}>종료일 <span className="pms-optional">선택</span></label>
           <input id={`${id}-end`} className="tk-input" type="date" min={f.start || undefined} value={f.end} onChange={(e) => set({ end: e.target.value })} />
         </div>
       </div>
       <div className="tk-field">
-        <label htmlFor={`${id}-member`}>멤버 <span className="pms-optional">담당자 이름</span></label>
+        <label className="tk-label" htmlFor={`${id}-member`}>멤버 <span className="pms-optional">선택</span></label>
         <div className="pms-members">
           {f.members.map((m) => (
             <span className="tk-chip" key={m}>
@@ -174,14 +174,14 @@ function ProjectForm({ project, onClose, onCreated, onDeleted, defaultScope }: {
             onBlur={() => addMember(member)}
           />
         </div>
-        <p className="tk-help">로그인 계정이 아니라 담당자 칸에 고르는 이름표예요.</p>
+        <p className="tk-help">작업 담당자로 지정할 이름을 추가하세요. Enter로 입력할 수 있어요.</p>
       </div>
       {!project && (
-        <div className="tk-field">
-          <span id={`${id}-phases`}>처음 만들 단계 <span className="pms-optional">WBS 1단계</span></span>
-          <div className="tk-chips tk-chips--wrap" role="group" aria-labelledby={`${id}-phases`}>
+        <fieldset className="tk-fieldset pms-project-phases">
+          <legend className="tk-label" id={`${id}-phases`}>기본 단계 <span className="pms-optional">선택</span></legend>
+          <div className="tk-choices tk-choices--inline">
             {DEFAULT_PHASES.map((p) => (
-              <label className="tk-chip" key={p}>
+              <label className="tk-checkbox" key={p}>
                 <input
                   type="checkbox"
                   checked={f.phases.includes(p)}
@@ -191,8 +191,8 @@ function ProjectForm({ project, onClose, onCreated, onDeleted, defaultScope }: {
               </label>
             ))}
           </div>
-          <p className="tk-help">모두 빼면 빈 프로젝트로 시작해요. 나중에 WBS에서 자유롭게 고쳐요.</p>
-        </div>
+          <p className="tk-help">선택한 단계를 WBS의 첫 작업으로 만들어요. 나중에 바꿀 수 있어요.</p>
+        </fieldset>
       )}
 
       {err && <p className="tk-error" role="alert">{err}</p>}

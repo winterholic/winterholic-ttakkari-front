@@ -361,7 +361,7 @@ function ImportDialog({ note, onClose }: { note: ClovaNoteSummary | null; onClos
           </div>
         </div>
         <div className="tk-field">
-          <label className="tk-label" id={`${id}-pl`} htmlFor={`${id}-p`}>프로젝트 <span className="mt-optional">선택</span></label>
+          <label className="tk-label" id={`${id}-pl`} htmlFor={`${id}-p`}>PMS 프로젝트 <span className="mt-optional">선택</span></label>
           <Select id={`${id}-p`} labelledBy={`${id}-pl`} value={project} options={options} onChange={setProject} />
         </div>
         <label className="tk-checkbox">
