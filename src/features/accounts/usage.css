@@ -5,6 +5,9 @@
 .usage__note a { color: var(--tk-color-text-brand); }
 .usage__list { display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
 
+/* 지금 쓰는 계정 요약: 좁으면 세로로, 넓으면 개인·회사를 나란히 */
+.usage__now { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-2); }
+@media (min-width: 640px) { .usage__now { grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); } }
 .usage-now {
   display: grid; grid-template-columns: 1fr auto; gap: var(--tk-space-0-5) var(--tk-space-3); align-items: baseline;
   padding: var(--tk-space-3) var(--tk-space-4); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-subtle);
@@ -32,7 +35,7 @@
 .usage-card__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
 .usage-card__sub { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .usage-card__head > .tk-badge { flex: none; }
-.usage-card__windows { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--tk-space-3) var(--tk-space-4); }
+.usage-card__windows { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--tk-space-3) var(--tk-space-4); }
 .usage-card__foot { margin: 0; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 
 .usage-win { display: flex; flex-direction: column; gap: var(--tk-space-1-5); min-width: 0; }

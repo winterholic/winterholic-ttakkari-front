@@ -28,3 +28,5 @@
 .account-login__row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
 .account-login__row > code { padding: var(--tk-space-0-5) var(--tk-space-2); border-radius: var(--tk-radius-sm); background: var(--tk-color-surface-subtle); color: var(--tk-color-text-primary); overflow-wrap: anywhere; }
 .account-actions { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+/* 넓은 화면에서 안내 문구가 한 줄 100자를 넘지 않게. 모바일은 이미 그보다 좁아 영향 없다. */
+.account-help { max-width: 68ch; word-break: keep-all; }

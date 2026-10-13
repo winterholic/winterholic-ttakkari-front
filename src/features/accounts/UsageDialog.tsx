@@ -103,6 +103,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
           </button>
         </div>
 
+        <div className="usage__now">
         {groups.map((g) => {
           const active = g.rows.find((a) => usable(a, g.pool));
           return active ? (
@@ -117,6 +118,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
             </section>
           ) : null;
         })}
+        </div>
 
         {q.isPending && <p className="usage__note">사용량을 불러오는 중이에요.</p>}
         {q.isError && <p className="tk-error" role="alert">{errorText(q.error).message}</p>}

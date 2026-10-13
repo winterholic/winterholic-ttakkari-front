@@ -184,7 +184,7 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
         </div>
       </div>
       {text.help.map((h) => (
-        <p key={h} className="tk-fieldset__help">{h}</p>
+        <p key={h} className="tk-fieldset__help account-help">{h}</p>
       ))}
       <OverrideBanner accounts={rows} pool={pool} onEdit={() => setOverriding(true)} />
       {q.isSuccess && rows.length === 0 && <p className="tk-fieldset__help">{text.empty}</p>}
