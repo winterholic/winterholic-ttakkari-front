@@ -56,6 +56,12 @@ afterEach(() => {
 });
 
 describe("AppShell 인증 가드", () => {
+  it("데스크톱과 드로어가 함께 있어도 다이얼로그 ID는 중복되지 않는다", () => {
+    renderAt("/chat");
+    const ids = [...document.querySelectorAll("[id]")].map((el) => el.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it("로그아웃 상태면 /login 으로 보낸다", () => {
     auth.state = "out";
     renderAt("/chat");

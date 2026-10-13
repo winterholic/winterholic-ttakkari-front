@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import type { MouseEvent, ReactNode } from "react";
 import { IconButton } from "./Button";
 import { Icon } from "./Icon";
@@ -33,7 +33,8 @@ export interface DialogProps {
 export function Dialog({ open, onClose, kind = "dialog", size, label, title, modal, footer, children, id }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const opener = useRef<Element | null>(null);
-  const titleId = id ? `${id}-title` : undefined;
+  const generatedId = useId();
+  const titleId = `${id ?? generatedId}-title`;
 
   useEffect(() => {
     const el = ref.current;

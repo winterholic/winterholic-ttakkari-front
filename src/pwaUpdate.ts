@@ -100,9 +100,11 @@ export function setupPwaUpdate(): void {
   if (!("serviceWorker" in navigator)) return;
   const sw = navigator.serviceWorker;
   // 첫 설치(제어하는 워커가 아직 없음)에는 다시 읽을 필요가 없다.
-  const hadController = sw.controller !== null;
+  let controller = sw.controller;
   sw.addEventListener("controllerchange", () => {
-    if (!hadController || updateReady) return;
+    const previous = controller;
+    controller = sw.controller;
+    if (!previous || !controller || updateReady) return;
     markUpdateReady();
     startRetry();
   });
@@ -113,6 +115,7 @@ export function setupPwaUpdate(): void {
       document.addEventListener("visibilitychange", () => {
         if (document.visibilityState === "visible") check();
       });
+      window.addEventListener("focus", check);
       window.setInterval(check, CHECK_MS);
     });
   };

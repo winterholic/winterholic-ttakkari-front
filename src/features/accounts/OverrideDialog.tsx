@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deleteOverride, getOverride, putOverride } from "../../api/client";
 import type { AccountOut, AccountPool } from "../../api/types";
@@ -8,6 +8,8 @@ import { SortableList } from "../../ui/SortableList";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { isOn } from "./mode";
+import { OrderButtons } from "./OrderButtons";
+import { ErrorState, ListSkeleton } from "../viewer/screenStates";
 
 export const overrideKey = (pool: AccountPool) => ["accounts", "override", pool] as const;
 const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex" };
@@ -67,15 +69,38 @@ export function OverrideBanner({ accounts, pool, onEdit }: { accounts: AccountOu
 
 /** 정한 시각까지만 쓸 순서를 끌어서 정한다. 기본 순서는 그대로 두고, 시각이 지나면 저절로 돌아간다. */
 export function OverrideDialog({ accounts, pool, onClose }: { accounts: AccountOut[]; pool: AccountPool; onClose: () => void }) {
-  const qc = useQueryClient();
+  const [opener] = useState(() => document.activeElement);
+  // 조회 완료 시 로딩 모달을 편집 모달로 교체하므로 최초 진입 위치는 이 부모가 보존한다.
+  useEffect(() => () => {
+    if (opener instanceof HTMLElement && document.contains(opener)) opener.focus();
+  }, [opener]);
   const ov = useOverride(pool);
+  if (!ov.data) {
+    return (
+      <Dialog open onClose={onClose} size="lg" title={pool === "work" ? "회사 계정 임시 순서" : "임시 순서"} id="account-override">
+        {ov.isError
+          ? <ErrorState error={ov.error} what="임시 순서" onRetry={() => void ov.refetch()} />
+          : <ListSkeleton rows={3} label="임시 순서를 불러오는 중" />}
+      </Dialog>
+    );
+  }
+  return <OverrideEditor accounts={accounts} pool={pool} onClose={onClose} current={ov.data} />;
+}
+
+function OverrideEditor({ accounts, pool, onClose, current }: {
+  accounts: AccountOut[];
+  pool: AccountPool;
+  onClose: () => void;
+  current: { active: boolean; ids: string[]; until: string | null };
+}) {
+  const qc = useQueryClient();
   const initial = (() => {
-    if (!ov.data?.active) return accounts.filter((a) => isOn(a, pool));
-    const pick = ov.data.ids.map((id) => accounts.find((a) => a.id === id)).filter((a): a is AccountOut => !!a);
+    if (!current.active) return accounts.filter((a) => isOn(a, pool));
+    const pick = current.ids.map((id) => accounts.find((a) => a.id === id)).filter((a): a is AccountOut => !!a);
     return pick.length ? pick : accounts.filter((a) => isOn(a, pool));
   })();
   const [order, setOrder] = useState<AccountOut[]>(initial);
-  const [until, setUntil] = useState<string>(ov.data?.active && ov.data.until ? localInput(new Date(ov.data.until)) : localInput(preset("tomorrow9")));
+  const [until, setUntil] = useState<string>(current.active && current.until ? localInput(new Date(current.until)) : localInput(preset("tomorrow9")));
   const rest = accounts.filter((a) => !order.some((o) => o.id === a.id));
   // 렌더 중 Date.now() 를 부르지 않는다(react-hooks/purity). 다이얼로그를 연 시각 기준으로 본다.
   const [openedAt] = useState(() => Date.now());
@@ -92,6 +117,7 @@ export function OverrideDialog({ accounts, pool, onClose }: { accounts: AccountO
   return (
     <Dialog
       open
+      size="lg"
       onClose={onClose}
       modal
       title={pool === "work" ? "회사 계정 임시 순서" : "임시 순서"}
@@ -100,6 +126,7 @@ export function OverrideDialog({ accounts, pool, onClose }: { accounts: AccountO
         <>
           <button className="tk-button" type="button" onClick={onClose}>취소</button>
           <button className="tk-button tk-button--primary" type="button" aria-disabled={!ready || undefined} aria-busy={save.isPending || undefined}
+            disabled={save.isPending}
             onClick={() => ready && save.mutate()}>
             적용
           </button>
@@ -110,16 +137,17 @@ export function OverrideDialog({ accounts, pool, onClose }: { accounts: AccountO
       <div className="override-form">
         <div className="tk-field">
           <label className="tk-label" htmlFor="override-until">언제까지</label>
-          <input id="override-until" className="tk-input" type="datetime-local" value={until} min={localInput(new Date(openedAt))} onChange={(e) => setUntil(e.target.value)} />
+          <input id="override-until" className="tk-input" type="datetime-local" value={until} min={localInput(new Date(openedAt))} disabled={save.isPending} onChange={(e) => setUntil(e.target.value)} />
           <div className="tk-chips" role="group" aria-label="빠른 선택">
             {([["1h", "1시간"], ["3h", "3시간"], ["tonight", "오늘 밤까지"], ["tomorrow9", "내일 아침 9시"]] as const).map(([k, l]) => (
-              <button key={k} className="tk-chip" type="button" onClick={() => setUntil(localInput(preset(k)))}>{l}</button>
+              <button key={k} className="tk-chip" type="button" disabled={save.isPending} onClick={() => setUntil(localInput(preset(k)))}>{l}</button>
             ))}
           </div>
         </div>
         <SortableList
           items={order}
           label="임시 순서"
+          disabled={save.isPending}
           onReorder={setOrder}
           render={(a, i, handle) => (
             <div className="tk-list__item account-row">
@@ -130,7 +158,13 @@ export function OverrideDialog({ accounts, pool, onClose }: { accounts: AccountO
                 <span className="tk-list__meta"><span>{ENGINE[a.engine]}</span>{!isOn(a, pool) && <span>꺼져 있음(건너뜀)</span>}</span>
               </span>
               <span className="tk-list__end">
-                <button className="tk-icon-button tk-icon-button--sm" type="button" aria-label={`${a.name} 빼기`} onClick={() => setOrder(order.filter((x) => x.id !== a.id))}>
+                <OrderButtons name={a.name} index={i} count={order.length} disabled={save.isPending} onMove={(to) => {
+                  const next = [...order];
+                  const [moved] = next.splice(i, 1);
+                  next.splice(to, 0, moved);
+                  setOrder(next);
+                }} />
+                <button className="tk-icon-button tk-icon-button--sm" type="button" aria-label={`${a.name} 빼기`} disabled={save.isPending} onClick={() => setOrder(order.filter((x) => x.id !== a.id))}>
                   <Icon name="x" />
                 </button>
               </span>
@@ -140,7 +174,7 @@ export function OverrideDialog({ accounts, pool, onClose }: { accounts: AccountO
         {rest.length > 0 && (
           <div className="tk-chips" role="group" aria-label="더할 계정">
             {rest.map((a) => (
-              <button key={a.id} className="tk-chip" type="button" onClick={() => setOrder([...order, a])}>
+              <button key={a.id} className="tk-chip" type="button" disabled={save.isPending} onClick={() => setOrder([...order, a])}>
                 <Icon name="plus" />{a.name}
               </button>
             ))}

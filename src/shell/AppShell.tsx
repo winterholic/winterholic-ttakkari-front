@@ -81,8 +81,8 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
         </span>
         <Icon name="chevron-up" />
       </Menu>
-      <PushSettingsDialog open={pushOpen} onClose={() => setPushOpen(false)} />
-      <UsageDialog open={usageOpen} onClose={() => setUsageOpen(false)} />
+      {pushOpen && <PushSettingsDialog open onClose={() => setPushOpen(false)} />}
+      {usageOpen && <UsageDialog open onClose={() => setUsageOpen(false)} />}
     </div>
   );
 }

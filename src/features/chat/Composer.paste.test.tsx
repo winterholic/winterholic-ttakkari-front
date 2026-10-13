@@ -61,6 +61,27 @@ describe("Composer 붙여넣기", () => {
     expect(onAttach).not.toHaveBeenCalled();
   });
 
+  it("이미지 복사에 HTML img 형식이 함께 있어도 실제 PNG를 첨부한다", () => {
+    const { onAttach, box } = setup();
+    const data = {
+      ...clip([png()], ["text/html", "Files"]),
+      getData: (type: string) => type === "text/html" ? '<img src="https://example.com/photo.png">' : "",
+    } as unknown as DataTransfer;
+    expect(paste(box, data).defaultPrevented).toBe(true);
+    expect(onAttach).toHaveBeenCalledTimes(1);
+    expect((onAttach.mock.calls[0][0] as File[])[0].type).toBe("image/png");
+  });
+
+  it("HTML에 본문이 있는 복사는 이미지 파일이 있어도 텍스트를 보존한다", () => {
+    const { onAttach, box } = setup();
+    const data = {
+      ...clip([png()], ["text/html", "Files"]),
+      getData: (type: string) => type === "text/html" ? '<p>복사한 본문</p><img src="https://example.com/photo.png">' : "",
+    } as unknown as DataTransfer;
+    expect(paste(box, data).defaultPrevented).toBe(false);
+    expect(onAttach).not.toHaveBeenCalled();
+  });
+
   it("파일 없는 일반 텍스트는 건드리지 않는다", () => {
     const { onAttach, box } = setup();
     const ev = paste(box, clip([], ["text/plain"]));

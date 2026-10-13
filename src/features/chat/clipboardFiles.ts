@@ -36,12 +36,17 @@ export function nameClipboardFiles(files: File[], now = new Date()): File[] {
 
 /**
  * 붙여넣기에서 첨부할 파일을 꺼낸다. 없으면 [] 이고 기본 붙여넣기(텍스트)를 그대로 둔다.
- * text/html 이 같이 있으면(웹페이지·엑셀·워드에서 복사) 사용자가 원한 것은 텍스트라 파일을 가져가지 않는다.
- * 스크린샷, 탐색기·Finder 에서 복사한 파일처럼 파일만(또는 파일 이름 text/plain 과 함께) 있을 때만 첨부한다.
+ * 이미지 복사도 HTML img 형식을 함께 줄 수 있다. 실제 본문이 섞인 복사만 기본 텍스트 붙여넣기로 남긴다.
  */
 export function filesFromClipboard(data: DataTransfer | null, now = new Date()): File[] {
   if (!data) return [];
-  if (Array.from(data.types ?? []).includes("text/html")) return [];
+  if (Array.from(data.types ?? []).includes("text/html")) {
+    // getData 미지원 데이터는 내용 구분이 불가능하므로 기본 붙여넣기를 유지한다.
+    if (!data.getData) return [];
+    const text = data.getData("text/plain").trim();
+    const html = new DOMParser().parseFromString(data.getData("text/html"), "text/html");
+    if (text || html.body.textContent?.trim()) return [];
+  }
   let files = Array.from(data.files ?? []);
   // 일부 브라우저는 files 를 비우고 items 에만 파일을 둔다.
   if (files.length === 0) {

@@ -151,7 +151,7 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
     }
   }
 
-  // 스크린샷·복사한 파일은 첨부로 보낸다. 웹페이지 등 text/html 이 함께 오면 건드리지 않아 텍스트가 그대로 붙는다.
+  // 이미지·파일은 첨부하고, 본문이 섞인 복사는 기본 붙여넣기를 유지한다.
   function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
     if (!onAttach) return;
     const files = filesFromClipboard(e.clipboardData);

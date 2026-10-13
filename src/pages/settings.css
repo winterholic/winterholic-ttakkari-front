@@ -30,3 +30,9 @@
 .account-actions { display: flex; flex-direction: column; gap: var(--tk-space-2); }
 /* 넓은 화면에서 안내 문구가 한 줄 100자를 넘지 않게. 모바일은 이미 그보다 좁아 영향 없다. */
 .account-help { max-width: 68ch; word-break: keep-all; }
+.override-form { display: flex; flex-direction: column; gap: var(--tk-space-4); }
+.account-row .tk-list__meta > span { overflow-wrap: anywhere; }
+@media (min-width: 1024px) {
+  .account-row .tk-list__title { white-space: normal; overflow-wrap: anywhere; }
+  .account-row .tk-list__end { align-self: center; }
+}

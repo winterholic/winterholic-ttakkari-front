@@ -8,6 +8,7 @@ import { Select } from "../../ui/Select";
 import { SortableList } from "../../ui/SortableList";
 import { applyOrder, isOn, modeRows } from "./mode";
 import { OverrideBanner, OverrideDialog } from "./OverrideDialog";
+import { OrderButtons } from "./OrderButtons";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { ErrorState, ListSkeleton } from "../viewer/screenStates";
@@ -224,6 +225,8 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
                   {a.login !== "ok" && a.login_command && <LoginHint engine={a.engine} command={a.login_command} />}
                 </span>
                 <span className="tk-list__end">
+                  <OrderButtons name={a.name} index={i} count={rows.length} disabled={reorder.isPending}
+                    onMove={(to) => moveBy(i, to)} />
                   <label className="tk-switch">
                     <input
                       type="checkbox"
