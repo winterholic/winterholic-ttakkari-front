@@ -9,6 +9,8 @@ import type {
   ArtifactOut,
   ArtifactRegisterIn,
   ArtifactVariant,
+  DeskFeedbackIn,
+  DeskFeedbackOut,
   DirListing,
   DownloadLinkOut,
   FileEntry,
@@ -242,6 +244,8 @@ export const createRun = (sessionId: UUID, body: RunIn): Promise<RunOut> =>
   json(`/api/sessions/${sessionId}/runs`, { method: "POST", json: body });
 export const getRun = (id: UUID): Promise<RunOut> => json(`/api/runs/${id}`);
 export const cancelRun = (id: UUID): Promise<RunOut> => json(`/api/runs/${id}/cancel`, { method: "POST" });
+export const putDeskFeedback = (runId: UUID, body: DeskFeedbackIn): Promise<DeskFeedbackOut> =>
+  json(`/api/runs/${runId}/desk-feedback`, { method: "POST", json: body });
 export const runEvents = (id: UUID, after = 0, limit = 500): Promise<RunEvent[]> =>
   json(`/api/runs/${id}/events`, { query: { after, limit } });
 export async function runDiff(id: UUID): Promise<string> {
