@@ -17,7 +17,7 @@ function copy(text: string, what: string) {
 
 /**
  * 설정 > 아이폰 단축어. 사파리 웹앱은 공유 시트에 들어갈 수 없어서, 단축어가 업로드 전용 토큰으로
- * /api/transfers/simple 에 올리게 한다. 사진 앱·파일 앱 어디서든 공유 → '따까리로 보내기'.
+ * /api/transfers/raw 에 파일 본문으로 올린다. 사진 앱·파일 앱 어디서든 공유 → '따까리로 보내기'.
  */
 export function ShortcutSection() {
   const qc = useQueryClient();
@@ -38,7 +38,7 @@ export function ShortcutSection() {
       void qc.invalidateQueries({ queryKey: KEY });
     },
   });
-  const url = apiUrl("/api/transfers/simple");
+  const url = apiUrl("/api/transfers/raw?filename=");
   const local = /\/\/(127\.0\.0\.1|localhost)[:/]/.test(url);
 
   return (
@@ -74,10 +74,16 @@ export function ShortcutSection() {
       <ol className="shortcut-steps">
         <li>아이폰 <strong>단축어</strong> 앱 → 오른쪽 위 + → 이름을 <strong>따까리로 보내기</strong>로.</li>
         <li>
-          아래 ⓘ(단축어 정보) → <strong>공유 시트에 보기</strong> 켜기. 받는 유형은 <strong>이미지, 미디어, 파일</strong>.
+          단축어 세부사항 → <strong>공유 시트에 보기</strong> 켜기. 편집기 위쪽에서 받는 유형을 <strong>이미지, 미디어, 파일</strong>로 선택해요.
         </li>
         <li>
-          동작 추가 → <strong>URL 콘텐츠 가져오기</strong>. URL 에 아래 주소, 방법 <strong>POST</strong>, 요청 본문 <strong>양식</strong>.
+          <strong>각 항목 반복</strong> 동작을 추가하고 입력을 <strong>단축어 입력</strong>으로 선택해요. 다음 동작은 모두 반복 안에 넣어요.
+        </li>
+        <li>
+          <strong>이름 가져오기</strong> 동작의 입력을 <strong>반복 항목</strong>으로 선택해요. 이어서 <strong>URL 인코딩</strong> 동작으로 그 이름을 인코딩해요. 확장자를 포함한 이름(예: 보고서.pdf)을 사용해요.
+        </li>
+        <li>
+          <strong>URL</strong> 동작에 아래 주소를 넣고, <code>filename=</code> 바로 뒤에 앞 동작의 <strong>URL 인코딩된 텍스트</strong> 변수를 넣어요. 변수 이름을 직접 타이핑하지 말고 변수 선택으로 넣어요.
           <span className="shortcut-steps__copy">
             <code className="tk-mono">{url}</code>
             <button className="tk-icon-button tk-icon-button--xs" type="button" aria-label="주소 복사" onClick={() => copy(url, "주소")}>
@@ -86,13 +92,19 @@ export function ShortcutSection() {
           </span>
         </li>
         <li>
-          헤더 추가: 키 <code>Authorization</code>, 값 <code>Bearer 토큰</code>(Bearer 뒤 한 칸 띄우고 위에서 복사한 토큰).
+          <strong>URL 콘텐츠 가져오기</strong>를 추가해 앞의 URL을 선택해요. 방법 <strong>POST</strong>, <strong>요청 본문 자체를 파일</strong>로 바꾸고, 파일 값은 <strong>반복 항목</strong>을 선택해요.
         </li>
         <li>
-          양식에 필드 추가: 종류 <strong>파일</strong>, 키 <code>files</code>, 값 <strong>단축어 입력</strong>. 여러 장을 확실히 보내려면 이 동작을 <strong>반복(각 항목)</strong>으로 감싸고 값을 반복 항목으로.
+          헤더 두 개를 추가해요. <code>Authorization</code> = <code>Bearer 토큰</code>(Bearer 뒤 한 칸 띄우고 복사한 토큰), <code>Content-Type</code> = <code>application/octet-stream</code>.
         </li>
-        <li>(선택) <strong>알림 보기</strong> 동작으로 "보냈어요"를 띄우면 끝난 걸 알 수 있어요.</li>
+        <li>
+          처음에는 <strong>훑어보기</strong> 동작으로 <strong>URL 콘텐츠</strong> 응답을 확인해요. <code>files</code>에 저장된 파일 이름·크기·경로가 나오면 서버가 받은 거예요. 오류 응답이면 보냈다는 알림을 띄우지 않아요.
+        </li>
       </ol>
+      <p className="tk-fieldset__help">
+        파일은 양식의 필드 유형이 아니라 요청 본문 메뉴에서 선택해요. 텍스트·숫자·배열·사전·불리언 목록이 보이면 한 단계 위의 요청 본문으로 돌아가세요. 큰 파일은 파일 탭의 보내기에서 이어 올릴 수 있어요.
+        {" "}<a href="https://support.apple.com/ko-kr/guide/shortcuts/apd58d46713f/ios" target="_blank" rel="noreferrer">Apple 요청 본문 안내</a>
+      </p>
 
       {q.isSuccess && q.data.length > 0 && (
         <ul className="tk-list" aria-label="업로드 토큰">
