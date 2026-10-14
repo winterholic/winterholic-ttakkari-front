@@ -986,3 +986,16 @@ export const listPmsNotes = (id: string, status: "open" | "resolved" | "all" = "
 export const createPmsNote = (id: string, body: PmsNoteIn): Promise<PmsNote> => json(`${PMS}/projects/${id}/notes`, { method: "POST", json: body });
 export const patchPmsNote = (id: string, body: PmsNotePatch): Promise<PmsNote> => json(`${PMS}/notes/${id}`, { method: "PATCH", json: body });
 export const deletePmsNote = (id: string): Promise<void> => json(`${PMS}/notes/${id}`, { method: "DELETE" });
+
+
+export interface ChecklistItem { id: string; day: string; title: string; checked: boolean; template_id: string | null }
+export interface ChecklistTemplate { id: string; title: string }
+export interface DailyChecklist { day: string; items: ChecklistItem[]; completed: number; total: number }
+export const listChecklist = (day: string): Promise<DailyChecklist> => json(`/api/checklists?day=${encodeURIComponent(day)}`);
+export const listChecklistTemplates = (): Promise<{ templates: ChecklistTemplate[] }> => json("/api/checklists/templates");
+export const createChecklistItem = (body: { title: string; day: string }): Promise<ChecklistItem> => json("/api/checklists/items", { method: "POST", json: body });
+export const patchChecklistItem = (id: string, body: { title?: string; checked?: boolean }): Promise<ChecklistItem> => json(`/api/checklists/items/${id}`, { method: "PATCH", json: body });
+export const deleteChecklistItem = (id: string): Promise<void> => json(`/api/checklists/items/${id}`, { method: "DELETE" });
+export const createChecklistTemplate = (title: string): Promise<ChecklistTemplate> => json("/api/checklists/templates", { method: "POST", json: { title } });
+export const patchChecklistTemplate = (id: string, title: string): Promise<ChecklistTemplate> => json(`/api/checklists/templates/${id}`, { method: "PATCH", json: { title } });
+export const deleteChecklistTemplate = (id: string): Promise<void> => json(`/api/checklists/templates/${id}`, { method: "DELETE" });

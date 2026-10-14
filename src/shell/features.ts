@@ -28,6 +28,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "files", to: "/files", icon: "folder-search", label: "파일", description: "Mac Studio 파일 찾기·폰에서 보내기" },
   { root: "memos", to: "/memos", icon: "memo", label: "메모", description: "카테고리·태그로 정리하는 메모", mobileTab: true },
   { root: "calendar", to: "/calendar", icon: "calendar", label: "캘린더", description: "일정과 한국 공휴일", mobileTab: true },
+  { root: "checklists", to: "/checklists", icon: "circle-check", label: "체크리스트", description: "매일 할 일과 고정 항목 체크·알림" },
   { root: "meetings", to: "/meetings", icon: "mic", label: "회의록", description: "녹음·전사에서 결정과 할 일을 정리" },
   { root: "pms", to: "/pms", icon: "kanban", label: "PMS", description: "프로젝트 현황·칸반·이슈를 한눈에" },
   { root: "wbs", to: "/wbs", icon: "wbs", label: "WBS", description: "작업 분해 트리와 간트 일정" },

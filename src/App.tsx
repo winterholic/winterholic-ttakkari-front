@@ -11,6 +11,7 @@ import { MeetingDetailPage } from "./pages/MeetingDetailPage";
 import { MeetingNewPage } from "./pages/MeetingNewPage";
 import { MeetingsPage } from "./pages/MeetingsPage";
 import { MemosPage } from "./pages/MemosPage";
+import { ChecklistsPage } from "./pages/ChecklistsPage";
 import { MorePage } from "./pages/MorePage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { TasksPage } from "./pages/TasksPage";
@@ -78,6 +79,7 @@ export function App() {
         <Route path="/wbs" element={<Suspense fallback={<RouteFallback />}><WbsListPage /></Suspense>} />
         <Route path="/wbs/:projectId" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/wbs/:projectId/:view" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
+        <Route path="/checklists" element={<ChecklistsPage />} />
         <Route path="/memos" element={<MemosPage />} />
         <Route path="/memos/:memoId" element={<MemosPage />} />
         <Route

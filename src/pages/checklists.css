@@ -1,0 +1,17 @@
+/* 기존 화면·입력·선택·모달 토큰을 그대로 사용한다. */
+.checklist-page { display: flex; flex-direction: column; gap: var(--tk-space-5); padding-block: var(--tk-space-5); }
+.checklist-panel, .checklist-edit { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; }
+.checklist-date { display: flex; align-items: center; gap: var(--tk-space-1); }
+.checklist-date input { flex: 1; width: 0; min-width: 0; max-width: var(--tk-size-layout-sidebar); }
+.checklist-note { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); margin: 0; }
+.checklist-add { display: flex; align-items: end; gap: var(--tk-space-2); }
+.checklist-add .tk-field { flex: 1; min-width: 0; }
+.checklist-progress { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-3); font-size: var(--tk-font-size-sm); }
+.checklist-progress progress { flex: 1; min-width: var(--tk-space-12); accent-color: var(--tk-color-text-brand); }
+.checklist-list { list-style: none; padding: 0; margin: 0; }
+.checklist-row { display: flex; align-items: center; gap: var(--tk-space-1); padding-block: var(--tk-space-2); border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); }
+.checklist-row__title { flex: 1; min-width: 0; overflow-wrap: anywhere; padding-block: var(--tk-space-2); }
+.checklist-row__title[data-checked] > span { text-decoration: line-through; color: var(--tk-color-text-secondary); }
+.checklist-fixed { display: inline-flex; color: var(--tk-color-text-secondary); }
+.checklist-error { color: var(--tk-color-text-danger); }
+.checklist-edit p { overflow-wrap: anywhere; }
