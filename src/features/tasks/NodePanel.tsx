@@ -3,7 +3,7 @@ import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { cancelRun, createRun, listRuns } from "../../api/client";
 import type { UUID } from "../../api/types";
-import { Composer } from "../chat/Composer";
+import { SessionComposer } from "../chat/SessionComposer";
 import { RunBlock } from "../chat/RunBlock";
 import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
@@ -45,9 +45,9 @@ export function NodePanel({
     void qc.invalidateQueries({ queryKey: ["tasks"] });
   }, [qc, nodeId]);
   const send = useMutation({
-    mutationFn: (prompt: string) => createRun(nodeId, { prompt }),
+    mutationFn: ({ prompt, contextIds }: { prompt: string; contextIds: string[] }) => createRun(nodeId, { prompt, context_artifact_ids: contextIds }),
     onSuccess: refresh,
-    onError: (e, prompt) => {
+    onError: (e, { prompt }) => {
       toast({ message: `보내지 못했어요 · ${e instanceof Error ? e.message : String(e)}`, tone: "danger" });
       setFill({ text: prompt, nonce: Date.now() });
     },
@@ -127,7 +127,7 @@ export function NodePanel({
                 isLast={i === runList.length - 1}
                 onOpen={onOpenArtifact}
                 onStop={stop}
-                onRetry={(p) => send.mutate(p)}
+                onRetry={(p) => send.mutate({ prompt: p, contextIds: [] })}
                 onSuggest={(text) => setFill({ text, nonce: Date.now() })}
                 onSettled={refresh}
               />
@@ -135,12 +135,13 @@ export function NodePanel({
           ))}
         </div>
       </div>
-      <Composer
+      <SessionComposer
+        sessionId={nodeId}
         draftKey={`node:${nodeId}`}
         label={node ? `${node.title}에 지시하기` : "이 세션에 지시하기"}
         running={!!activeRun || send.isPending}
         queued={runList.filter((r) => r.status === "queued").length}
-        onSubmit={(text) => send.mutate(text)}
+        onSubmit={(prompt, contextIds) => send.mutateAsync({ prompt, contextIds })}
         onStop={activeRun ? () => stop(activeRun.id) : undefined}
         fill={fill}
       />

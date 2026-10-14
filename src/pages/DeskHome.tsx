@@ -7,7 +7,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/toastStore";
-import { Composer } from "../features/chat/Composer";
+import { SessionComposer } from "../features/chat/SessionComposer";
 import { ArtifactViewerHost, useArtifactViewer } from "../features/viewer";
 import { useIsDesktop } from "../features/viewer/hooks";
 import { useForegroundResync } from "../hooks/useForegroundResync";
@@ -166,7 +166,7 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
     });
 
   const send = useMutation({
-    mutationFn: (prompt: string) => createRun(deskId, { prompt }),
+    mutationFn: ({ prompt, contextIds }: { prompt: string; contextIds: string[] }) => createRun(deskId, { prompt, context_artifact_ids: contextIds }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["runs", deskId] });
       void qc.invalidateQueries({ queryKey: ["tasks"] });
@@ -176,7 +176,7 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
         setNode(null);
       }
     },
-    onError: (e, prompt) => {
+    onError: (e, { prompt }) => {
       toast({ message: `보내지 못했어요 · ${e instanceof Error ? e.message : String(e)}`, tone: "danger" });
       setFill({ text: prompt, nonce: Date.now() });
     },
@@ -250,11 +250,12 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
             )}
             {/* 입력창은 판 밖에 둔다. 판이 오류로 멈춰도 따까리에게 지시할 수 있어야 한다. */}
             <div className="home__composer">
-              <Composer
+              <SessionComposer
+                sessionId={deskId}
                 draftKey={`desk:${deskId}`}
                 running={send.isPending}
                 queued={0}
-                onSubmit={(text) => send.mutate(text)}
+                onSubmit={(prompt, contextIds) => send.mutateAsync({ prompt, contextIds })}
                 fill={fill}
               />
             </div>
