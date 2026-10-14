@@ -13,6 +13,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 import { Select } from "../ui/Select";
 import { toast } from "../ui/toastStore";
+import { OrchestrationFlow } from "./OrchestrationFlow";
 import "./settings.css";
 import "./assistant.css";
 
@@ -69,6 +70,7 @@ export function AssistantPage() {
               </label>
             ))}
           </div>
+          <OrchestrationFlow />
           {tab === "instructions" && <InstructionsTab brief={s?.brief ?? ""} />}
           {tab === "memory" && <MemoryTab />}
           {tab === "knowledge" && <KnowledgeTab />}
