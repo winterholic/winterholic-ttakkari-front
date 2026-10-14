@@ -28,6 +28,7 @@ function renderAt(path: string) {
             <Route path="/chat" element={<p>채팅 본문</p>} />
             <Route path="/chat/:sessionId" element={<p>세션 본문</p>} />
             <Route path="/work" element={<p>회사 모드 본문</p>} />
+            <Route path="/tasks" element={<p>작업 본문</p>} />
             <Route path="/workspace/:sessionId" element={<p>작업 공간 본문</p>} />
             <Route path="/library" element={<p>보관함 본문</p>} />
             <Route path="/memos" element={<p>메모 본문</p>} />
@@ -186,5 +187,13 @@ describe("AppShell 인증 가드", () => {
     renderAt("/chat");
     const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
     expect(within(nav).queryByText("진행 중")).toBeNull();
+  });
+});
+
+describe("작업 내비게이션", () => {
+  it("작업 화면에서 실패한 작업 목록으로 바로 이동할 수 있다", () => {
+    renderAt("/tasks");
+    const link = screen.getAllByRole("link", { name: "실패한 작업" }).find((item) => item.getAttribute("href") === "/tasks/failed");
+    expect(link).toBeTruthy();
   });
 });

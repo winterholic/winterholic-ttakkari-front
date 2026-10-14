@@ -90,6 +90,26 @@ button.task-row__link { width: 100%; border: 0; background: none; text-align: le
 .tasks-page__group > li + li { border-top: var(--tk-border-width-hairline) solid var(--tk-component-list-divider); }
 .tasks-page__more { display: flex; justify-content: center; padding-top: var(--tk-space-3); }
 
+/* 실패 실행 목록도 작업 서고의 리스트와 같은 행·구분선을 사용한다. */
+.failed-tasks-page__period { margin-block: var(--tk-space-4); }
+.failed-run-list > li + li { border-top: var(--tk-border-width-hairline) solid var(--tk-component-list-divider); }
+.failed-run { align-items: flex-start; gap: var(--tk-space-3); min-width: 0; }
+.failed-run__body { gap: var(--tk-space-1); }
+.failed-run__titleline { display: flex; align-items: center; flex-wrap: wrap; gap: var(--tk-space-2); min-width: 0; }
+.failed-run__titleline > .tk-list__title { min-width: 0; }
+.failed-run__meta { white-space: normal; overflow-wrap: anywhere; }
+.failed-run__reason { display: -webkit-box; overflow: hidden; color: var(--tk-color-text-secondary); overflow-wrap: anywhere; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+.failed-run__time { font-variant-numeric: tabular-nums; }
+.failed-run__linklabel { flex: none; white-space: nowrap; }
+.failed-job-list > li + li { border-top: var(--tk-border-width-hairline) solid var(--tk-component-list-divider); }
+.failed-job { display: flex; flex-direction: column; gap: var(--tk-space-2); padding: var(--tk-component-list-row-padding-y) var(--tk-component-list-row-padding-x); min-width: 0; }
+.failed-job__head { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-2); flex-wrap: wrap; }
+.failed-job__title { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); overflow-wrap: anywhere; }
+@media (max-width: 520px) {
+  .failed-run { flex-direction: column; gap: var(--tk-space-1); }
+  .failed-run__linklabel { align-self: flex-end; }
+}
+
 .tasks-row__head { align-items: flex-start; gap: var(--tk-space-1); padding-left: var(--tk-space-2); }
 /* 토글 높이를 제목 줄 높이에 맞춰 첫 줄과 나란히 둔다 */
 .tasks-row__head > .task-row__toggle { margin-top: calc((var(--tk-font-size-md) * var(--tk-font-line-height-normal) - var(--tk-size-control-xs)) / 2); }

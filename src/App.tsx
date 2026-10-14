@@ -14,6 +14,7 @@ import { MemosPage } from "./pages/MemosPage";
 import { MorePage } from "./pages/MorePage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { TasksPage } from "./pages/TasksPage";
+import { FailedTasksPage } from "./pages/FailedTasksPage";
 import { DeskHome } from "./pages/DeskHome";
 import { AppShell } from "./shell/AppShell";
 
@@ -49,6 +50,7 @@ export function App() {
         <Route path="/work/thread" element={<ChatPage pool="work" />} />
         <Route path="/work/:sessionId" element={<ChatPage pool="work" />} />
         <Route path="/tasks" element={<TasksPage />} />
+        <Route path="/tasks/failed" element={<FailedTasksPage />} />
         <Route path="/workspace" element={<WorkspacePage />} />
         <Route path="/workspace/:sessionId" element={<WorkspacePage />} />
         <Route path="/library" element={<LibraryPage />} />

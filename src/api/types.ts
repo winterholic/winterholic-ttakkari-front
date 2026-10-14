@@ -150,6 +150,20 @@ export interface RunOut {
   desk_feedback?: DeskFeedbackBrief | null;
 }
 
+export interface FailedRunOut extends RunOut {
+  failed_at: ISODateTime;
+  session_title: string;
+  session_kind: "chat" | "orchestrator" | "desk";
+  session_parent_id: UUID | null;
+  pool: AccountPool;
+  workspace_name: string;
+}
+export interface FailedRunsPage {
+  items: FailedRunOut[];
+  next_before: ISODateTime | null;
+  next_before_id: UUID | null;
+}
+
 // ---- 접수 판정(back ADR 0013)
 export type DeskAction = "answer" | "delegate";
 /** ok: 접수가 맞았다 · should_delegate: 넘겼어야 했다 · should_answer: 바로 답했어야 했다 */

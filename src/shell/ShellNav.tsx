@@ -26,6 +26,12 @@ export function SidebarLinks() {
         <Icon name="tasks" />
         작업
       </Link>
+      {here === "tasks" && pathname !== "/tasks/failed" && (
+        <Link className="tk-nav__link app-nav__sub" to="/tasks/failed">
+          <Icon name="circle-x" />
+          실패한 작업
+        </Link>
+      )}
       <button
         type="button"
         className="tk-nav__link app-nav__features"

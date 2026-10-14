@@ -68,7 +68,8 @@ export function TasksPage() {
 
   return (
     <div className="tk-screen">
-      <PageHeader title="작업" meta="따까리에게 맡긴 일의 가지와 지난 기록" />
+      <PageHeader title="작업" meta="따까리에게 맡긴 일의 가지와 지난 기록"
+        actions={<Link className="tk-button tk-button--sm" to="/tasks/failed">실패한 작업</Link>} />
       <div className="tk-screen__body">
         <div className="tk-container tk-container--thread tasks-page">
           <div className="tk-filterbar tasks-page__filters" role="search">

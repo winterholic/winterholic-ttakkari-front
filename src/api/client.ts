@@ -14,6 +14,7 @@ import type {
   DirListing,
   DownloadLinkOut,
   FileEntry,
+  FailedRunsPage,
   MeOut,
   PmsDashboard,
   PmsMilestone,
@@ -240,6 +241,8 @@ export const taskTree = (sessionId: UUID): Promise<TaskTreeOut> => json(`/api/ta
 /** limit 을 주면 최근 limit 개만 시간순으로 온다(접수 대화는 하나뿐이라 끝없이 길어진다). */
 export const listRuns = (sessionId: UUID, p: { limit?: number; before?: ISODateTime } = {}): Promise<RunOut[]> =>
   json(`/api/sessions/${sessionId}/runs`, { query: p });
+export const listFailedRuns = (p: { limit?: number; since?: ISODateTime; before?: ISODateTime; before_id?: UUID } = {}): Promise<FailedRunsPage> =>
+  json("/api/runs/failed", { query: p });
 export const createRun = (sessionId: UUID, body: RunIn): Promise<RunOut> =>
   json(`/api/sessions/${sessionId}/runs`, { method: "POST", json: body });
 export const getRun = (id: UUID): Promise<RunOut> => json(`/api/runs/${id}`);
@@ -480,6 +483,16 @@ export interface ClovaJob {
   finished_at: string | null;
   updated_at: string;
 }
+export interface FailedClovaJob extends ClovaJob {
+  failed_at: string;
+  meeting_title: string | null;
+  note_title: string | null;
+}
+export interface FailedClovaJobsPage {
+  items: FailedClovaJob[];
+  next_before: string | null;
+  next_before_id: string | null;
+}
 export type ClovaNoteState = "ready" | "processing" | "failed" | "unknown";
 export interface ClovaNoteSummary {
   note_id: string;
@@ -532,6 +545,8 @@ export const clovaImport = (noteId: string, body: { scope: MeetingScope; project
   json(`${C}/notes/${encodeURIComponent(noteId)}/import`, { method: "POST", json: body });
 export const clovaJobs = (p: { active?: boolean; limit?: number } = {}): Promise<{ jobs: ClovaJob[] }> =>
   json(`${C}/jobs`, { query: { active: p.active ? "true" : undefined, limit: p.limit ? String(p.limit) : undefined } });
+export const listFailedClovaJobs = (p: { limit?: number; since?: string; before?: string; before_id?: string } = {}): Promise<FailedClovaJobsPage> =>
+  json(`${C}/jobs/failed`, { query: p });
 export const clovaRetryJob = (id: string): Promise<ClovaJob> => json(`${C}/jobs/${id}/retry`, { method: "POST" });
 
 
