@@ -56,10 +56,6 @@ function minutes(sec: number): string {
   return sec >= 60 ? `${Math.ceil(sec / 60)}분` : `${sec}초`;
 }
 
-function defaultUsageCap(name: string, engine: AccountEngine): number {
-  return (engine === "claude" && name.includes("내 클로드")) || (engine === "codex" && name.toLowerCase().includes("daddy")) ? 95 : 100;
-}
-
 /**
  * 설정 > 계정. 개인 계정·회사 계정 두 섹션이다(ADR 0006).
  * 계정은 개인 계정에서만 추가·삭제하고, 그중 회사 모드에도 쓸 계정을 골라 회사 계정에 들인다.
@@ -288,7 +284,7 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
                     </button>
                     <button className="tk-button tk-button--block" type="button" onClick={done(() => setEditing(a))}>
                       <Icon name="key" />
-                      이름 바꾸기
+                      이름·사용 상한
                     </button>
                     <button className="tk-button tk-button--block tk-button--danger" type="button" onClick={done(() => setRemoving(a))}>
                       <Icon name="trash" />
@@ -352,7 +348,7 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
       onClose={onClose}
       size="sm"
       modal
-      title={account ? "이름 바꾸기" : "계정 추가"}
+      title={account ? "계정 설정" : "계정 추가"}
       id="account-edit"
       footer={
         <>
@@ -382,16 +378,14 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
         <div className="tk-field">
           <label className="tk-label" htmlFor={`${id}-name`}>이름</label>
           <input id={`${id}-name`} className="tk-input" value={name} maxLength={60} onChange={(e) => {
-            const next = e.target.value;
-            setName(next);
-            if (!account) setMaxUsedPercent(defaultUsageCap(next, engine));
+            setName(e.target.value);
           }} placeholder="예: 내 클로드, Daddy codex" />
         </div>
         <div className="tk-field">
           <label className="tk-label" htmlFor={`${id}-cap`}>사용 상한 (%)</label>
-          <input id={`${id}-cap`} className="tk-input" type="number" min={1} max={100} step={1} value={maxUsedPercent}
+          <input id={`${id}-cap`} className="tk-input" type="number" min={50} max={100} step={1} value={maxUsedPercent}
             onChange={(e) => setMaxUsedPercent(Number(e.target.value))} />
-          <p className="tk-help"><span>5시간 또는 주간 사용량이 이 값 이상이면 해당 계정은 초기화까지 새 작업을 기다려요. 기본은 Claude 95%, Codex 100%예요.</span></p>
+          <p className="tk-help"><span>5시간 또는 주간 사용량이 이 값 이상이면 해당 계정은 초기화까지 새 작업을 기다려요. 기본 상한은 100%예요.</span></p>
         </div>
         <div className="tk-field">
           <label className="tk-label" id={`${id}-engine-label`} htmlFor={`${id}-engine`}>엔진</label>
@@ -400,12 +394,11 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
           ) : (
             <Select id={`${id}-engine`} labelledBy={`${id}-engine-label`} value={engine} options={ENGINE_OPTIONS} onChange={(next) => {
               setEngine(next);
-              setMaxUsedPercent(defaultUsageCap(name, next));
             }} />
           )}
         </div>
         <p className="tk-help">
-          <span>{account ? "이름만 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
+          <span>{account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
         </p>
         {save.error && (
           <p className="tk-error" role="alert">

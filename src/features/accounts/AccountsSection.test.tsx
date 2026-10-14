@@ -6,7 +6,7 @@ import { ApiError } from "../../api/client";
 import { AccountsSection } from "./AccountsSection";
 
 const acc = (o: Partial<AccountOut>): AccountOut => ({
-  id: "a", name: "claude", engine: "claude", pool: "personal", config_dir: null, enabled: true, priority: 0, max_used_percent: 95, work_enabled: true, work_priority: 0, login: "ok",
+  id: "a", name: "claude", engine: "claude", pool: "personal", config_dir: null, enabled: true, priority: 0, max_used_percent: 100, work_enabled: true, work_priority: 0, login: "ok",
   login_label: "me@example.com", cooldown_seconds: 0, ...o,
 });
 const api = vi.hoisted(() => ({
@@ -47,11 +47,26 @@ describe("AccountsSection", () => {
     renderIt();
     await screen.findByLabelText("claude 메뉴");
     fireEvent.click(screen.getByLabelText("claude 메뉴"));
-    fireEvent.click(await screen.findByRole("button", { name: "이름 바꾸기" }));
+    fireEvent.click(await screen.findByRole("button", { name: "이름·사용 상한" }));
     const cap = await screen.findByLabelText("사용 상한 (%)");
     fireEvent.change(cap, { target: { value: "90" } });
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() => expect(api.patchAccount).toHaveBeenCalledWith("a", { name: "claude", max_used_percent: 90 }));
+  });
+
+  it("계정 이름과 엔진에 상관없이 새 계정의 상한은 100이고 입력 범위는 50~100이다", async () => {
+    api.listAccounts.mockResolvedValue([acc({})]);
+    api.createAccount.mockResolvedValue(acc({ id: "new", name: "내 클로드", max_used_percent: 100 }));
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: "계정 추가" }));
+    const name = await screen.findByLabelText("이름");
+    fireEvent.change(name, { target: { value: "내 클로드" } });
+    const cap = screen.getByLabelText("사용 상한 (%)") as HTMLInputElement;
+    expect(cap.min).toBe("50");
+    expect(cap.max).toBe("100");
+    expect(cap.value).toBe("100");
+    fireEvent.click(screen.getByRole("button", { name: "추가" }));
+    await waitFor(() => expect(api.createAccount).toHaveBeenCalledWith({ name: "내 클로드", engine: "claude", max_used_percent: 100 }));
   });
 
   it("우선순위 번호·로그인·한도 대기를 보이고, 스위치로 끈다", async () => {
@@ -119,7 +134,7 @@ describe("AccountsSection", () => {
     const work = within(screen.getByRole("region", { name: "회사 계정" }));
     fireEvent.click(work.getByRole("button", { name: "FDE 메뉴" }));
     expect(await screen.findByRole("button", { name: "위로" })).toBeTruthy();
-    for (const name of ["삭제", "이름 바꾸기", "회사 계정에서 빼기", "회사 계정에 넣기"]) expect(screen.queryByRole("button", { name })).toBeNull();
+    for (const name of ["삭제", "이름·사용 상한", "회사 계정에서 빼기", "회사 계정에 넣기"]) expect(screen.queryByRole("button", { name })).toBeNull();
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     fireEvent.click(personal.getByRole("button", { name: "FDE 메뉴" }));
     fireEvent.click(await screen.findByRole("button", { name: "회사 계정에서 빼기" }));
