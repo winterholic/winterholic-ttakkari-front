@@ -1,7 +1,7 @@
 import { ResourcesPanel } from "../features/system/ResourcesPanel";
 import { PageHeader } from "../shell/PageHeader";
 
-/** 부가 기능 > 서버 리소스. 사용자 메뉴의 같은 이름 항목도 여기로 온다. */
+/** 사용자 메뉴 > 서버 리소스. */
 export function ResourcesPage() {
   return (
     <div className="tk-screen">
