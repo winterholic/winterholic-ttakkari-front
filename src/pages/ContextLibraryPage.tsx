@@ -35,6 +35,7 @@ export function ContextLibraryPage() {
       if (v === null) next.delete(k);
       else next.set(k, v);
     }
+    if ("scope" in patch) next.delete("page");
     setParams(next, { replace: true });
   };
   const overview = useQuery({ queryKey: ["ctxlib", "overview", scope], queryFn: () => libOverview(scope) });

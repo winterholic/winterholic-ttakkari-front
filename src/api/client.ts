@@ -726,6 +726,19 @@ export interface LibSearchHit {
   source_ref?: string | null; indexed_at?: string; updated_at?: string; kind?: string; entity_type?: string; aliases?: string[];
 }
 export interface LibSearchLab { query: string; scope: LibScope; terms: string[]; anchors: string[]; elapsed_ms: number; results: LibSearchHit[] }
+export interface LibItemDetail {
+  kind: "memory" | "chunk" | "entity"; id: string; content?: string; memory_kind?: string; scope: ContextScope;
+  pinned?: boolean; source?: string; source_ref?: string | null; created_at?: string; updated_at?: string;
+  heading?: string | null; ord?: number; category?: string; project?: string | null; path?: string; title?: string;
+  source_path?: string; indexed_at?: string | null; name?: string; type?: EntityType; aliases?: string[];
+  summary?: string | null; attributes?: Record<string, unknown>; relations?: { subject: string; predicate: string; object: string; note: string | null }[];
+  memories?: { id: string; kind: string; content: string }[];
+  entities?: { id: string; name: string; type: string; scope: ContextScope; category: string | null;
+    relations: { subject: string; predicate: string; object: string; note: string | null }[];
+    sources: { id: string; path: string; category: string; scope: ContextScope }[] }[];
+  entity?: { id: string; name: string; type: string; relations: { subject: string; predicate: string; object: string; note: string | null }[] } | null;
+  sources?: { id: string; path: string; category: string; scope: ContextScope; documents: number; chunks: number }[];
+}
 const L = "/api/assistant/library";
 export const libOverview = (scope: LibScope): Promise<LibOverview> => json(`${L}/overview`, { query: { scope } });
 export const libTree = (scope: LibScope): Promise<LibTree> => json(`${L}/tree`, { query: { scope } });
@@ -734,8 +747,10 @@ export const libDocumentChunks = (id: string, scope: LibScope): Promise<LibChunk
 export const libGraph = (scope: LibScope): Promise<LibGraph> => json(`${L}/graph`, { query: { scope } });
 export const libEntity = (id: string, scope: LibScope): Promise<LibEntityEvidence> => json(`${L}/entities/${id}`, { query: { scope } });
 export const libQuality = (scope: LibScope): Promise<LibQuality> => json(`${L}/quality`, { query: { scope } });
-export const libSearchLab = (query: string, scope: LibScope, k = 10): Promise<LibSearchLab> =>
-  json(`${L}/search-lab`, { method: "POST", json: { query, scope, k } });
+export const libSearchLab = (query: string, scope: LibScope, limit = 10, offset = 0): Promise<LibSearchLab & { total: number; limit: number; offset: number }> =>
+  json(`${L}/search-lab`, { method: "POST", json: { query, scope, limit, offset } });
+export const libItem = (kind: LibItemDetail["kind"], id: string, scope: LibScope): Promise<LibItemDetail> =>
+  json(`${L}/items/${kind}/${id}`, { query: { scope } });
 
 // ---- 계정 임시 우선순위·사용량
 export interface OverrideOut {

@@ -20,6 +20,7 @@ import { AppShell } from "./shell/AppShell";
 
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
+const ContextLibraryItemPage = lazy(() => import("./pages/ContextLibraryItemPage").then((m) => ({ default: m.ContextLibraryItemPage })));
 const CalendarPage = lazy(() => import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 // PMS·WBS 는 간트·칸반 코드가 모여 있어 열 때만 받는다.
 const PmsListPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default: m.PmsListPage })));
@@ -62,6 +63,7 @@ export function App() {
             </Suspense>
           }
         />
+        <Route path="/context-library/items/:kind/:id" element={<Suspense fallback={<RouteFallback />}><ContextLibraryItemPage /></Suspense>} />
         <Route path="/files" element={<FilesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/assistant" element={<AssistantPage />} />

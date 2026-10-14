@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, useLocation } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import type { ReactNode } from "react";
 import { ApiError } from "../api/client";
 import type { LibGraph, LibOverview, LibQuality, LibTree } from "../api/client";
 
 const h = vi.hoisted(() => ({
   libOverview: vi.fn(), libTree: vi.fn(), libSourceDocuments: vi.fn(), libDocumentChunks: vi.fn(),
-  libGraph: vi.fn(), libEntity: vi.fn(), libQuality: vi.fn(), libSearchLab: vi.fn(),
+  libGraph: vi.fn(), libEntity: vi.fn(), libQuality: vi.fn(), libSearchLab: vi.fn(), libItem: vi.fn(),
 }));
 vi.mock("../api/client", async (orig) => ({
   ...(await orig<typeof import("../api/client")>()),
@@ -19,17 +20,20 @@ vi.mock("../api/client", async (orig) => ({
   libEntity: (...a: unknown[]) => h.libEntity(...a),
   libQuality: (...a: unknown[]) => h.libQuality(...a),
   libSearchLab: (...a: unknown[]) => h.libSearchLab(...a),
+  libItem: (...a: unknown[]) => h.libItem(...a),
 }));
 vi.mock("../shell/PageHeader", () => ({
-  PageHeader: ({ title, meta }: { title: string; meta?: string }) => (
+  PageHeader: ({ title, meta, actions }: { title: string; meta?: string; actions?: ReactNode }) => (
     <header>
       <h1>{title}</h1>
       {meta && <p>{meta}</p>}
+      {actions}
     </header>
   ),
 }));
 
 import { ContextLibraryPage } from "./ContextLibraryPage";
+import { ContextLibraryItemPage } from "./ContextLibraryItemPage";
 
 const overview: LibOverview = {
   scope: "all", retrieval: "lexical",
@@ -99,7 +103,10 @@ function mount(url = "/context-library") {
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[url]}>
-        <ContextLibraryPage />
+        <Routes>
+          <Route path="/context-library" element={<ContextLibraryPage />} />
+          <Route path="/context-library/items/:kind/:id" element={<ContextLibraryItemPage />} />
+        </Routes>
         <Where />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -115,9 +122,10 @@ beforeEach(() => {
   h.libSourceDocuments.mockResolvedValue({ source_id: "s1", path: "/Users/me/alpha", total: 1, documents: [{ id: "d1", path: "/Users/me/alpha/README.md", title: "README", chunks: 3, indexed_at: null }] });
   h.libDocumentChunks.mockResolvedValue({ document_id: "d1", path: "/Users/me/alpha/README.md", title: "README", total: 1, chunks: [{ id: "c1", ord: 0, heading: "개요", length: 12, content: "알파 설명 본문" }] });
   h.libSearchLab.mockResolvedValue({
-    query: "알파 키워드", scope: "all", terms: ["알파", "키워드"], anchors: ["Alpha"], elapsed_ms: 12,
+    query: "알파 키워드", scope: "all", terms: ["알파", "키워드"], anchors: ["Alpha"], elapsed_ms: 12, total: 1, limit: 10, offset: 0,
     results: [{ rank: 1, type: "chunk", id: "c1", score: 1.4, text: "알파는 키워드 검색", matched_terms: ["알파", "키워드"], match_in: ["본문"], via: "keyword", coverage: 1, entities: null, project: "Alpha", category: "projects", path: "/Users/me/alpha/README.md", scope: "personal" }],
   });
+  h.libItem.mockResolvedValue({ kind: "memory", id: "m11", content: "상세 기억 본문", memory_kind: "fact", scope: "personal", entities: [] });
 });
 afterEach(() => {
   cleanup();
@@ -201,7 +209,28 @@ describe("맥락 도서관 화면", () => {
     expect(within(hits).getByText(/단어 2\/2/)).toBeTruthy();
     expect(within(hits).getByText(/걸린 곳: 본문/)).toBeTruthy();
     expect(screen.getByText("Alpha", { selector: ".tk-badge" })).toBeTruthy();
-    expect(h.libSearchLab).toHaveBeenCalledWith("알파 키워드", "all");
+    expect(h.libSearchLab).toHaveBeenCalledWith("알파 키워드", "all", 10, 0);
+  });
+
+  it("검색 결과를 10개 단위로 넘기고 상세에서 돌아오면 검색 페이지를 복원한다", async () => {
+    h.libSearchLab.mockImplementation(async (_query: string, _scope: string, limit: number, offset: number) => ({
+      query: "페이지테스트", scope: "all", terms: ["페이지테스트"], anchors: [], elapsed_ms: 4,
+      total: 23, limit, offset,
+      results: Array.from({ length: Math.min(limit, 23 - offset) }, (_, i) => ({
+        rank: offset + i + 1, type: "memory" as const, id: `m${offset + i + 1}`, score: 1,
+        text: `페이지테스트 내용 ${offset + i + 1}`, matched_terms: ["페이지테스트"], match_in: ["본문"],
+        via: "keyword" as const, coverage: 1, entities: null, scope: "personal" as const,
+      })),
+    }));
+    mount("/context-library?tab=search&q=%ED%8E%98%EC%9D%B4%EC%A7%80%ED%85%8C%EC%8A%A4%ED%8A%B8");
+    expect(await screen.findByRole("link", { name: /페이지테스트 내용 1 상세 보기/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    expect(await screen.findByRole("link", { name: /페이지테스트 내용 11 상세 보기/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: /페이지테스트 내용 11/ }));
+    expect(await screen.findByRole("heading", { name: "상세 기억" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("link", { name: "검색 결과로 돌아가기" }));
+    expect(await screen.findByRole("link", { name: /페이지테스트 내용 11 상세 보기/ })).toBeTruthy();
+    expect(screen.getByTestId("where").textContent).toContain("page=2");
   });
 
   it("품질: 손볼 만한 항목을 먼저 보여 주고 분포를 표로도 제공한다", async () => {

@@ -1,5 +1,6 @@
 import { Fragment, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation, useSearchParams } from "react-router";
 import { libSearchLab } from "../../api/client";
 import type { LibScope, LibSearchHit, LibSearchLab } from "../../api/client";
 import { Icon } from "../../ui/Icon";
@@ -31,12 +32,13 @@ function Marked({ text, terms }: { text: string; terms: string[] }) {
   );
 }
 
-function Hit({ hit, terms, top }: { hit: LibSearchHit; terms: string[]; top: number }) {
+function Hit({ hit, terms, top, search, from }: { hit: LibSearchHit; terms: string[]; top: number; search: string; from: string }) {
   const where = hit.type === "chunk"
     ? [hit.project, hit.category && categoryLabel(hit.category), hit.path && fileName(hit.path)]
     : hit.type === "memory" ? [hit.kind, hit.entities?.join(", "), hit.source_ref ? "근거 있음" : "근거 경로 없음"] : [hit.entity_type, hit.name];
   return (
     <li className="cl-hit" data-via={hit.via}>
+      <Link className="cl-hit__open" to={`/context-library/items/${hit.type}/${hit.id}${search}`} state={{ from }} aria-label={`${hit.text} 상세 보기`}>
       <div className="cl-hit__head">
         <span className="cl-hit__rank tk-mono">{hit.rank}</span>
         <span className="tk-badge">{TYPE_LABEL[hit.type]}</span>
@@ -55,6 +57,8 @@ function Hit({ hit, terms, top }: { hit: LibSearchHit; terms: string[]; top: num
         {(hit.indexed_at ?? hit.updated_at) && <span>{when(hit.indexed_at ?? hit.updated_at)}</span>}
       </p>
       {hit.path && <p className="cl-hit__path tk-mono">{hit.path.replace(/^\/Users\/[^/]+/, "~")}</p>}
+      <span className="cl-hit__openhint">전체 내용과 연결 정보 보기 →</span>
+      </Link>
     </li>
   );
 }
@@ -73,19 +77,43 @@ export function diagnose(r: LibSearchLab): string[] {
 }
 
 export function SearchLabTab({ scope }: { scope: LibScope }) {
-  const [query, setQuery] = useState("");
-  const m = useMutation({ mutationFn: (q: string) => libSearchLab(q, scope) });
+  const [params, setParams] = useSearchParams();
+  const location = useLocation();
+  const activeQuery = params.get("q") ?? "";
+  const rawPage = Number(params.get("page") || 1);
+  const page = Number.isFinite(rawPage) ? Math.max(1, Math.floor(rawPage)) : 1;
+  const [draft, setDraft] = useState({ forQuery: activeQuery, value: activeQuery });
+  const query = draft.forQuery === activeQuery ? draft.value : activeQuery;
+  const setQuery = (value: string) => setDraft({ forQuery: activeQuery, value });
   const run = (q: string) => {
-    if (q.trim()) m.mutate(q.trim());
+    if (!q.trim()) return;
+    const next = new URLSearchParams(params);
+    next.set("tab", "search");
+    next.set("q", q.trim());
+    next.delete("page");
+    setParams(next, { replace: false });
+    setQuery(q.trim());
   };
+  const m = useQuery({
+    queryKey: ["ctxlib", "search-lab", activeQuery, scope, page],
+    queryFn: () => libSearchLab(activeQuery, scope, 10, (page - 1) * 10),
+    enabled: Boolean(activeQuery.trim()),
+  });
   const r = m.data && m.data.scope === scope ? m.data : null;
   const top = r?.results[0]?.score ?? 0;
+  const totalPages = r ? Math.max(1, Math.ceil(r.total / 10)) : 1;
+  const from = location.pathname + location.search;
+  const setPage = (p: number) => {
+    const next = new URLSearchParams(params);
+    if (p <= 1) next.delete("page"); else next.set("page", String(p));
+    setParams(next, { replace: false });
+  };
   return (
     <div className="cl-stack">
       <Section id="cl-se-form" title="검색 실험실" hint={`따까리가 recall 할 때와 같은 검색을 ${scopeLabel(scope)} 범위로 돌려요. 임베딩 없이 키워드·부분 일치만 쓰므로, 걸린 단어를 같이 보여 줘요.`}>
         <form className="cl-searchform" onSubmit={(e) => { e.preventDefault(); run(query); }}>
           <input className="tk-input" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="예) 따까리 디자인 시스템" aria-label="질의" />
-          <button className="tk-button tk-button--primary" type="submit" aria-busy={m.isPending || undefined}><Icon name="search" />찾기</button>
+          <button className="tk-button tk-button--primary" type="submit" aria-busy={m.isFetching || undefined}><Icon name="search" />찾기</button>
         </form>
         <div className="cl-chips" aria-label="예시 질의">
           {SAMPLES.map((s) => (
@@ -95,7 +123,7 @@ export function SearchLabTab({ scope }: { scope: LibScope }) {
         {m.isError && <p className="tk-error" role="alert">{libErrorMessage(m.error)}</p>}
       </Section>
       {r && (
-        <Section id="cl-se-result" title={`결과 ${r.results.length}개`} hint={`${r.elapsed_ms}ms · 문서당 최대 2조각 · 최대 10개`}>
+        <Section id="cl-se-result" title={`검색 결과 ${r.total.toLocaleString("ko-KR")}개`} hint={`${r.elapsed_ms}ms · 문서당 최대 2조각 · 페이지 ${page}/${totalPages}`}>
           <div className="cl-chips" aria-label="질의 분석">
             <span className="cl-note">검색 단어</span>
             {r.terms.length ? r.terms.map((t) => <span key={t} className="tk-badge tk-badge--mono">{t}</span>) : <span className="cl-note">없음</span>}
@@ -105,8 +133,13 @@ export function SearchLabTab({ scope }: { scope: LibScope }) {
             <ul className="cl-diag" aria-label="진단">{diagnose(r).map((d) => <li key={d}><Icon name="info" />{d}</li>)}</ul>
           )}
           <ol className="cl-hits" aria-label="검색 결과">
-            {r.results.map((h) => <Hit key={`${h.type}-${h.id}`} hit={h} terms={r.terms} top={top} />)}
+            {r.results.map((h) => <Hit key={`${h.type}-${h.id}`} hit={h} terms={r.terms} top={top} search={`${location.search}`} from={from} />)}
           </ol>
+          {r.total > 10 && <nav className="cl-pagination" aria-label="검색 결과 페이지">
+            <button className="tk-button" type="button" disabled={page <= 1 || m.isFetching} onClick={() => setPage(page - 1)}>이전</button>
+            <span className="cl-note">{page} / {totalPages} · {r.total.toLocaleString("ko-KR")}개</span>
+            <button className="tk-button" type="button" disabled={page >= totalPages || m.isFetching} onClick={() => setPage(page + 1)}>다음</button>
+          </nav>}
           <p className="cl-note">점수는 단어 포함 비율, 전문검색 순위, 철자 유사도, 제목 일치, 엔터티 연결 가산점을 더한 값이에요. 확률이 아니에요.</p>
         </Section>
       )}
