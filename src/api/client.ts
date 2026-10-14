@@ -742,6 +742,9 @@ export interface AccountUsage {
   /** 개인 모드 켜기·순위 */
   enabled: boolean;
   rank: number;
+  max_used_percent: number;
+  remaining_to_limit_percent: number | null;
+  stale: boolean;
   /** 회사 모드 켜기·순위. 회사에 안 들어온 계정은 work_rank 가 null */
   work_enabled: boolean;
   work_rank: number | null;

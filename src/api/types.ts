@@ -310,6 +310,8 @@ export interface AccountOut {
   /** 개인 모드 켜기·순서 */
   enabled: boolean;
   priority: number;
+  /** 5시간·주간 사용률 상한. 이 값 이상이면 초기화까지 새 Run 배정을 멈춘다. */
+  max_used_percent: number;
   /** 회사 모드 켜기·순서. pool 이 work 인 계정에만 의미가 있고 개인 모드 값과 독립이다. */
   work_enabled: boolean;
   work_priority: number;
@@ -326,6 +328,7 @@ export interface AccountIn {
   pool?: AccountPool;
   config_dir?: string | null;
   enabled?: boolean;
+  max_used_percent?: number;
 }
 export interface AccountPatch {
   name?: string;
@@ -335,6 +338,7 @@ export interface AccountPatch {
   enabled?: boolean;
   /** 회사 모드 켜기 */
   work_enabled?: boolean;
+  max_used_percent?: number;
 }
 
 // ---- 프로젝트 관리 PMS · WBS (ADR 0012)

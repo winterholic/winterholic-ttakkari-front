@@ -50,6 +50,7 @@ function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status
   if (!(pool === "work" ? a.work_enabled : a.enabled)) return { tone: "neutral", text: "꺼짐" };
   if (a.login !== "ok" && a.engine === "claude") return { tone: "warning", text: "로그인 필요" };
   if (a.cooldown_seconds > 0) return { tone: "warning", text: `한도 대기 ${Math.ceil(a.cooldown_seconds / 60)}분` };
+  if (!a.stale && a.remaining_to_limit_percent === 0) return { tone: "warning", text: "상한 대기" };
   if (a.windows.some((w) => w.percent >= 100)) return { tone: "warning", text: "한도 도달" };
   return isActive ? { tone: "success", text: "지금 사용" } : { tone: "info", text: "대기" };
 }
@@ -72,7 +73,8 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
   }, [open]);
   const rows = q.data ?? [];
   const usable = (a: AccountUsage, pool: AccountPool) =>
-    (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 && !a.windows.some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex");
+    (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 &&
+    (a.stale || a.remaining_to_limit_percent !== 0) && !a.windows.some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex");
   // 개인·회사 모드가 켜기·순서를 따로 가지므로 지금 쓰는 계정도 모드마다 따로 있다.
   // 회사 계정은 개인 계정 중 회사 모드에 들인 계정이고, 순서는 회사 순위(work_rank)다.
   const groups = (["personal", "work"] as const)
@@ -144,6 +146,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                       </div>
                       {a.windows.length > 0 ? (
                         <div className="usage-card__windows">
+                          <p className="usage__note">계정 상한 {a.max_used_percent}% · 상한까지 여유 {a.remaining_to_limit_percent == null ? "측정 대기" : `${a.remaining_to_limit_percent}%`}</p>
                           {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} />)}
                         </div>
                       ) : (

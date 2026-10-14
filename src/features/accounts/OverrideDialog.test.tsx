@@ -7,7 +7,7 @@ import { OverrideDialog } from "./OverrideDialog";
 
 const api = vi.hoisted(() => ({ getOverride: vi.fn(), putOverride: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
-const accounts: AccountOut[] = ["A", "B"].map((name, i) => ({ id: name, name, engine: "claude", pool: "work", config_dir: null, enabled: true, priority: i, work_enabled: true, work_priority: i, login: "ok", login_label: null, cooldown_seconds: 0 }));
+const accounts: AccountOut[] = ["A", "B"].map((name, i) => ({ id: name, name, engine: "claude", pool: "work", config_dir: null, enabled: true, priority: i, max_used_percent: 95, work_enabled: true, work_priority: i, login: "ok", login_label: null, cooldown_seconds: 0 }));
 const inactive = { active: false, ids: [], until: null };
 
 beforeEach(() => {

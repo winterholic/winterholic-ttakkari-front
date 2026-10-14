@@ -6,7 +6,7 @@ import { ApiError } from "../../api/client";
 import { AccountsSection } from "./AccountsSection";
 
 const acc = (o: Partial<AccountOut>): AccountOut => ({
-  id: "a", name: "claude", engine: "claude", pool: "personal", config_dir: null, enabled: true, priority: 0, work_enabled: true, work_priority: 0, login: "ok",
+  id: "a", name: "claude", engine: "claude", pool: "personal", config_dir: null, enabled: true, priority: 0, max_used_percent: 95, work_enabled: true, work_priority: 0, login: "ok",
   login_label: "me@example.com", cooldown_seconds: 0, ...o,
 });
 const api = vi.hoisted(() => ({
@@ -41,6 +41,19 @@ function renderIt() {
 }
 
 describe("AccountsSection", () => {
+  it("계정별 사용 상한을 설정한다", async () => {
+    api.listAccounts.mockResolvedValue([acc({})]);
+    api.patchAccount.mockResolvedValue(acc({ max_used_percent: 90 }));
+    renderIt();
+    await screen.findByLabelText("claude 메뉴");
+    fireEvent.click(screen.getByLabelText("claude 메뉴"));
+    fireEvent.click(await screen.findByRole("button", { name: "이름 바꾸기" }));
+    const cap = await screen.findByLabelText("사용 상한 (%)");
+    fireEvent.change(cap, { target: { value: "90" } });
+    fireEvent.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(api.patchAccount).toHaveBeenCalledWith("a", { name: "claude", max_used_percent: 90 }));
+  });
+
   it("우선순위 번호·로그인·한도 대기를 보이고, 스위치로 끈다", async () => {
     api.listAccounts.mockResolvedValue([acc({}), acc({ id: "b", name: "codex", engine: "codex", login: "unknown", login_label: null, cooldown_seconds: 600, login_command: "codex login" })]);
     api.patchAccount.mockResolvedValue(acc({ enabled: false }));

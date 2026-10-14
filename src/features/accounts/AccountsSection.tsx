@@ -56,6 +56,10 @@ function minutes(sec: number): string {
   return sec >= 60 ? `${Math.ceil(sec / 60)}분` : `${sec}초`;
 }
 
+function defaultUsageCap(name: string, engine: AccountEngine): number {
+  return (engine === "claude" && name.includes("내 클로드")) || (engine === "codex" && name.toLowerCase().includes("daddy")) ? 95 : 100;
+}
+
 /**
  * 설정 > 계정. 개인 계정·회사 계정 두 섹션이다(ADR 0006).
  * 계정은 개인 계정에서만 추가·삭제하고, 그중 회사 모드에도 쓸 계정을 골라 회사 계정에 들인다.
@@ -330,11 +334,12 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
   const id = useId();
   const [name, setName] = useState(account?.name ?? "");
   const [engine, setEngine] = useState<AccountEngine>(account?.engine ?? "claude");
+  const [maxUsedPercent, setMaxUsedPercent] = useState(account?.max_used_percent ?? 100);
   const save = useMutation({
     mutationFn: () =>
       account
-        ? patchAccount(account.id, { name: name.trim() })
-        : createAccount({ name: name.trim(), engine }),
+        ? patchAccount(account.id, { name: name.trim(), max_used_percent: maxUsedPercent })
+        : createAccount({ name: name.trim(), engine, max_used_percent: maxUsedPercent }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
       onClose();
@@ -376,14 +381,27 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
       >
         <div className="tk-field">
           <label className="tk-label" htmlFor={`${id}-name`}>이름</label>
-          <input id={`${id}-name`} className="tk-input" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="예: 개인 Max, 회사 Team" />
+          <input id={`${id}-name`} className="tk-input" value={name} maxLength={60} onChange={(e) => {
+            const next = e.target.value;
+            setName(next);
+            if (!account) setMaxUsedPercent(defaultUsageCap(next, engine));
+          }} placeholder="예: 내 클로드, Daddy codex" />
+        </div>
+        <div className="tk-field">
+          <label className="tk-label" htmlFor={`${id}-cap`}>사용 상한 (%)</label>
+          <input id={`${id}-cap`} className="tk-input" type="number" min={1} max={100} step={1} value={maxUsedPercent}
+            onChange={(e) => setMaxUsedPercent(Number(e.target.value))} />
+          <p className="tk-help"><span>5시간 또는 주간 사용량이 이 값 이상이면 해당 계정은 초기화까지 새 작업을 기다려요. 기본은 Claude 95%, Codex 100%예요.</span></p>
         </div>
         <div className="tk-field">
           <label className="tk-label" id={`${id}-engine-label`} htmlFor={`${id}-engine`}>엔진</label>
           {account ? (
             <input id={`${id}-engine`} className="tk-input" value={ENGINE_LABEL[account.engine]} readOnly />
           ) : (
-            <Select id={`${id}-engine`} labelledBy={`${id}-engine-label`} value={engine} options={ENGINE_OPTIONS} onChange={setEngine} />
+            <Select id={`${id}-engine`} labelledBy={`${id}-engine-label`} value={engine} options={ENGINE_OPTIONS} onChange={(next) => {
+              setEngine(next);
+              setMaxUsedPercent(defaultUsageCap(name, next));
+            }} />
           )}
         </div>
         <p className="tk-help">
