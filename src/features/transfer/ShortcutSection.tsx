@@ -80,7 +80,7 @@ export function ShortcutSection() {
           <strong>각 항목 반복</strong> 동작을 추가하고 입력을 <strong>단축어 입력</strong>으로 선택해요. 다음 동작은 모두 반복 안에 넣어요.
         </li>
         <li>
-          <strong>이름 가져오기</strong> 동작의 입력을 <strong>반복 항목</strong>으로 선택해요. 이어서 <strong>URL 인코딩</strong> 동작으로 그 이름을 인코딩해요. 확장자를 포함한 이름(예: 보고서.pdf)을 사용해요.
+          <strong>이름 가져오기</strong> 동작의 입력을 <strong>반복 항목</strong>으로 선택해요. 이어서 <strong>URL 인코딩</strong> 동작으로 그 이름을 인코딩해요. 문서는 확장자를 포함한 이름(예: 보고서.pdf)을 사용해요. 사진은 서버가 형식을 판별해 확장자를 붙여요.
         </li>
         <li>
           <strong>URL</strong> 동작에 아래 주소를 넣고, <code>filename=</code> 바로 뒤에 앞 동작의 <strong>URL 인코딩된 텍스트</strong> 변수를 넣어요. 변수 이름을 직접 타이핑하지 말고 변수 선택으로 넣어요.
@@ -98,7 +98,7 @@ export function ShortcutSection() {
           헤더 두 개를 추가해요. <code>Authorization</code> = <code>Bearer 토큰</code>(Bearer 뒤 한 칸 띄우고 복사한 토큰), <code>Content-Type</code> = <code>application/octet-stream</code>.
         </li>
         <li>
-          처음에는 <strong>훑어보기</strong> 동작으로 <strong>URL 콘텐츠</strong> 응답을 확인해요. <code>files</code>에 저장된 파일 이름·크기·경로가 나오면 서버가 받은 거예요. 오류 응답이면 보냈다는 알림을 띄우지 않아요.
+          <strong>훑어보기</strong> 동작으로 <strong>URL 콘텐츠</strong> 응답을 확인해요. <code>success</code>가 <code>true</code>인 경우에만 저장 성공이에요. <code>receivedBytes</code>는 수신 크기, <code>savedPath</code>는 실제 저장 경로예요. success가 없거나 false이면 원래 응답을 확인해요.
         </li>
       </ol>
       <p className="tk-fieldset__help">
