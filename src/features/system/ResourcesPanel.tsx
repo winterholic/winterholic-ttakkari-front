@@ -154,7 +154,7 @@ function Body({ d }: { d: SystemResources }) {
 }
 
 /**
- * 서버 리소스(/resources) 본문. 사용자 메뉴와 부가 기능이 모두 이 페이지로 온다.
+ * 서버 리소스(/resources) 본문. 사용자 메뉴에서 이 페이지로 온다.
  * 마운트된 동안만 4초마다 다시 읽는다. 페이지를 벗어나면 옵저버가 없어져 폴링도 멈춘다.
  */
 export function ResourcesPanel() {

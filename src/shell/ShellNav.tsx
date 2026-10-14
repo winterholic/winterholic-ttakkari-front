@@ -5,7 +5,7 @@ import { Icon } from "../ui/Icon";
 import { FEATURES, featureAt } from "./features";
 
 /**
- * 데스크톱 사이드바 맨 위: 채팅·작업·부가 기능 셋뿐이다. 채팅이 아닌 기능은 전부 부가 기능 모달(FEATURES)에 모은다.
+ * 데스크톱 사이드바 맨 위: 채팅·작업·부가 기능 셋뿐이다. 사용자 메뉴의 관리 화면을 제외한 기능을 부가 기능 모달(FEATURES)에 모은다.
  * 부가 기능 안의 화면에 있으면 "부가 기능"을 켜고, 그 아래 줄에 지금 기능을 보여 준다.
  */
 export function SidebarLinks() {

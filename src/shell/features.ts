@@ -17,7 +17,7 @@ export interface Feature {
 }
 
 /**
- * 채팅이 아닌 기능 전부. 데스크톱은 사이드바 "부가 기능" 모달에 전부 보이고, 모바일은 하단 탭(mobileTab)과 더보기(mobileMore)에 나눠 보인다.
+ * 사용자 메뉴의 관리 화면을 제외한 부가 기능. 데스크톱은 사이드바 "부가 기능" 모달에 보이고, 모바일은 하단 탭(mobileTab)과 더보기(mobileMore)에 나눠 보인다.
  * 새 기능은 라우트를 만들고 여기에 항목 하나만 넣으면 양쪽에 같이 나타난다. 순서도 이 순서다.
  */
 export const FEATURES: readonly Feature[] = [
@@ -31,7 +31,6 @@ export const FEATURES: readonly Feature[] = [
   { root: "meetings", to: "/meetings", icon: "mic", label: "회의록", description: "녹음·전사에서 결정과 할 일을 정리" },
   { root: "pms", to: "/pms", icon: "kanban", label: "PMS", description: "프로젝트 현황·칸반·이슈를 한눈에" },
   { root: "wbs", to: "/wbs", icon: "wbs", label: "WBS", description: "작업 분해 트리와 간트 일정" },
-  { root: "resources", to: "/resources", icon: "server", label: "서버 리소스", description: "Mac Studio CPU·메모리·저장공간 현황" },
 ];
 
 /** 지금 경로가 어느 부가 기능 안인가. 채팅·설정처럼 목록에 없는 화면이면 undefined. */
