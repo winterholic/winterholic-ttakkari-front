@@ -2,22 +2,9 @@
    노드는 카드(surface.default + border.default), 선은 border.strong, 일이 도는 가지만 agent.live.
    사람이 고른 것(선택 노드)은 파랑(interactive.selected), 에이전트가 하고 있는 것은 민트 계열 — 01 절대 규칙 3. */
 .tcanvas {
-  --tc-backdrop: url("./assets/task-tree-light.webp");
   position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: hidden;
+  /* 트리의 카드·상태·연결선이 주인공이다. 장식 없이 DS의 Paper / Ink 면을 쓴다. */
   background-color: var(--tk-color-surface-canvas); cursor: grab; touch-action: none; user-select: none;
-  /* 배경은 화면에 고정하고 노드만 이동·확대한다. 이미지 실패 시 canvas 색이 남는다. */
-  background-image: var(--tc-backdrop);
-  background-position: center;
-  background-size: cover;
-  background-repeat: no-repeat;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]):not(.light) .tcanvas {
-    --tc-backdrop: url("./assets/task-tree-dark.webp");
-  }
-}
-:is(:root[data-theme="dark"], :root.dark) .tcanvas {
-  --tc-backdrop: url("./assets/task-tree-dark.webp");
 }
 .tcanvas[data-panning] { cursor: grabbing; }
 .tcanvas__stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
