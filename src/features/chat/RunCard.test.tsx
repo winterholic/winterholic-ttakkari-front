@@ -47,6 +47,6 @@ describe("RunCard 한도 대기·전환", () => {
 describe("RunCard", () => {
   it("shows which account handled a run that ended on a session limit", () => {
     render(<RunCard run={run} view={buildRunView(run, [])} />);
-    expect(screen.getByText("사용 계정: Codex 업무")).toBeTruthy();
+    expect(screen.getByLabelText("계정 Codex 업무")).toBeTruthy();
   });
 });

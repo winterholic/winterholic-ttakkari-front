@@ -1,0 +1,67 @@
+.engine-badge,
+.account-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tk-space-1);
+  max-width: 100%;
+  padding: 2px var(--tk-space-2);
+  border: 1px solid var(--tk-color-border-subtle);
+  border-radius: var(--tk-radius-full);
+  color: var(--tk-color-text-secondary);
+  background: var(--tk-color-surface-raised);
+  font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+  white-space: nowrap;
+}
+
+.engine-badge[data-engine="claude"] {
+  border-color: color-mix(in srgb, #c45a27 42%, var(--tk-color-border-subtle));
+  color: #9b3d14;
+  background: color-mix(in srgb, #f5a16f 16%, var(--tk-color-surface-raised));
+}
+
+.engine-badge[data-engine="codex"] {
+  border-color: color-mix(in srgb, #17845b 40%, var(--tk-color-border-subtle));
+  color: #126543;
+  background: color-mix(in srgb, #59c999 16%, var(--tk-color-surface-raised));
+}
+
+[data-theme="dark"] .engine-badge[data-engine="claude"] {
+  color: #ffc49f;
+  background: color-mix(in srgb, #a84a20 27%, var(--tk-color-surface-raised));
+}
+
+[data-theme="dark"] .engine-badge[data-engine="codex"] {
+  color: #a6edca;
+  background: color-mix(in srgb, #16754e 27%, var(--tk-color-surface-raised));
+}
+
+.engine-badge__mark {
+  font-size: 1.05em;
+  line-height: 1;
+}
+
+.account-badge__mark { color: var(--tk-color-text-tertiary); }
+.account-badge__name { max-width: 9ch; overflow: hidden; text-overflow: ellipsis; }
+.tnode__attribution { display: inline-flex; vertical-align: middle; gap: var(--tk-space-1); margin-left: var(--tk-space-1-5); }
+.tnode__attribution .engine-badge,
+.tnode__attribution .account-badge { padding: 0 var(--tk-space-1); font-size: 0.68rem; }
+
+.run-attribution {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--tk-space-1-5);
+  margin-block: var(--tk-space-2) var(--tk-space-1);
+}
+
+.run-attribution__fallback {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tk-space-1);
+  color: var(--tk-color-text-tertiary);
+  font-size: var(--tk-font-size-xs);
+}
+.run-attribution__switch { display: inline-flex; align-items: center; gap: var(--tk-space-1); }
+
+.run-account-label { display: inline-flex; align-items: center; gap: var(--tk-space-1); }
+.chat-engine-badge { display: inline-flex; vertical-align: middle; margin-inline: var(--tk-space-1); }

@@ -8,6 +8,7 @@ import { TaskTreeCard } from "../tasks/TaskTreeCard";
 import { AgentMessage, ReportMessage, UserMessage } from "./Messages";
 import { buildRunView } from "./runView";
 import { Icon } from "../../ui/Icon";
+import { AccountBadge, EngineBadge } from "../../ui/EngineBadge";
 
 const ACTIVE = ["queued", "running"];
 
@@ -57,6 +58,11 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
   // desk.route 는 접수 세션의 사용자 메시지에만 생긴다. 그래서 세션 종류를 따로 받지 않는다.
   const decided = !active && run.origin === "user" ? deskDecision(run, past.data ?? []) : null;
   const lead = onOpenNode ? leadOf(run, active ? stream.events : (past.data ?? [])) : null;
+  const events = active ? stream.events : (past.data ?? []);
+  const fallbacks = events.filter((event) => event.type === "engine.fallback");
+  const fallbackTitle = fallbacks.length > 0
+    ? fallbacks.map((event) => event.type === "engine.fallback" ? `${event.payload.from} → ${event.payload.to}` : "").join(", ")
+    : null;
   // 같은 기획 세션의 보고는 매 턴 붙는다. 트리는 처음 넘긴 자리의 카드가 보여 주므로 보고에는 여는 버튼만 둔다.
   const attached =
     lead && onOpenNode ? (
@@ -84,6 +90,21 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
 
   return (
     <>
+      {(run.engine || run.profile) && (
+        <div className="run-attribution" aria-label="실행 엔진과 계정">
+          {run.engine && <EngineBadge engine={run.engine} />}
+          {run.profile && <AccountBadge account={run.profile} />}
+          {fallbackTitle && (
+            <span className="run-attribution__fallback" title={`엔진/계정 폴백: ${fallbackTitle}`}>
+              계정 전환 · {fallbacks.map((event, index) => event.type === "engine.fallback" ? (
+                <span key={`${event.seq}-${index}`} className="run-attribution__switch">
+                  <AccountBadge account={event.payload.from} /> → <AccountBadge account={event.payload.to} />
+                </span>
+              ) : null)}
+            </span>
+          )}
+        </div>
+      )}
       {run.origin === "report" ? <ReportMessage run={run} /> : <UserMessage run={run} onOpen={onOpen} />}
       <AgentMessage
         run={run}

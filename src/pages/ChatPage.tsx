@@ -14,6 +14,7 @@ import { ArtifactViewerHost, FollowupComposer, useArtifactViewer } from "../feat
 import { useIsDesktop } from "../features/viewer/hooks";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
+import { EngineBadge } from "../ui/EngineBadge";
 import { Button } from "../ui/Button";
 import { useForegroundResync } from "../hooks/useForegroundResync";
 import { buildForest, isActive } from "../features/tasks/buildTree";
@@ -299,8 +300,6 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
   const pool = session.data?.pool ?? "personal";
   const isDesk = kind === "desk";
   const deskHome = pool === "work" ? "/work" : "/chat";
-  const lastProfile = [...runList].reverse().find((r) => r.profile)?.profile;
-  const engineText = session.data?.engine === "auto" ? (lastProfile ?? "Claude Code 우선") : session.data?.engine === "codex" ? "Codex" : "Claude Code";
   // 따까리에서 뻗은 일이면 뿌리부터의 경로를 헤더에 보여 준다. 세션 목록이 없으니 위로 가는 길은 이것뿐이다.
   const tree = useTaskTree(isDesk || !session.data ? undefined : sessionId);
   const ancestors = (tree.data?.path ?? []).slice(0, -1);
@@ -335,7 +334,7 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
             <span aria-hidden="true"> › </span>
           </Fragment>
         ))}
-        <span>{pool === "work" ? "회사 · " : ""}{kindLabel} · {engineText}{session.data.model ? ` · ${session.data.model}` : ""}</span>
+        <span>{pool === "work" ? "회사 · " : ""}{kindLabel} · <EngineBadge engine={session.data.engine} />{session.data.model ? ` · ${session.data.model}` : ""}</span>
       </span>
     )
   );

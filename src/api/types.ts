@@ -519,6 +519,7 @@ export interface TaskNode {
   updated_at: ISODateTime;
   archived_at: ISODateTime | null;
   status: RunStatus | null;
+  engine?: string | null;
   profile: string | null;
   model: string | null;
   last_result: string | null;

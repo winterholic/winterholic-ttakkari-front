@@ -5,6 +5,7 @@ import type { UUID } from "../../api/types";
 import { STATUS_LABEL } from "../chat/runView";
 import { sessionTime } from "../../shell/groupSessions";
 import { Icon } from "../../ui/Icon";
+import { AccountBadge, EngineBadge } from "../../ui/EngineBadge";
 import { branchStatus, isActive } from "../tasks/buildTree";
 import type { TreeItem } from "../tasks/buildTree";
 import { StatusGlyph } from "../tasks/TaskTree";
@@ -25,14 +26,19 @@ function kindLabel(it: TreeItem): string {
 }
 
 /** 카드 둘째 줄: 도는 중이면 누가 하는지, 끝났으면 결과 앞부분. */
-function subline(it: TreeItem, now: Date): string {
+function subline(it: TreeItem, now: Date): ReactNode {
   const n = it.node;
-  const who = n.profile ? ` · ${n.profile}` : "";
-  if (n.status === "running") return `실행 중${who}`;
-  if (n.status === "queued") return "차례 기다리는 중";
-  if (it.activeBelow > 0) return `하위 ${it.activeBelow}개 실행 중`;
-  if (n.last_result) return n.last_result;
-  return `${n.status ? STATUS_LABEL[n.status] : "지시 전"} · ${sessionTime(n.updated_at, now)}`;
+  const attribution = n.engine || n.profile ? (
+    <span className="tnode__attribution">
+      {n.engine && <EngineBadge engine={n.engine} />}
+      {n.profile && <AccountBadge account={n.profile} />}
+    </span>
+  ) : null;
+  if (n.status === "running") return <>실행 중{attribution}</>;
+  if (n.status === "queued") return <>차례 기다리는 중{attribution}</>;
+  if (it.activeBelow > 0) return <>하위 {it.activeBelow}개 실행 중{attribution}</>;
+  if (n.last_result) return <>{n.last_result}{attribution}</>;
+  return <>{`${n.status ? STATUS_LABEL[n.status] : "지시 전"} · ${sessionTime(n.updated_at, now)}`}{attribution}</>;
 }
 
 /** 지금 일이 없는 가지는 접어서 판을 작게 둔다. 사용자가 직접 펴거나 접은 것은 그대로 둔다. */
