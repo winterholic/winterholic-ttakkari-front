@@ -157,7 +157,7 @@ export function TaskCanvas({
   };
 
   return (
-    <div className="tcanvas tk-dotgrid" ref={ref} onKeyDown={onKey} style={{ "--tc-inset": `${bottomInset}px` } as React.CSSProperties} role="group" aria-label={label} aria-roledescription="작업 트리 캔버스">
+    <div className="tcanvas" ref={ref} onKeyDown={onKey} style={{ "--tc-inset": `${bottomInset}px` } as React.CSSProperties} role="group" aria-label={label} aria-roledescription="작업 트리 캔버스">
       <div className="tcanvas__stage" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`, width: layout.width, height: layout.height }}>
         <svg className="tcanvas__edges" width={layout.width} height={layout.height} aria-hidden="true">
           <defs>
