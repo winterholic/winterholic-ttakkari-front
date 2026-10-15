@@ -36,6 +36,14 @@ export function StatusBadge({ status }: { status: MeetingStatus }) {
   );
 }
 
+/** 전사가 어디서 왔는지. 옛 외부 서비스 전사는 이름 없이 "가져온 전사"로만 부른다 */
+export function sourceLabel(s: string | null): string {
+  if (s === "paste") return "붙여넣음";
+  if (s === "file") return "파일에서 불러옴";
+  if (s === "provider:local_whisper") return "이 Mac에서 전사";
+  return s?.startsWith("provider:") ? "가져온 전사" : "";
+}
+
 /** 회의 일시(없으면 만든 시각). 목록·상세가 같은 표기를 쓴다. */
 export function meetingWhen(m: Pick<MeetingSummary, "held_at" | "created_at">): string {
   const d = new Date(m.held_at ?? m.created_at);

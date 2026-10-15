@@ -31,8 +31,8 @@
 
 /* 프로젝트·메타 */
 .mt-meta { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--tk-space-3) var(--tk-space-6); }
-.mt-meta__project { flex: 1 1 14rem; max-width: 22rem; }
-.mt-meta__facts { display: flex; flex-wrap: wrap; gap: var(--tk-space-1) var(--tk-space-4); margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.mt-meta__project { flex: 1 1 10rem; max-width: 22rem; }
+.mt-meta__facts { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: var(--tk-space-1) var(--tk-space-4); margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
 .mt-meta__facts > div { display: flex; gap: var(--tk-space-1-5); }
 .mt-meta__facts dt { color: var(--tk-color-text-tertiary); }
 .mt-meta__facts dd { margin: 0; overflow-wrap: anywhere; }
@@ -76,8 +76,69 @@
 .mt-diff--new { background: var(--tk-color-status-success-bg); color: var(--tk-color-status-success-text); }
 .mt-diff em { font-style: normal; opacity: 0.8; }
 
-/* 전사 원문 */
-.mt-transcript { margin: 0; max-height: 28rem; overflow: auto; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); color: var(--tk-color-text-primary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mt-details__body { padding-top: var(--tk-space-3); }
+
+/* 요약·분석 */
+.mt-analysis { display: flex; flex-direction: column; gap: var(--tk-space-6); min-width: 0; }
+.mt-summary { display: flex; flex-direction: column; gap: var(--tk-space-3); padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-status-info-border); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-brand-subtle); min-width: 0; }
+.mt-summary__title { display: flex; align-items: center; gap: var(--tk-space-1-5); margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.mt-summary__title > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); flex: none; color: var(--tk-color-status-info-icon); }
+.mt-summary__body { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.mt-summary__body > .mt-prose { font-size: var(--tk-font-size-md); line-height: var(--tk-font-line-height-relaxed); }
+.mt-bullets { display: flex; flex-direction: column; gap: var(--tk-space-1-5); margin: 0; padding-left: var(--tk-space-5); color: var(--tk-color-text-primary); font-size: var(--tk-font-size-md); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.mt-quick { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+.mt-section { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; scroll-margin-top: var(--tk-space-4); }
+.mt-section__title { display: flex; align-items: center; gap: var(--tk-space-2); margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.mt-section__count { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono); font-variant-numeric: tabular-nums; }
+.mt-block--decision { border-inline-start: var(--tk-border-width-accent) solid var(--tk-color-border-focus); }
+.mt-fact { display: inline-flex; align-items: center; gap: var(--tk-space-1); color: var(--tk-color-text-secondary); }
+.mt-fact > .tk-icon { --tk-_icon: var(--tk-size-icon-xs); flex: none; }
+.mt-topic summary { cursor: pointer; }
+.mt-topic summary::marker { color: var(--tk-color-text-tertiary); }
+.mt-topic__body { display: flex; flex-direction: column; gap: var(--tk-space-2); padding-top: var(--tk-space-2); }
+.mt-topic__body > * { margin: 0; }
+.mt-evidence { display: inline-flex; align-items: center; gap: var(--tk-space-1); align-self: flex-start; min-height: var(--tk-size-control-sm); padding: 0; border: 0; background: none; color: var(--tk-color-text-link); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1 var(--tk-font-family-sans); cursor: pointer; }
+.mt-evidence > .tk-icon { --tk-_icon: var(--tk-size-icon-xs); flex: none; }
+.mt-evidence:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-space-px); border-radius: var(--tk-radius-xs); }
+.mt-time { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono); font-variant-numeric: tabular-nums; }
+.mt-time--inline { margin-right: var(--tk-space-2); }
+
+/* 전사 뷰 */
+.mt-tr { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.mt-tr__bar { position: sticky; top: 0; z-index: var(--tk-z-index-raised); background: var(--tk-color-surface-canvas); }
+.mt-tr__bar .tk-findbar { border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); }
+.mt-tr__list { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.mt-speakers { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+.mt-speakers__chip { display: inline-flex; align-items: center; gap: var(--tk-space-1-5); min-height: var(--tk-size-control-sm); padding: 0 var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-full); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / 1 var(--tk-font-family-sans); cursor: pointer; }
+.mt-speakers__chip:focus-visible, .mt-turn__who:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-space-px); }
+
+/* 화자 색은 차트 범주 6색을 돌려 쓴다. 색만으로 구분하지 않게 이름 글자가 항상 같이 있다. */
+.mt-turn, .mt-speakers__chip { --mt-_spk: var(--tk-color-border-default); }
+.mt-turn[data-slot="1"], .mt-speakers__chip[data-slot="1"] { --mt-_spk: var(--tk-color-chart-categorical-1); }
+.mt-turn[data-slot="2"], .mt-speakers__chip[data-slot="2"] { --mt-_spk: var(--tk-color-chart-categorical-2); }
+.mt-turn[data-slot="3"], .mt-speakers__chip[data-slot="3"] { --mt-_spk: var(--tk-color-chart-categorical-3); }
+.mt-turn[data-slot="4"], .mt-speakers__chip[data-slot="4"] { --mt-_spk: var(--tk-color-chart-categorical-4); }
+.mt-turn[data-slot="5"], .mt-speakers__chip[data-slot="5"] { --mt-_spk: var(--tk-color-chart-categorical-5); }
+.mt-turn[data-slot="6"], .mt-speakers__chip[data-slot="6"] { --mt-_spk: var(--tk-color-chart-categorical-6); }
+
+.mt-turn { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; content-visibility: auto; contain-intrinsic-size: auto 7rem; }
+.mt-turn[data-labeled] { padding: var(--tk-space-3) var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-inline-start: var(--tk-border-width-accent) solid var(--mt-_spk); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.mt-turn__head { display: flex; align-items: center; gap: var(--tk-space-2); min-width: 0; }
+.mt-turn__head > .mt-time { margin-left: auto; }
+.mt-turn__who { display: inline-flex; align-items: center; gap: var(--tk-space-1-5); min-width: 0; min-height: var(--tk-size-control-sm); padding: 0; border: 0; background: none; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / 1 var(--tk-font-family-sans); cursor: pointer; }
+.mt-turn__who:disabled { cursor: default; }
+.mt-turn__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mt-turn__dot { flex: none; width: var(--tk-space-2); height: var(--tk-space-2); border-radius: var(--tk-radius-full); background: var(--mt-_spk); }
+.mt-turn__tag { padding: var(--tk-space-0-5) var(--tk-space-1-5); border-radius: var(--tk-radius-full); background: var(--tk-color-status-warning-bg); color: var(--tk-color-status-warning-text); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1.2 var(--tk-font-family-sans); }
+.mt-para { margin: 0; color: var(--tk-color-text-primary); font-size: var(--tk-font-size-md); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; word-break: keep-all; }
+.mt-turn:not([data-labeled]) { padding-block: var(--tk-space-1); }
+/* 확인이 필요한 구간은 밑줄 점선, 겹친 구간은 옅은 바탕으로만 표시한다(내용을 가리지 않는다). */
+.mt-u[data-uncertain] { text-decoration: underline dotted; text-decoration-color: var(--tk-color-status-warning-border); text-underline-offset: 0.25em; }
+.mt-review { display: inline-block; margin-left: var(--tk-space-1); padding: 0 var(--tk-space-1-5); border-radius: var(--tk-radius-full); background: var(--tk-color-status-warning-bg); color: var(--tk-color-status-warning-text); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1.6 var(--tk-font-family-sans); white-space: nowrap; word-break: normal; }
+.mt-u[data-overlap] { background: var(--tk-color-status-warning-bg); border-radius: var(--tk-radius-xs); }
+.mt-u[data-flash] { background: var(--tk-color-highlight-mark); color: var(--tk-color-highlight-mark-text); border-radius: var(--tk-radius-xs); }
+.mt-tr mark[data-hit] { background: var(--tk-color-highlight-mark); color: var(--tk-color-highlight-mark-text); border-radius: var(--tk-radius-xs); padding-inline: 0.1em; scroll-margin-block: var(--tk-space-16); }
+.mt-tr mark[data-hit][aria-current] { background: var(--tk-color-highlight-mark-active); color: var(--tk-color-highlight-mark-active-text); box-shadow: 0 0 0 var(--tk-border-width-strong) var(--tk-color-highlight-mark-active); }
 
 /* 맥락 도서관 저장 상태(회의 상세 패널 맨 아래) */
 .mt-vector { display: flex; align-items: center; gap: var(--tk-space-1-5); margin: 0; padding-top: var(--tk-space-2); border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
@@ -88,9 +149,8 @@
   .mt-panel { padding: var(--tk-space-3); }
   .mt-block { padding: var(--tk-space-3); }
   .mt-item { flex-direction: column; }
-  /* 탭 일곱 칸이 좁아서 항목 수 배지는 승인 대기 제안(해야 할 일)만 남긴다. 나머지 수는 탭 안에서 보인다. */
-  .mt-meta { flex-direction: column; align-items: stretch; }
-  .mt-meta__project { max-width: none; flex-basis: auto; }
-  .mt-tabs__count:not([data-alert]) { display: none; }
+  .mt-summary { padding: var(--tk-space-3); }
+  .mt-turn[data-labeled] { padding: var(--tk-space-3); }
+  .mt-meta__project { max-width: none; }
   .mt-tabs > label { padding-inline: 0; }
 }

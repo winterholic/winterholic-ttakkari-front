@@ -203,24 +203,44 @@ describe("새 회의록", () => {
 });
 
 describe("회의록 상세", () => {
-  it("탭마다 요약·결정(충돌 경고)·액션·미해결을 보여 준다", async () => {
+  it("요약·분석 한 화면에 핵심 요약·결정(충돌 경고)·액션(담당·기한)·논의·미해결이 나온다", async () => {
     h.getMeeting.mockResolvedValue(detail());
     renderAt("/meetings/m1");
     expect(await screen.findByText("릴리스 일정을 논의했다.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("radio", { name: /결정/ }));
-    expect(await screen.findByText("릴리스는 목요일로 앞당긴다")).toBeTruthy();
-    expect(screen.getByText(/기존 결정과 충돌 가능/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("radio", { name: /액션/ }));
-    expect(await screen.findByText("체크리스트 작성")).toBeTruthy();
-    expect(screen.getByText("담당 민수")).toBeTruthy();
-    fireEvent.click(screen.getByRole("radio", { name: /미해결/ }));
-    expect(await screen.findByText("데이터 이전 시점")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "핵심 요약" })).toBeTruthy();
+    const decisions = screen.getByRole("list", { name: "결정 사항" });
+    expect(within(decisions).getByText("릴리스는 목요일로 앞당긴다")).toBeTruthy();
+    expect(within(decisions).getByText(/기존 결정과 충돌 가능/)).toBeTruthy();
+    const actions = screen.getByRole("list", { name: "액션 아이템" });
+    expect(within(actions).getByText("체크리스트 작성")).toBeTruthy();
+    expect(within(actions).getByText(/담당 민수/)).toBeTruthy();
+    expect(within(actions).getByText(/기한 수요일/)).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "주제별 논의" })).getByText("릴리스 일정")).toBeTruthy();
+    expect(within(screen.getByRole("list", { name: "미해결 쟁점" })).getByText("데이터 이전 시점")).toBeTruthy();
+  });
+
+  it("탭은 요약·전사·반영 제안 셋이고, 예전 항목별 탭 주소는 요약으로 열린다", async () => {
+    h.getMeeting.mockResolvedValue(detail());
+    renderAt("/meetings/m1?tab=decision");
+    const tabs = await screen.findByRole("radiogroup", { name: "회의록 내용" });
+    expect(within(tabs).getAllByRole("radio").map((r) => r.parentElement?.textContent)).toEqual(["요약·분석", "전사", "반영 제안2"]);
+    expect((within(tabs).getByRole("radio", { name: /요약·분석/ }) as HTMLInputElement).checked).toBe(true);
+    expect(await screen.findByRole("list", { name: "결정 사항" })).toBeTruthy();
+  });
+
+  it("바로 가기 칩에 결정·액션·미해결 수가 보인다", async () => {
+    h.getMeeting.mockResolvedValue(detail());
+    renderAt("/meetings/m1");
+    const quick = await screen.findByRole("list", { name: "바로 가기" });
+    expect(within(quick).getByText("결정 1")).toBeTruthy();
+    expect(within(quick).getByText("액션 1 · 미완료 1")).toBeTruthy();
+    expect(within(quick).getByText("미해결 1")).toBeTruthy();
   });
 
   it("액션 완료 표시는 서버에 상태를 보낸다", async () => {
     h.getMeeting.mockResolvedValue(detail());
     h.patchMeetingItem.mockResolvedValue({});
-    renderAt("/meetings/m1?tab=action");
+    renderAt("/meetings/m1");
     fireEvent.click(await screen.findByRole("button", { name: "완료" }));
     await waitFor(() => expect(h.patchMeetingItem).toHaveBeenCalledWith("m1", "i2", { status: "done" }));
   });

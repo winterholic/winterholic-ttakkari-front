@@ -401,6 +401,8 @@ export interface MeetingItem {
   owner: string | null;
   due: string | null;
   evidence: string | null;
+  /** 근거 발화의 시작 초. 서버가 아직 주지 않으면 없다(그땐 evidence 인용문으로 전사에서 찾는다). */
+  evidence_start?: number | null;
   status: MeetingItemStatus;
   conflicts: MeetingConflict[];
 }
@@ -465,6 +467,66 @@ export const patchMeetingItem = (id: string, itemId: string, body: { status?: Me
   json(`${M}/${id}/items/${itemId}`, { method: "PATCH", json: body });
 export const resolveMeetingProposal = (id: string, proposalId: string, action: "approve" | "reject"): Promise<MeetingDetail> =>
   json(`${M}/${id}/proposals/${proposalId}/${action}`, { method: "POST" });
+
+// ---- 로컬 STT 구간(back/docs/api-contract.md 회의록 절). 화자·중첩은 화자 분리를 켠 작업에만 있고, 없으면 null.
+export interface SttJob {
+  id: string;
+  meeting_id: string;
+  status: "queued" | "running" | "succeeded" | "failed" | string;
+  parent_job_id: string | null;
+  /** 구간 재처리로 만든 후보 시도. 본문으로 쓰지 않는다. */
+  candidate_only: boolean;
+  error: string | null;
+  /** diarization_status, speaker_count 등. 화자 분리를 안 돌렸으면 diarization_status 가 not_run. */
+  metadata: { diarization_status?: string; speaker_count?: number; [k: string]: unknown } | null;
+  created_at: string;
+  finished_at: string | null;
+}
+export interface SttSegment {
+  id: string;
+  position: number;
+  /** 원음 기준 절대 초 */
+  start: number;
+  end: number;
+  original_text: string;
+  corrected_text: string | null;
+  speaker_id: string | null;
+  identified_person: string | null;
+  overlap: boolean | null;
+  verification_status: string;
+  flags: string[];
+}
+/** 화자별 발화 목록(back/docs/stt/utterances-api.md). 단위는 원본 녹음 시작 기준 초. 아직 배포 전인 서버는 404 라 화면이 구간 API로 대신한다. */
+export interface SttUtterance {
+  id: string;
+  start: number;
+  end: number;
+  speaker_id: string | null;
+  speaker_label: string | null;
+  text: string;
+  /** unverified(미검수) | needs_review(검증 필요). 모르는 값은 검증 필요로 본다 */
+  verification_status: string;
+  /** true 겹침 관측 · false 관측 안 함 · null 탐지 불가/미실행 */
+  overlap: boolean | null;
+  flags: string[];
+}
+export interface SttUtterancePage {
+  job_id: string;
+  utterances: SttUtterance[];
+  offset: number;
+  limit: number;
+  total: number;
+  has_more: boolean;
+  speaker_count: number | null;
+  diarization_status: "succeeded" | "not_run" | "unavailable" | "failed" | string;
+  overlap_detection_status: string;
+  audio_artifact_id: string | null;
+}
+export const listMeetingSttUtterances = (id: string, jobId: string, offset = 0, limit = 500): Promise<SttUtterancePage> =>
+  json(`${M}/${id}/stt/${jobId}/utterances`, { query: { offset, limit } });
+export const listMeetingSttJobs = (id: string): Promise<{ jobs: SttJob[] }> => json(`${M}/${id}/stt`);
+export const listMeetingSttSegments = (id: string, jobId: string, offset = 0, limit = 500): Promise<{ segments: SttSegment[]; offset: number }> =>
+  json(`${M}/${id}/stt/${jobId}/segments`, { query: { offset, limit } });
 
 // ---- 비서 관리(ADR 0007)
 export type MemoryKind = "fact" | "preference" | "decision" | "event" | "instruction" | "note";
