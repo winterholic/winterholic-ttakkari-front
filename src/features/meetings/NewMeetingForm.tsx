@@ -28,7 +28,7 @@ export function NewMeetingForm() {
   const ws = useDefaultWorkspace();
   const engines = useQuery({ queryKey: ["meetings", "providers"], queryFn: meetingProviders });
   const [selection, setProvider] = useState("");
-  const provider = selection || engines.data?.default_provider || "local_whisper";
+  const provider = selection || "local_whisper";
   const selectedEngine = engines.data?.providers.find((p) => p.id === provider);
   const [mode, setMode] = useState<Mode>("text");
   const [title, setTitle] = useState("");
@@ -122,7 +122,7 @@ export function NewMeetingForm() {
           <div className="tk-field">
             <label className="tk-label" id={`${id}-provider-label`} htmlFor={`${id}-provider`}>전사 엔진</label>
             <Select id={`${id}-provider`} labelledBy={`${id}-provider-label`} value={provider} onChange={setProvider}
-              options={engines.data?.providers.map((p) => ({ value: p.id, label: p.label })) ?? [{ value: "local_whisper", label: "로컬 Whisper large-v3" }]} />
+              options={engines.data?.providers.filter((p) => p.id === "local_whisper").map((p) => ({ value: p.id, label: p.label })) ?? [{ value: "local_whisper", label: "로컬 Whisper large-v3" }]} />
             {engines.error && <p className="tk-help">엔진 상태를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</p>}
           </div>
           <div className="tk-field">

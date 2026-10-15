@@ -276,14 +276,18 @@ describe("로컬 전사", () => {
   });
 
   it("새 녹음은 로컬을 기본 선택한다", async () => {
-    h.meetingProviders.mockResolvedValue({ default_provider: "local_whisper", providers: [
+    h.meetingProviders.mockResolvedValue({ default_provider: "clovanote", providers: [
       { id: "local_whisper", label: "로컬 Whisper large-v3", state: "ready", message: "준비됨" },
+      { id: "clovanote", label: "클로바노트", state: "ready", message: "과거 서버" },
     ] });
     h.uploadFile.mockResolvedValue({ id: "a1" });
     h.createMeeting.mockResolvedValue(detail({ id: "m8", status: "transcribing", provider: "local_whisper" }));
     renderAt("/meetings/new");
     fireEvent.click(screen.getByRole("radio", { name: "녹음 파일" }));
     await screen.findByText("이 Mac에서 전사해요");
+    fireEvent.click(screen.getByRole("combobox", { name: "전사 엔진" }));
+    expect(screen.queryByRole("option", { name: "클로바노트" })).toBeNull();
+    fireEvent.click(screen.getByRole("option", { name: "로컬 Whisper large-v3" }));
     fireEvent.change(screen.getByLabelText("제목"), { target: { value: "로컬 기본" } });
     fireEvent.change(document.querySelector("input[type=file]") as HTMLInputElement, { target: { files: [new File(["x"], "a.wav", { type: "audio/wav" })] } });
     fireEvent.click(screen.getByRole("button", { name: "녹음 올리기" }));
