@@ -766,7 +766,7 @@ export interface UsageWindow {
 export interface AccountUsage {
   id: string;
   name: string;
-  engine: "claude" | "codex";
+  engine: "claude" | "codex" | "antigravity";
   pool: AccountPool;
   /** 개인 모드 켜기·순위 */
   enabled: boolean;

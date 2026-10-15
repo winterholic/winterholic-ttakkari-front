@@ -69,6 +69,25 @@ describe("AccountsSection", () => {
     await waitFor(() => expect(api.createAccount).toHaveBeenCalledWith({ name: "내 클로드", engine: "claude", max_used_percent: 100 }));
   });
 
+  it("Antigravity 계정을 단일 로그인 프로필로 추가하고 사용량 상한을 요구하지 않는다", async () => {
+    api.listAccounts.mockResolvedValue([]);
+    api.createAccount.mockResolvedValue(acc({
+      id: "agy", name: "Antigravity", engine: "antigravity", login: "unknown",
+      login_label: null, login_command: "agy",
+    }));
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: "계정 추가" }));
+    fireEvent.change(await screen.findByLabelText("이름"), { target: { value: "Antigravity" } });
+    fireEvent.click(screen.getByRole("combobox", { name: "엔진" }));
+    fireEvent.click(screen.getByRole("option", { name: /Antigravity CLI/ }));
+    expect(screen.queryByLabelText("사용 상한 (%)")).toBeNull();
+    expect(screen.getByText(/로그인 상태는 앱에서 확인할 수 없어요/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "추가" }));
+    await waitFor(() => expect(api.createAccount).toHaveBeenCalledWith({
+      name: "Antigravity", engine: "antigravity", max_used_percent: 100,
+    }));
+  });
+
   it("우선순위 번호·로그인·한도 대기를 보이고, 스위치로 끈다", async () => {
     api.listAccounts.mockResolvedValue([acc({}), acc({ id: "b", name: "codex", engine: "codex", login: "unknown", login_label: null, cooldown_seconds: 600, login_command: "codex login" })]);
     api.patchAccount.mockResolvedValue(acc({ enabled: false }));

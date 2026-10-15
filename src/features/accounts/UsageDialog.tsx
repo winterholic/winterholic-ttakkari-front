@@ -14,7 +14,7 @@ import "./usage.css";
 // ezwork fsw(ezChat) 와 같은 경계: 80% 부터 아끼고, 95% 부터 거의 없다.
 const WARN = 80;
 const DANGER = 95;
-const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex" };
+const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI" };
 const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준" };
 
 function level(p: number): "ok" | "warn" | "danger" {
@@ -48,6 +48,7 @@ type Status = { tone: "success" | "warning" | "neutral" | "info"; text: string }
 /** pool 모드에서의 상태. 켜기는 개인·회사 모드가 따로라 그 모드의 값으로 본다. */
 function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status {
   if (!(pool === "work" ? a.work_enabled : a.enabled)) return { tone: "neutral", text: "꺼짐" };
+  if (a.engine === "antigravity" && !isActive) return { tone: "neutral", text: "사용량 미관측" };
   if (a.login !== "ok" && a.engine === "claude") return { tone: "warning", text: "로그인 필요" };
   if (a.cooldown_seconds > 0) return { tone: "warning", text: `한도 대기 ${Math.ceil(a.cooldown_seconds / 60)}분` };
   if (!a.stale && a.remaining_to_limit_percent === 0) return { tone: "warning", text: "상한 대기" };

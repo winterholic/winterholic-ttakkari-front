@@ -15,10 +15,11 @@ import { ErrorState, ListSkeleton } from "../viewer/screenStates";
 
 export const ACCOUNTS_KEY = ["accounts"] as const;
 
-const ENGINE_LABEL: Record<AccountEngine, string> = { claude: "Claude Code", codex: "Codex" };
+const ENGINE_LABEL: Record<AccountEngine, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI" };
 const ENGINE_OPTIONS = [
   { value: "claude" as const, label: "Claude Code" },
   { value: "codex" as const, label: "Codex" },
+  { value: "antigravity" as const, label: "Antigravity CLI · Gemini 3.8 Flash" },
 ];
 
 function errMessage(e: unknown): string {
@@ -28,6 +29,7 @@ function errMessage(e: unknown): string {
 
 function loginText(a: AccountOut): string {
   if (a.login === "ok") return a.login_label ? a.login_label : "로그인됨";
+  if (a.engine === "antigravity") return "로그인 상태 미확인";
   return "로그인 필요";
 }
 
@@ -40,7 +42,7 @@ function LoginHint({ engine, command }: { engine: AccountEngine; command: string
     );
   return (
     <span className="account-login">
-      <span>{engine === "claude" ? "Mac Studio 터미널에서 이 명령을 실행하고, 열리면 /login 을 입력해 로그인해요." : "Mac Studio 터미널에서 이 명령을 실행해 로그인해요."}</span>
+      <span>{engine === "claude" ? "Mac Studio 터미널에서 이 명령을 실행하고, 열리면 /login 을 입력해 로그인해요." : engine === "antigravity" ? "Antigravity CLI는 로그인 상태를 앱에서 확인하지 않아요. 이미 로그인한 단일 agy 계정을 연결합니다." : "Mac Studio 터미널에서 이 명령을 실행해 로그인해요."}</span>
       <span className="account-login__row">
         <code className="tk-mono">{command}</code>
         <button className="tk-button tk-button--xs" type="button" onClick={copy}>
@@ -381,12 +383,14 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
             setName(e.target.value);
           }} placeholder="예: 내 클로드, Daddy codex" />
         </div>
-        <div className="tk-field">
-          <label className="tk-label" htmlFor={`${id}-cap`}>사용 상한 (%)</label>
-          <input id={`${id}-cap`} className="tk-input" type="number" min={50} max={100} step={1} value={maxUsedPercent}
-            onChange={(e) => setMaxUsedPercent(Number(e.target.value))} />
-          <p className="tk-help"><span>5시간 또는 주간 사용량이 이 값 이상이면 해당 계정은 초기화까지 새 작업을 기다려요. 기본 상한은 100%예요.</span></p>
-        </div>
+        {engine !== "antigravity" && (
+          <div className="tk-field">
+            <label className="tk-label" htmlFor={`${id}-cap`}>사용 상한 (%)</label>
+            <input id={`${id}-cap`} className="tk-input" type="number" min={50} max={100} step={1} value={maxUsedPercent}
+              onChange={(e) => setMaxUsedPercent(Number(e.target.value))} />
+            <p className="tk-help"><span>5시간 또는 주간 사용량이 이 값 이상이면 해당 계정은 초기화까지 새 작업을 기다려요. 기본 상한은 100%예요.</span></p>
+          </div>
+        )}
         <div className="tk-field">
           <label className="tk-label" id={`${id}-engine-label`} htmlFor={`${id}-engine`}>엔진</label>
           {account ? (
@@ -398,7 +402,7 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
           )}
         </div>
         <p className="tk-help">
-          <span>{account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
+          <span>{engine === "antigravity" ? "로그인된 단일 agy 프로필을 연결해요. 사용량과 로그인 상태는 앱에서 확인할 수 없어요." : account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
         </p>
         {save.error && (
           <p className="tk-error" role="alert">

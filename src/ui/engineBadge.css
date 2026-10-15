@@ -25,6 +25,12 @@
   background: color-mix(in srgb, #59c999 16%, var(--tk-color-surface-raised));
 }
 
+.engine-badge[data-engine="antigravity"] {
+  border-color: color-mix(in srgb, #596fd1 40%, var(--tk-color-border-subtle));
+  color: #3c50ad;
+  background: color-mix(in srgb, #899bf5 16%, var(--tk-color-surface-raised));
+}
+
 [data-theme="dark"] .engine-badge[data-engine="claude"] {
   color: #ffc49f;
   background: color-mix(in srgb, #a84a20 27%, var(--tk-color-surface-raised));
@@ -33,6 +39,11 @@
 [data-theme="dark"] .engine-badge[data-engine="codex"] {
   color: #a6edca;
   background: color-mix(in srgb, #16754e 27%, var(--tk-color-surface-raised));
+}
+
+[data-theme="dark"] .engine-badge[data-engine="antigravity"] {
+  color: #c2cbff;
+  background: color-mix(in srgb, #4c60bf 26%, var(--tk-color-surface-raised));
 }
 
 .engine-badge__mark {

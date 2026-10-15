@@ -2,14 +2,14 @@ import "./engineBadge.css";
 
 export type EngineName = "claude" | "codex" | "auto" | string;
 
-const LABELS: Record<string, string> = { claude: "Claude", codex: "Codex", auto: "자동" };
+const LABELS: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity", auto: "자동" };
 
 export function EngineBadge({ engine }: { engine: EngineName }) {
   const key = engine.toLowerCase();
   const label = LABELS[key] ?? engine;
   return (
     <span className="engine-badge" data-engine={key} aria-label={`${label} 엔진`}>
-      <span className="engine-badge__mark" aria-hidden="true">{key === "claude" ? "✳" : key === "codex" ? "⌘" : "↗"}</span>
+      <span className="engine-badge__mark" aria-hidden="true">{key === "claude" ? "✳" : key === "codex" ? "⌘" : key === "antigravity" ? "◈" : "↗"}</span>
       <span>{label}</span>
     </span>
   );
