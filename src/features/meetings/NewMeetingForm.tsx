@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { createMeeting, listPmsProjects, meetingProviders, uploadFile } from "../../api/client";
+import { createMeeting, meetingProviders, uploadFile } from "../../api/client";
 import type { MeetingScope } from "../../api/client";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
@@ -12,18 +12,11 @@ import { formatSize } from "../viewer/kinds";
 import { useDefaultWorkspace } from "../workspace/useDefaultWorkspace";
 import { Callout, SCOPE_OPTIONS } from "./shared";
 import { ClovaBar, useClovaStatus } from "./clova";
+import { useProjectOptions } from "./projects";
 import { TranscriptField } from "./TranscriptField";
 
 type Mode = "audio" | "text";
 
-/** 프로젝트 선택지. 회의 범위와 맞는(같은 개인·회사 범위의 PMS) 프로젝트만 보인다(서버도 같은 규칙으로 거절한다). */
-export function useProjectOptions(scope: MeetingScope) {
-  const q = useQuery({ queryKey: ["pms", "projects", { scope }], queryFn: () => listPmsProjects({ scope }) });
-  const options = [{ value: "", label: "연결 안 함" }, ...(q.data?.projects ?? [])
-    .filter((e) => e.scope === scope)
-    .map((e) => ({ value: e.id, label: e.name }))];
-  return { options, isPending: q.isPending };
-}
 
 /**
  * 새 회의록. 녹음 파일을 올리거나(전사는 선택 엔진으로 자동) 이미 있는 전사 텍스트를 넣는다.

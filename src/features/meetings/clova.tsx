@@ -13,7 +13,7 @@ import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { formatWhen } from "../viewer/kinds";
 import { EmptyState, ErrorState, ListSkeleton } from "../viewer/screenStates";
-import { useProjectOptions } from "./NewMeetingForm";
+import { useProjectOptions } from "./projects";
 import { Callout, SCOPE_OPTIONS, StatusBadge } from "./shared";
 
 /*

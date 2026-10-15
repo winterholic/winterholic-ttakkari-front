@@ -13,7 +13,7 @@ import { Select } from "../../ui/Select";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { EmptyState } from "../viewer/screenStates";
-import { useProjectOptions } from "./NewMeetingForm";
+import { useProjectOptions } from "./projects";
 import { Callout, PipelineSteps, isRunning, scopeLabel } from "./shared";
 import { JobProgress, VectorLine, isJobActive } from "./clova";
 import { TranscriptField } from "./TranscriptField";
