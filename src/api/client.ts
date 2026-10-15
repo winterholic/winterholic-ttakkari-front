@@ -430,11 +430,10 @@ export interface MeetingDetail extends MeetingSummary {
   items: MeetingItem[];
   proposals: MeetingProposal[];
   analysis_context: { ref: string; type: "memory" | "action"; text: string; kind?: string; meeting_title?: string }[];
-  clovanote?: { job: ClovaJob | null; note: ClovaNoteSummary | null } | null;
   /** auto_process 로 만들 때 자동 처리가 막힌 사유(회의는 만들어졌다) */
   auto_error?: { code: string; message: string };
 }
-export interface MeetingProvider { id: string; label: string; state: "ready" | "unconfigured" | "not_implemented"; message: string; profile_configured: boolean; is_default?: boolean }
+export interface MeetingProvider { id: string; label: string; state: "ready" | "unconfigured" | "not_implemented"; message: string; is_default?: boolean }
 export interface MeetingIn {
   title: string;
   scope: MeetingScope;
@@ -466,95 +465,6 @@ export const patchMeetingItem = (id: string, itemId: string, body: { status?: Me
   json(`${M}/${id}/items/${itemId}`, { method: "PATCH", json: body });
 export const resolveMeetingProposal = (id: string, proposalId: string, action: "approve" | "reject"): Promise<MeetingDetail> =>
   json(`${M}/${id}/proposals/${proposalId}/${action}`, { method: "POST" });
-
-// ---- 클로바노트 연동(ADR 0021). 원본: back/src/ttakkari/api/clovanote.py
-export type ClovaJobKind = "sync" | "import" | "upload";
-export type ClovaJobStatus = "queued" | "running" | "waiting" | "succeeded" | "failed";
-export interface ClovaJob {
-  id: string;
-  kind: ClovaJobKind;
-  status: ClovaJobStatus;
-  stage: string;
-  progress: number | null;
-  message: string | null;
-  error: string | null;
-  note_id: string | null;
-  meeting_id: string | null;
-  params: { scope?: MeetingScope; project_id?: string | null; analyze?: boolean; auto?: boolean; auto_analyze?: boolean };
-  result: { notes?: number; fetched?: number; meeting_id?: string; note_id?: string; duration_s?: number; uploaded?: boolean };
-  steps: { at: string; stage: string; message: string }[];
-  stages: { id: string; label: string }[];
-  created_at: string;
-  started_at: string | null;
-  finished_at: string | null;
-  updated_at: string;
-}
-export interface FailedClovaJob extends ClovaJob {
-  failed_at: string;
-  meeting_title: string | null;
-  note_title: string | null;
-}
-export interface FailedClovaJobsPage {
-  items: FailedClovaJob[];
-  next_before: string | null;
-  next_before_id: string | null;
-}
-export type ClovaNoteState = "ready" | "processing" | "failed" | "unknown";
-export interface ClovaNoteSummary {
-  note_id: string;
-  title: string;
-  state: ClovaNoteState;
-  remote_status: string | null;
-  duration_ms: number | null;
-  recorded_at: string | null;
-  remote_updated_at: string | null;
-  speakers: string[];
-  has_transcript: boolean;
-  transcript_chars: number;
-  summary: string | null;
-  meeting_id: string | null;
-  missing: boolean;
-  sample: boolean;
-  progress: number | null;
-  synced_at: string | null;
-  transcript_fetched_at: string | null;
-  meeting?: { id: string; title: string; status: MeetingStatus };
-  import_job?: ClovaJob;
-}
-export interface ClovaNoteDetail extends ClovaNoteSummary {
-  segments: { speaker: string; start_ms: number; end_ms: number; text: string }[];
-  transcript: string | null;
-}
-export type ClovaState = "ready" | "login_required" | "login_window" | "disabled" | "error" | "unknown";
-export interface ClovaStatus {
-  state: ClovaState;
-  message: string;
-  checked_at: number | null;
-  account: { name: string | null; email: string | null } | null;
-  workspace: { id: string | null; name: string | null } | null;
-  quota: { recognition_remain_minutes: number; summary_remain: number; refresh_at: string | null } | null;
-  login: { state: "idle" | "waiting" | "session_only" | "done" | "timeout" | "failed"; message: string | null; started_at: number | null; finished_at: number | null };
-  browser_running: boolean;
-  active_jobs: number;
-  notes: number;
-  unimported: number;
-  last_sync_at: string | null;
-}
-const C = "/api/clovanote";
-export const clovaStatus = (refresh = false): Promise<ClovaStatus> => json(`${C}/status`, { query: { refresh: refresh ? "true" : undefined } });
-export const clovaOpenLogin = (): Promise<ClovaStatus> => json(`${C}/login`, { method: "POST" });
-export const clovaSync = (): Promise<ClovaJob> => json(`${C}/sync`, { method: "POST" });
-export const clovaNotes = (p: { q?: string; imported?: boolean } = {}): Promise<{ notes: ClovaNoteSummary[] }> =>
-  json(`${C}/notes`, { query: { q: p.q || undefined, imported: p.imported === undefined ? undefined : String(p.imported) } });
-export const clovaNote = (noteId: string): Promise<ClovaNoteDetail> => json(`${C}/notes/${encodeURIComponent(noteId)}`);
-export const clovaImport = (noteId: string, body: { scope: MeetingScope; project_id?: string | null; analyze?: boolean }): Promise<ClovaJob> =>
-  json(`${C}/notes/${encodeURIComponent(noteId)}/import`, { method: "POST", json: body });
-export const clovaJobs = (p: { active?: boolean; limit?: number } = {}): Promise<{ jobs: ClovaJob[] }> =>
-  json(`${C}/jobs`, { query: { active: p.active ? "true" : undefined, limit: p.limit ? String(p.limit) : undefined } });
-export const listFailedClovaJobs = (p: { limit?: number; since?: string; before?: string; before_id?: string } = {}): Promise<FailedClovaJobsPage> =>
-  json(`${C}/jobs/failed`, { query: p });
-export const clovaRetryJob = (id: string): Promise<ClovaJob> => json(`${C}/jobs/${id}/retry`, { method: "POST" });
-
 
 // ---- 비서 관리(ADR 0007)
 export type MemoryKind = "fact" | "preference" | "decision" | "event" | "instruction" | "note";

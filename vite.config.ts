@@ -4,6 +4,8 @@ import { VitePWA } from "vite-plugin-pwa";
 import pwa from "./src/vendor/ttakkari/pwa.json" with { type: "json" };
 
 export default defineConfig({
+  // Local validation can explicitly avoid reading any .env files. Vercel uses its injected environment.
+  envDir: process.env.TTAKKARI_NO_ENV_FILE ? false : undefined,
   plugins: [
     react(),
     VitePWA({

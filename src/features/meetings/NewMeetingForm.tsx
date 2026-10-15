@@ -11,7 +11,6 @@ import { errorText } from "../viewer/api";
 import { formatSize } from "../viewer/kinds";
 import { useDefaultWorkspace } from "../workspace/useDefaultWorkspace";
 import { Callout, SCOPE_OPTIONS } from "./shared";
-import { ClovaBar, useClovaStatus } from "./clova";
 import { useProjectOptions } from "./projects";
 import { TranscriptField } from "./TranscriptField";
 
@@ -32,7 +31,6 @@ export function NewMeetingForm() {
   const provider = selection || engines.data?.default_provider || "local_whisper";
   const selectedEngine = engines.data?.providers.find((p) => p.id === provider);
   const [mode, setMode] = useState<Mode>("text");
-  const clova = useClovaStatus(mode === "audio" && provider === "clovanote");
   const [title, setTitle] = useState("");
   const [scope, setScope] = useState<MeetingScope>("personal");
   const [project, setProject] = useState("");
@@ -57,13 +55,11 @@ export function NewMeetingForm() {
     // 서버가 만들자마자 처리(녹음: 선택 엔진 전사 → 분석, 텍스트: 분석)를 건다. 막힌 사유는 회의는 만든 채로 알려 준다.
     onSuccess: (meeting) => {
       void qc.invalidateQueries({ queryKey: ["meetings"] });
-      void qc.invalidateQueries({ queryKey: ["clovanote"] });
       if (meeting.auto_error) toast({ message: `처리를 시작하지 못했어요. ${meeting.auto_error.message}` });
       navigate(`/meetings/${meeting.id}`);
     },
   });
 
-  const clovaReady = clova.data?.state === "ready";
   const ready = !!title.trim() && (mode === "audio" ? !!file && !!ws.data : !!transcript.trim());
 
   return (
@@ -139,18 +135,13 @@ export function NewMeetingForm() {
             </div>
             <p className="tk-help">M4A, MP3, AAC, AMR, WAV · 올린 파일은 보관함에도 저장돼요. 업로드 한도는 서버 설정을 따라요.</p>
           </div>
-          {provider === "local_whisper" ? (
+          <>
             <Callout tone="note" icon="info" title="이 Mac에서 전사해요">
               {selectedEngine?.state !== "ready" && <p>{selectedEngine?.message ?? "로컬 엔진 상태를 확인하는 중이에요."}</p>}
               <p>녹음을 외부 전사 서비스로 보내지 않아요. 전사할 때만 모델을 불러오고 끝나면 메모리를 해제해요. 화자 분리는 별도 모델이 준비된 경우에만 실행해요. 이후 결정·액션 분석에는 설정된 AI 서비스를 사용해요.</p>
             </Callout>
-          ) : clovaReady ? (
-            <Callout tone="note" icon="info" title="올리면 바로 처리해요">
-              <p>선택한 클로바노트에 녹음을 보내 전사하고, 끝나면 결정·액션을 분석해요. 진행 상황은 회의록 화면에서 보여요.</p>
-            </Callout>
-          ) : (
-            <ClovaBar />
-          )}
+          </>
+
         </>
       )}
 

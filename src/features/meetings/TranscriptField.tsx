@@ -39,7 +39,7 @@ export function TranscriptField({ value, onChange, onSource, rows = 10, disabled
         rows={rows}
         value={value}
         disabled={disabled}
-        placeholder="클로바노트 등에서 받은 전사를 붙여 넣으세요. 화자 구분이 있으면 그대로 두면 돼요."
+        placeholder="전사 텍스트를 붙여 넣으세요. 화자 구분이 있으면 그대로 두면 돼요."
         onChange={(e) => {
           onChange(e.target.value);
           onSource("paste");

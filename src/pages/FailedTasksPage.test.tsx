@@ -4,11 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import type { FailedRunsPage } from "../api/types";
 
-const h = vi.hoisted(() => ({ listFailedRuns: vi.fn(), listFailedClovaJobs: vi.fn() }));
+const h = vi.hoisted(() => ({ listFailedRuns: vi.fn() }));
 vi.mock("../api/client", async (orig) => ({
   ...(await orig<typeof import("../api/client")>()),
   listFailedRuns: (...args: unknown[]) => h.listFailedRuns(...args),
-  listFailedClovaJobs: (...args: unknown[]) => h.listFailedClovaJobs(...args),
 }));
 
 import { FailedTasksPage } from "./FailedTasksPage";
@@ -30,14 +29,6 @@ const page: FailedRunsPage = {
 
 it("실패 원인과 실행 환경을 보여 주고 원래 세션으로 연결한다", async () => {
   h.listFailedRuns.mockResolvedValue(page);
-  h.listFailedClovaJobs.mockResolvedValue({ items: [{
-    id: "j1", kind: "upload", status: "failed", stage: "transcribe", progress: null,
-    message: "전사 중 실패", error: "클로바노트 응답 오류", note_id: null, meeting_id: "m1",
-    params: {}, result: {}, steps: [], stages: [{ id: "transcribe", label: "전사" }],
-    created_at: "2026-10-13T04:00:00Z", started_at: "2026-10-13T04:00:01Z",
-    finished_at: "2026-10-13T04:02:00Z", updated_at: "2026-10-13T04:02:00Z",
-    failed_at: "2026-10-13T04:02:00Z", meeting_title: "분기 회의", note_title: null,
-  }], next_before: null, next_before_id: null });
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
@@ -49,8 +40,6 @@ it("실패 원인과 실행 환경을 보여 주고 원래 세션으로 연결�
   expect(screen.getByText("시간 초과: 응답을 받지 못했습니다")).toBeTruthy();
   expect(screen.getByText("claude · 개인 Claude · opus")).toBeTruthy();
   expect(screen.getByRole("link", { name: /원래 대화 열기/ }).getAttribute("href")).toBe("/chat/s1");
-  expect(await screen.findByRole("heading", { name: "백그라운드 작업" })).toBeTruthy();
-  expect(screen.getByText("클로바노트 응답 오류")).toBeTruthy();
-  expect(screen.getByRole("link", { name: "회의록 보기" }).getAttribute("href")).toBe("/meetings/m1");
+  expect(screen.queryByRole("heading", { name: "백그라운드 작업" })).toBeNull();
   await waitFor(() => expect(h.listFailedRuns).toHaveBeenCalled());
 });

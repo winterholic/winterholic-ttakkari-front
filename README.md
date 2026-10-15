@@ -19,4 +19,7 @@ pnpm dev
 - refresh 쿠키는 같은 사이트일 때만 실린다. 프론트와 API 호스트를 맞춘다: `VITE_API_BASE=http://127.0.0.1:8787 pnpm dev --host 127.0.0.1` 후 `http://127.0.0.1:5173` 으로 연다(`localhost` 와 섞으면 새로고침 때 로그아웃된다).
 - 디자인 시스템을 갱신했으면 `./scripts/sync-design-system.sh` 를 다시 돌리고 산출물을 커밋한다.
 
-회의 전사는 로컬 Whisper를 기본 선택한다. 모델이 준비되지 않으면 사유를 표시하고 외부 엔진으로 자동 전환하지 않는다. 클로바노트 상태 조회·로그인 안내는 해당 탭이나 엔진을 선택할 때만 실행한다. 로컬 전사와 검색용 E5는 백엔드의 요청별 자식 프로세스에서 처리 후 종료한다. 운영 설정·설치 안내는 backend `docs/stt/README.md`와 ADR 0026을 따른다.
+회의 전사는 로컬 Whisper를 사용한다. 외부 서비스 연결·로그인·가져오기 탭은 제거했다. 기존에 가져온 회의록은 같은 목록에서 열람·검색·분석한다.
+로컬 전사와 검색용 E5는 요청별 자식 프로세스에서 처리 후 종료한다. STT는 backend `.stt-runtime/`에 준비한 Python·가중치를 기본으로 찾아 `.env` 편집 없이 실행한다. 상세 경로·마이그레이션·운영 스모크는 backend ADR 0027과 `docs/stt/remove-clovanote-2026-10-15.md`를 따른다.
+
+환경 파일 내용 없이 검사하려면 `TTAKKARI_NO_ENV_FILE=1 pnpm test --run`, `TTAKKARI_NO_ENV_FILE=1 pnpm build`를 사용한다. 이 플래그는 Vite의 환경 파일 자동 로드를 끄며, 일반 개발·Vercel 설정은 유지한다.

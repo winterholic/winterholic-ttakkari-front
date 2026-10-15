@@ -1,13 +1,11 @@
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "react-router";
-import { listFailedClovaJobs, listFailedRuns } from "../api/client";
-import type { ClovaJobKind, FailedClovaJob } from "../api/client";
+import { listFailedRuns } from "../api/client";
 import type { FailedRunOut, ISODateTime } from "../api/types";
 import { PageHeader } from "../shell/PageHeader";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
-import { JobProgress } from "../features/meetings/clova";
 import "../features/tasks/tasks.css";
 
 const PERIODS = [
@@ -40,11 +38,6 @@ function failedTime(value: ISODateTime): string {
   }).format(new Date(value));
 }
 
-const JOB_LABEL: Record<ClovaJobKind, string> = { sync: "노트 동기화", import: "노트 가져오기", upload: "녹음 전사" };
-
-function jobTitle(job: FailedClovaJob): string {
-  return job.meeting_title ?? job.note_title ?? JOB_LABEL[job.kind];
-}
 
 export function FailedTasksPage() {
   const [period, setPeriod] = useState<Period>("all");
@@ -57,16 +50,7 @@ export function FailedTasksPage() {
       ? { before: last.next_before, before_id: last.next_before_id }
       : undefined,
   });
-  const jobs = useInfiniteQuery({
-    queryKey: ["clovanote", "jobs", "failed", period],
-    queryFn: ({ pageParam }) => listFailedClovaJobs({ limit: 30, since, ...pageParam }),
-    initialPageParam: null as { before: string; before_id: string } | null,
-    getNextPageParam: (last) => last.next_before && last.next_before_id
-      ? { before: last.next_before, before_id: last.next_before_id }
-      : undefined,
-  });
   const items = query.data?.pages.flatMap((page) => page.items) ?? [];
-  const jobItems = jobs.data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
     <div className="tk-screen">
@@ -92,21 +76,10 @@ export function FailedTasksPage() {
               {[0, 1, 2].map((i) => <div key={i} className="tk-skeleton tk-skeleton--block tasks-page__skeleton" />)}
             </div>
           )}
-          {jobs.isPending && (
-            <div aria-busy="true" aria-label="실패한 백그라운드 작업을 불러오는 중">
-              <div className="tk-skeleton tk-skeleton--block tasks-page__skeleton" />
-            </div>
-          )}
           {query.isError && (
             <div className="tk-empty tk-empty--boxed">
               <p className="tk-empty__title">실패 목록을 불러오지 못했어요</p>
               <Button size="sm" onClick={() => void query.refetch()}><Icon name="retry" />다시 시도</Button>
-            </div>
-          )}
-          {jobs.isError && (
-            <div className="tk-empty tk-empty--boxed">
-              <p className="tk-empty__title">백그라운드 작업을 불러오지 못했어요</p>
-              <Button size="sm" onClick={() => void jobs.refetch()}><Icon name="retry" />다시 시도</Button>
             </div>
           )}
           {query.isSuccess && items.length > 0 && (
@@ -144,31 +117,7 @@ export function FailedTasksPage() {
               )}
             </section>
           )}
-          {jobs.isSuccess && jobItems.length > 0 && (
-            <section className="tk-section" aria-labelledby="failed-jobs-title">
-              <div className="tk-section__head"><h2 className="tk-section__title" id="failed-jobs-title">백그라운드 작업</h2></div>
-              <ul className="tk-list tk-list--inset failed-job-list">
-                {jobItems.map((job) => (
-                  <li key={job.id} className="failed-job">
-                    <div className="failed-job__head">
-                      <span className="tk-badge tk-badge--danger">{JOB_LABEL[job.kind]} 실패</span>
-                      <time className="tk-list__meta" dateTime={job.failed_at}>{failedTime(job.failed_at)}</time>
-                    </div>
-                    {(job.meeting_title || job.note_title) && <p className="failed-job__title">{jobTitle(job)}</p>}
-                    <JobProgress job={job} title={job.meeting_title ?? JOB_LABEL[job.kind]} linkMeeting />
-                  </li>
-                ))}
-              </ul>
-              {jobs.hasNextPage && (
-                <div className="tasks-page__more">
-                  <Button size="sm" onClick={() => void jobs.fetchNextPage()} disabled={jobs.isFetchingNextPage}>
-                    {jobs.isFetchingNextPage ? "불러오는 중" : "더 보기"}
-                  </Button>
-                </div>
-              )}
-            </section>
-          )}
-          {query.isSuccess && jobs.isSuccess && items.length === 0 && jobItems.length === 0 && (
+          {query.isSuccess && items.length === 0 && (
             <div className="tk-empty tk-empty--boxed">
               <p className="tk-empty__title">실패한 작업이 없어요</p>
               <p className="tk-body-sm tk-text-tertiary">실패한 실행이 생기면 이곳에 모여요.</p>

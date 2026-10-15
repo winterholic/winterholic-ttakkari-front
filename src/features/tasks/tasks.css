@@ -101,10 +101,6 @@ button.task-row__link { width: 100%; border: 0; background: none; text-align: le
 .failed-run__reason { display: -webkit-box; overflow: hidden; color: var(--tk-color-text-secondary); overflow-wrap: anywhere; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
 .failed-run__time { font-variant-numeric: tabular-nums; }
 .failed-run__linklabel { flex: none; white-space: nowrap; }
-.failed-job-list > li + li { border-top: var(--tk-border-width-hairline) solid var(--tk-component-list-divider); }
-.failed-job { display: flex; flex-direction: column; gap: var(--tk-space-2); padding: var(--tk-component-list-row-padding-y) var(--tk-component-list-row-padding-x); min-width: 0; }
-.failed-job__head { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-2); flex-wrap: wrap; }
-.failed-job__title { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); overflow-wrap: anywhere; }
 @media (max-width: 520px) {
   .failed-run { flex-direction: column; gap: var(--tk-space-1); }
   .failed-run__linklabel { align-self: flex-end; }
