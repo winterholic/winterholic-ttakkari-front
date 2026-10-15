@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useNavigate } from "react-router";
 import { moreFeatures } from "../shell/features";
 
 const h = vi.hoisted(() => ({ list: vi.fn(), templates: vi.fn(), create: vi.fn(), patch: vi.fn(), remove: vi.fn(), createFixed: vi.fn(), patchFixed: vi.fn(), removeFixed: vi.fn() }));
@@ -21,10 +21,14 @@ beforeEach(() => {
   HTMLDialogElement.prototype.close ??= function () { this.removeAttribute("open"); this.dispatchEvent(new Event("close")); };
 });
 afterEach(cleanup);
-async function mount() {
+function Back() {
+  const navigate = useNavigate();
+  return <button onClick={() => navigate(-1)}>브라우저 뒤로</button>;
+}
+async function mount(entry = "/checklists?date=2026-10-14") {
   const { ChecklistsPage } = await import(/* @vite-ignore */ "./" + "ChecklistsPage");
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={["/checklists?date=2026-10-14"]}><ChecklistsPage /></MemoryRouter></QueryClientProvider>);
+  return render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={[entry]}><Back /><ChecklistsPage /></MemoryRouter></QueryClientProvider>);
 }
 
 it("부가기능과 더보기 메뉴에 체크리스트를 표시한다", () => {
@@ -82,4 +86,55 @@ it("키보드 화살표로 고정 항목 탭을 선택한다", async () => {
   tab.focus();
   fireEvent.keyDown(tab, { key: "ArrowRight" });
   await waitFor(() => expect(screen.getByRole("tab", { name: "고정 항목" }).getAttribute("aria-selected")).toBe("true"));
+});
+it("기본 진입은 관리 컨트롤 없이 오늘 목록과 완료 현황만 보여 주고 바로 체크한다", async () => {
+  await mount("/checklists");
+  const check = await screen.findByRole("checkbox", { name: "물 마시기" });
+  expect(screen.getByText(/\/ 1 완료/).textContent).toBe("0 / 1 완료");
+  expect(screen.queryByLabelText("새 항목")).toBeNull();
+  expect(screen.queryByRole("tab")).toBeNull();
+  expect(screen.queryByRole("button", { name: "물 마시기 수정" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "물 마시기 삭제" })).toBeNull();
+  fireEvent.click(check);
+  await waitFor(() => expect(h.patch).toHaveBeenCalledWith("a", { checked: true }));
+});
+it("편집으로 들어가면 추가·수정·삭제·고정 항목 탭이 열리고 조회로 돌아온다", async () => {
+  await mount("/checklists");
+  await screen.findByRole("checkbox");
+  fireEvent.click(screen.getByRole("button", { name: "편집" }));
+  expect(await screen.findByLabelText("새 항목")).toBeTruthy();
+  expect(screen.getByRole("tab", { name: "고정 항목" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "물 마시기 수정" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "조회로" }));
+  await waitFor(() => expect(screen.queryByLabelText("새 항목")).toBeNull());
+  expect(screen.getByRole("checkbox", { name: "물 마시기" })).toBeTruthy();
+});
+it("날짜별 조회에서 날짜를 옮긴 뒤 브라우저 뒤로가기로 이전 날짜와 조회 화면을 복원한다", async () => {
+  await mount("/checklists");
+  await screen.findByRole("checkbox");
+  fireEvent.click(screen.getByRole("button", { name: "날짜별 조회" }));
+  const date = await screen.findByLabelText("체크 날짜") as HTMLInputElement;
+  fireEvent.change(date, { target: { value: "2026-10-01" } });
+  await waitFor(() => expect(h.list).toHaveBeenCalledWith("2026-10-01"));
+  expect((screen.getByLabelText("체크 날짜") as HTMLInputElement).value).toBe("2026-10-01");
+  fireEvent.click(screen.getByRole("button", { name: "브라우저 뒤로" }));
+  await waitFor(() => expect((screen.getByLabelText("체크 날짜") as HTMLInputElement).value).not.toBe("2026-10-01"));
+  fireEvent.click(screen.getByRole("button", { name: "브라우저 뒤로" }));
+  await waitFor(() => expect(screen.queryByLabelText("체크 날짜")).toBeNull());
+});
+it("조회 화면의 빈 상태·불러오기 실패·저장 실패를 알린다", async () => {
+  h.list.mockResolvedValue({ day: "2026-10-14", total: 0, completed: 0, items: [] });
+  const first = await mount("/checklists");
+  expect(await screen.findByText(/아직 항목이 없어요/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "항목 추가하기" })).toBeTruthy();
+  first.unmount();
+  h.list.mockRejectedValue(new Error("서버 오류"));
+  const second = await mount("/checklists");
+  expect((await screen.findByRole("alert")).textContent).toContain("서버 오류");
+  second.unmount();
+  h.list.mockResolvedValue({ day: "2026-10-14", total: 1, completed: 0, items: [{ id: "a", day: "2026-10-14", title: "물 마시기", checked: false, template_id: null }] });
+  h.patch.mockRejectedValue(new Error("연결 끊김"));
+  await mount("/checklists");
+  fireEvent.click(await screen.findByRole("checkbox", { name: "물 마시기" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("연결 끊김");
 });
