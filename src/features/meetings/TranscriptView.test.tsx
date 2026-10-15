@@ -4,13 +4,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import type { MeetingDetail, SttJob, SttSegment, SttUtterance } from "../../api/client";
 
-const h = vi.hoisted(() => ({ listMeetingSttJobs: vi.fn(), listMeetingSttSegments: vi.fn(), listMeetingSttUtterances: vi.fn(), getMeeting: vi.fn(), meetingProviders: vi.fn(), listPmsProjects: vi.fn(), listEntities: vi.fn() }));
+const h = vi.hoisted(() => ({ listMeetingSttJobs: vi.fn(), listMeetingSttSegments: vi.fn(), listMeetingSttUtterances: vi.fn(), listMeetings: vi.fn(), getMeeting: vi.fn(), meetingProviders: vi.fn(), listPmsProjects: vi.fn(), listEntities: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({
   ...(await orig<typeof import("../../api/client")>()),
   listMeetingSttJobs: (...a: unknown[]) => h.listMeetingSttJobs(...a),
   listMeetingSttSegments: (...a: unknown[]) => h.listMeetingSttSegments(...a),
   listMeetingSttUtterances: (...a: unknown[]) => h.listMeetingSttUtterances(...a),
   getMeeting: (...a: unknown[]) => h.getMeeting(...a),
+  listMeetings: (...a: unknown[]) => h.listMeetings(...a),
   meetingProviders: (...a: unknown[]) => h.meetingProviders(...a),
   listPmsProjects: (...a: unknown[]) => h.listPmsProjects(...a),
   listEntities: (...a: unknown[]) => h.listEntities(...a),
@@ -58,6 +59,7 @@ beforeEach(() => {
   h.listMeetingSttSegments.mockResolvedValue({ segments: talk, offset: 0 });
   // 발화 API가 아직 없는 서버는 404. 기본은 그 상태로 두고 구간 API로 대신하는 경로를 본다.
   h.listMeetingSttUtterances.mockRejectedValue(new Error("not found"));
+  h.listMeetings.mockResolvedValue({ meetings: [] });
   h.meetingProviders.mockResolvedValue({ providers: [] });
   h.listPmsProjects.mockResolvedValue({ projects: [] });
   h.listEntities.mockResolvedValue({ entities: [] });
@@ -339,6 +341,8 @@ describe("요약 → 전사 이동", () => {
     renderPage();
     await screen.findByText("결정");
     expect(screen.queryByRole("button", { name: /근거 발화/ })).toBeNull();
-    expect(h.listMeetingSttJobs).not.toHaveBeenCalled();
+    // 구간·발화는 근거 링크가 필요할 때만 받는다(작업 목록은 상태 표시용으로 따로 읽는다).
+    expect(h.listMeetingSttSegments).not.toHaveBeenCalled();
+    expect(h.listMeetingSttUtterances).not.toHaveBeenCalled();
   });
 });

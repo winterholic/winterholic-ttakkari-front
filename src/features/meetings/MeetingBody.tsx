@@ -18,6 +18,7 @@ import { TranscriptView } from "./TranscriptView";
 import type { TranscriptFocus } from "./TranscriptView";
 import { detailKey, useMeetingActions } from "./useMeetingActions";
 import type { Actions } from "./useMeetingActions";
+import { RelatedMeetings, transcribeStateText, useSttJobs } from "./retranscribe";
 import { VectorLine } from "./VectorLine";
 
 export { detailKey };
@@ -47,6 +48,7 @@ export function MeetingBody({ m }: { m: MeetingDetail }) {
           <Button size="sm" busy={a.analyze.isPending} onClick={() => a.analyze.mutate()}><Icon name="retry" />다시 분석</Button>
         )}
       </ProjectField>
+      <RelatedMeetings m={m} />
       <div className="tk-segmented tk-segmented--block mt-tabs" role="radiogroup" aria-label="회의록 내용">
         {tabs.map((t) => (
           <label key={t.id}>
@@ -80,13 +82,16 @@ function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
   const localReady = engines.data?.providers.some((p) => p.id === "local_whisper" && p.state === "ready");
   const localEngine = engines.data?.providers.find((p) => p.id === "local_whisper");
   const noTranscript = !m.transcript;
+  const jobs = useSttJobs(m);
+  const jobStatus = jobs.data?.jobs.find((j) => !j.candidate_only)?.status;
+  const waiting = transcribeStateText(jobStatus);
   const transcribeErr = a.localTranscribe.error ? errorText(a.localTranscribe.error) : null;
   const canTranscribe = !!m.audio && (m.status === "uploaded" || (m.status === "failed" && m.failed_stage === "transcription"));
   return (
     <section className="mt-panel" aria-label="진행 상태">
       <PipelineSteps m={m} />
       {m.status === "transcribing" && m.provider === "local_whisper" && (
-        <p className="tk-status tk-status--agent" role="status"><span className="tk-spinner tk-spinner--xs" aria-hidden="true" />이 Mac에서 전사 중이에요. 끝나면 모델 메모리를 해제해요.</p>
+        <p className="tk-status tk-status--agent" role="status"><span className="tk-spinner tk-spinner--xs" aria-hidden="true" /><span><strong>{waiting.label}</strong> {waiting.text}</span></p>
       )}
       {m.status === "failed" && (
         <Callout tone="caution" icon="caution" title={m.failed_stage === "transcription" ? "전사에 실패했어요" : "분석에 실패했어요"}>

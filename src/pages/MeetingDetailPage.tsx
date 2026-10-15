@@ -3,12 +3,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 import { deleteMeeting, getMeeting } from "../api/client";
 import { MeetingBody, detailKey } from "../features/meetings/MeetingBody";
+import { RetranscribeDialog, canRetranscribe, useRetranscribeSupport } from "../features/meetings/retranscribe";
 import { StatusBadge, isRunning, meetingWhen, scopeLabel } from "../features/meetings/shared";
 import { errorText } from "../features/viewer/api";
 import { ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { PageHeader } from "../shell/PageHeader";
 import { Dialog } from "../ui/Dialog";
 import { Icon } from "../ui/Icon";
+import { Menu } from "../ui/Menu";
 import { toast } from "../ui/toastStore";
 import "../features/meetings/meetings.css";
 
@@ -18,6 +20,7 @@ export function MeetingDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [confirm, setConfirm] = useState(false);
+  const [again, setAgain] = useState(false);
   const q = useQuery({
     queryKey: detailKey(meetingId),
     queryFn: () => getMeeting(meetingId),
@@ -38,14 +41,28 @@ export function MeetingDetailPage() {
     },
   });
   const m = q.data;
+  const support = useRetranscribeSupport(m ?? { id: meetingId, audio: null });
   return (
     <div className="tk-screen">
       <PageHeader
         title={m?.title ?? "회의록"}
-        meta={m ? <span className="mt-header-meta"><StatusBadge status={m.status} /><span>{meetingWhen(m)} · {scopeLabel(m.scope)}{m.project ? ` · ${m.project.name}` : ""}</span></span> : undefined}
+        meta={m ? <span className="mt-header-meta"><StatusBadge status={m.status} /><span className="mt-header-meta__text">{meetingWhen(m)} · {scopeLabel(m.scope)}{m.project ? ` · ${m.project.name}` : ""}</span></span> : undefined}
         actions={
           <>
             <Link className="tk-icon-button" to="/meetings" aria-label="목록으로" title="목록으로"><Icon name="back" /></Link>
+            {m && !!m.audio && (
+              <Menu
+                label="회의록 더보기"
+                items={[{
+                  label: support === "no" ? "다시 전사 (서버 업데이트 후 사용 가능)" : !canRetranscribe(m) ? "다시 전사 (진행이 끝난 뒤 가능)" : "다시 전사",
+                  icon: "retry",
+                  disabled: support === "no" || !canRetranscribe(m),
+                  onSelect: () => setAgain(true),
+                }]}
+              >
+                <Icon name="more-vertical" />
+              </Menu>
+            )}
             {m && <button className="tk-icon-button" type="button" aria-label="회의록 지우기" title="회의록 지우기" onClick={() => setConfirm(true)}><Icon name="trash" /></button>}
           </>
         }
@@ -57,6 +74,7 @@ export function MeetingDetailPage() {
           {m && <MeetingBody m={m} />}
         </div>
       </div>
+      {m && <RetranscribeDialog m={m} open={again} onClose={() => setAgain(false)} />}
       <Dialog
         open={confirm}
         onClose={() => setConfirm(false)}

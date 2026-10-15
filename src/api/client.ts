@@ -474,6 +474,8 @@ export interface SttJob {
   meeting_id: string;
   status: "queued" | "running" | "succeeded" | "failed" | string;
   parent_job_id: string | null;
+  /** 전사 요청 때의 설정. 다시 전사한 회의는 source_meeting_id(원본 회의)가 들어 있다 */
+  params?: { source_meeting_id?: string; source_job_id?: string | null; profile?: string; [k: string]: unknown } | null;
   /** 구간 재처리로 만든 후보 시도. 본문으로 쓰지 않는다. */
   candidate_only: boolean;
   error: string | null;
@@ -524,6 +526,25 @@ export interface SttUtterancePage {
 }
 export const listMeetingSttUtterances = (id: string, jobId: string, offset = 0, limit = 500): Promise<SttUtterancePage> =>
   json(`${M}/${id}/stt/${jobId}/utterances`, { query: { offset, limit } });
+/** 원본 보존 재전사(back/docs/stt/utterances-api.md). 새 회의를 만들어 돌려준다(202). 원회의의 전사·분석·기억은 그대로다. */
+export const retranscribeMeeting = (id: string, autoAnalyze = false): Promise<MeetingDetail> =>
+  json(`${M}/${id}/retranscribe`, { method: "POST", json: { auto_analyze: autoAnalyze } });
+/**
+ * 서버에 재전사 API가 있는지 부작용 없이 확인한다. 일부러 검증에 걸리는 값(auto_analyze 가 불리언이 아님)을 보내서
+ * 경로가 있으면 422, 없으면 404/405 가 온다. 본문 검증이 핸들러보다 먼저라 회의는 만들어지지 않는다(운영 서버는 openapi 를 꺼 둬서 이 방법밖에 없다).
+ */
+export async function probeRetranscribe(id: string): Promise<"yes" | "no" | "unknown"> {
+  try {
+    await json(`${M}/${id}/retranscribe`, { method: "POST", json: { auto_analyze: "probe" } });
+    return "unknown";
+  } catch (e) {
+    if (e instanceof ApiError) {
+      if (e.status === 422) return "yes";
+      if (e.status === 404 || e.status === 405) return "no";
+    }
+    return "unknown";
+  }
+}
 export const listMeetingSttJobs = (id: string): Promise<{ jobs: SttJob[] }> => json(`${M}/${id}/stt`);
 export const listMeetingSttSegments = (id: string, jobId: string, offset = 0, limit = 500): Promise<{ segments: SttSegment[]; offset: number }> =>
   json(`${M}/${id}/stt/${jobId}/segments`, { query: { offset, limit } });

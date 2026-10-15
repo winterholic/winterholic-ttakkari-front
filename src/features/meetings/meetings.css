@@ -8,7 +8,10 @@
 .mt-count { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono); font-variant-numeric: tabular-nums; }
 .mt-file { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2) var(--tk-space-3); }
 .mt-file__name { min-width: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
-.mt-header-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
+.mt-header-meta { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: var(--tk-space-2); min-width: 0; }
+.mt-header-meta > * { flex: none; }
+/* 헤더 액션이 셋이라 날짜 줄이 두 줄로 꺾이면 제목이 잘린다. 한 줄로 두고 길면 말줄임 */
+.mt-header-meta > .mt-header-meta__text { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 목록 */
 .mt-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tk-space-2) var(--tk-space-4); }
@@ -77,6 +80,11 @@
 .mt-diff em { font-style: normal; opacity: 0.8; }
 
 .mt-details__body { padding-top: var(--tk-space-3); }
+
+/* 같은 녹음의 다른 회의 링크, 다시 전사 확인 */
+.mt-related { display: flex; flex-direction: column; gap: var(--tk-space-1); color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.mt-related > p { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--tk-space-1) var(--tk-space-3); margin: 0; }
+.mt-related__label { color: var(--tk-color-text-tertiary); }
 
 /* 요약·분석 */
 .mt-analysis { display: flex; flex-direction: column; gap: var(--tk-space-6); min-width: 0; }
