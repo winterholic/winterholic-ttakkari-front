@@ -17,12 +17,13 @@ import { OrchestrationFlow } from "./OrchestrationFlow";
 import "./settings.css";
 import "./assistant.css";
 
-type Tab = "instructions" | "memory" | "knowledge" | "tools";
+type Tab = "instructions" | "memory" | "knowledge" | "tools" | "flow";
 const TABS: { id: Tab; label: string }[] = [
   { id: "instructions", label: "지침" },
   { id: "memory", label: "기억" },
   { id: "knowledge", label: "지식" },
   { id: "tools", label: "도구" },
+  { id: "flow", label: "흐름도" },
 ];
 const KINDS: { value: MemoryKind; label: string }[] = [
   { value: "fact", label: "사실" },
@@ -70,11 +71,11 @@ export function AssistantPage() {
               </label>
             ))}
           </div>
-          <OrchestrationFlow />
           {tab === "instructions" && <InstructionsTab brief={s?.brief ?? ""} />}
           {tab === "memory" && <MemoryTab />}
           {tab === "knowledge" && <KnowledgeTab />}
           {tab === "tools" && <ToolsTab />}
+          {tab === "flow" && <OrchestrationFlow />}
         </div>
       </div>
     </div>
