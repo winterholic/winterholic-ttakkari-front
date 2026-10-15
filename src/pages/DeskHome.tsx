@@ -153,7 +153,7 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
       setPanelOpen(true);
       return setNode(null);
     }
-    if (!isDesktop) return navigate(`/chat/${id}`);
+    if (!isDesktop) return navigate(`${base}/${id}`);
     setPanelOpen(true);
     setNode(id);
   };
@@ -227,7 +227,11 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
                 overlay={
                   <>
                     <div className="home__top" data-no-pan>
-                      <TaskSearch pool={pool} forestIds={new Set(forestIds(forest))} onPick={(id, root) => (forestIds(forest).includes(id) ? select(id) : (setPanelOpen(true), setNode(id, { pin: root })))} />
+                      <TaskSearch pool={pool} forestIds={new Set(forestIds(forest))} onPick={(id, root) => {
+                        if (!isDesktop || forestIds(forest).includes(id)) return select(id);
+                        setPanelOpen(true);
+                        setNode(id, { pin: root });
+                      }} />
                       {pins.length > 0 && (
                         <button className="tk-chip home__pins" type="button" onClick={clearPins}>
                           지난 일 {pins.length}개 펼침
