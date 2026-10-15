@@ -175,7 +175,7 @@ describe("클로바노트", () => {
         synced_at: null, transcript_fetched_at: null, meeting: { id: "m5", title: "가져온 회의", status: "review" } },
     ] });
     h.clovaImport.mockResolvedValue(uploadJob({ kind: "import", status: "queued" }));
-    renderAt("/meetings");
+    renderAt("/meetings?view=clova");
     expect(await screen.findByText("클로바노트 연결됨")).toBeTruthy();
     expect(screen.getByText("변환 299분 남음")).toBeTruthy();
     fireEvent.click(screen.getByRole("radio", { name: /클로바노트/ }));
@@ -195,7 +195,7 @@ describe("클로바노트", () => {
     h.clovaStatus.mockResolvedValue(clovaReady({ active_jobs: 1 }));
     h.clovaJobs.mockResolvedValue({ jobs: [uploadJob({ id: "s1", kind: "sync", stage: "fetch", progress: 50, message: "전사 받는 중 (1/2)",
       stages: [{ id: "connect", label: "연결" }, { id: "list", label: "목록" }, { id: "fetch", label: "전사 받기" }, { id: "done", label: "완료" }] })] });
-    renderAt("/meetings");
+    renderAt("/meetings?view=clova");
     const bar = await screen.findByRole("progressbar", { name: /노트 동기화 진행/ });
     expect(bar.getAttribute("aria-valuenow")).toBe("50");
     expect(screen.getByText("전사 받는 중 (1/2)")).toBeTruthy();
@@ -240,6 +240,8 @@ describe("새 회의록", () => {
     h.createMeeting.mockResolvedValue(detail({ id: "m8", status: "uploaded", source: "audio", transcript: null }));
     renderAt("/meetings/new");
     fireEvent.click(screen.getByRole("radio", { name: "녹음 파일" }));
+    fireEvent.click(await screen.findByRole("combobox", { name: /전사 엔진/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "클로바노트" }));
     expect(await screen.findByText("올리면 바로 처리해요")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("제목"), { target: { value: "녹음 회의" } });
     const file = new File(["x"], "회의.m4a", { type: "audio/mp4" });
@@ -277,6 +279,8 @@ describe("새 회의록", () => {
     h.clovaOpenLogin.mockResolvedValue(clovaReady({ state: "login_window", login: { state: "waiting", message: "로그인해 주세요", started_at: 1, finished_at: null } }));
     renderAt("/meetings/new");
     fireEvent.click(screen.getByRole("radio", { name: "녹음 파일" }));
+    fireEvent.click(await screen.findByRole("combobox", { name: /전사 엔진/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "클로바노트" }));
     expect(await screen.findByText("클로바노트 로그인이 필요해요")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /로그인 창 열기/ }));
     await waitFor(() => expect(h.clovaOpenLogin).toHaveBeenCalled());
@@ -337,10 +341,11 @@ describe("회의록 상세", () => {
     h.getMeeting.mockResolvedValue(detail({ status: "uploaded", source: "audio", transcript: null, transcript_chars: 0, summary: null, items: [], proposals: [],
       audio: { artifact_id: "a1", filename: "회의.m4a", size_bytes: 10 }, counts: { discussion: 0, decision: 0, action: 0, open_issue: 0, pending_proposals: 0 } }));
     h.requestMeetingTranscription.mockRejectedValue(Object.assign(new Error("클로바노트 로그인이 필요해요."), { code: "provider_unavailable" }));
+    h.meetingProviders.mockResolvedValue({ providers: [{ id: "clovanote", label: "클로바노트", state: "ready", message: "준비됨", profile_configured: true }] });
     renderAt("/meetings/m1");
     expect(await screen.findByText("녹음이 전사를 기다려요")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /분석 시작/ })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /클로바노트로 전사/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /클로바노트로 전사/ }));
     expect((await screen.findByRole("alert")).textContent).toContain("클로바노트 로그인이 필요해요.");
   });
 
@@ -376,5 +381,55 @@ describe("회의록 상세", () => {
     expect(screen.getByText("분석 결과에서 JSON 을 찾지 못했어요.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /분석 시작/ }));
     await waitFor(() => expect(h.analyzeMeeting).toHaveBeenCalledWith("m1"));
+  });
+});
+
+describe("로컬 우선·선택 외부 연동", () => {
+  it("회의 목록은 클로바노트를 조회하거나 연결하지 않는다", async () => {
+    h.listMeetings.mockResolvedValue({ meetings: [] });
+    renderAt("/meetings");
+    await screen.findByText("아직 회의록이 없어요");
+    expect(h.clovaStatus).not.toHaveBeenCalled();
+    expect(h.clovaJobs).not.toHaveBeenCalled();
+    expect(h.clovaNotes).not.toHaveBeenCalled();
+  });
+
+  it("새 녹음은 로컬을 기본 선택하고 클로바노트에 접속하지 않는다", async () => {
+    h.meetingProviders.mockResolvedValue({ default_provider: "local_whisper", providers: [
+      { id: "local_whisper", label: "로컬 Whisper large-v3", state: "ready", message: "준비됨", profile_configured: false },
+      { id: "clovanote", label: "클로바노트", state: "ready", message: "준비됨", profile_configured: true },
+    ] });
+    h.uploadFile.mockResolvedValue({ id: "a1" });
+    h.createMeeting.mockResolvedValue(detail({ id: "m8", status: "transcribing", provider: "local_whisper" }));
+    renderAt("/meetings/new");
+    fireEvent.click(screen.getByRole("radio", { name: "녹음 파일" }));
+    await screen.findByText("이 Mac에서 전사해요");
+    fireEvent.change(screen.getByLabelText("제목"), { target: { value: "로컬 기본" } });
+    fireEvent.change(document.querySelector("input[type=file]") as HTMLInputElement, { target: { files: [new File(["x"], "a.wav", { type: "audio/wav" })] } });
+    fireEvent.click(screen.getByRole("button", { name: "녹음 올리기" }));
+    await waitFor(() => expect(h.createMeeting).toHaveBeenCalledWith(expect.objectContaining({ provider_id: "local_whisper" })));
+    expect(h.clovaStatus).not.toHaveBeenCalled();
+  });
+
+  it("로컬 미설정은 사유를 보여 주고 외부 엔진으로 바꾸지 않는다", async () => {
+    h.meetingProviders.mockResolvedValue({ default_provider: "local_whisper", providers: [
+      { id: "local_whisper", label: "로컬 Whisper large-v3", state: "unconfigured", message: "로컬 large-v3 모델 설치가 필요해요.", profile_configured: false },
+      { id: "clovanote", label: "클로바노트", state: "ready", message: "준비됨", profile_configured: true },
+    ] });
+    renderAt("/meetings/new");
+    fireEvent.click(screen.getByRole("radio", { name: "녹음 파일" }));
+    await screen.findByText("로컬 large-v3 모델 설치가 필요해요.");
+    expect(h.clovaStatus).not.toHaveBeenCalled();
+  });
+});
+
+describe("전사 엔진 전환", () => {
+  it("로컬 재전사에는 예전 클로바노트 실패 진행을 표시하지 않는다", async () => {
+    h.getMeeting.mockResolvedValue(detail({ status: "transcribing", provider: "local_whisper", source: "audio", transcript: null,
+      clovanote: { job: uploadJob({ status: "failed", message: "예전 외부 전사 실패" }), note: null } }));
+    renderAt("/meetings/m1");
+    await screen.findByText(/이 Mac에서 전사 중이에요/);
+    expect(screen.queryByText("예전 외부 전사 실패")).toBeNull();
+    expect(screen.queryByText("클로바노트 전사")).toBeNull();
   });
 });

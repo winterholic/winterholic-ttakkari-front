@@ -52,8 +52,9 @@ export function duration(ms: number | null | undefined): string {
 }
 
 /** 연결 상태. 로그인 창이 열려 있거나 작업이 돌면 자주 묻고, 평소엔 1분마다. 처음 한 번은 실제로 확인한다. */
-export function useClovaStatus() {
+export function useClovaStatus(enabled = true) {
   const q = useQuery({
+    enabled,
     queryKey: clovaKeys.status,
     queryFn: async () => {
       const st = await clovaStatus(false);

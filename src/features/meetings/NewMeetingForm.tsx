@@ -26,7 +26,7 @@ export function useProjectOptions(scope: MeetingScope) {
 }
 
 /**
- * 새 회의록. 녹음 파일을 올리거나(전사는 클로바노트 연동 뒤 자동) 이미 있는 전사 텍스트를 넣는다.
+ * 새 회의록. 녹음 파일을 올리거나(전사는 선택 엔진으로 자동) 이미 있는 전사 텍스트를 넣는다.
  * 데스크톱·모바일이 같은 컴포넌트다. 전사 텍스트는 만들자마자 분석을 시작한다.
  */
 export function NewMeetingForm() {
@@ -34,10 +34,12 @@ export function NewMeetingForm() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const ws = useDefaultWorkspace();
-  const clova = useClovaStatus();
   const engines = useQuery({ queryKey: ["meetings", "providers"], queryFn: meetingProviders });
-  const [provider, setProvider] = useState("clovanote");
+  const [selection, setProvider] = useState("");
+  const provider = selection || engines.data?.default_provider || "local_whisper";
+  const selectedEngine = engines.data?.providers.find((p) => p.id === provider);
   const [mode, setMode] = useState<Mode>("text");
+  const clova = useClovaStatus(mode === "audio" && provider === "clovanote");
   const [title, setTitle] = useState("");
   const [scope, setScope] = useState<MeetingScope>("personal");
   const [project, setProject] = useState("");
@@ -55,11 +57,11 @@ export function NewMeetingForm() {
         if (!file || !ws.data) throw new Error("녹음 파일을 골라 주세요.");
         const art = await uploadFile(file, ws.data.id);
         return createMeeting({ ...base, audio_artifact_id: art.id, auto_process: true,
-          ...(provider !== "clovanote" ? { provider_id: provider } : {}) });
+          provider_id: provider });
       }
       return createMeeting({ ...base, transcript, transcript_source: source, auto_process: true });
     },
-    // 서버가 만들자마자 처리(녹음: 클로바노트 전사 → 분석, 텍스트: 분석)를 건다. 막힌 사유는 회의는 만든 채로 알려 준다.
+    // 서버가 만들자마자 처리(녹음: 선택 엔진 전사 → 분석, 텍스트: 분석)를 건다. 막힌 사유는 회의는 만든 채로 알려 준다.
     onSuccess: (meeting) => {
       void qc.invalidateQueries({ queryKey: ["meetings"] });
       void qc.invalidateQueries({ queryKey: ["clovanote"] });
@@ -131,10 +133,8 @@ export function NewMeetingForm() {
           <div className="tk-field">
             <label className="tk-label" id={`${id}-provider-label`} htmlFor={`${id}-provider`}>전사 엔진</label>
             <Select id={`${id}-provider`} labelledBy={`${id}-provider-label`} value={provider} onChange={setProvider}
-              options={[{ value: "clovanote", label: "클로바노트" },
-                ...(engines.data?.providers.filter((p) => p.id !== "clovanote" && p.state === "ready")
-                  .map((p) => ({ value: p.id, label: p.label })) ?? [])]} />
-            {engines.error && <p className="tk-help">엔진 상태를 불러오지 못했어요. 클로바노트로 진행하거나 나중에 다시 열어 주세요.</p>}
+              options={engines.data?.providers.map((p) => ({ value: p.id, label: p.label })) ?? [{ value: "local_whisper", label: "로컬 Whisper large-v3" }]} />
+            {engines.error && <p className="tk-help">엔진 상태를 불러오지 못했어요. 잠시 뒤 다시 시도해 주세요.</p>}
           </div>
           <div className="tk-field">
             <span className="tk-label" id={`${id}-file-label`}>녹음 파일</span>
@@ -144,15 +144,16 @@ export function NewMeetingForm() {
               <button className="tk-button" type="button" onClick={() => fileRef.current?.click()}><Icon name="paperclip" />{file ? "다른 파일 고르기" : "파일 고르기"}</button>
               <span className="mt-file__name">{file ? `${file.name} · ${formatSize(file.size)}` : "고른 파일 없음"}</span>
             </div>
-            <p className="tk-help">M4A, MP3, AAC, AMR, WAV · 300MB까지(클로바노트 기준). 올린 파일은 보관함에도 저장돼요.</p>
+            <p className="tk-help">M4A, MP3, AAC, AMR, WAV · 올린 파일은 보관함에도 저장돼요. 업로드 한도는 서버 설정을 따라요.</p>
           </div>
           {provider === "local_whisper" ? (
             <Callout tone="note" icon="info" title="이 Mac에서 전사해요">
-              <p>녹음을 외부 전사 서비스로 보내지 않아요. 처리가 끝나면 모델 메모리를 해제하고 결정·액션을 분석해요. 화자 구분은 아직 지원하지 않아요.</p>
+              {selectedEngine?.state !== "ready" && <p>{selectedEngine?.message ?? "로컬 엔진 상태를 확인하는 중이에요."}</p>}
+              <p>녹음을 외부 전사 서비스로 보내지 않아요. 전사할 때만 모델을 불러오고 끝나면 메모리를 해제해요. 화자 분리는 별도 모델이 준비된 경우에만 실행해요. 이후 결정·액션 분석에는 설정된 AI 서비스를 사용해요.</p>
             </Callout>
           ) : clovaReady ? (
             <Callout tone="note" icon="info" title="올리면 바로 처리해요">
-              <p>클로바노트에 올려 전사하고(1시간 녹음은 보통 몇 분), 끝나면 결정·액션을 분석해요. 진행 상황은 회의록 화면에서 보여요.</p>
+              <p>선택한 클로바노트에 녹음을 보내 전사하고, 끝나면 결정·액션을 분석해요. 진행 상황은 회의록 화면에서 보여요.</p>
             </Callout>
           ) : (
             <ClovaBar />

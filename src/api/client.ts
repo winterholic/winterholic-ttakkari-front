@@ -434,7 +434,7 @@ export interface MeetingDetail extends MeetingSummary {
   /** auto_process 로 만들 때 자동 처리가 막힌 사유(회의는 만들어졌다) */
   auto_error?: { code: string; message: string };
 }
-export interface MeetingProvider { id: string; label: string; state: "ready" | "unconfigured" | "not_implemented"; message: string; profile_configured: boolean }
+export interface MeetingProvider { id: string; label: string; state: "ready" | "unconfigured" | "not_implemented"; message: string; profile_configured: boolean; is_default?: boolean }
 export interface MeetingIn {
   title: string;
   scope: MeetingScope;
@@ -443,12 +443,12 @@ export interface MeetingIn {
   audio_artifact_id?: string | null;
   transcript?: string | null;
   transcript_source?: "paste" | "file";
-  /** 녹음이면 클로바노트 전사 → 분석, 전사 텍스트면 바로 분석까지 */
+  /** 녹음이면 선택 엔진 전사 → 분석, 전사 텍스트면 바로 분석까지 */
   auto_process?: boolean;
   provider_id?: string;
 }
 const M = "/api/meetings";
-export const meetingProviders = (): Promise<{ providers: MeetingProvider[] }> => json(`${M}/providers`);
+export const meetingProviders = (): Promise<{ default_provider?: string; providers: MeetingProvider[] }> => json(`${M}/providers`);
 export const listMeetings = (p: { scope?: "personal" | "work"; q?: string } = {}): Promise<{ meetings: MeetingSummary[] }> =>
   json(M, { query: { scope: p.scope ?? "all", q: p.q || undefined } });
 export const createMeeting = (body: MeetingIn): Promise<MeetingDetail> => json(M, { method: "POST", json: body });

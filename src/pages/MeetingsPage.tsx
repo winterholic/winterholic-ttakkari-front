@@ -26,13 +26,13 @@ function counts(m: MeetingSummary): string {
 }
 
 /**
- * 회의록(ADR 0010·0021). 녹음은 클로바노트로 전사하고, 결정·액션을 뽑아 두고, 맥락 도서관 반영은 사용자가 승인한다.
- * 위에는 클로바노트 연결 상태와 처리 중인 작업, 아래는 회의록 목록 또는 클로바노트 노트(?view=clova). 범위는 ?scope=.
+ * 회의록(ADR 0010·0021). 녹음은 로컬 엔진으로 전사하고, 결정·액션을 뽑아 두고, 맥락 도서관 반영은 사용자가 승인한다.
+ * 클로바노트 연결과 조회는 해당 탭을 열 때만 실행하며, 회의록 목록 또는 클로바노트 노트(?view=clova). 범위는 ?scope=.
  */
 export function MeetingsPage() {
   const [params, setParams] = useSearchParams();
   const view = params.get("view") === "clova" ? "clova" : "meetings";
-  const clova = useClovaStatus();
+  const clova = useClovaStatus(view === "clova");
   const unimported = clova.data?.state === "ready" ? clova.data.unimported : 0;
   const setView = (v: "meetings" | "clova") =>
     setParams((prev) => {
@@ -55,8 +55,7 @@ export function MeetingsPage() {
       <div className="tk-screen__body">
         <div className="tk-container tk-container--md">
           <div className="mt-page">
-            <ClovaBar />
-            <ClovaJobs />
+            {view === "clova" && <><ClovaBar /><ClovaJobs /></>}
             <div className="tk-segmented tk-segmented--block mt-tabs" role="radiogroup" aria-label="보기">
               <label><input type="radio" name="mt-view" checked={view === "meetings"} onChange={() => setView("meetings")} />회의록</label>
               <label>

@@ -33,7 +33,7 @@ function useActions(m: MeetingDetail) {
   return {
     analyze: useMutation({ mutationFn: () => analyzeMeeting(m.id), onSuccess: put, onError: fail }),
     cancel: useMutation({ mutationFn: () => cancelMeetingAnalysis(m.id), onSuccess: put, onError: fail }),
-    transcribe: useMutation({ mutationFn: () => requestMeetingTranscription(m.id), onSuccess: (d) => { put(d); void qc.invalidateQueries({ queryKey: ["clovanote"] }); } }),
+    transcribe: useMutation({ mutationFn: () => requestMeetingTranscription(m.id, "clovanote"), onSuccess: (d) => { put(d); void qc.invalidateQueries({ queryKey: ["clovanote"] }); } }),
     localTranscribe: useMutation({ mutationFn: () => requestMeetingTranscription(m.id, "local_whisper"), onSuccess: put }),
     transcript: useMutation({ mutationFn: (v: { text: string; source: "paste" | "file" }) => putMeetingTranscript(m.id, v.text, v.source), onSuccess: put }),
     project: useMutation({ mutationFn: (projectId: string) => patchMeeting(m.id, { project_id: projectId || null }), onSuccess: put, onError: fail }),
@@ -93,11 +93,13 @@ export function MeetingBody({ m }: { m: MeetingDetail }) {
 function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
   const engines = useQuery({ queryKey: ["meetings", "providers"], queryFn: meetingProviders });
   const localReady = engines.data?.providers.some((p) => p.id === "local_whisper" && p.state === "ready");
+  const clovaReady = engines.data?.providers.some((p) => p.id === "clovanote" && p.state === "ready");
+  const localEngine = engines.data?.providers.find((p) => p.id === "local_whisper");
   const noTranscript = !m.transcript;
   const transcribeErr = a.transcribe.error || a.localTranscribe.error ? errorText(a.transcribe.error || a.localTranscribe.error) : null;
   const job = m.clovanote?.job ?? null;
   // 전사 중이거나 방금 끝난(실패 포함) 클로바노트 작업만 보인다. 오래된 성공 기록은 단계 표시로 충분하다.
-  const showJob = !!job && (m.status === "transcribing" || isJobActive(job) || (job.status === "failed" && m.failed_stage === "transcription"));
+  const showJob = m.provider === "clovanote" && !!job && (m.status === "transcribing" || isJobActive(job) || (job.status === "failed" && m.failed_stage === "transcription"));
   const canTranscribe = !!m.audio && (m.status === "uploaded" || (m.status === "failed" && m.failed_stage === "transcription"));
   return (
     <section className="mt-panel" aria-label="진행 상태">
@@ -116,15 +118,16 @@ function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
           <p>전사 엔진을 선택하면 녹음을 전사하고 이어서 분석해요. 전사 텍스트가 이미 있으면 전사 탭에 넣어도 돼요.</p>
         </Callout>
       )}
+      {canTranscribe && !localReady && localEngine && <p className="tk-help">{localEngine.message}</p>}
       {transcribeErr && <p className="tk-error" role="alert"><Icon name="warning" />{transcribeErr.message}</p>}
       <div className="tk-button-group">
-        {canTranscribe && (
-          <Button size="sm" variant="primary" busy={a.transcribe.isPending} disabled={a.localTranscribe.isPending} onClick={() => a.transcribe.mutate()}>
+        {canTranscribe && clovaReady && (
+          <Button size="sm" busy={a.transcribe.isPending} disabled={a.localTranscribe.isPending} onClick={() => a.transcribe.mutate()}>
             <Icon name="send" />{m.status === "failed" ? "클로바노트로 다시 전사" : "클로바노트로 전사"}
           </Button>
         )}
         {canTranscribe && localReady && (
-          <Button size="sm" busy={a.localTranscribe.isPending} disabled={a.transcribe.isPending} onClick={() => a.localTranscribe.mutate()}>
+          <Button size="sm" variant="primary" busy={a.localTranscribe.isPending} disabled={a.transcribe.isPending} onClick={() => a.localTranscribe.mutate()}>
             <Icon name="send" />로컬로 전사
           </Button>
         )}
