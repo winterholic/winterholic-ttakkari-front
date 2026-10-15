@@ -102,7 +102,10 @@ export function AppShell() {
 
   const api = useMemo<ShellApi>(() => ({ openDrawer, connection }), [openDrawer, connection]);
 
-  if (state === "out") return <Navigate to="/login" replace />;
+  if (state === "out") {
+    const next = location.pathname + location.search + location.hash;
+    return <Navigate to={`/login?next=${encodeURIComponent(next)}`} replace />;
+  }
   if (state === "loading") {
     return (
       <div className="tk-app">

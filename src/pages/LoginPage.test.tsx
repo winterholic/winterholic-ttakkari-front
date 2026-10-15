@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 
 const auth = { state: "out" as "in" | "out" | "loading", login: vi.fn(), logout: vi.fn() };
 vi.mock("../auth", () => ({ useAuth: () => auth }));
@@ -13,14 +13,20 @@ vi.mock("../api/client", async () => {
 import { ApiError } from "../api/client";
 import { formatWait, LoginPage } from "./LoginPage";
 
-function renderLogin() {
+function NotificationDestination() {
+  const location = useLocation();
+  return <><p>알림 대화 도착</p><output>{location.pathname + location.search + location.hash}</output></>;
+}
+
+function renderLogin(path = "/login") {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter initialEntries={["/login"]}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/chat" element={<p>채팅 도착</p>} />
+          <Route path="/chat/:sessionId" element={<NotificationDestination />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -28,6 +34,7 @@ function renderLogin() {
 }
 
 beforeEach(() => {
+  auth.state = "out";
   auth.login.mockReset();
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"ok":true}')));
 });
@@ -70,6 +77,26 @@ describe("LoginPage", () => {
     const btn = await screen.findByRole("button", { name: "확인하는 중" });
     expect(btn.getAttribute("aria-busy")).toBe("true");
     done();
+    expect(await screen.findByText("채팅 도착")).toBeTruthy();
+  });
+
+  it("알림을 통해 로그인하면 원래 대화로 돌아간다", async () => {
+    auth.login.mockResolvedValue(undefined);
+    renderLogin("/login?next=%2Fchat%2Fsession-1%3Fartifact%3Dfile-2%23run-3");
+    submit("correct");
+    expect(await screen.findByText("알림 대화 도착")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("/chat/session-1?artifact=file-2#run-3");
+  });
+
+  it("이미 인증된 로그인 화면도 알림 목적지로 돌아간다", async () => {
+    auth.state = "in";
+    renderLogin("/login?next=%2Fchat%2Fsession-1");
+    expect(await screen.findByText("알림 대화 도착")).toBeTruthy();
+  });
+
+  it.each(["https://outside.example", "//outside.example", "/login?next=/login", "/\\outside.example"])("외부 주소나 로그인 루프는 무시한다: %s", async (next) => {
+    auth.state = "in";
+    renderLogin(`/login?next=${encodeURIComponent(next)}`);
     expect(await screen.findByText("채팅 도착")).toBeTruthy();
   });
 

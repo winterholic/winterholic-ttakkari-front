@@ -29,14 +29,19 @@ self.addEventListener("notificationclick", (event) => {
       const win = wins.find((c) => new URL(c.url).origin === self.location.origin);
       if (win) {
         try {
-          const focused = await win.focus();
-          if (focused && focused.url !== target) await focused.navigate(target);
-          return;
+          // 활성화 전에 목적지를 전달한다. focus() 실패로 알림 경로가 사라지지 않게 한다.
+          const destination = win.url === target ? win : await win.navigate(target);
+          if (destination) {
+            await destination.focus();
+            return;
+          }
         } catch {
           // navigate 가 막히면(비제어 클라이언트 등) 새 창으로 넘어간다.
         }
       }
-      await self.clients.openWindow(target);
+      const opened = await self.clients.openWindow(target);
+      // 홈 화면 PWA가 start_url의 창을 반환한 경우에도 알림 목적지를 유지한다.
+      if (opened && opened.url !== target) await opened.navigate(target);
     })(),
   );
 });

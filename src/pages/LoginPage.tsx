@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router";
+import { Navigate, useNavigate, useSearchParams } from "react-router";
 import { ApiError } from "../api/client";
 import { useAuth } from "../auth";
 import { useConnection } from "../shell/useConnection";
@@ -30,16 +30,30 @@ export function loginErrorMessage(err: unknown): string {
   return "Mac Studio 에 연결하지 못했어요. 네트워크를 확인하고 다시 시도해 주세요.";
 }
 
+/** 알림 등으로 들어온 앱 내부 목적지만 허용한다. */
+function loginDestination(next: string | null): string {
+  if (!next?.startsWith("/")) return "/chat";
+  try {
+    const url = new URL(next, window.location.origin);
+    if (url.origin !== window.location.origin || url.pathname.replace(/\/+$/, "") === "/login") return "/chat";
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return "/chat";
+  }
+}
+
 export function LoginPage() {
   const { state, login } = useAuth();
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+  const destination = loginDestination(search.get("next"));
   const connection = useConnection(true);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
-  if (state === "in") return <Navigate to="/chat" replace />;
+  if (state === "in") return <Navigate to={destination} replace />;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -48,7 +62,7 @@ export function LoginPage() {
     setBusy(true);
     try {
       await login(password);
-      void navigate("/chat", { replace: true });
+      void navigate(destination, { replace: true });
     } catch (err) {
       setError(loginErrorMessage(err));
       setBusy(false);

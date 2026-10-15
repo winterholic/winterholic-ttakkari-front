@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 
 const auth = { state: "in" as "in" | "out" | "loading", login: vi.fn(), logout: vi.fn() };
 vi.mock("../auth", () => ({ useAuth: () => auth }));
@@ -17,13 +17,18 @@ vi.mock("../api/client", () => ({
 import { AppShell } from "./AppShell";
 import { MorePage } from "../pages/MorePage";
 
+function LoginDestination() {
+  const location = useLocation();
+  return <p>로그인 화면{location.search}</p>;
+}
+
 function renderAt(path: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
       <MemoryRouter initialEntries={[path]}>
         <Routes>
-          <Route path="/login" element={<p>로그인 화면</p>} />
+          <Route path="/login" element={<LoginDestination />} />
           <Route element={<AppShell />}>
             <Route path="/chat" element={<p>채팅 본문</p>} />
             <Route path="/chat/:sessionId" element={<p>세션 본문</p>} />
@@ -71,8 +76,15 @@ describe("AppShell 인증 가드", () => {
   it("로그아웃 상태면 /login 으로 보낸다", () => {
     auth.state = "out";
     renderAt("/chat");
-    expect(screen.getByText("로그인 화면")).toBeTruthy();
+    expect(screen.getByText(/로그인 화면/)).toBeTruthy();
     expect(screen.queryByText("채팅 본문")).toBeNull();
+  });
+
+  it("로그인으로 보낼 때 알림 경로·쿼리·해시를 보존한다", () => {
+    auth.state = "out";
+    renderAt("/chat/session-1?artifact=file-2#run-3");
+    const text = screen.getByText(/로그인 화면/).textContent!;
+    expect(new URLSearchParams(text.replace("로그인 화면", "")).get("next")).toBe("/chat/session-1?artifact=file-2#run-3");
   });
 
   it("loading 이면 리다이렉트하지 않고 로딩 상태만 보인다", () => {
