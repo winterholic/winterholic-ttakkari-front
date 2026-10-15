@@ -8,6 +8,7 @@ import type {
   ArtifactListParams,
   ArtifactOut,
   ArtifactRegisterIn,
+  ArtifactResolveIn,
   ArtifactVariant,
   DeskFeedbackIn,
   DeskFeedbackOut,
@@ -261,6 +262,9 @@ export const listArtifacts = (p: ArtifactListParams = {}): Promise<ArtifactOut[]
 export const getArtifact = (id: UUID): Promise<ArtifactOut> => json(`/api/artifacts/${id}`);
 export const registerArtifact = (body: ArtifactRegisterIn): Promise<ArtifactOut> =>
   json("/api/artifacts", { method: "POST", json: body });
+/** 본문 링크의 로컬 경로를 열 수 있는 결과물로 바꾼다. 허용 폴더 밖이면 403 outside_root. */
+export const resolveArtifactLink = (body: ArtifactResolveIn): Promise<ArtifactOut> =>
+  json("/api/artifacts/resolve", { method: "POST", json: body });
 export const moveArtifact = (id: UUID, area: ArtifactArea): Promise<ArtifactOut> =>
   json(`/api/artifacts/${id}`, { method: "PATCH", json: { area } });
 export const deleteArtifact = (id: UUID): Promise<void> => json(`/api/artifacts/${id}`, { method: "DELETE" });

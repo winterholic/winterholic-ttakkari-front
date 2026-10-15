@@ -228,6 +228,12 @@ export interface ArtifactRegisterIn {
   rel_path: string;
   session_id?: UUID | null;
 }
+/** 메시지 본문 링크의 경로 문자열(절대경로·~·file://·상대경로·`:줄`). 백엔드가 결과물로 바꿔 준다. */
+export interface ArtifactResolveIn {
+  path: string;
+  workspace_id?: UUID | null;
+  session_id?: UUID | null;
+}
 export interface DownloadLinkOut {
   url: string;
   expires_at: ISODateTime;

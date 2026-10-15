@@ -7,7 +7,9 @@ import { Icon, KIND_GLYPH } from "../../ui/Icon";
 import { errorText, inlineViewLink } from "./api";
 import { clearHits, markHits, setCurrentHit } from "./findInDom";
 import { useBlobText, useBlobUrl } from "./hooks";
+import { dirOf } from "../markdown/linkTarget";
 import { ModalDialog } from "./ModalDialog";
+import { useArtifactViewer } from "./useArtifactViewer";
 import { ViewerErrorBoundary } from "./ViewerErrorBoundary";
 import "./viewer.css";
 import { downloadState, extOf, formatSize, PREVIEW_POLL_MS, resolveViewMode, shouldPollPreview, stepZoom, toolsFor } from "./kinds";
@@ -203,7 +205,7 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
   const contentBody = (): ReactNode => {
     switch (mode) {
       case "markdown":
-        return <MarkdownBody id={a.id} articleRef={articleRef} />;
+        return <MarkdownBody a={a} articleRef={articleRef} />;
       case "code":
         return <Suspense fallback={<LoadingBody label="코드 뷰어를 여는 중" />}><CodeBody a={a} codeRef={articleRef} /></Suspense>;
       case "pdf":
@@ -364,12 +366,18 @@ function bodyError(e: unknown, refetch: () => unknown): ReactNode {
   return <ErrorBody {...errorText(e)} offline={!navigator.onLine} onRetry={() => void refetch()} />;
 }
 
-function MarkdownBody({ id, articleRef }: { id: UUID; articleRef: React.Ref<HTMLElement> }) {
-  const t = useBlobText(id);
+function MarkdownBody({ a, articleRef }: { a: ArtifactOut; articleRef: React.Ref<HTMLElement> }) {
+  const t = useBlobText(a.id);
+  const { open } = useArtifactViewer();
+  // 문서 속 상대 링크는 이 문서가 놓인 폴더 기준이다. 참조 대상이 바뀌지 않으면 MarkdownView 의 memo 가 유지된다.
+  const links = useMemo(
+    () => ({ workspaceId: a.workspace_id, sessionId: a.session_id, baseDir: a.source === "agent_output" || a.source === "upload" ? null : dirOf(a.rel_path), onOpenArtifact: open }),
+    [a.workspace_id, a.session_id, a.source, a.rel_path, open],
+  );
   const err = bodyError(t.error, t.refetch);
   if (err) return err;
   if (t.text === undefined) return <LoadingBody label="문서를 불러오는 중" />;
-  return <MarkdownView text={t.text} articleRef={articleRef} />;
+  return <MarkdownView text={t.text} articleRef={articleRef} links={links} />;
 }
 
 function CodeBody({ a, codeRef }: { a: ArtifactOut; codeRef: React.Ref<HTMLElement> }) {

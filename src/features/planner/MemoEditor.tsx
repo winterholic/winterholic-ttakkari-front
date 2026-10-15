@@ -1,8 +1,7 @@
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { AppMarkdown } from "../markdown/AppMarkdown";
 import { useNavigate } from "react-router";
 import { createMemo, deleteMemo, getMemo, listMemoTags, patchMemo } from "../../api/client";
 import type { MemoOut } from "../../api/client";
@@ -310,7 +309,7 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
           )}
           {doc.body.trim() ? (
             <article className="tk-prose">
-              <Markdown remarkPlugins={[remarkGfm]}>{doc.body}</Markdown>
+              <AppMarkdown>{doc.body}</AppMarkdown>
             </article>
           ) : (
             <p className="tk-help">본문이 비어 있어요.</p>

@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { downloadLink } from "../../api/client";
 import type { ArtifactOut, RunOut } from "../../api/types";
 import { Icon, KIND_GLYPH } from "../../ui/Icon";
+import { AppMarkdown } from "../markdown/AppMarkdown";
 import { SentAttachments } from "./Attachments";
 import { RunCard, StateBadge } from "./RunCard";
 import { formatBytes, isLive, stateLabel } from "./runView";
@@ -137,7 +136,9 @@ export function AgentMessage({
       <div className="tk-message__body">
         {view.text ? (
           <div className="tk-prose tk-prose--compact">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{view.text}</ReactMarkdown>
+            <AppMarkdown workspaceId={run.workspace_id} sessionId={run.session_id} onOpenArtifact={onOpen}>
+              {view.text}
+            </AppMarkdown>
             {live && <span className="tk-caret" aria-hidden />}
           </div>
         ) : (
