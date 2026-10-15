@@ -42,7 +42,7 @@ function Text({ u, query, hitStart, mark }: { u: Utterance; query: string; hitSt
         const current = mark?.hit?.uid === u.id && mark.hit.inner === (i - 1) / 2;
         return <mark key={i} data-hit={n} aria-current={current || undefined}>{p}</mark>;
       })}
-      {u.review && <span className="mt-review">검증 필요</span>}
+      {u.review && <span className="mt-review">검증 필요{u.folded ? ` · 반복 ${u.folded}회 접힘` : ""}</span>}
       {" "}
     </span>
   );

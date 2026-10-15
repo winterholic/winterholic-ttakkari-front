@@ -19,6 +19,8 @@ export interface Utterance {
   uncertain: boolean;
   /** 서버가 검증 필요로 표시했거나 반복을 접은 문장. "검증 필요" 배지를 반드시 붙인다 */
   review: boolean;
+  /** 같은 문장 반복을 접은 횟수(접힌 만큼 원문에서 줄었다). 0이면 접지 않음 */
+  folded: number;
   /** 평문에서 새 줄로 시작했는가(문단을 끊는다) */
   breakBefore: boolean;
 }
@@ -62,10 +64,11 @@ export function utterancesFromApi(list: SttUtterance[]): Utterance[] {
       overlap: s.overlap === true || flags.includes("overlapping_speech"),
       uncertain: flags.some((f) => UNCERTAIN_FLAGS.has(f)) || needsReview(s.verification_status, flags),
       review: needsReview(s.verification_status, flags),
+      folded: 0,
       breakBefore: false,
     });
   }
-  return out;
+  return foldUtterances(out);
 }
 
 export function utterancesFromSegments(segments: SttSegment[]): Utterance[] {
@@ -83,10 +86,11 @@ export function utterancesFromSegments(segments: SttSegment[]): Utterance[] {
       overlap: s.overlap === true || (s.flags ?? []).includes("overlapping_speech"),
       uncertain: (s.flags ?? []).some((f) => UNCERTAIN_FLAGS.has(f)) || needsReview(s.verification_status, s.flags ?? []),
       review: needsReview(s.verification_status, s.flags ?? []),
+      folded: 0,
       breakBefore: false,
     });
   }
-  return out;
+  return foldUtterances(out);
 }
 
 // ---- 평문 전사(붙여넣기·파일·옛 외부 서비스에서 가져온 것)
@@ -124,7 +128,7 @@ export function utterancesFromPlain(text: string): Utterance[] {
   const out: Utterance[] = [];
   let n = 0;
   // 가져온 전사에 적힌 이름은 이미 사람이 붙인 이름이라 person 으로 둔다(화자 N 으로 바꿔 부르지 않는다).
-  const push = (u: Omit<Utterance, "id" | "end" | "person" | "overlap" | "uncertain" | "review">) => out.push({ ...u, id: `p${n++}`, end: null, person: u.speaker, overlap: false, uncertain: false, review: false });
+  const push = (u: Omit<Utterance, "id" | "end" | "person" | "overlap" | "uncertain" | "review" | "folded">) => out.push({ ...u, id: `p${n++}`, end: null, person: u.speaker, overlap: false, uncertain: false, review: false, folded: 0 });
   if (heads >= 2) {
     let speaker: string | null = null;
     let start: number | null = null;
@@ -144,14 +148,14 @@ export function utterancesFromPlain(text: string): Utterance[] {
         first = false;
       }
     }
-    return out;
+    return foldUtterances(out);
   }
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
     splitLongLine(line).forEach((chunk, i) => push({ start: null, speaker: null, text: chunk, breakBefore: i === 0 }));
   }
-  return out;
+  return foldUtterances(out);
 }
 
 // ---- 문단·차례로 묶기
@@ -309,4 +313,51 @@ export function locateEvidence(utts: Utterance[], evidence: string | null | unde
 
 export function startOf(utts: Utterance[], uid: string): number | null {
   return utts.find((u) => u.id === uid)?.start ?? null;
+}
+
+// ---- 반복 환각 접기
+
+/**
+ * Whisper 는 무음·잡음 구간에서 같은 문장을 수십 번 되풀이한다. 화면에서는 한 번만 보여 주고 "반복 N회 접힘"과 검증 필요를 붙인다.
+ * 서버 원본은 그대로이고(구간 API), 여기서는 표시만 줄인다. 6자 미만 단위("네 네 네")는 실제 말버릇일 수 있어 건드리지 않는다.
+ */
+// 6자 이상 단위가 3번 이상, 또는 20자 이상 단위가 2번 연달아("…따라갔다 네 그리고 이제 …따라갔다 네 그리고 이제" 꼴) 나오면 환각으로 본다.
+const REPEAT = /(\S.{5,79}?)(?:\s*\1){2,}|(\S.{19,79}?)\s*\2/u;
+
+export function foldRepeats(text: string): { text: string; folded: number } {
+  let folded = 0;
+  let out = text;
+  for (let guard = 0; guard < 20; guard++) {
+    const m = REPEAT.exec(out);
+    if (!m) break;
+    const unit = m[1] ?? m[2];
+    let k = 0;
+    for (let i = m[0].indexOf(unit); i >= 0; i = m[0].indexOf(unit, i + unit.length)) k++;
+    folded += k - 1;
+    out = out.slice(0, m.index) + unit + out.slice(m.index + m[0].length);
+  }
+  return { text: out, folded };
+}
+
+const sameText = (a: string, b: string) => {
+  const x = norm(a);
+  return x.length >= 4 && x === norm(b);
+};
+
+/** 한 발화 안의 반복과, 같은 화자가 같은 문장을 3번 이상 연달아 말한 구간(구간이 쪼개져 나온 반복)을 접는다 */
+export function foldUtterances(utts: Utterance[]): Utterance[] {
+  const out: Utterance[] = [];
+  for (let i = 0; i < utts.length; i++) {
+    let u = utts[i];
+    let j = i + 1;
+    while (j < utts.length && utts[j].speaker === u.speaker && sameText(utts[j].text, u.text)) j++;
+    if (j - i >= 3) {
+      u = { ...u, end: utts[j - 1].end, overlap: utts.slice(i, j).some((x) => x.overlap), folded: u.folded + (j - i - 1) };
+      i = j - 1;
+    }
+    const f = foldRepeats(u.text);
+    if (f.folded) u = { ...u, text: f.text, folded: u.folded + f.folded };
+    out.push(u.folded ? { ...u, review: true, uncertain: true } : u);
+  }
+  return out;
 }

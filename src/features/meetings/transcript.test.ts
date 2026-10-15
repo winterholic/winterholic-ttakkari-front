@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { SttSegment } from "../../api/client";
 import {
-  buildTurns, defaultSpeakerName, findHits, formatClock, locateEvidence, speakerOrder, splitByQuery, splitLongLine,
+  buildTurns, defaultSpeakerName, foldRepeats, findHits, formatClock, locateEvidence, speakerOrder, splitByQuery, splitLongLine,
   utteranceAtTime, utterancesFromApi, utterancesFromPlain, utterancesFromSegments,
 } from "./transcript";
 
@@ -52,6 +52,32 @@ describe("utterancesFromApi", () => {
   });
 });
 
+describe("반복 환각 접기", () => {
+  it("한 발화 안에서 같은 문장이 되풀이되면 한 번만 남기고 횟수를 센다", () => {
+    const r = foldRepeats("시안 B는 조금 레거시한 디자인 패턴을 따라갔다 네 그리고 이제 시안 B는 조금 레거시한 디자인 패턴을 따라갔다 네 그리고 이제 시안 B는 조금 레거시한 디자인 패턴을 따라갔다");
+    expect(r.folded).toBeGreaterThanOrEqual(1);
+    expect(r.text.length).toBeLessThan(80);
+    expect(foldRepeats("크기 차이가 많이 나나? ".repeat(30)).text.trim()).toBe("크기 차이가 많이 나나?");
+  });
+  it("짧은 말버릇(네 네 네)이나 두 번 말한 문장은 건드리지 않는다", () => {
+    expect(foldRepeats("네 네 네 네 맞아요")).toEqual({ text: "네 네 네 네 맞아요", folded: 0 });
+    expect(foldRepeats("크기 차이가 많이 나나? 크기 차이가 많이 나나?").folded).toBe(0);
+  });
+  it("구간이 쪼개져 연달아 나온 같은 문장은 한 발화로 접고 검증 필요로 표시한다", () => {
+    const segs = Array.from({ length: 40 }, (_, i) => seg(i, 130 + i * 3, 133 + i * 3, "크기 차이가 많이 나나?"));
+    const u = utterancesFromSegments([seg(99, 100, 129, "앞선 정상 발언입니다"), ...segs]);
+    expect(u).toHaveLength(2);
+    expect(u[1]).toMatchObject({ text: "크기 차이가 많이 나나?", folded: 39, review: true, uncertain: true, start: 130, end: 250 });
+    expect(u[0].folded).toBe(0);
+  });
+  it("화자가 다르면 같은 문장이어도 접지 않는다", () => {
+    const u = utterancesFromSegments([
+      seg(0, 0, 1, "그렇게 하겠습니다", { speaker_id: "A" }), seg(1, 1, 2, "그렇게 하겠습니다", { speaker_id: "B" }), seg(2, 2, 3, "그렇게 하겠습니다", { speaker_id: "A" }),
+    ]);
+    expect(u).toHaveLength(3);
+  });
+});
+
 describe("buildTurns", () => {
   it("연속된 같은 화자는 한 차례로 묶고 화자가 바뀌면 나눈다", () => {
     const u = utterancesFromSegments([
@@ -92,7 +118,7 @@ describe("평문 전사", () => {
   });
 
   it("줄바꿈 없는 2만 자도 문장 끝에서 잘라 목록으로 만든다", () => {
-    const line = "오늘 회의에서는 릴리스 일정을 논의했습니다. ".repeat(900);
+    const line = Array.from({ length: 900 }, (_, i) => `오늘 회의의 ${i}번째 안건으로 릴리스 일정을 논의했습니다.`).join(" ");
     expect(line.length).toBeGreaterThan(20000);
     const parts = splitLongLine(line.trim());
     expect(parts.length).toBeGreaterThan(50);
