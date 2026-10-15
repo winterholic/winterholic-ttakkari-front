@@ -1,8 +1,8 @@
 import { useId, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import {
-  analyzeMeeting, cancelMeetingAnalysis, patchMeeting, patchMeetingItem, putMeetingTranscript, requestMeetingTranscription,
+  analyzeMeeting, cancelMeetingAnalysis, meetingProviders, patchMeeting, patchMeetingItem, putMeetingTranscript, requestMeetingTranscription,
   resolveMeetingProposal,
 } from "../../api/client";
 import type { MeetingDetail, MeetingItem, MeetingItemKind, MeetingProposal } from "../../api/client";
@@ -34,6 +34,7 @@ function useActions(m: MeetingDetail) {
     analyze: useMutation({ mutationFn: () => analyzeMeeting(m.id), onSuccess: put, onError: fail }),
     cancel: useMutation({ mutationFn: () => cancelMeetingAnalysis(m.id), onSuccess: put, onError: fail }),
     transcribe: useMutation({ mutationFn: () => requestMeetingTranscription(m.id), onSuccess: (d) => { put(d); void qc.invalidateQueries({ queryKey: ["clovanote"] }); } }),
+    localTranscribe: useMutation({ mutationFn: () => requestMeetingTranscription(m.id, "local_whisper"), onSuccess: put }),
     transcript: useMutation({ mutationFn: (v: { text: string; source: "paste" | "file" }) => putMeetingTranscript(m.id, v.text, v.source), onSuccess: put }),
     project: useMutation({ mutationFn: (projectId: string) => patchMeeting(m.id, { project_id: projectId || null }), onSuccess: put, onError: fail }),
     item: useMutation({
@@ -90,8 +91,10 @@ export function MeetingBody({ m }: { m: MeetingDetail }) {
 // ---- 상태 패널
 
 function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
+  const engines = useQuery({ queryKey: ["meetings", "providers"], queryFn: meetingProviders });
+  const localReady = engines.data?.providers.some((p) => p.id === "local_whisper" && p.state === "ready");
   const noTranscript = !m.transcript;
-  const transcribeErr = a.transcribe.error ? errorText(a.transcribe.error) : null;
+  const transcribeErr = a.transcribe.error || a.localTranscribe.error ? errorText(a.transcribe.error || a.localTranscribe.error) : null;
   const job = m.clovanote?.job ?? null;
   // 전사 중이거나 방금 끝난(실패 포함) 클로바노트 작업만 보인다. 오래된 성공 기록은 단계 표시로 충분하다.
   const showJob = !!job && (m.status === "transcribing" || isJobActive(job) || (job.status === "failed" && m.failed_stage === "transcription"));
@@ -100,6 +103,9 @@ function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
     <section className="mt-panel" aria-label="진행 상태">
       <PipelineSteps m={m} />
       {showJob && job && <JobProgress job={job} title="클로바노트 전사" />}
+      {m.status === "transcribing" && m.provider === "local_whisper" && (
+        <p className="tk-status tk-status--agent" role="status"><span className="tk-spinner tk-spinner--xs" aria-hidden="true" />이 Mac에서 전사 중이에요. 끝나면 모델 메모리를 해제해요.</p>
+      )}
       {m.status === "failed" && !(showJob && job?.status === "failed") && (
         <Callout tone="caution" icon="caution" title={m.failed_stage === "transcription" ? "전사에 실패했어요" : "분석에 실패했어요"}>
           <p>{m.error}</p>
@@ -107,14 +113,19 @@ function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
       )}
       {m.status === "uploaded" && !transcribeErr && (
         <Callout tone="note" icon="info" title="녹음이 전사를 기다려요">
-          <p>클로바노트에 올려 전사하고, 끝나면 이어서 분석해요. 전사 텍스트가 이미 있으면 전사 탭에 넣어도 돼요.</p>
+          <p>전사 엔진을 선택하면 녹음을 전사하고 이어서 분석해요. 전사 텍스트가 이미 있으면 전사 탭에 넣어도 돼요.</p>
         </Callout>
       )}
       {transcribeErr && <p className="tk-error" role="alert"><Icon name="warning" />{transcribeErr.message}</p>}
       <div className="tk-button-group">
         {canTranscribe && (
-          <Button size="sm" variant="primary" busy={a.transcribe.isPending} onClick={() => a.transcribe.mutate()}>
+          <Button size="sm" variant="primary" busy={a.transcribe.isPending} disabled={a.localTranscribe.isPending} onClick={() => a.transcribe.mutate()}>
             <Icon name="send" />{m.status === "failed" ? "클로바노트로 다시 전사" : "클로바노트로 전사"}
+          </Button>
+        )}
+        {canTranscribe && localReady && (
+          <Button size="sm" busy={a.localTranscribe.isPending} disabled={a.transcribe.isPending} onClick={() => a.localTranscribe.mutate()}>
+            <Icon name="send" />로컬로 전사
           </Button>
         )}
         {m.status === "analyzing" && (

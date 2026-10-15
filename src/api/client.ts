@@ -445,6 +445,7 @@ export interface MeetingIn {
   transcript_source?: "paste" | "file";
   /** 녹음이면 클로바노트 전사 → 분석, 전사 텍스트면 바로 분석까지 */
   auto_process?: boolean;
+  provider_id?: string;
 }
 const M = "/api/meetings";
 export const meetingProviders = (): Promise<{ providers: MeetingProvider[] }> => json(`${M}/providers`);
@@ -457,7 +458,8 @@ export const patchMeeting = (id: string, body: { title?: string; project_id?: st
 export const deleteMeeting = (id: string): Promise<void> => json(`${M}/${id}`, { method: "DELETE" });
 export const putMeetingTranscript = (id: string, text: string, source: "paste" | "file"): Promise<MeetingDetail> =>
   json(`${M}/${id}/transcript`, { method: "POST", json: { text, source } });
-export const requestMeetingTranscription = (id: string): Promise<MeetingDetail> => json(`${M}/${id}/transcribe`, { method: "POST" });
+export const requestMeetingTranscription = (id: string, providerId?: string): Promise<MeetingDetail> =>
+  json(`${M}/${id}/transcribe`, { method: "POST", ...(providerId ? { json: { provider_id: providerId } } : {}) });
 export const analyzeMeeting = (id: string): Promise<MeetingDetail> => json(`${M}/${id}/analyze`, { method: "POST" });
 export const cancelMeetingAnalysis = (id: string): Promise<MeetingDetail> => json(`${M}/${id}/analyze/cancel`, { method: "POST" });
 export const patchMeetingItem = (id: string, itemId: string, body: { status?: MeetingItemStatus }): Promise<MeetingItem> =>

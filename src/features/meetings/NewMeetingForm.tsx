@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { createMeeting, listPmsProjects, uploadFile } from "../../api/client";
+import { createMeeting, listPmsProjects, meetingProviders, uploadFile } from "../../api/client";
 import type { MeetingScope } from "../../api/client";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
@@ -35,6 +35,8 @@ export function NewMeetingForm() {
   const qc = useQueryClient();
   const ws = useDefaultWorkspace();
   const clova = useClovaStatus();
+  const engines = useQuery({ queryKey: ["meetings", "providers"], queryFn: meetingProviders });
+  const [provider, setProvider] = useState("clovanote");
   const [mode, setMode] = useState<Mode>("text");
   const [title, setTitle] = useState("");
   const [scope, setScope] = useState<MeetingScope>("personal");
@@ -52,7 +54,8 @@ export function NewMeetingForm() {
       if (mode === "audio") {
         if (!file || !ws.data) throw new Error("녹음 파일을 골라 주세요.");
         const art = await uploadFile(file, ws.data.id);
-        return createMeeting({ ...base, audio_artifact_id: art.id, auto_process: true });
+        return createMeeting({ ...base, audio_artifact_id: art.id, auto_process: true,
+          ...(provider !== "clovanote" ? { provider_id: provider } : {}) });
       }
       return createMeeting({ ...base, transcript, transcript_source: source, auto_process: true });
     },
@@ -126,6 +129,14 @@ export function NewMeetingForm() {
       ) : (
         <>
           <div className="tk-field">
+            <label className="tk-label" id={`${id}-provider-label`} htmlFor={`${id}-provider`}>전사 엔진</label>
+            <Select id={`${id}-provider`} labelledBy={`${id}-provider-label`} value={provider} onChange={setProvider}
+              options={[{ value: "clovanote", label: "클로바노트" },
+                ...(engines.data?.providers.filter((p) => p.id !== "clovanote" && p.state === "ready")
+                  .map((p) => ({ value: p.id, label: p.label })) ?? [])]} />
+            {engines.error && <p className="tk-help">엔진 상태를 불러오지 못했어요. 클로바노트로 진행하거나 나중에 다시 열어 주세요.</p>}
+          </div>
+          <div className="tk-field">
             <span className="tk-label" id={`${id}-file-label`}>녹음 파일</span>
             <div className="mt-file">
               <input ref={fileRef} type="file" hidden aria-labelledby={`${id}-file-label`} accept=".m4a,.mp3,.aac,.amr,.wav,audio/mp4,audio/mpeg,audio/aac,audio/wav"
@@ -135,7 +146,11 @@ export function NewMeetingForm() {
             </div>
             <p className="tk-help">M4A, MP3, AAC, AMR, WAV · 300MB까지(클로바노트 기준). 올린 파일은 보관함에도 저장돼요.</p>
           </div>
-          {clovaReady ? (
+          {provider === "local_whisper" ? (
+            <Callout tone="note" icon="info" title="이 Mac에서 전사해요">
+              <p>녹음을 외부 전사 서비스로 보내지 않아요. 처리가 끝나면 모델 메모리를 해제하고 결정·액션을 분석해요. 화자 구분은 아직 지원하지 않아요.</p>
+            </Callout>
+          ) : clovaReady ? (
             <Callout tone="note" icon="info" title="올리면 바로 처리해요">
               <p>클로바노트에 올려 전사하고(1시간 녹음은 보통 몇 분), 끝나면 결정·액션을 분석해요. 진행 상황은 회의록 화면에서 보여요.</p>
             </Callout>

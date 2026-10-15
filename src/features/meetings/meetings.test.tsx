@@ -253,6 +253,25 @@ describe("새 회의록", () => {
     expect(h.analyzeMeeting).not.toHaveBeenCalled();
   });
 
+  it("로컬 전사를 선택해 녹음을 만들면 provider_id를 전송한다", async () => {
+    h.meetingProviders.mockResolvedValue({ providers: [
+      { id: "clovanote", label: "클로바노트", state: "ready", message: "연결됨", profile_configured: true },
+      { id: "local_whisper", label: "로컬 Whisper large-v3", state: "ready", message: "이 Mac에서 전사해요", profile_configured: false },
+    ] });
+    h.uploadFile.mockResolvedValue({ id: "a1" });
+    h.createMeeting.mockResolvedValue(detail({ id: "m8", status: "transcribing", provider: "local_whisper" }));
+    renderAt("/meetings/new");
+    fireEvent.click(screen.getByRole("radio", { name: "녹음 파일" }));
+    const provider = await screen.findByRole("combobox", { name: /전사 엔진/ });
+    fireEvent.click(provider);
+    fireEvent.click(await screen.findByRole("option", { name: "로컬 Whisper large-v3" }));
+    fireEvent.change(screen.getByLabelText("제목"), { target: { value: "로컬 회의" } });
+    fireEvent.change(document.querySelector("input[type=file]") as HTMLInputElement, { target: { files: [new File(["x"], "a.wav", { type: "audio/wav" })] } });
+    fireEvent.click(screen.getByRole("button", { name: "녹음 올리기" }));
+    await waitFor(() => expect(h.createMeeting).toHaveBeenCalledWith(expect.objectContaining({ provider_id: "local_whisper", auto_process: true })));
+    expect(h.clovaOpenLogin).not.toHaveBeenCalled();
+  });
+
   it("클로바노트 로그인이 풀렸으면 녹음 방식에서 로그인 창 열기를 안내한다", async () => {
     h.clovaStatus.mockResolvedValue(clovaReady({ state: "login_required", message: "클로바노트 로그인이 풀렸어요." }));
     h.clovaOpenLogin.mockResolvedValue(clovaReady({ state: "login_window", login: { state: "waiting", message: "로그인해 주세요", started_at: 1, finished_at: null } }));
@@ -323,6 +342,16 @@ describe("회의록 상세", () => {
     expect(screen.queryByRole("button", { name: /분석 시작/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /클로바노트로 전사/ }));
     expect((await screen.findByRole("alert")).textContent).toContain("클로바노트 로그인이 필요해요.");
+  });
+
+  it("기존 녹음을 로컬 엔진으로 전사할 수 있다", async () => {
+    h.meetingProviders.mockResolvedValue({ providers: [{ id: "local_whisper", label: "로컬 Whisper large-v3", state: "ready", message: "준비됨", profile_configured: false }] });
+    h.getMeeting.mockResolvedValue(detail({ status: "uploaded", source: "audio", transcript: null,
+      audio: { artifact_id: "a1", filename: "회의.m4a", size_bytes: 10 } }));
+    h.requestMeetingTranscription.mockResolvedValue(detail({ status: "transcribing", provider: "local_whisper" }));
+    renderAt("/meetings/m1");
+    fireEvent.click(await screen.findByRole("button", { name: "로컬로 전사" }));
+    await waitFor(() => expect(h.requestMeetingTranscription).toHaveBeenCalledWith("m1", "local_whisper"));
   });
 
   it("클로바노트 전사 중이면 단계·진행률·지금 하는 일과 도서관 저장 상태를 보여 준다", async () => {
