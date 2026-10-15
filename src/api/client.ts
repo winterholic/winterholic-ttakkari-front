@@ -762,6 +762,8 @@ export interface UsageWindow {
   label: string;
   percent: number;
   resets_at: number | null;
+  /** Antigravity CLI 의 공식 remaining_fraction 을 퍼센트로 보존한다. */
+  remaining_percent?: number | null;
 }
 export interface AccountUsage {
   id: string;
@@ -782,7 +784,10 @@ export interface AccountUsage {
   windows: UsageWindow[];
   /** Codex rate-limit 재설정 크레딧 */
   reset_credits?: { available: number; next_expires_at: number | null } | null;
-  source: "api" | "stream" | "session_log" | null;
+  /** Antigravity AI credits balance. Different unit from Codex rate-limit reset credits. */
+  credits_balance?: number | null;
+  credits_error?: string | null;
+  source: "api" | "stream" | "session_log" | "antigravity_cli" | null;
   plan: string | null;
   error: string | null;
   updated_at: number | null;

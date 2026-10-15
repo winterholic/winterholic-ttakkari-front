@@ -15,7 +15,7 @@ import "./usage.css";
 const WARN = 80;
 const DANGER = 95;
 const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI" };
-const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준" };
+const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준", antigravity_cli: "Antigravity 공식 CLI 기준" };
 
 function level(p: number): "ok" | "warn" | "danger" {
   return p >= DANGER ? "danger" : p >= WARN ? "warn" : "ok";
@@ -48,11 +48,13 @@ type Status = { tone: "success" | "warning" | "neutral" | "info"; text: string }
 /** pool 모드에서의 상태. 켜기는 개인·회사 모드가 따로라 그 모드의 값으로 본다. */
 function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status {
   if (!(pool === "work" ? a.work_enabled : a.enabled)) return { tone: "neutral", text: "꺼짐" };
-  if (a.engine === "antigravity" && !isActive) return { tone: "neutral", text: "사용량 미관측" };
+  if (a.engine === "antigravity" && !a.windows.length) return { tone: a.error ? "warning" : "neutral", text: a.error ? "조회 실패" : "사용량 미관측" };
+  if (a.engine === "antigravity" && a.stale) return { tone: "warning", text: "오래된 측정" };
   if (a.login !== "ok" && a.engine === "claude") return { tone: "warning", text: "로그인 필요" };
   if (a.cooldown_seconds > 0) return { tone: "warning", text: `한도 대기 ${Math.ceil(a.cooldown_seconds / 60)}분` };
   if (!a.stale && a.remaining_to_limit_percent === 0) return { tone: "warning", text: "상한 대기" };
-  if (a.windows.some((w) => w.percent >= 100)) return { tone: "warning", text: "한도 도달" };
+  const checkedWindows = a.engine === "antigravity" ? a.windows.filter((w) => w.key.startsWith("agy_gemini_models_")) : a.windows;
+  if (checkedWindows.some((w) => w.percent >= 100)) return { tone: "warning", text: "한도 도달" };
   return isActive ? { tone: "success", text: "지금 사용" } : { tone: "info", text: "대기" };
 }
 
@@ -73,9 +75,12 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     return () => window.clearInterval(t);
   }, [open]);
   const rows = q.data ?? [];
+  const usageWindows = (a: AccountUsage) => a.engine === "antigravity"
+    ? a.windows.filter((w) => w.key.startsWith("agy_gemini_models_"))
+    : a.windows;
   const usable = (a: AccountUsage, pool: AccountPool) =>
     (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 &&
-    (a.stale || a.remaining_to_limit_percent !== 0) && !a.windows.some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex");
+    (a.stale || a.remaining_to_limit_percent !== 0) && !usageWindows(a).some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex" || a.engine === "antigravity");
   // 개인·회사 모드가 켜기·순서를 따로 가지므로 지금 쓰는 계정도 모드마다 따로 있다.
   // 회사 계정은 개인 계정 중 회사 모드에 들인 계정이고, 순서는 회사 순위(work_rank)다.
   const groups = (["personal", "work"] as const)
@@ -114,8 +119,8 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
               <span className="usage-now__label">{g.pool === "work" ? "회사 업무에 지금 쓰는 계정" : "지금 쓰는 계정"}</span>
               <span className="usage-now__name">{active.name}</span>
               <span className="usage-now__stats">
-                {active.windows.slice(0, 2).map((w) => (
-                  <span key={w.key} data-level={level(w.percent)}>{w.label} {w.percent}%</span>
+                {usageWindows(active).slice(0, 2).map((w) => (
+                  <span key={w.key} data-level={level(w.percent)}>{w.label} {active.engine === "antigravity" ? `${w.remaining_percent?.toFixed(1) ?? 100 - w.percent}% 남음` : `${w.percent}%`}</span>
                 ))}
               </span>
             </section>
@@ -147,11 +152,16 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                       </div>
                       {a.windows.length > 0 ? (
                         <div className="usage-card__windows">
-                          <p className="usage__note">계정 상한 {a.max_used_percent}% · 상한까지 여유 {a.remaining_to_limit_percent == null ? "측정 대기" : `${a.remaining_to_limit_percent}%`}</p>
-                          {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} />)}
+                          {a.engine === "antigravity"
+                            ? <p className="usage__note">모델 그룹 quota · 각 그룹이 별도 한도를 공유해요.</p>
+                            : <p className="usage__note">계정 상한 {a.max_used_percent}% · 상한까지 여유 {a.remaining_to_limit_percent == null ? "측정 대기" : `${a.remaining_to_limit_percent}%`}</p>}
+                          {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} remaining={a.engine === "antigravity"} />)}
                         </div>
                       ) : (
                         <p className="usage__note">{a.error ?? "아직 사용량 기록이 없어요."}</p>
+                      )}
+                      {a.engine === "antigravity" && (
+                        <p className="usage__note">AI 크레딧 잔액: {a.credits_balance == null ? (a.credits_error ?? (a.error ? "조회 실패" : "미측정")) : `${a.credits_balance} 크레딧`}</p>
                       )}
                       {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => void q.refetch()} />}
                       {a.windows.length > 0 && (
@@ -175,19 +185,19 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
   );
 }
 
-function WindowRow({ w, now }: { w: UsageWindow; now: number }) {
+function WindowRow({ w, now, remaining = false }: { w: UsageWindow; now: number; remaining?: boolean }) {
   const lv = level(w.percent);
   const reset = resetText(w.resets_at, now);
   return (
     <div className="usage-win" data-level={lv}>
       <div className="usage-win__top">
         <span className="usage-win__label">{w.label}</span>
-        <span className="usage-win__pct">{w.percent}%</span>
+        <span className="usage-win__pct">{remaining ? `${w.remaining_percent?.toFixed(1) ?? 100 - w.percent}% 남음` : `${w.percent}%`}</span>
       </div>
       <span
         className={`tk-progress tk-progress--lg${lv === "danger" ? " tk-progress--danger" : lv === "warn" ? " tk-progress--warning" : ""}`}
         role="progressbar"
-        aria-label={`${w.label} 사용량`}
+        aria-label={`${w.label} ${remaining ? "사용량" : "사용량"}`}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.min(100, w.percent)}
