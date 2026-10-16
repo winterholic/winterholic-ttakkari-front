@@ -22,6 +22,7 @@ export interface Feature {
  */
 export const FEATURES: readonly Feature[] = [
   { root: "notifications", to: "/notifications", icon: "important", label: "알림", description: "따까리·작업·일정의 알림을 유형별로" },
+  { root: "weather", to: "/weather", icon: "sun", label: "날씨 브리핑", description: "수원 오늘 날씨와 서울 출퇴근·주간 예보" },
   // 작업 공간은 마지막 세션이 아니라 개요로 보낸다. 맥락 없이 특정 세션이 뜨면 무슨 화면인지 알 수 없었다.
   { root: "workspace", to: "/workspace", icon: "workspace", label: "작업 공간", description: "세션별 결과물을 보며 이어서 지시" },
   { root: "library", to: "/library", icon: "library", label: "보관함", description: "모든 결과물을 날짜별로" },

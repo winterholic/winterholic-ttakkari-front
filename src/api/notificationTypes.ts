@@ -1,4 +1,4 @@
-export type NotificationCategory = "tasks" | "assistant" | "planner" | "meetings" | "system";
+export type NotificationCategory = "tasks" | "assistant" | "planner" | "weather" | "meetings" | "system";
 export interface NotificationOut {
   id: number;
   kind: string;

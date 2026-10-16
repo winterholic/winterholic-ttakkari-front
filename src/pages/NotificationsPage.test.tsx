@@ -11,7 +11,7 @@ const items = [
   { id: 3, kind: "push.agent", category: "assistant", title: "분석을 확인해 주세요", body: "긴 분석 내용", url: "/chat/s1", created_at: "2026-10-16T02:00:00Z", read_at: null },
   { id: 2, kind: "push.meeting", category: "meetings", title: "회의록 분석 완료", body: "주간 회의", url: "/meetings/m1", created_at: "2026-10-16T01:00:00Z", read_at: null },
 ];
-const counts = { all: 2, tasks: 0, assistant: 1, planner: 0, meetings: 1, system: 0 };
+const counts = { all: 2, tasks: 0, assistant: 1, planner: 0, weather: 0, meetings: 1, system: 0 };
 
 function mount() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -33,7 +33,7 @@ afterEach(cleanup);
 it("유형 탭과 안 읽은 개수를 보여 주고 탭·키보드·미확인 필터로 목록을 조회한다", async () => {
   mount();
   expect(await screen.findByText("분석을 확인해 주세요")).toBeTruthy();
-  expect(screen.getAllByRole("tab")).toHaveLength(6);
+  expect(screen.getAllByRole("tab")).toHaveLength(7);
   fireEvent.click(screen.getByRole("tab", { name: /회의록/ }));
   await waitFor(() => expect(screen.queryByText("분석을 확인해 주세요")).toBeNull());
   expect(screen.getByRole("tab", { name: /회의록/ }).getAttribute("aria-selected")).toBe("true");

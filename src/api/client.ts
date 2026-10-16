@@ -50,6 +50,7 @@ import type {
   WorkspaceOut,
   WorkspacePatch,
 } from "./types";
+import type { WeatherBriefing } from "./weatherTypes";
 
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://127.0.0.1:8787";
 
@@ -236,6 +237,14 @@ export async function logout(): Promise<void> {
 /** 앱 시작 시 세션 복구용. 실패해도 onAuthLost 는 부르지 않고 던지기만 한다. */
 export const refresh = (): Promise<string> => refreshAccessToken();
 export const me = (): Promise<MeOut> => json("/api/auth/me");
+
+// ---- 날씨 브리핑
+export const listWeatherBriefings = (limit = 30): Promise<WeatherBriefing[]> =>
+  json("/api/weather/briefings", { query: { limit } });
+export const getWeatherBriefing = (day: string): Promise<WeatherBriefing> =>
+  json(`/api/weather/briefings/${encodeURIComponent(day)}`);
+export const generateWeatherBriefing = (): Promise<WeatherBriefing> =>
+  json("/api/weather/generate", { method: "POST", json: {} });
 
 // ---- workspaces
 export const listWorkspaces = (includeArchived = false): Promise<WorkspaceOut[]> =>

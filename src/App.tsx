@@ -20,6 +20,7 @@ import { FailedTasksPage } from "./pages/FailedTasksPage";
 import { DeskHome } from "./pages/DeskHome";
 import { AppShell } from "./shell/AppShell";
 import { PublicMeetingPage } from "./pages/PublicMeetingPage";
+import { WeatherPage } from "./pages/WeatherPage";
 
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
@@ -73,6 +74,7 @@ export function App() {
         <Route path="/assistant" element={<AssistantPage />} />
         <Route path="/more" element={<MorePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/weather" element={<WeatherPage />} />
         <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/meetings" element={<MeetingsPage />} />
         <Route path="/meetings/new" element={<MeetingNewPage />} />

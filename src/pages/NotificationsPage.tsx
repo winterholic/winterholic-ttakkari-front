@@ -19,6 +19,7 @@ const TABS: { id: Category; label: string; icon: IconName }[] = [
   { id: "tasks", label: "작업", icon: "tasks" },
   { id: "assistant", label: "따까리", icon: "chat" },
   { id: "planner", label: "일정·할 일", icon: "calendar" },
+  { id: "weather", label: "날씨", icon: "sun" },
   { id: "meetings", label: "회의록", icon: "mic" },
   { id: "system", label: "시스템", icon: "server" },
 ];
