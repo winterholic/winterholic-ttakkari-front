@@ -2,21 +2,18 @@ import { useId } from "react";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { MeetingDocument, MeetingSection } from "../../api/sharingTypes";
-import { buildTurns, formatClock } from "./transcript";
+import { documentTurns } from "./documentTurns";
+import { formatClock } from "./transcript";
 
 export const SECTION_LABELS: Record<MeetingSection, string> = { summary: "요약", decisions: "결정", actions: "할 일", discussions: "논의", open_issues: "미해결", transcript: "전사" };
 export const PART_LABELS: Record<string, string> = { document: "문서 전체", utterances: "전사 발화", decisions: "결정", actions: "할 일", discussions: "논의", open_issues: "미해결" };
-export const FORMAT_LABELS: Record<string, string> = { txt: "텍스트 (.txt)", md: "Markdown (.md)", json: "JSON (.json)", csv: "엑셀용 CSV (.csv)" };
+export const FORMAT_LABELS: Record<string, string> = { txt: "텍스트 (.txt)", md: "Markdown (.md)", json: "JSON (.json)", csv: "엑셀용 CSV (.csv)", html: "웹 문서 (.html)" };
 
 /** 공개 전용 DTO만 받는다. 이미지·HTML·앱 내부 링크로 비공개 자료를 추가 조회하지 않는다. */
 export function MeetingDocumentView({ document: doc }: { document: MeetingDocument }) {
   const prefix = useId();
   const transcript = doc.transcript;
-  const turns = buildTurns((transcript?.utterances ?? []).map((u) => ({
-    id: u.utterance_id, start: u.start, end: u.end, speaker: u.speaker_id,
-    person: u.speaker_name ?? u.speaker_label, text: u.text,
-    overlap: u.overlap === true, uncertain: u.verification_status === "needs_review", review: false, folded: 0, breakBefore: false,
-  })));
+  const turns = documentTurns(doc);
   return (
     <div className="mt-document">
       {doc.participants.length > 0 && <p className="tk-help">참석자 {doc.participants.join(", ")}</p>}

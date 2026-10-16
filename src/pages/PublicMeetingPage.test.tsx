@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PublicMeetingPage } from "./PublicMeetingPage";
@@ -37,4 +37,23 @@ it("a failed revalidation clears the previously displayed snapshot", async () =>
   fireEvent.click(screen.getByRole("button", { name: "새로 확인" }));
   await screen.findByText("공유를 열 수 없어요");
   expect(screen.queryByText("외부에 선택한 요약")).toBeNull();
+});
+it("offers an in-browser HTML copy only when the publisher allowed downloads", async () => {
+  h.get.mockResolvedValue({ ...share, downloads: [{ format: "txt", parts: ["document"] }] });
+  const saved: Blob[] = [];
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn((b: Blob) => { saved.push(b); return "blob:synthetic"; }) });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  show(); await screen.findByText("외부에 선택한 요약");
+  expect(Array.from(screen.getByRole("combobox", { name: "다운로드 형식" }).querySelectorAll("option")).map((o) => o.value)).toEqual(["txt", "html"]);
+  fireEvent.change(screen.getByRole("combobox", { name: "다운로드 형식" }), { target: { value: "html" } });
+  fireEvent.click(screen.getByRole("button", { name: "다운로드" }));
+  await waitFor(() => expect(saved.length).toBe(1));
+  expect(h.download).not.toHaveBeenCalled();
+  expect(await saved[0].text()).toContain("외부에 선택한 요약");
+});
+it("view-only shares expose no download tools, including HTML", async () => {
+  show(); await screen.findByText("외부에 선택한 요약");
+  expect(screen.queryByRole("combobox", { name: "다운로드 형식" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "다운로드" })).toBeNull();
 });

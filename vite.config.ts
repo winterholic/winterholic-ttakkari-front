@@ -59,5 +59,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
+    // HTML 내보내기가 CSS 원문(?raw)을 인라인하므로 테스트에서도 빈 문자열이 아니라 실제 CSS를 돌려받는다.
+    css: { include: [/\?raw$/] },
   },
 });

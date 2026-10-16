@@ -2,11 +2,13 @@ import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useParams } from "react-router";
 import { ApiError, downloadPublicMeetingShare, getPublicMeetingShare } from "../api/client";
-import type { ExportFormat, ExportPart } from "../api/sharingTypes";
+import type { ExportPart } from "../api/sharingTypes";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import { MeetingDocumentView, FORMAT_LABELS, PART_LABELS } from "../features/meetings/MeetingDocumentView";
 import { saveExport } from "../features/meetings/saveExport";
+import type { SaveFormat } from "../features/meetings/saveExport";
+import { meetingHtmlBlob } from "../features/meetings/meetingHtml";
 import "../features/meetings/meetings.css";
 import "../features/meetings/sharing.css";
 
@@ -25,7 +27,7 @@ function PublicFrame({ children }: { children: React.ReactNode }) {
 
 function PublicContent({ id, capability }: { id: string; capability: string }) {
   const instance = useId();
-  const [format, setFormat] = useState<ExportFormat>("txt");
+  const [format, setFormat] = useState<SaveFormat>("txt");
   const [part, setPart] = useState<ExportPart>("document");
   const [busy, setBusy] = useState(false);
   const [downloadError, setDownloadError] = useState("");
@@ -37,12 +39,17 @@ function PublicContent({ id, capability }: { id: string; capability: string }) {
   if (q.isPending) return <PublicFrame><p role="status">공유 문서를 불러오는 중이에요.</p></PublicFrame>;
   if (q.isError || blocked) return <PublicFrame><h1>공유를 열 수 없어요</h1><p>링크가 만료되었거나 공유가 해제됐을 수 있어요. 보낸 사람에게 확인해 주세요.</p><Button onClick={() => { setBlocked(false); void q.refetch(); }}>다시 확인</Button></PublicFrame>;
   const data = q.data;
-  const chosen = data.downloads.find((f) => f.format === format) ?? data.downloads[0];
+  // 게시자가 다운로드를 하나라도 허용했을 때만 브라우저에서 만드는 HTML 사본을 함께 준다. 조회 전용이면 내려받기 도구가 없다.
+  const downloads: { format: SaveFormat; parts: ExportPart[] }[] = data.downloads.length ? [...data.downloads, { format: "html", parts: ["document"] }] : [];
+  const chosen = downloads.find((f) => f.format === format) ?? downloads[0];
   const selectedPart = chosen?.parts.includes(part) ? part : chosen?.parts[0];
   const download = async () => {
     if (!chosen || !selectedPart) return;
     setBusy(true); setDownloadError("");
-    try { saveExport(await downloadPublicMeetingShare(id, capability, chosen.format, selectedPart, data.publication_revision), chosen.format); }
+    try {
+      if (chosen.format === "html") saveExport(await meetingHtmlBlob(data.document), "html");
+      else saveExport(await downloadPublicMeetingShare(id, capability, chosen.format, selectedPart, data.publication_revision), chosen.format);
+    }
     catch (e) {
       if (e instanceof ApiError && [404, 401, 403].includes(e.status)) setBlocked(true);
       else if (e instanceof ApiError && e.status === 409) { setDownloadError("공개 내용이 갱신됐어요. 내용을 다시 확인하고 다운로드해 주세요."); void q.refetch(); }
@@ -55,7 +62,7 @@ function PublicContent({ id, capability }: { id: string; capability: string }) {
       <p className="tk-help">게시 {new Date(data.published_at).toLocaleDateString("ko-KR")} · {new Date(data.expires_at).toLocaleString("ko-KR")}까지</p>
     </header>
     <div className="mt-public__tools"><Button size="sm" busy={q.isFetching} onClick={() => void q.refetch()}>새로 확인</Button>
-      {chosen && <><label className="tk-field">다운로드 형식<span className="tk-select"><select value={chosen.format} disabled={busy} onChange={(e) => { const f = e.target.value as ExportFormat; setFormat(f); setPart(data.downloads.find((d) => d.format === f)?.parts[0] ?? "document"); }}>{data.downloads.map((d) => <option key={d.format} value={d.format}>{FORMAT_LABELS[d.format]}</option>)}</select></span></label>
+      {chosen && <><label className="tk-field">다운로드 형식<span className="tk-select"><select value={chosen.format} disabled={busy} onChange={(e) => { const f = e.target.value as SaveFormat; setFormat(f); setPart(downloads.find((d) => d.format === f)?.parts[0] ?? "document"); }}>{downloads.map((d) => <option key={d.format} value={d.format}>{FORMAT_LABELS[d.format]}</option>)}</select></span></label>
         {chosen.format === "csv" && <label className="tk-field">CSV 목록<span className="tk-select"><select disabled={busy} value={selectedPart} onChange={(e) => setPart(e.target.value as ExportPart)}>{chosen.parts.map((p) => <option key={p} value={p}>{PART_LABELS[p]}</option>)}</select></span></label>}
         <Button size="sm" busy={busy} disabled={q.isFetching} onClick={() => void download()}><Icon name="download" />다운로드</Button></>}
     </div>

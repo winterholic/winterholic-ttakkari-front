@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<!-- 파일 하나로 오프라인에서 열린다. 외부 요청은 모두 막고 인라인 스타일·스크립트만 허용한다. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>회의록</title>
+<style>
+@@CSS@@
+</style>
+</head>
+<body>
+<main class="mt-public">
+  <div class="mt-public__paper">
+    <div class="mt-public__brand">Ttakkari <span>회의록 사본</span></div>
+    <header class="mt-public__header" id="head"></header>
+    <noscript><p class="tk-help">이 문서를 보려면 스크립트를 켜야 해요.</p></noscript>
+    <div id="doc"></div>
+    <footer class="mt-public__footer">선택한 내용만 담아 저장한 읽기 전용 사본이에요. 원본이 바뀌어도 이 파일은 바뀌지 않아요.</footer>
+  </div>
+</main>
+<script type="application/json" id="meeting-data">@@DATA@@</script>
+<script>
+// 회의 내용은 textContent와 createTextNode로만 넣는다. HTML 문자열을 해석하는 DOM API는 쓰지 않는다.
+(function () {
+  "use strict";
+  var data = JSON.parse(document.getElementById("meeting-data").textContent);
+  var doc = data.document;
+  var labels = data.labels;
+
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text !== undefined && text !== null) n.textContent = text;
+    return n;
+  }
+  function when(iso) { var d = new Date(iso); return isNaN(d.getTime()) ? "" : d.toLocaleString("ko-KR"); }
+
+  // 요약 Markdown: 링크는 글자만, 이미지는 대체 글자만, HTML은 글자 그대로 보여 준다(앱 화면은 HTML을 버린다).
+  var INLINE = /(`+)([^`]+?)\1|\*\*([^*]+)\*\*|__([^_]+)__|!\[([^\]]*)\]\([^)]*\)|\[([^\]]+)\]\([^)]*\)|\*([^*\n]+)\*/g;
+  function inline(parent, text) {
+    var last = 0, m;
+    INLINE.lastIndex = 0;
+    while ((m = INLINE.exec(text))) {
+      if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+      if (m[2] !== undefined) parent.appendChild(el("code", null, m[2]));
+      else if (m[3] !== undefined || m[4] !== undefined) parent.appendChild(el("strong", null, m[3] !== undefined ? m[3] : m[4]));
+      else if (m[5] !== undefined) parent.appendChild(el("span", null, m[5]));
+      else if (m[6] !== undefined) parent.appendChild(el("span", null, m[6]));
+      else parent.appendChild(el("em", null, m[7]));
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+  }
+  var LIST = /^\s*([-*+]|\d+[.)])\s+(.*)$/;
+  function markdown(src) {
+    var root = el("div", "tk-prose");
+    var lines = src.replace(/\r\n?/g, "\n").split("\n");
+    var i = 0, m;
+    while (i < lines.length) {
+      var line = lines[i];
+      if (!line.trim()) { i++; continue; }
+      if (/^```/.test(line)) {
+        var code = [];
+        i++;
+        while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
+        i++;
+        var pre = el("pre"); pre.appendChild(el("code", null, code.join("\n"))); root.appendChild(pre);
+      } else if ((m = /^(#{1,4})\s+(.*)$/.exec(line))) {
+        var h = el("h" + m[1].length); inline(h, m[2]); root.appendChild(h); i++;
+      } else if (LIST.test(line)) {
+        var ordered = /^\s*\d/.test(line), list = el(ordered ? "ol" : "ul");
+        while (i < lines.length && (m = LIST.exec(lines[i]))) { var li = el("li"); inline(li, m[2]); list.appendChild(li); i++; }
+        root.appendChild(list);
+      } else if (/^>\s?/.test(line)) {
+        var quote = [];
+        while (i < lines.length && /^>\s?/.test(lines[i])) quote.push(lines[i++].replace(/^>\s?/, ""));
+        var bq = el("blockquote"); inline(bq, quote.join("\n")); root.appendChild(bq);
+      } else {
+        var para = [];
+        while (i < lines.length && lines[i].trim() && !/^```|^#{1,4}\s|^>\s?/.test(lines[i]) && !LIST.test(lines[i])) para.push(lines[i++]);
+        var p = el("p"); inline(p, para.join("\n")); root.appendChild(p);
+      }
+    }
+    return root;
+  }
+
+  function items(list) {
+    var ol = el("ol", "mt-document__items");
+    list.forEach(function (item) {
+      var li = el("li"), head = el("p");
+      head.appendChild(el("strong", null, item.text));
+      if (item.status === "done") head.appendChild(el("span", "tk-help", " · 완료"));
+      if (item.status === "cancelled") head.appendChild(el("span", "tk-help", " · 취소"));
+      li.appendChild(head);
+      if (item.detail) li.appendChild(el("p", null, item.detail));
+      var who = [item.owner, item.due_text].filter(Boolean).join(" · ");
+      if (who) li.appendChild(el("p", "tk-help", who));
+      if (item.evidence_quote) {
+        var clock = data.evidenceClocks[item.item_id];
+        li.appendChild(el("blockquote", null, (clock ? clock + " · " : "") + item.evidence_quote));
+      }
+      ol.appendChild(li);
+    });
+    return ol;
+  }
+
+  function transcript(t) {
+    var box = document.createDocumentFragment();
+    var note = "자동 전사 · 미검수";
+    if (t.review && t.review.review_utterance_count > 0) note += " · 검토할 발화 " + t.review.review_utterance_count + "개";
+    box.appendChild(el("p", "tk-help", note));
+    if (data.turns.length) {
+      var wrap = el("div", "mt-document__transcript");
+      data.turns.forEach(function (turn) {
+        var article = el("article", "mt-document__turn"), header = el("header");
+        header.appendChild(el("strong", null, turn.person || "화자 미상"));
+        header.appendChild(el("span", "mt-time", turn.clock));
+        if (turn.overlap) header.appendChild(el("span", "tk-help", "겹침"));
+        article.appendChild(header);
+        turn.paragraphs.forEach(function (text) { article.appendChild(el("p", "mt-para", text)); });
+        wrap.appendChild(article);
+      });
+      box.appendChild(wrap);
+    } else {
+      box.appendChild(el("p", "mt-document__plain", t.text || "전사가 없어요."));
+    }
+    return box;
+  }
+
+  function section(name) {
+    var sec = el("section", "mt-document__section");
+    sec.id = "sec-" + name;
+    sec.appendChild(el("h2", null, labels[name] || name));
+    if (doc.section_states[name] === "not_generated") sec.appendChild(el("p", "tk-help", "아직 분석되지 않은 항목이에요."));
+    else if (name === "summary") sec.appendChild(doc.summary ? markdown(doc.summary) : el("p", "tk-help", "요약이 없어요."));
+    else if (name === "transcript") sec.appendChild(doc.transcript ? transcript(doc.transcript) : el("p", "tk-help", "전사가 없어요."));
+    else sec.appendChild(doc[name].length ? items(doc[name]) : el("p", "tk-help", "등록된 항목이 없어요."));
+    return sec;
+  }
+
+  var head = document.getElementById("head");
+  head.appendChild(el("h1", null, doc.title));
+  if (doc.held_at) head.appendChild(el("p", null, when(doc.held_at)));
+  head.appendChild(el("p", "tk-help", "내보낸 시각 " + when(data.exportedAt)));
+  document.title = doc.title;
+
+  var root = el("div", "mt-document");
+  if (doc.participants.length) root.appendChild(el("p", "tk-help", "참석자 " + doc.participants.join(", ")));
+  var nav = el("nav", "mt-document__nav");
+  nav.setAttribute("aria-label", "문서 목차");
+  doc.included_sections.forEach(function (name) {
+    var b = el("button", null, labels[name] || name);
+    b.type = "button";
+    b.addEventListener("click", function () { var t = document.getElementById("sec-" + name); if (t) t.scrollIntoView({ block: "start" }); });
+    nav.appendChild(b);
+  });
+  root.appendChild(nav);
+  doc.included_sections.forEach(function (name) { root.appendChild(section(name)); });
+  document.getElementById("doc").appendChild(root);
+})();
+</script>
+</body>
+</html>

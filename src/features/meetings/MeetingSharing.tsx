@@ -8,6 +8,8 @@ import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { MeetingDocumentView, FORMAT_LABELS, PART_LABELS, SECTION_LABELS } from "./MeetingDocumentView";
 import { saveExport } from "./saveExport";
+import type { SaveFormat } from "./saveExport";
+import { meetingHtmlBlob } from "./meetingHtml";
 import "./sharing.css";
 
 type Mode = "download" | "share";
@@ -45,12 +47,12 @@ export function MeetingSharing({ m }: { m: MeetingDetail }) {
 function DeliveryDialog({ m, mode, onClose }: { m: MeetingDetail; mode: Mode; onClose: () => void }) {
   const qc = useQueryClient();
   const sharing = mode === "share";
-  const [selection, setSelection] = useState<MeetingSelection>({ sections: sharing ? ["summary", "decisions", "actions"] : ["summary", "decisions", "actions", "discussions", "open_issues", "transcript"], include_people: false, include_evidence: false });
+  const [selection, setSelection] = useState<MeetingSelection>({ sections: sharing ? ["summary", "decisions", "actions", "discussions", "open_issues"] : ["summary", "decisions", "actions", "discussions", "open_issues", "transcript"], include_people: false, include_evidence: false });
   const [formats, setFormats] = useState<ExportFormat[]>(["txt", "md", "json", "csv"]);
   const [confirmed, setConfirmed] = useState(false);
   const [days, setDays] = useState("7");
   const [reviewed, setReviewed] = useState<{ input: ShareInput; preview: SharePreview } | null>(null);
-  const [format, setFormat] = useState<ExportFormat>("txt");
+  const [format, setFormat] = useState<SaveFormat>("txt");
   const [part, setPart] = useState<ExportPart>("document");
   const [issued, setIssued] = useState("");
   const [copied, setCopied] = useState(false);
@@ -65,6 +67,8 @@ function DeliveryDialog({ m, mode, onClose }: { m: MeetingDetail; mode: Mode; on
     mutationFn: async () => {
       if (!reviewed) return;
       if (!sharing) {
+        // HTML은 서버가 아니라 검토한 미리보기 문서(포함 옵션이 이미 적용됨)로 브라우저에서 만든다.
+        if (format === "html") { saveExport(await meetingHtmlBlob(reviewed.preview.document), "html"); return; }
         const blob = await exportMeetingDocument({ resource: reviewed.input.resource, selection: reviewed.input.selection, format, part, expected_source_revision: reviewed.preview.source_revision });
         saveExport(blob, format); return;
       }
@@ -88,7 +92,7 @@ function DeliveryDialog({ m, mode, onClose }: { m: MeetingDetail; mode: Mode; on
   return <Dialog open title={sharing ? "회의록 공유" : "회의록 다운로드"} size="lg" modal={busy} onClose={onClose} footer={<>
     <Button onClick={onClose} disabled={busy}>닫기</Button>
     {sharing && action.isSuccess ? <Button variant="primary" onClick={onClose}>확인</Button> : !reviewed ? <Button variant="primary" disabled={!canPreview || busy} busy={preview.isPending} onClick={() => preview.mutate()}>미리보기</Button>
-      : <Button variant="primary" disabled={busy || (!sharing && !parts.includes(part)) || (sharing && (shares.isPending || shares.isError || reviewed.preview.public_sharing_enabled === false))} busy={action.isPending} onClick={() => action.mutate()}>{sharing ? (active ? "공개 내용 갱신" : "공개 링크 만들기") : "파일 저장"}</Button>}
+      : <Button variant="primary" disabled={busy || (!sharing && format !== "html" && !parts.includes(part)) || (sharing && (shares.isPending || shares.isError || reviewed.preview.public_sharing_enabled === false))} busy={action.isPending} onClick={() => action.mutate()}>{sharing ? (active ? "공개 내용 갱신" : "공개 링크 만들기") : "파일 저장"}</Button>}
   </>}>
     <div className="mt-share-form">
       <p className="tk-help">{sharing ? "선택해 게시한 내용만 링크를 가진 사람이 로그인 없이 볼 수 있어요. 원본 수정은 자동 공개되지 않아요." : "선택한 내용만 파일로 저장해요. 공개 링크는 만들어지지 않아요."}</p>
@@ -103,13 +107,13 @@ function DeliveryDialog({ m, mode, onClose }: { m: MeetingDetail; mode: Mode; on
       {m.scope === "work" && <label className="mt-share-confirm"><input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => { invalidateReview(); setConfirmed(e.target.checked); }} />회사 자료의 선택 내용과 외부 전달 가능 여부를 확인했어요</label>}
       {sharing && <fieldset disabled={busy} className="mt-share-fields"><legend>받는 사람이 다운로드할 형식</legend><div className="mt-share-checks">
         {FORMATS.map((f) => <label key={f}><input type="checkbox" checked={formats.includes(f)} onChange={(e) => { invalidateReview(); setFormats(e.target.checked ? [...formats, f] : formats.filter((x) => x !== f)); }} />{FORMAT_LABELS[f]}</label>)}
-      </div><p className="tk-help">모두 끄면 조회만 허용해요. CSV는 시각이 있는 전사나 분석 목록을 선택했을 때 제공해요.</p>
+      </div><p className="tk-help">모두 끄면 조회만 허용해요. CSV는 시각이 있는 전사나 분석 목록을 선택했을 때 제공해요. 하나라도 켜면 웹 문서(.html)도 함께 받을 수 있어요.</p>
         <label className="tk-field">링크 유효 기간<span className="tk-select"><select value={days} onChange={(e) => setDays(e.target.value)}><option value="1">1일</option><option value="7">7일</option><option value="30">30일</option></select></span></label>
       </fieldset>}</div>
       {reviewed && !(sharing && action.isSuccess) && <>
         <div className="mt-share-review-head"><p className="tk-help">포함: {reviewed.input.selection.sections.map((s) => SECTION_LABELS[s]).join(" · ")}{sharing ? ` / ${days}일간 공유` : ""}</p><Button size="sm" disabled={busy} onClick={invalidateReview}>선택 바꾸기</Button></div>
         <section className="mt-share-preview" aria-label="전달 내용 미리보기"><h3>전달 내용 미리보기</h3><p className="tk-help">이 내용으로 {sharing ? "공개돼요. 게시 전에 확인해 주세요." : "저장돼요."}</p><MeetingDocumentView document={reviewed.preview.document} /></section>
-        {!sharing && <div className="mt-share-format"><label className="tk-field">파일 형식<span className="tk-select"><select value={format} onChange={(e) => { const f = e.target.value as ExportFormat; setFormat(f); setPart(available.find((o) => o.format === f)?.parts[0] ?? "document"); }}>{available.map((f) => <option key={f.format} value={f.format}>{FORMAT_LABELS[f.format] ?? f.format}</option>)}</select></span></label>
+        {!sharing && <div className="mt-share-format"><label className="tk-field">파일 형식<span className="tk-select"><select value={format} onChange={(e) => { const f = e.target.value as SaveFormat; setFormat(f); setPart(available.find((o) => o.format === f)?.parts[0] ?? "document"); }}>{available.map((f) => <option key={f.format} value={f.format}>{FORMAT_LABELS[f.format] ?? f.format}</option>)}<option value="html">{FORMAT_LABELS.html}</option></select></span></label>
           {format === "csv" && <label className="tk-field">CSV에 담을 목록<span className="tk-select"><select value={part} onChange={(e) => setPart(e.target.value as ExportPart)}>{parts.map((p) => <option key={p} value={p}>{PART_LABELS[p]}</option>)}</select></span></label>}
         </div>}
       </>}

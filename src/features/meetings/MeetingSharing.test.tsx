@@ -79,3 +79,37 @@ it("blocks publication when the server reports sharing is disabled", async () =>
   expect((screen.getByRole("button", { name: "공개 링크 만들기" }) as HTMLButtonElement).disabled).toBe(true);
   expect(h.publish).not.toHaveBeenCalled();
 });
+const checked = (name: string | RegExp) => (screen.getByRole("checkbox", { name }) as HTMLInputElement).checked;
+it("download dialog opens with every section included; names and evidence stay off by default", () => {
+  show(); fireEvent.click(screen.getByRole("button", { name: "다운로드" }));
+  for (const label of ["요약", "결정", "할 일", "논의", "미해결", "전사"]) expect(checked(label), label).toBe(true);
+  expect(checked(/참석자·화자 이름/)).toBe(false);
+  expect(checked("근거 발화 포함")).toBe(false);
+});
+it("share dialog opens with the analysis sections and every download format checked; transcript, names, evidence and work confirmation stay off", () => {
+  show("work"); fireEvent.click(screen.getByRole("button", { name: "공유" }));
+  for (const label of ["요약", "결정", "할 일", "논의", "미해결"]) expect(checked(label), label).toBe(true);
+  for (const label of [/텍스트/, /Markdown/, /JSON/, /CSV/]) expect(checked(label), String(label)).toBe(true);
+  expect(checked("전사")).toBe(false);
+  expect(checked(/참석자·화자 이름/)).toBe(false);
+  expect(checked("근거 발화 포함")).toBe(false);
+  expect(checked(/회사 자료/)).toBe(false);
+});
+it("saves a one-file HTML copy of the reviewed document in the browser without calling the export API", async () => {
+  const saved: Blob[] = [];
+  Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn((b: Blob) => { saved.push(b); return "blob:synthetic"; }) });
+  Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  show(); fireEvent.click(screen.getByRole("button", { name: "다운로드" }));
+  fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
+  await screen.findByText("선택한 요약만");
+  fireEvent.change(screen.getByRole("combobox", { name: "파일 형식" }), { target: { value: "html" } });
+  expect(screen.queryByRole("combobox", { name: "CSV에 담을 목록" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "파일 저장" }));
+  await waitFor(() => expect(saved.length).toBe(1));
+  expect(h.export).not.toHaveBeenCalled(); expect(h.publish).not.toHaveBeenCalled();
+  expect(saved[0].type).toBe("text/html;charset=utf-8");
+  expect(click.mock.contexts[0] && (click.mock.contexts[0] as HTMLAnchorElement).download).toBe("meeting-export.html");
+  const html = await saved[0].text();
+  expect(html).toContain("공유 테스트 회의"); expect(html).toContain("선택한 요약만"); expect(html).toContain("meeting-data");
+});
