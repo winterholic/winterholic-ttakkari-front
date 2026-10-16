@@ -1,0 +1,78 @@
+{
+ "src/features/accounts/usage.css": {
+  "nowrap-unpaired": 1,
+  "child-margin-top": 1
+ },
+ "src/features/canvas/canvas.css": {
+  "px-literal": 1
+ },
+ "src/features/chat/composer.css": {
+  "px-literal": 1
+ },
+ "src/features/contextlib/contextlib.css": {
+  "px-literal": 39,
+  "z-index-number": 4,
+  "child-margin-top": 3,
+  "nowrap-unpaired": 2
+ },
+ "src/features/knowledge/knowledge.css": {
+  "px-literal": 3,
+  "nowrap-unpaired": 1
+ },
+ "src/features/meetings/meetings.css": {
+  "px-literal": 2,
+  "child-margin-top": 2,
+  "nowrap-unpaired": 1
+ },
+ "src/features/meetings/sharing.css": {
+  "child-margin-top": 3
+ },
+ "src/features/orchestrator/orchestrator.css": {
+  "child-margin-top": 1
+ },
+ "src/features/pms/pms.css": {
+  "z-index-number": 1,
+  "nowrap-unpaired": 7,
+  "child-margin-top": 1
+ },
+ "src/features/system/resources.css": {
+  "px-literal": 2
+ },
+ "src/features/tasks/tasks.css": {
+  "child-margin-top": 3
+ },
+ "src/features/transfer/transfer.css": {
+  "child-margin-top": 3
+ },
+ "src/features/viewer/viewer.css": {
+  "z-index-number": 1
+ },
+ "src/pages/assistant.css": {
+  "px-literal": 4,
+  "z-index-number": 1,
+  "child-margin-top": 3
+ },
+ "src/pages/library.css": {
+  "child-margin-top": 1
+ },
+ "src/pages/notifications.css": {
+  "child-margin-top": 2
+ },
+ "src/pages/planner.css": {
+  "px-literal": 1,
+  "nowrap-unpaired": 2
+ },
+ "src/pages/settings.css": {
+  "child-margin-top": 2
+ },
+ "src/pages/weather.css": {
+  "px-literal": 21,
+  "important": 1,
+  "child-margin-top": 3
+ },
+ "src/ui/engineBadge.css": {
+  "hex": 15,
+  "px-literal": 2,
+  "nowrap-unpaired": 1
+ }
+}

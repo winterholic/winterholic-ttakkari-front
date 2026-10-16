@@ -36,7 +36,7 @@ export function Histogram({ q }: { q: LibQuality["chunks"] }) {
   const off = (b: LibQuality["chunks"]["histogram"][number]) => (b.max !== null && b.max <= q.short_limit) || b.min >= q.long_limit;
   return (
     <figure className="cl-hist">
-      <div className="cl-hist__plot" role="img" aria-label={`조각 길이 분포. ${q.histogram.map((b) => `${b.label}자 ${b.count}개`).join(", ")}`}>
+      <div className="cl-hist__plot" data-layout-ok="축 아래 글자(절대 위치)가 쓸 자리라 margin-bottom 이 필요하다" role="img" aria-label={`조각 길이 분포. ${q.histogram.map((b) => `${b.label}자 ${b.count}개`).join(", ")}`}>
         {q.histogram.map((b) => (
           <div key={b.label} className="cl-hist__col" data-off={off(b) ? "" : undefined}>
             <span className="cl-hist__count">{n(b.count)}</span>

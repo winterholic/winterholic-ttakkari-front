@@ -22,7 +22,13 @@ export function Button({ variant, size, block, busy, className, disabled, type =
   ]
     .filter(Boolean)
     .join(" ");
-  return <button {...rest} type={type} className={cls} aria-busy={busy || undefined} disabled={busy || disabled} />;
+  const { children, ...attrs } = rest;
+  // 글자(문자열)는 <span> 으로 감싸 버튼 폭 안에서 말줄임이 되게 한다(docs/22 A5)
+  return (
+    <button {...attrs} type={type} className={cls} aria-busy={busy || undefined} disabled={busy || disabled}>
+      {typeof children === "string" ? <span>{children}</span> : children}
+    </button>
+  );
 }
 
 type IconVariant = "secondary" | "primary";

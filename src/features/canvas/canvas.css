@@ -99,7 +99,7 @@
 .home__pins { flex: none; }
 .home__pins > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); }
 .home__results {
-  position: absolute; top: calc(100% + var(--tk-space-1)); left: 0; right: 0; max-height: 50vh; overflow-y: auto;
+  position: absolute; top: calc(100% + var(--tk-space-1)); left: 0; right: 0; max-height: 50dvh; overflow-y: auto;
   padding: var(--tk-space-1); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg);
   background: var(--tk-color-surface-raised); box-shadow: var(--tk-shadow-md);
 }

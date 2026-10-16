@@ -185,7 +185,7 @@ export function GraphView({ nodes, edges, selectedId, highlight, onSelect }: {
             const color = TYPE_COLOR[nd.type] ?? TYPE_COLOR.other;
             const picked = highlight?.has(nd.id);
             return (
-              <g key={nd.id} className="cl-node" transform={`translate(${p.x},${p.y})`} tabIndex={0} role="button"
+              <g key={nd.id} className="cl-node" data-layout-ok="그래프 노드. 같은 노드의 목록이 터치·키보드 대안이다" transform={`translate(${p.x},${p.y})`} tabIndex={0} role="button"
                 aria-pressed={selectedId === nd.id} aria-label={`${nd.name}, ${TYPE_LABEL[nd.type]}, 관계 ${nd.degree}개${nd.flags.isolated ? ", 관계 없음" : ""}${nd.flags.duplicate_suspect ? ", 중복 의심" : ""}`}
                 data-dim={dim(nd.id) ? "" : undefined} data-selected={selectedId === nd.id ? "" : undefined}
                 style={{ "--c": color } as CSSProperties}

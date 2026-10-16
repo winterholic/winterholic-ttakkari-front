@@ -129,7 +129,7 @@
 .planner-cal__nav { display: flex; align-items: center; gap: var(--tk-space-1); min-width: 0; }
 .planner-cal__controls { display: flex; align-items: center; gap: var(--tk-space-3); }
 .planner-cal__lunar-toggle { font-size: var(--tk-font-size-xs); white-space: nowrap; }
-.planner-cal__title { margin: 0 0 0 var(--tk-space-2); color: var(--tk-color-text-primary); white-space: nowrap; font: var(--tk-font-weight-semibold) var(--tk-font-size-lg) / var(--tk-font-line-height-heading) var(--tk-font-family-sans); }
+.planner-cal__title { min-width: 0; margin: 0; padding-left: var(--tk-space-2); overflow: hidden; text-overflow: ellipsis; color: var(--tk-color-text-primary); white-space: nowrap; font: var(--tk-font-weight-semibold) var(--tk-font-size-lg) / var(--tk-font-line-height-heading) var(--tk-font-family-sans); }
 .planner-cal__body { flex: 1 1 auto; min-height: 0; padding: 0 var(--tk-space-2) var(--tk-space-2); overflow: hidden; }
 .planner-cal__body .fc {
   --fc-border-color: var(--tk-color-border-subtle);

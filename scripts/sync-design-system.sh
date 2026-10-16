@@ -4,10 +4,12 @@
 set -euo pipefail
 SRC="${1:-$(cd "$(dirname "$0")/../../../winterholic-design-system/ttakkari" && pwd)}"
 DEST="$(cd "$(dirname "$0")/.." && pwd)"
-mkdir -p "$DEST/src/vendor/ttakkari" "$DEST/public/brand"
+mkdir -p "$DEST/src/vendor/ttakkari" "$DEST/public/brand" "$DEST/public/art"
 for f in tokens.css typography.css components.css prose.css monaco-theme.json tokens.js tokens.d.ts pwa.json; do
   cp "$SRC/dist/$f" "$DEST/src/vendor/ttakkari/$f"
 done
 find "$SRC/assets/brand" -maxdepth 1 -type f \( -name '*.png' -o -name '*.svg' -o -name '*.ico' -o -name '*.webp' \) -exec cp {} "$DEST/public/brand/" \;
+# 일러스트 웹 파생본(WebP 480·960). 원본은 디자인 시스템 brand/generated 에 있고 앱은 파생본만 가져간다(docs/23)
+find "$SRC/assets/art" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/public/art/" \;
 git -C "$SRC" log -1 --format='%h %s' -- . > "$DEST/src/vendor/ttakkari/VERSION"
 echo "synced from $SRC ($(cat "$DEST/src/vendor/ttakkari/VERSION"))"
