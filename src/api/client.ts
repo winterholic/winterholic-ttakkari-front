@@ -873,6 +873,15 @@ export interface SystemResources {
     efficiency_cores: number | null;
     chip: string | null;
   };
+  gpu?: {
+    status: "available" | "unavailable" | "unsupported";
+    reason: "unsupported_os" | "collection_failed" | "statistics_missing" | null;
+    model: string | null;
+    cores: number | null;
+    percent: number | null;
+    memory_used_bytes: number | null;
+    memory_allocated_bytes: number | null;
+  };
   memory: {
     total: number;
     used: number;

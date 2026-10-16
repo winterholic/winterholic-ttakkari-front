@@ -55,14 +55,14 @@ function Bar({ percent, label, size = "lg" }: { percent: number; label: string; 
   );
 }
 
-function Gauge({ title, percent, children }: { title: string; percent: number; children: React.ReactNode }) {
+function Gauge({ title, percent, children }: { title: string; percent: number | null; children: React.ReactNode }) {
   return (
-    <section className="res-gauge" data-level={level(percent)} aria-label={title}>
+    <section className="res-gauge" data-level={percent == null ? undefined : level(percent)} aria-label={title}>
       <div className="res-gauge__top">
         <span className="res-gauge__title">{title}</span>
-        <span className="res-gauge__pct">{percent.toFixed(percent < 10 ? 1 : 0)}%</span>
+        <span className="res-gauge__pct">{percent == null ? "—" : `${percent.toFixed(percent < 10 ? 1 : 0)}%`}</span>
       </div>
-      <Bar percent={percent} label={`${title} 사용률`} />
+      {percent != null && <Bar percent={percent} label={`${title} 사용률`} />}
       <div className="res-gauge__detail">{children}</div>
     </section>
   );
@@ -93,7 +93,7 @@ function ProcList({ title, rows, show }: { title: string; rows: ResourceProcess[
 }
 
 function Body({ d }: { d: SystemResources }) {
-  const { cpu, memory: mem, disks, network: net, processes: procs } = d;
+  const { cpu, gpu, memory: mem, disks, network: net, processes: procs } = d;
   const cores = [
     cpu.performance_cores != null && `P ${cpu.performance_cores}`,
     cpu.efficiency_cores != null && `E ${cpu.efficiency_cores}`,
@@ -105,6 +105,18 @@ function Body({ d }: { d: SystemResources }) {
         <Gauge title="CPU" percent={cpu.percent}>
           <span>{cpu.chip ?? "CPU"} · {cpu.cores_logical}코어{cores ? ` (${cores})` : ""}</span>
           <span>부하 평균 {cpu.load_avg.map((x) => x.toFixed(2)).join(" · ")}</span>
+        </Gauge>
+        <Gauge title="GPU" percent={gpu?.status === "available" ? gpu.percent : null}>
+          {gpu && (gpu.model || gpu.cores != null) && <span>{[gpu.model, gpu.cores != null ? `${gpu.cores}코어` : null].filter(Boolean).join(" · ")}</span>}
+          {gpu?.status === "available" ? <>
+            <span>전체 사용률 · 코어별 사용률은 제공되지 않아요.</span>
+            {(gpu.memory_used_bytes != null || gpu.memory_allocated_bytes != null) && <span>
+              통합 메모리 중 {[
+                gpu.memory_used_bytes != null ? `사용 ${bytes(gpu.memory_used_bytes)}` : null,
+                gpu.memory_allocated_bytes != null ? `할당 ${bytes(gpu.memory_allocated_bytes)}` : null,
+              ].filter(Boolean).join(" · ")}
+            </span>}
+          </> : <span>{!gpu ? "GPU 정보를 아직 받을 수 없어요." : gpu.status === "unsupported" ? "이 환경에서는 GPU 모니터링을 지원하지 않아요." : "GPU 사용률을 읽을 수 없어요."}</span>}
         </Gauge>
         <Gauge title="메모리" percent={mem.percent}>
           <span>{bytes(mem.used)} / {bytes(mem.total)} · 가용 {bytes(mem.available)}</span>
@@ -121,8 +133,8 @@ function Body({ d }: { d: SystemResources }) {
         ))}
       </div>
 
-      <section className="res-cores" aria-label="코어별 사용률">
-        <h3 className="res-section-title">코어별</h3>
+      <section className="res-cores" aria-label="CPU 코어별 사용률">
+        <h3 className="res-section-title">CPU 코어별</h3>
         <ol className="res-cores__grid">
           {cpu.per_core.map((p, i) => (
             <li key={i} className="res-core" data-level={level(p)}>

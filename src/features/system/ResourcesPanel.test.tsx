@@ -41,6 +41,48 @@ function renderIt(mounted: boolean) {
 }
 
 describe("ResourcesPanel", () => {
+  it("GPU 전체 사용률·코어 수·통합 메모리를 표시한다", async () => {
+    api.systemResources.mockResolvedValue({ ...sample, gpu: {
+      status: "available", reason: null, model: "Apple M5 Max", cores: 40, percent: 92,
+      memory_used_bytes: 2 * GB, memory_allocated_bytes: 3 * GB,
+    } });
+    renderIt(true);
+    const gpu = await screen.findByRole("progressbar", { name: "GPU 사용률" });
+    expect(gpu.getAttribute("aria-valuenow")).toBe("92");
+    expect(gpu.className).toContain("tk-progress--danger");
+    expect(screen.getByText("Apple M5 Max · 40코어")).toBeTruthy();
+    expect(screen.getByText(/통합 메모리 중 사용 2.0 GB · 할당 3.0 GB/)).toBeTruthy();
+    expect(screen.getByRole("region", { name: "CPU 코어별 사용률" })).toBeTruthy();
+  });
+
+  it("GPU 유휴 0%는 정상 값으로 표시한다", async () => {
+    api.systemResources.mockResolvedValue({ ...sample, gpu: {
+      status: "available", reason: null, model: "Apple M5 Max", cores: 40, percent: 0,
+      memory_used_bytes: null, memory_allocated_bytes: null,
+    } });
+    renderIt(true);
+    expect((await screen.findByRole("progressbar", { name: "GPU 사용률" })).getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it.each(["unavailable", "unsupported"])("GPU %s를 유휴 상태로 그리지 않는다", async (status) => {
+    api.systemResources.mockResolvedValue({ ...sample, gpu: {
+      status, reason: "collection_failed", model: "Apple M5 Max", cores: 40, percent: null,
+      memory_used_bytes: null, memory_allocated_bytes: null,
+    } });
+    renderIt(true);
+    await screen.findByRole("progressbar", { name: "CPU 사용률" });
+    expect(screen.getByRole("region", { name: "GPU" }).textContent).toContain("—");
+    expect(screen.queryByRole("progressbar", { name: "GPU 사용률" })).toBeNull();
+    expect(screen.getByText(status === "unsupported" ? "이 환경에서는 GPU 모니터링을 지원하지 않아요." : "GPU 사용률을 읽을 수 없어요.")).toBeTruthy();
+  });
+
+  it("이전 서버 응답에도 나머지 지표와 GPU 안내를 표시한다", async () => {
+    renderIt(true);
+    await screen.findByRole("progressbar", { name: "CPU 사용률" });
+    expect(screen.getByText("GPU 정보를 아직 받을 수 없어요.")).toBeTruthy();
+    expect(screen.queryByRole("progressbar", { name: "GPU 사용률" })).toBeNull();
+  });
+
   it("임계치는 80% 경고, 90% 위험", () => {
     expect([level(79.9), level(80), level(89.9), level(90)]).toEqual(["ok", "warn", "warn", "danger"]);
     expect(bytes(1536)).toBe("1.5 KB");
