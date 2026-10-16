@@ -195,14 +195,10 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
         actions={
           <>
             <PoolSwitch pool={pool} />
-            {isDesktop ? (
+            {isDesktop && (
               <button className="tk-icon-button" type="button" aria-pressed={showPanel} aria-label={showPanel ? "옆 패널 닫기" : "대화 열기"} onClick={() => setPanelOpen((v) => !v)}>
                 <Icon name="workspace" />
               </button>
-            ) : (
-              <Link className="tk-icon-button" to={`${base}/thread`} aria-label="대화 보기">
-                <Icon name="chat" />
-              </Link>
             )}
             <NotificationLink />
           </>

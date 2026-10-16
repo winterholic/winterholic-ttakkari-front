@@ -1,8 +1,2 @@
 .notification-link { position: relative; flex: none; min-width: var(--tk-size-touch-target-min); min-height: var(--tk-size-touch-target-min); }
 .notification-link__count { position: absolute; top: 0; right: 0; pointer-events: none; }
-
-/* 작은 폰에서도 제목과 홈 행동을 한 줄에 유지한다. */
-@media (max-width: 359px) {
-  .tk-header__inner:has(.notification-link) { gap: var(--tk-space-1); }
-  .tk-header__actions:has(.notification-link) .tk-segmented > label { padding-inline: var(--tk-space-2); }
-}
