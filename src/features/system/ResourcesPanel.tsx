@@ -1,7 +1,8 @@
 import type React from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { systemResources } from "../../api/client";
-import type { ResourceProcess, SystemResources } from "../../api/client";
+import { systemResourceHistory, systemResources } from "../../api/client";
+import type { ResourceHistory, ResourceHistoryPoint, ResourceHistoryRange, ResourceProcess, SystemResources } from "../../api/client";
 import { errorText } from "../viewer/api";
 import "./resources.css";
 
@@ -15,6 +16,9 @@ const PRESSURE: Record<string, { tone: "success" | "warning" | "danger"; text: s
   critical: { tone: "danger", text: "압력 위험" },
 };
 const KIND: Record<string, string> = { backend: "백엔드", claude: "Claude", codex: "Codex", other: "하위 프로세스" };
+const HISTORY_RANGES: { value: ResourceHistoryRange; label: string }[] = [
+  { value: "1h", label: "1시간" }, { value: "24h", label: "24시간" }, { value: "7d", label: "7일" },
+];
 
 type Level = "ok" | "warn" | "danger";
 
@@ -165,6 +169,99 @@ function Body({ d }: { d: SystemResources }) {
   );
 }
 
+function historySegments(points: ResourceHistoryPoint[], range: ResourceHistory): string[] {
+  const start = Date.parse(range.from);
+  const end = Date.parse(range.to);
+  const span = Math.max(1, end - start);
+  const segments: string[] = [];
+  let current: string[] = [];
+  let previous: number | null = null;
+  for (const point of points) {
+    const at = Date.parse(point.timestamp);
+    const value = point.gpu_percent;
+    if (value == null || !Number.isFinite(at)) {
+      if (current.length) segments.push(current.join(" "));
+      current = [];
+      previous = null;
+      continue;
+    }
+    if (previous != null && at - previous > range.bucket_seconds * 1500) {
+      if (current.length) segments.push(current.join(" "));
+      current = [];
+    }
+    const x = 42 + ((at - start) / span) * 672;
+    const y = 164 - (Math.max(0, Math.min(100, value)) / 100) * 148;
+    current.push(`${current.length ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`);
+    previous = at;
+  }
+  if (current.length) segments.push(current.join(" "));
+  return segments;
+}
+
+function pointPosition(point: ResourceHistoryPoint, range: ResourceHistory): { x: number; y: number } {
+  const span = Math.max(1, Date.parse(range.to) - Date.parse(range.from));
+  return {
+    x: 42 + ((Date.parse(point.timestamp) - Date.parse(range.from)) / span) * 672,
+    y: 164 - (Math.max(0, Math.min(100, point.gpu_percent ?? 0)) / 100) * 148,
+  };
+}
+
+function formatAxisTime(value: string, range: ResourceHistoryRange): string {
+  const date = new Date(value);
+  return date.toLocaleString("ko-KR", range === "7d"
+    ? { month: "numeric", day: "numeric" }
+    : { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
+}
+
+function GpuHistory() {
+  const [selected, setSelected] = useState<ResourceHistoryRange>("1h");
+  const query = useQuery({
+    queryKey: ["system", "resources", "history", selected],
+    queryFn: () => systemResourceHistory(selected),
+    refetchInterval: 30_000,
+  });
+  const history = query.data;
+  const paths = history ? historySegments(history.points, history) : [];
+  return (
+    <section className="res-history" aria-labelledby="res-history-title">
+      <div className="res-history__head">
+        <div>
+          <h2 className="res-section-title" id="res-history-title">GPU 전체 사용률 기록</h2>
+          <p className="res-note">전체 사용률은 40코어 중 사용한 코어 수를 뜻하지 않아요. GPU 수집 실패와 유휴 0%는 구분됩니다.</p>
+        </div>
+        <div className="res-history__ranges" role="group" aria-label="GPU 기록 기간">
+          {HISTORY_RANGES.map((item) => (
+            <button key={item.value} type="button" aria-pressed={selected === item.value}
+              onClick={() => setSelected(item.value)}>{item.label}</button>
+          ))}
+        </div>
+      </div>
+      {query.isPending && <p className="res-note" role="status">기록을 불러오는 중…</p>}
+      {query.isError && !history && <p className="res-note" role="alert">GPU 기록을 불러오지 못했어요.</p>}
+      {history && history.points.length === 0 && <p className="res-note">선택한 기간에 저장된 GPU 기록이 없어요.</p>}
+      {history && history.points.length > 0 && <div className="res-history__plot-wrap">
+        <svg className="res-history__plot" viewBox="0 0 720 190" role="img" aria-label="GPU 전체 사용률 기록" preserveAspectRatio="none">
+          {[0, 50, 100].map((tick) => {
+            const y = 164 - (tick / 100) * 148;
+            return <g key={tick} className="res-history__tick">
+              <line x1="42" x2="714" y1={y} y2={y} />
+              <text x="34" y={y + 4} textAnchor="end">{tick}%</text>
+            </g>;
+          })}
+          {paths.map((path, index) => <path key={index} data-series="gpu" d={path} />)}
+          {history.points.filter((point) => point.gpu_percent != null).map((point) => {
+            const { x, y } = pointPosition(point, history);
+            return <circle key={point.timestamp} className="res-history__point" cx={x} cy={y} r="2.5" />;
+          })}
+          <text className="res-history__axis" x="42" y="187">{formatAxisTime(history.from, selected)}</text>
+          <text className="res-history__axis" x="714" y="187" textAnchor="end">{formatAxisTime(history.to, selected)}</text>
+        </svg>
+        <p className="res-note">{history.bucket_seconds === 30 ? "30초 간격 원본" : `구간별 평균 · ${history.bucket_seconds === 60 ? "1분" : "10분"}`} · 결측 구간은 선을 끊어 표시합니다.</p>
+      </div>}
+    </section>
+  );
+}
+
 /**
  * 서버 리소스(/resources) 본문. 사용자 메뉴에서 이 페이지로 온다.
  * 마운트된 동안만 4초마다 다시 읽는다. 페이지를 벗어나면 옵저버가 없어져 폴링도 멈춘다.
@@ -184,6 +281,7 @@ export function ResourcesPanel() {
       </p>
       {q.isError && !d && <p className="tk-error" role="alert">{errorText(q.error).message}</p>}
       {d && <Body d={d} />}
+      <GpuHistory />
     </div>
   );
 }

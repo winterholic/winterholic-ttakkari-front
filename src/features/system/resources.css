@@ -39,3 +39,23 @@
 .res-proc__name > .tk-badge { flex: none; }
 .res-proc__num { text-align: right; color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono); font-variant-numeric: tabular-nums; }
 .res-proc__num[data-strong] { color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-medium); }
+
+.res-history { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.res-history__head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--tk-space-3); }
+.res-history__head > div:first-child { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; }
+.res-history__ranges { display: inline-flex; flex: none; gap: var(--tk-space-1); padding: var(--tk-space-1); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.res-history__ranges button { min-height: 2rem; padding: 0 var(--tk-space-2); border: 0; border-radius: var(--tk-radius-sm); background: transparent; color: var(--tk-color-text-secondary); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1 var(--tk-font-family-sans); cursor: pointer; }
+.res-history__ranges button[aria-pressed="true"] { background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); box-shadow: var(--tk-shadow-sm); }
+.res-history__ranges button:focus-visible { outline: 2px solid var(--tk-color-border-focus); outline-offset: 2px; }
+.res-history__plot-wrap { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; }
+.res-history__plot { display: block; width: 100%; height: 14rem; overflow: visible; }
+.res-history__tick line { stroke: var(--tk-color-border-subtle); stroke-width: 1; }
+.res-history__tick text, .res-history__axis { fill: var(--tk-color-text-tertiary); font: var(--tk-font-size-xs) var(--tk-font-family-sans); }
+.res-history__plot path[data-series="gpu"] { fill: none; stroke: var(--tk-color-action-primary-bg); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.res-history__point { fill: var(--tk-color-action-primary-bg); vector-effect: non-scaling-stroke; }
+@media (max-width: 480px) {
+  .res-history { padding: var(--tk-space-3); }
+  .res-history__head { flex-direction: column; }
+  .res-history__ranges { align-self: flex-start; }
+  .res-history__plot { height: 11rem; }
+}

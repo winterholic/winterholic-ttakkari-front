@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { SystemResources } from "../../api/client";
 import { bytes, level, ResourcesPanel, uptime } from "./ResourcesPanel";
 
-const api = vi.hoisted(() => ({ systemResources: vi.fn() }));
+const api = vi.hoisted(() => ({ systemResources: vi.fn(), systemResourceHistory: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
 const GB = 1024 ** 3;
@@ -25,6 +25,14 @@ const sample: SystemResources = {
 
 beforeEach(() => {
   api.systemResources.mockResolvedValue(sample);
+  api.systemResourceHistory.mockResolvedValue({
+    range: "1h", from: "2026-10-16T00:00:00Z", to: "2026-10-16T01:00:00Z", bucket_seconds: 30,
+    points: [
+      { timestamp: "2026-10-16T00:10:00Z", gpu_percent: 25, gpu_memory_used_bytes: 100, cpu_percent: 10, memory_used_bytes: 1000, gpu_status: "available", collection_status: "success", sample_count: 1, failed_count: 0 },
+      { timestamp: "2026-10-16T00:10:30Z", gpu_percent: null, gpu_memory_used_bytes: null, cpu_percent: null, memory_used_bytes: null, gpu_status: "unavailable", collection_status: "failed", sample_count: 1, failed_count: 1 },
+      { timestamp: "2026-10-16T00:11:00Z", gpu_percent: 0, gpu_memory_used_bytes: 0, cpu_percent: 1, memory_used_bytes: 1000, gpu_status: "available", collection_status: "success", sample_count: 1, failed_count: 0 },
+    ],
+  });
 });
 
 afterEach(() => {
@@ -62,6 +70,21 @@ describe("ResourcesPanel", () => {
     } });
     renderIt(true);
     expect((await screen.findByRole("progressbar", { name: "GPU 사용률" })).getAttribute("aria-valuenow")).toBe("0");
+  });
+
+  it("GPU 기록은 기간 전환이 되고 실패와 유휴 0% 사이를 끊어 그린다", async () => {
+    api.systemResources.mockResolvedValue({ ...sample, gpu: {
+      status: "available", reason: null, model: "Apple M5 Max", cores: 40, percent: 0,
+      memory_used_bytes: 100, memory_allocated_bytes: 200,
+    } });
+    renderIt(true);
+    const graph = await screen.findByRole("img", { name: "GPU 전체 사용률 기록" });
+    expect(graph.querySelectorAll("path[data-series='gpu']")).toHaveLength(2);
+    expect(graph.querySelectorAll("circle.res-history__point")).toHaveLength(2);
+    expect(screen.getByText(/전체 사용률은 40코어 중 사용한 코어 수를 뜻하지 않아요/)).toBeTruthy();
+    await act(async () => { screen.getByRole("button", { name: "7일" }).click(); });
+    await screen.findByRole("button", { name: "7일", pressed: true });
+    expect(api.systemResourceHistory).toHaveBeenCalledWith("7d");
   });
 
   it.each(["unavailable", "unsupported"])("GPU %s를 유휴 상태로 그리지 않는다", async (status) => {

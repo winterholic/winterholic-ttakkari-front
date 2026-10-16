@@ -925,6 +925,30 @@ export interface SystemResources {
 }
 export const systemResources = (): Promise<SystemResources> => json("/api/system/resources");
 
+export type ResourceHistoryRange = "1h" | "24h" | "7d";
+export interface ResourceHistoryPoint {
+  timestamp: string;
+  gpu_percent: number | null;
+  gpu_min_percent?: number | null;
+  gpu_max_percent?: number | null;
+  gpu_memory_used_bytes: number | null;
+  cpu_percent: number | null;
+  memory_used_bytes: number | null;
+  gpu_status?: "available" | "unavailable" | "unsupported";
+  collection_status?: "success" | "failed";
+  sample_count: number;
+  failed_count: number;
+}
+export interface ResourceHistory {
+  range: ResourceHistoryRange;
+  from: string;
+  to: string;
+  bucket_seconds: number;
+  points: ResourceHistoryPoint[];
+}
+export const systemResourceHistory = (range: ResourceHistoryRange): Promise<ResourceHistory> =>
+  json(`/api/system/resources/history?range=${range}`);
+
 // ---- 메모·캘린더(ADR 0008). 시각은 Asia/Seoul 벽시계 문자열이다(시간 `YYYY-MM-DDTHH:MM`, 종일 `YYYY-MM-DD`, 끝 날짜 포함).
 export interface MemoSummary {
   id: string;
