@@ -8,22 +8,24 @@ import { QualityTab } from "../features/contextlib/QualityTab";
 import { SearchLabTab } from "../features/contextlib/SearchLabTab";
 import { StructureTab } from "../features/contextlib/StructureTab";
 import { SCOPES, n } from "../features/contextlib/shared";
+import { KnowledgeTab } from "../features/knowledge/KnowledgeTab";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 import "../features/contextlib/contextlib.css";
 
-type Tab = "overview" | "structure" | "ontology" | "search" | "quality";
+type Tab = "evidence" | "overview" | "structure" | "ontology" | "search" | "quality";
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "개요" },
   { id: "structure", label: "구조" },
   { id: "ontology", label: "온톨로지" },
   { id: "search", label: "검색" },
   { id: "quality", label: "품질" },
+  { id: "evidence", label: "근거·검토" },
 ];
 
 /**
  * 맥락 도서관(ADR 0009): RAG(문서·조각 색인)와 온톨로지(엔터티·관계·기억)가 무엇으로 이뤄졌고 잘 설계됐는지 눈으로 본다.
- * 읽기 전용이다. 출처 추가·색인·기억 수정은 비서 관리에서 한다.
+ * 기존 구조는 읽기 전용이다. 근거·검토에서는 출처를 대조하고 검토 이력을 남긴다.
  */
 export function ContextLibraryPage() {
   const [params, setParams] = useSearchParams();
@@ -79,6 +81,7 @@ export function ContextLibraryPage() {
             {tab === "ontology" && <OntologyTab scope={scope} />}
             {tab === "search" && <SearchLabTab scope={scope} />}
             {tab === "quality" && <QualityTab scope={scope} />}
+            {tab === "evidence" && <KnowledgeTab key={scope} scope={scope} />}
           </div>
         </div>
       </div>

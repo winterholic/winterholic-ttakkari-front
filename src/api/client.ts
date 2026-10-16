@@ -1044,3 +1044,12 @@ export const deleteChecklistItem = (id: string): Promise<void> => json(`/api/che
 export const createChecklistTemplate = (title: string): Promise<ChecklistTemplate> => json("/api/checklists/templates", { method: "POST", json: { title } });
 export const patchChecklistTemplate = (id: string, title: string): Promise<ChecklistTemplate> => json(`/api/checklists/templates/${id}`, { method: "PATCH", json: { title } });
 export const deleteChecklistTemplate = (id: string): Promise<void> => json(`/api/checklists/templates/${id}`, { method: "DELETE" });
+
+// Immutable source evidence and explicit review history (ADR 0031).
+const K = '/api/assistant/knowledge';
+export const knowledgeStatus = (scope: LibScope): Promise<import('../features/knowledge/types').KnowledgeStatus> => json(`${K}/status`, { query: { scope } });
+export const knowledgeAssertions = (scope: LibScope, state: string, offset: number): Promise<{items:import('../features/knowledge/types').Assertion[]}> => json(`${K}/assertions`, { query: { scope, state: state || undefined, offset, limit:30 } });
+export const knowledgeRecall = (query: string, scope: LibScope): Promise<import('../features/knowledge/types').KnowledgeRecall> => json(`${K}/recall`, { method:'POST', json:{query,scope,hops:2,k:10} });
+export const knowledgeReview = (id:string, version:number, state:string, reason:string): Promise<unknown> => json(`${K}/assertions/${encodeURIComponent(id)}/reviews`, {method:'POST',json:{expected_version:version,state,review_level:'user_confirmed',reason}});
+export const knowledgeCorrect = (id:string, version:number, reason:string, replacement:{unit_id:string;start:number;end:number;quote:string;subject:string;predicate:string;object:string;modality:string;polarity:boolean;valid_from:string|null;valid_to:string|null}): Promise<unknown> => json(`${K}/assertions/${encodeURIComponent(id)}/corrections`, {method:'POST',json:{expected_version:version,reason,replacement}});
+export const knowledgeAssertion = (id:string, scope:LibScope): Promise<import('../features/knowledge/types').Assertion> => json(`${K}/assertions/${encodeURIComponent(id)}`,{query:{scope}});
