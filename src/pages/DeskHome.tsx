@@ -4,6 +4,7 @@ import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/rea
 import { createRun, ensureDesk, listRuns, searchTasks, taskTree } from "../api/client";
 import type { AccountPool, TaskNode, UUID } from "../api/types";
 import { PageHeader } from "../shell/PageHeader";
+import { NotificationLink } from "../shell/NotificationLink";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/toastStore";
@@ -37,7 +38,7 @@ export function DeskHome({ pool }: { pool: AccountPool }) {
   if (desk.isSuccess) return <Home key={desk.data.id} pool={pool} deskId={desk.data.id} />;
   return (
     <div className="tk-screen">
-      <PageHeader title="따까리" actions={<PoolSwitch pool={pool} />} />
+      <PageHeader title="따까리" actions={<><PoolSwitch pool={pool} /><NotificationLink /></>} />
       <div className="tk-screen__body">
         {desk.isError ? (
           <div className="tk-empty">
@@ -203,6 +204,7 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
                 <Icon name="chat" />
               </Link>
             )}
+            <NotificationLink />
           </>
         }
       />
