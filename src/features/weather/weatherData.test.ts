@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { daypartRows, sevenDayRows } from "./weatherData";
+import { daypartRows, isInProgress, isNotFound, parseDayParam, sevenDayRows, shiftDay, statusLabel } from "./weatherData";
+
+describe("briefing day navigation helpers", () => {
+  it("accepts only real calendar dates from the URL", () => {
+    expect(parseDayParam("2026-10-16")).toBe("2026-10-16");
+    expect(parseDayParam("2028-02-29")).toBe("2028-02-29");
+    for (const bad of [null, "", "2026-2-3", "2026-02-30", "2026-13-01", "20261016", "2026-10-16T00:00"]) expect(parseDayParam(bad)).toBeNull();
+  });
+
+  it("shifts across month and year boundaries", () => {
+    expect(shiftDay("2026-10-01", -1)).toBe("2026-09-30");
+    expect(shiftDay("2026-12-31", 1)).toBe("2027-01-01");
+    expect(shiftDay("2028-03-01", -1)).toBe("2028-02-29");
+  });
+
+  it("labels statuses and detects in-progress and 404", () => {
+    expect([statusLabel("ready"), statusLabel("degraded"), statusLabel("failed"), statusLabel("generating")]).toEqual(["완료", "간이", "실패", "진행 중"]);
+    expect([isInProgress("collecting"), isInProgress("starting"), isInProgress("generating"), isInProgress("ready"), isInProgress(undefined)]).toEqual([true, true, true, false, false]);
+    expect(isNotFound({ status: 404 })).toBe(true);
+    expect(isNotFound({ status: 500 })).toBe(false);
+    expect(isNotFound(new Error("x"))).toBe(false);
+  });
+});
 
 describe("weather chart projections", () => {
   it("selects the selected KST date and groups hours as morning, afternoon and evening", () => {

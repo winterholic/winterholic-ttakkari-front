@@ -1,26 +1,28 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { useSearchParams } from "react-router";
 import { generateWeatherBriefing, getWeatherBriefing, listWeatherBriefings } from "../api/client";
 import type { WeatherBriefing, WeatherHour, WeatherLocation } from "../api/weatherTypes";
-import { daypartRows, sevenDayRows, weatherLabel } from "../features/weather/weatherData";
+import { daypartRows, isInProgress, isNotFound, parseDayParam, sevenDayRows, shiftDay, statusLabel, weatherLabel } from "../features/weather/weatherData";
 import { useForegroundResync } from "../hooks/useForegroundResync";
 import { PageHeader } from "../shell/PageHeader";
-import { Button } from "../ui/Button";
+import { Button, IconButton } from "../ui/Button";
+import { EngineBadge } from "../ui/EngineBadge";
 import { Icon } from "../ui/Icon";
 import { toast } from "../ui/toastStore";
 import "./weather.css";
 
+const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" });
+// 올해가 아닌 날짜는 연도를 붙여 지난해 브리핑과 헷갈리지 않게 한다.
 const dayLabel = (day: string) => new Intl.DateTimeFormat("ko-KR", {
-  month: "long", day: "numeric", weekday: "long",
+  ...(day.slice(0, 4) === KST_DATE.format(new Date()).slice(0, 4) ? {} : { year: "numeric" as const }),
+  month: "long", day: "numeric", weekday: "long", timeZone: "Asia/Seoul",
 }).format(new Date(`${day}T12:00:00+09:00`));
 const timeLabel = (value: string | null) => value
   ? new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(new Date(`${value}:00+09:00`))
   : "자료 없음";
 const number = (value: number | null, unit: string) => value === null ? "자료 없음" : `${Number.isInteger(value) ? value : value.toFixed(1)}${unit}`;
-const KST_DATE = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" });
 
-function TemperatureChart({ rows }: { rows: WeatherHour[] }) {
+function TemperatureChart({ rows, when }: { rows: WeatherHour[]; when: string }) {
   const valid = rows.flatMap((row, index) => row.temperature_c === null ? [] : [{ row, index }]);
   if (!valid.length) return <p className="weather-muted">시간별 기온 자료가 없습니다.</p>;
   const values = valid.map(({ row }) => row.temperature_c!);
@@ -35,7 +37,7 @@ function TemperatureChart({ rows }: { rows: WeatherHour[] }) {
   }, "").trim();
   return (
     <div className="weather-chart-wrap">
-      <svg className="weather-temp-chart" viewBox="0 0 700 150" role="img" aria-label="수원 오늘 시간별 기온 그래프">
+      <svg className="weather-temp-chart" viewBox="0 0 700 150" role="img" aria-label={`수원 ${when} 시간별 기온 그래프`}>
         {[0, 1, 2].map(i => <line key={i} x1="24" x2="676" y1={32 + i * 43} y2={32 + i * 43} className="weather-chart-grid" />)}
         <path d={path} className="weather-chart-line" />
         {valid.map(({ row, index }) => <circle key={row.time} cx={x(index)} cy={y(row.temperature_c!)} r="3.5" className="weather-chart-point">
@@ -108,17 +110,18 @@ function Commute({ suwon, seoul, day }: { suwon?: WeatherLocation; seoul?: Weath
   </div>;
 }
 
-function BriefingView({ item }: { item: WeatherBriefing }) {
+function BriefingView({ item, isToday }: { item: WeatherBriefing; isToday: boolean }) {
   const forecast = item.forecast;
   if (!forecast) return null;
   const suwon = forecast.suwon, seoul = forecast.seoul;
   const current = suwon?.current;
   const unknownCount = Object.values(forecast).reduce((sum, place) => sum + place.missing_fields.length, 0);
   const hourlyToday = suwon?.hourly.filter(row => row.time.startsWith(item.day)) ?? [];
+  const when = isToday ? "오늘" : "이날";
   return <>
     {item.briefing && <section className="weather-summary" aria-labelledby="weather-summary-title">
-      <div className="weather-summary__heading"><Icon name="sun" /><span>오늘의 한눈에 보기</span></div>
-      <h2 id="weather-summary-title" className="sr-only">오늘의 한눈에 보기</h2>
+      <div className="weather-summary__heading"><Icon name="sun" /><span>{when}의 한눈에 보기</span></div>
+      <h2 id="weather-summary-title" className="sr-only">{when}의 한눈에 보기</h2>
       <ul>{item.briefing.summary.map((line, i) => <li key={i}>{line}</li>)}</ul>
       <div className="weather-advice-grid">
         <article className="weather-advice weather-advice--rain"><span>우산</span><p>{item.briefing.umbrella}</p></article>
@@ -127,7 +130,7 @@ function BriefingView({ item }: { item: WeatherBriefing }) {
     </section>}
 
     {suwon && <section className="tk-section" aria-labelledby="weather-now-title">
-      <div className="tk-section__head"><h2 id="weather-now-title" className="tk-section__title">수원 현재 날씨</h2><span className="weather-condition">{weatherLabel(current!.weather_code)}</span></div>
+      <div className="tk-section__head"><h2 id="weather-now-title" className="tk-section__title">{isToday ? "수원 현재 날씨" : "수원 브리핑 당시 날씨"}</h2><span className="weather-condition">{weatherLabel(current!.weather_code)}</span></div>
       <div className="weather-current">
         <div className="weather-current__main"><strong>{number(current!.temperature_c, "°")}</strong><span>체감 {number(current!.apparent_temperature_c, "°")}</span></div>
         <dl>
@@ -140,8 +143,8 @@ function BriefingView({ item }: { item: WeatherBriefing }) {
     {!suwon && <p className="tk-status tk-status--warning" role="status">수원 예보를 수집하지 못했습니다. 서울 예보가 있다면 그 자료만 표시합니다.</p>}
 
     {suwon && <section className="tk-section" aria-labelledby="weather-hourly-title">
-      <div className="tk-section__head"><h2 id="weather-hourly-title" className="tk-section__title">오늘 시간별 변화</h2><span className="weather-subtitle">수원 · 기온 / 시간별 강수확률</span></div>
-      <TemperatureChart rows={hourlyToday} />
+      <div className="tk-section__head"><h2 id="weather-hourly-title" className="tk-section__title">{when} 시간별 변화</h2><span className="weather-subtitle">수원 · 기온 / 시간별 강수확률</span></div>
+      <TemperatureChart rows={hourlyToday} when={when} />
       <DaypartChart rows={suwon.hourly} day={item.day} />
       <div className="weather-hour-grid" aria-label="시간별 강수량과 확률">
         {hourlyToday.filter(row => Number(row.time.slice(11, 13)) % 3 === 0).map(row => <div key={row.time}>
@@ -172,6 +175,7 @@ function BriefingView({ item }: { item: WeatherBriefing }) {
       {unknownCount > 0 && <span className="weather-source__missing">일부 항목 {unknownCount}개 자료 없음</span>}
       <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Weather data by Open-Meteo.com · CC BY 4.0</a>
       {item.analysis_status !== "succeeded" && <span className="weather-source__degraded">분석 {item.analysis_status ?? "대기"} · 표시 내용은 확인 가능한 예보 데이터 기반</span>}
+      {item.analysis_engine && <span className="weather-source__engine">분석 엔진 <EngineBadge engine={item.analysis_engine} />{item.analysis_model && <small>{item.analysis_model}</small>}</span>}
       {item.push_error && <span className="weather-source__missing">알림 전송 실패 · 다시 시도할 수 있습니다.</span>}
     </footer>
   </>;
@@ -179,49 +183,72 @@ function BriefingView({ item }: { item: WeatherBriefing }) {
 
 export function WeatherPage() {
   const [params, setParams] = useSearchParams();
-  const [selectedDay, setSelectedDay] = useState(params.get("date") ?? "");
   const qc = useQueryClient();
-  const history = useQuery({ queryKey: ["weather", "history"], queryFn: () => listWeatherBriefings(30), refetchInterval: 30_000 });
-  const activeDay = selectedDay || history.data?.[0]?.day || "";
-  const detail = useQuery({ queryKey: ["weather", activeDay], queryFn: () => getWeatherBriefing(activeDay), enabled: Boolean(activeDay), refetchInterval: query => ["collecting", "starting", "generating"].includes(query.state.data?.status ?? "") ? 5000 : false });
+  const today = KST_DATE.format(new Date());
+  // 주소의 date가 화면 상태의 유일한 출처다. 알림 링크(/weather?date=)와 새로고침이 같은 화면을 복원한다.
+  const rawDate = params.get("date");
+  const requestedDay = parseDayParam(rawDate);
+  const badDate = rawDate !== null && requestedDay === null;
+  const activeDay = requestedDay ?? today;
+  const isToday = activeDay === today;
+  const selectDay = (day: string) => setParams({ date: day }, { replace: true });
+
+  const history = useQuery({ queryKey: ["weather", "history"], queryFn: () => listWeatherBriefings(30) });
+  const detail = useQuery({ queryKey: ["weather", "day", activeDay], queryFn: () => getWeatherBriefing(activeDay), refetchInterval: query => isInProgress(query.state.data?.status) ? 5000 : false });
   const generate = useMutation({
     mutationFn: generateWeatherBriefing,
-    onSuccess: item => { setSelectedDay(item.day); setParams({ date: item.day }, { replace: true }); void qc.invalidateQueries({ queryKey: ["weather"] }); },
+    onSuccess: item => { selectDay(item.day); void qc.invalidateQueries({ queryKey: ["weather"] }); },
     onError: () => toast({ message: "날씨 브리핑을 요청하지 못했어요. 잠시 후 다시 시도해 주세요.", tone: "danger" }),
   });
+  // 서버의 생성 API는 항상 "오늘" 행을 만든다. 지난 날짜 화면에서는 이 경로가 열리지 않게 막는다.
+  const requestToday = () => { if (isToday) generate.mutate(); };
   useForegroundResync(() => { void qc.invalidateQueries({ queryKey: ["weather"] }); });
-  const today = KST_DATE.format(new Date());
   const active = detail.data;
-  const busy = generate.isPending || Boolean(active && ["collecting", "starting", "generating"].includes(active.status));
+  const missing = detail.isError && isNotFound(detail.error);
+  const latestOther = history.data?.find(item => item.day !== activeDay);
+  const busy = generate.isPending || isInProgress(active?.status);
   return <div className="tk-screen weather-page">
     <PageHeader title="날씨 브리핑" />
     <div className="tk-screen__body"><div className="tk-container tk-container--md weather-page__container">
       <header className="weather-heading">
-        <div><p className="weather-eyebrow">매일 오전 6:30 · Asia/Seoul</p><h1>{active ? dayLabel(active.day) : "수원과 서울의 오늘"}</h1>
-          <p>수원을 중심으로 서울 출퇴근과 한 주 예보를 살펴봅니다.</p></div>
-        <Button variant="primary" busy={busy} onClick={() => generate.mutate()}><Icon name="retry" />{busy ? "브리핑 준비 중" : active?.day === today ? "오늘 브리핑 다시 확인" : "오늘 브리핑 만들기"}</Button>
+        <div><p className="weather-eyebrow">매일 오전 6:30 · Asia/Seoul</p><h1>{dayLabel(activeDay)}</h1>
+          <p>{isToday ? "수원을 중심으로 서울 출퇴근과 한 주 예보를 살펴봅니다." : "지난 날짜에 만들어진 브리핑을 보고 있어요."}</p></div>
+        {isToday
+          ? <Button variant="primary" busy={busy} onClick={requestToday}><Icon name="retry" />{busy ? "브리핑 준비 중" : active ? "오늘 브리핑 다시 확인" : "오늘 브리핑 만들기"}</Button>
+          : <Button variant="primary" onClick={() => selectDay(today)}>오늘 브리핑으로</Button>}
       </header>
 
-      {history.isPending && <p className="tk-status" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />날씨 기록을 불러오는 중</p>}
-      {history.isError && <div className="weather-state" role="alert"><strong>기록을 불러오지 못했어요.</strong><Button variant="ghost" onClick={() => void history.refetch()}>다시 시도</Button></div>}
+      <div className="weather-daynav" role="group" aria-label="브리핑 날짜 이동">
+        <IconButton aria-label="이전 날짜" onClick={() => selectDay(shiftDay(activeDay, -1))}><Icon name="chevron-left" /></IconButton>
+        <input className="tk-input" aria-label="브리핑 날짜" type="date" value={activeDay} max={today} onChange={e => { const next = parseDayParam(e.target.value); if (next) selectDay(next); }} />
+        <IconButton aria-label="다음 날짜" disabled={activeDay >= today} onClick={() => selectDay(shiftDay(activeDay, 1))}><Icon name="chevron-right" /></IconButton>
+        <Button disabled={isToday} onClick={() => selectDay(today)}>오늘</Button>
+      </div>
+      {badDate && <p className="tk-status tk-status--warning" role="status">주소의 날짜({rawDate})를 읽을 수 없어 오늘 브리핑을 보여드려요.</p>}
+
+      {history.isError && <div className="weather-state" role="alert"><strong>지난 브리핑 목록을 불러오지 못했어요.</strong><Button variant="ghost" onClick={() => void history.refetch()}>다시 시도</Button></div>}
       {history.data && history.data.length > 0 && <nav className="weather-history" aria-label="지난 날씨 브리핑">
         <span>브리핑 이력</span>{history.data.map(item => <button key={item.id} type="button" aria-current={item.day === activeDay ? "date" : undefined}
-          onClick={() => { setSelectedDay(item.day); setParams({ date: item.day }, { replace: true }); }}>
-          {dayLabel(item.day)} <small>{item.status === "ready" ? "완료" : item.status === "degraded" ? "데이터 기반" : item.status === "failed" ? "실패" : "진행 중"}</small>
+          onClick={() => selectDay(item.day)}>
+          {dayLabel(item.day)} <small>{statusLabel(item.status)}</small>
         </button>)}
       </nav>}
 
-      {!activeDay && !history.isPending && !history.isError && <div className="weather-state weather-state--empty">
-        <Icon name="sun" /><strong>아직 날씨 브리핑이 없어요.</strong><p>오늘 예보를 수집해 첫 브리핑을 만들어 보세요.</p>
-        <Button variant="primary" busy={generate.isPending} onClick={() => generate.mutate()}>지금 만들기</Button>
+      {detail.isPending && <p className="tk-status" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />브리핑을 불러오는 중</p>}
+      {missing && <div className="weather-state weather-state--empty" role="status">
+        <Icon name="sun" /><strong>{isToday ? "아직 오늘 날씨 브리핑이 없어요." : "이 날짜에는 만들어진 브리핑이 없어요."}</strong>
+        {isToday
+          ? <><p>오늘 예보를 수집해 브리핑을 만들어 보세요.</p><Button variant="primary" busy={generate.isPending} onClick={requestToday}>지금 만들기</Button></>
+          : <p>브리핑은 매일 아침 자동으로 만들어지며, 지난 날짜는 새로 만들 수 없어요.</p>}
+        {latestOther && <Button variant="ghost" onClick={() => selectDay(latestOther.day)}>가장 최근 브리핑 보기 · {dayLabel(latestOther.day)}</Button>}
       </div>}
-      {detail.isPending && activeDay && <p className="tk-status" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />브리핑을 불러오는 중</p>}
-      {detail.isError && <div className="weather-state" role="alert"><strong>선택한 날짜의 브리핑을 불러오지 못했어요.</strong><Button variant="ghost" onClick={() => void detail.refetch()}>다시 시도</Button></div>}
+      {detail.isError && !missing && <div className="weather-state" role="alert"><strong>선택한 날짜의 브리핑을 불러오지 못했어요.</strong><Button variant="ghost" onClick={() => void detail.refetch()}>다시 시도</Button></div>}
       {active && <>
-        {active.status === "failed" && <div className="weather-state weather-state--error" role="alert"><strong>날씨 데이터를 가져오지 못했어요.</strong><p>{active.failure ?? "잠시 후 다시 시도해 주세요."}</p>
-          <Button variant="ghost" busy={generate.isPending} onClick={() => generate.mutate()}>다시 시도</Button></div>}
-        {["collecting", "starting", "generating"].includes(active.status) && <p className="tk-status tk-status--agent" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />{active.status === "generating" ? "Luna가 예보를 정리하고 있어요." : "두 지역의 예보를 모으고 있어요."}</p>}
-        {active.forecast && <BriefingView item={active} />}
+        {active.status === "failed" && <div className="weather-state weather-state--error" role="alert"><strong>날씨 데이터를 가져오지 못했어요.</strong><p>{active.failure ?? (isToday ? "잠시 후 다시 시도해 주세요." : "이 날짜의 브리핑은 실패로 끝났어요.")}</p>
+          {isToday && <Button variant="ghost" busy={generate.isPending} onClick={requestToday}>다시 시도</Button>}</div>}
+        {active.status === "degraded" && <p className="tk-status tk-status--warning" role="status">간이 브리핑 · AI 분석을 마치지 못해 예보 데이터만으로 정리했어요.</p>}
+        {isInProgress(active.status) && <p className="tk-status tk-status--agent" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />{active.status === "generating" ? "예보를 분석해 브리핑을 정리하고 있어요." : "두 지역의 예보를 모으고 있어요."}</p>}
+        {active.forecast && <BriefingView item={active} isToday={isToday} />}
       </>}
     </div></div>
   </div>;

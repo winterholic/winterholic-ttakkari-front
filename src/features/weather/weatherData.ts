@@ -35,6 +35,35 @@ export function sevenDayRows(rows: Pick<WeatherDay, "date" | "temperature_min_c"
   });
 }
 
+const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** `?date=` 값이 실제 달력 날짜일 때만 돌려준다. 형식만 맞고 존재하지 않는 날(2026-02-30)도 걸러낸다. */
+export function parseDayParam(value: string | null): string | null {
+  if (!value || !DAY_RE.test(value)) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : value;
+}
+
+export function shiftDay(day: string, delta: number): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + delta);
+  return date.toISOString().slice(0, 10);
+}
+
+const IN_PROGRESS = ["collecting", "starting", "generating"];
+export const isInProgress = (status: string | undefined): boolean => status !== undefined && IN_PROGRESS.includes(status);
+
+export function statusLabel(status: string): string {
+  if (status === "ready") return "완료";
+  if (status === "degraded") return "간이";
+  if (status === "failed") return "실패";
+  return "진행 중";
+}
+
+/** 선택한 날짜에 브리핑 행이 없으면 백엔드가 404를 준다. 다른 오류와 구분한다. */
+export const isNotFound = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && (error as { status?: unknown }).status === 404;
+
 export function weatherLabel(code: number | null): string {
   if (code === null) return "상태 자료 없음";
   if (code === 0) return "맑음";

@@ -57,6 +57,8 @@ export interface WeatherBriefing {
   source_errors: Record<string, string> | null;
   briefing: WeatherBriefingContent | null;
   analysis_status: string | null;
+  analysis_engine: string | null;
+  analysis_model: string | null;
   failure: string | null;
   scheduled_at: string | null;
   generated_at: string | null;
