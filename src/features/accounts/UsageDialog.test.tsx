@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router";
 import type { AccountUsage } from "../../api/client";
 import { UsageDialog } from "./UsageDialog";
 
-const api = vi.hoisted(() => ({ accountUsage: vi.fn() }));
+const api = vi.hoisted(() => ({ accountUsage: vi.fn(), qwenUsage: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
 const account: AccountUsage = {
@@ -24,6 +24,12 @@ beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
   api.accountUsage.mockResolvedValue([account]);
+  api.qwenUsage.mockResolvedValue({
+    model: "Qwen3.5-4B Q4_K_M", timezone: "Asia/Seoul", collection_started_at: "2026-10-16T00:00:00+00:00",
+    server: { enabled: true, status: "running", detail: null },
+    today: { starts_at: "2026-10-15T15:00:00+00:00", ends_at: "2026-10-16T00:30:00+00:00", calls: 4, metered_calls: 4, usage_missing_calls: 0, failed_calls: 0, unmetered_calls: 0, input_tokens: 1234, output_tokens: 321, total_tokens: 1555, last_used_at: "2026-10-16T00:25:00+00:00" },
+    week: { starts_at: "2026-10-11T15:00:00+00:00", ends_at: "2026-10-16T00:30:00+00:00", calls: 9, metered_calls: 8, usage_missing_calls: 1, failed_calls: 0, unmetered_calls: 1, input_tokens: 2000, output_tokens: 500, total_tokens: 2500, last_used_at: "2026-10-16T00:25:00+00:00" },
+  });
 });
 afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
@@ -52,5 +58,54 @@ describe("UsageDialog Antigravity quota", () => {
     renderUsage({ ...account, windows: [], credits_balance: null, error: "Antigravity CLI 조회 실패" });
     expect(await screen.findByText("조회 실패")).toBeTruthy();
     expect(screen.getByText(/AI 크레딧 잔액: 조회 실패/)).toBeTruthy();
+  });
+});
+
+describe("UsageDialog Qwen token usage", () => {
+  it("운영 접수 토큰의 일간·주간 입력/출력/합계와 미계측 수를 보여 준다", async () => {
+    renderUsage();
+    expect(await screen.findByText("Qwen 로컬 모델")).toBeTruthy();
+    expect(await screen.findByText("1,234")).toBeTruthy();
+    expect(screen.getByText("321")).toBeTruthy();
+    expect(screen.getByText("1,555")).toBeTruthy();
+    expect(screen.getByText(/토큰 누락 오늘 0회 \/ 실패 0회 · 이번 주 누락 1회 \/ 실패 0회/)).toBeTruthy();
+    expect(screen.getByText(/이번 주 월요일 00:00부터 KST/)).toBeTruthy();
+  });
+
+  it("미수집 상태는 0 사용량으로 꾸미지 않는다", async () => {
+    api.qwenUsage.mockResolvedValueOnce({
+      model: "Qwen3.5-4B Q4_K_M", timezone: "Asia/Seoul", collection_started_at: null,
+      server: { enabled: true, status: "not_started", detail: null },
+      today: { starts_at: "2026-10-15T15:00:00+00:00", ends_at: "2026-10-16T00:30:00+00:00", calls: 0, metered_calls: 0, usage_missing_calls: 0, failed_calls: 0, unmetered_calls: 0, input_tokens: 0, output_tokens: 0, total_tokens: 0, last_used_at: null },
+      week: { starts_at: "2026-10-11T15:00:00+00:00", ends_at: "2026-10-16T00:30:00+00:00", calls: 0, metered_calls: 0, usage_missing_calls: 0, failed_calls: 0, unmetered_calls: 0, input_tokens: 0, output_tokens: 0, total_tokens: 0, last_used_at: null },
+    });
+    renderUsage();
+    expect(await screen.findAllByText("—")).toHaveLength(6);
+    expect(screen.getByText("이력 없음 · 토큰 수집 시작 후부터 집계돼요.")).toBeTruthy();
+  });
+
+  it("Qwen 접수가 중지된 상태를 토큰 0회와 구분해 보여 준다", async () => {
+    api.qwenUsage.mockResolvedValueOnce({
+      model: "Qwen3.5-4B Q4_K_M", timezone: "Asia/Seoul", collection_started_at: null,
+      server: { enabled: false, status: "disabled", detail: null }, today: {}, week: {},
+    });
+    renderUsage();
+    expect(await screen.findByText("사용 중지")).toBeTruthy();
+    expect(screen.getByText("Qwen 접수가 사용 중지되어 있어요.")).toBeTruthy();
+    expect(screen.queryByText("0회 호출")).toBeNull();
+  });
+
+  it("Qwen usage API 오류는 오류 상태로 표시한다", async () => {
+    api.qwenUsage.mockRejectedValueOnce(new Error("usage API unavailable"));
+    renderUsage();
+    expect(await screen.findByRole("alert")).toBeTruthy();
+  });
+
+  it("usage 가 없는 호출만 있으면 토큰을 0으로 표시하지 않는다", async () => {
+    const period = { starts_at: "2026-10-15T15:00:00+00:00", ends_at: "2026-10-16T00:30:00+00:00", calls: 1, metered_calls: 0, usage_missing_calls: 1, failed_calls: 0, unmetered_calls: 1, input_tokens: 0, output_tokens: 0, total_tokens: 0, last_used_at: "2026-10-16T00:25:00+00:00" };
+    api.qwenUsage.mockResolvedValueOnce({ model: "Qwen3.5-4B Q4_K_M", timezone: "Asia/Seoul", collection_started_at: "2026-10-16T00:25:00+00:00", server: { enabled: true, status: "running", detail: null }, today: period, week: period });
+    renderUsage();
+    expect(await screen.findAllByText("—")).toHaveLength(6);
+    expect(screen.getAllByText(/1회 호출 · 마지막 호출/)).toHaveLength(2);
   });
 });

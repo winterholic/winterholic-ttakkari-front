@@ -833,12 +833,34 @@ export interface AccountUsage {
   error: string | null;
   updated_at: number | null;
 }
+export interface QwenUsagePeriod {
+  starts_at: string;
+  ends_at: string;
+  calls: number;
+  metered_calls: number;
+  usage_missing_calls: number;
+  failed_calls: number;
+  unmetered_calls: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  last_used_at: string | null;
+}
+export interface QwenUsageSummary {
+  model: string;
+  timezone: "Asia/Seoul";
+  collection_started_at: string | null;
+  server: { enabled: boolean; status: string; detail: string | null };
+  today: QwenUsagePeriod;
+  week: QwenUsagePeriod;
+}
 export const getOverride = (pool: AccountPool = "personal"): Promise<OverrideOut> => json("/api/accounts/override", { query: { pool } });
 export const putOverride = (ids: string[], until: string, pool: AccountPool = "personal"): Promise<OverrideOut> =>
   json("/api/accounts/override", { method: "PUT", json: { ids, until }, query: { pool } });
 export const deleteOverride = (pool: AccountPool = "personal"): Promise<void> =>
   json("/api/accounts/override", { method: "DELETE", query: { pool } });
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });
+export const qwenUsage = (): Promise<QwenUsageSummary> => json("/api/accounts/qwen-usage");
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });
 

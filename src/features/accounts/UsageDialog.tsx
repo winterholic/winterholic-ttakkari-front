@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import type React from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { accountUsage, codexReset } from "../../api/client";
-import type { AccountUsage, UsageWindow } from "../../api/client";
+import { accountUsage, codexReset, qwenUsage } from "../../api/client";
+import type { AccountUsage, QwenUsagePeriod, UsageWindow } from "../../api/client";
 import type { AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
@@ -67,6 +67,12 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     enabled: open,
     refetchInterval: open ? 120_000 : false,
   });
+  const qwen = useQuery({
+    queryKey: ["accounts", "qwen-usage"],
+    queryFn: qwenUsage,
+    enabled: open,
+    refetchInterval: open ? 120_000 : false,
+  });
   // 남은 시간 글자를 1분마다 다시 그린다.
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -96,6 +102,32 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
   return (
     <Dialog size="lg" open={open} onClose={onClose} title="사용량" id="account-usage">
       <div className="usage">
+        <section className="usage-card qwen-usage" aria-label="Qwen 로컬 모델 토큰 사용량">
+          <div className="usage-card__head">
+            <span className="usage-card__title">
+              <span className="usage-card__name">Qwen 로컬 모델</span>
+              <span className="usage-card__sub">실제 llama.cpp 응답 토큰 · 운영 접수만</span>
+            </span>
+            {qwen.data?.server.enabled === false && <span className="tk-badge">사용 중지</span>}
+            {qwen.data?.server.enabled && qwen.data.server.status === "not_started" && <span className="tk-badge">요청 시 기동</span>}
+            {qwen.data?.server.enabled && ["unavailable", "starting"].includes(qwen.data.server.status) && <span className="tk-badge tk-badge--warning">{qwen.data.server.status === "starting" ? "시작 중" : "서버 확인 필요"}</span>}
+          </div>
+          {qwen.isPending && <p className="usage__note">Qwen 사용량을 불러오는 중이에요.</p>}
+          {qwen.isError && <p className="tk-error" role="alert">{errorText(qwen.error).message}</p>}
+          {qwen.data?.server.enabled === false && <p className="usage__note">Qwen 접수가 사용 중지되어 있어요.</p>}
+          {qwen.data && qwen.data.server.enabled && <>
+            <div className="qwen-usage__periods">
+              <QwenPeriod title="오늘" period={qwen.data.today} now={now} hasHistory={Boolean(qwen.data.collection_started_at)} />
+              <QwenPeriod title="이번 주" period={qwen.data.week} now={now} hasHistory={Boolean(qwen.data.collection_started_at)} />
+            </div>
+            <p className="usage-card__foot">
+              {qwen.data.collection_started_at
+              ? `오늘 00:00부터 · 이번 주 월요일 00:00부터 KST · 수집 시작 ${new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(qwen.data.collection_started_at))} KST · 토큰 누락 오늘 ${qwen.data.today.usage_missing_calls}회 / 실패 ${qwen.data.today.failed_calls}회 · 이번 주 누락 ${qwen.data.week.usage_missing_calls}회 / 실패 ${qwen.data.week.failed_calls}회`
+                : "이력 없음 · 토큰 수집 시작 후부터 집계돼요."}
+            </p>
+            {qwen.data.server.detail && <p className="usage__note">서버 상태: {qwen.data.server.detail}</p>}
+          </>}
+        </section>
         <div className="usage__bar">
           <p className="usage__meta">
             {q.isFetching ? "불러오는 중" : q.dataUpdatedAt ? `${ago(Math.round(q.dataUpdatedAt / 1000), now)} 갱신 · 켜진 계정 개인 ${onCount}개${workOnCount || groups.length > 1 ? ` · 회사 ${workOnCount}개` : ""}` : ""}
@@ -104,8 +136,12 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
             className="tk-icon-button tk-icon-button--sm"
             type="button"
             aria-label="새로 고침"
-            aria-busy={q.isFetching || undefined}
-            onClick={() => (refresh ? void q.refetch() : setRefresh(true))}
+            aria-busy={q.isFetching || qwen.isFetching || undefined}
+            onClick={() => {
+              if (refresh) void q.refetch();
+              else setRefresh(true);
+              void qwen.refetch();
+            }}
           >
             <Icon name="retry" />
           </button>
@@ -183,6 +219,22 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
       </div>
     </Dialog>
   );
+}
+
+function QwenPeriod({ title, period, now, hasHistory }: { title: string; period: QwenUsagePeriod; now: number; hasHistory: boolean }) {
+  const fmt = new Intl.NumberFormat("ko-KR");
+  const range = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const last = period.last_used_at ? `마지막 호출 ${ago(Date.parse(period.last_used_at) / 1000, now)}` : "호출 없음";
+  const showTokens = hasHistory && (period.calls === 0 || period.metered_calls > 0);
+  return <div className="qwen-usage__period">
+    <div className="qwen-usage__heading"><strong>{title}</strong><span>{range.format(new Date(period.starts_at))}–현재 KST</span></div>
+    <div className="qwen-usage__numbers">
+      <span><b>{showTokens ? fmt.format(period.input_tokens) : "—"}</b> 입력</span>
+      <span><b>{showTokens ? fmt.format(period.output_tokens) : "—"}</b> 출력</span>
+      <span><b>{showTokens ? fmt.format(period.total_tokens) : "—"}</b> 합계</span>
+    </div>
+    <p className="usage__note">{hasHistory ? `${fmt.format(period.calls)}회 호출 · ${last}` : "아직 수집한 사용량이 없어요."}</p>
+  </div>;
 }
 
 function WindowRow({ w, now, remaining = false }: { w: UsageWindow; now: number; remaining?: boolean }) {
