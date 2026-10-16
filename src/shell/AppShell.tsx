@@ -69,7 +69,8 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
           { label: "비서 관리", icon: "tip", onSelect: () => navigate("/assistant") },
           { label: "계정 관리", icon: "key", onSelect: () => navigate("/settings#accounts") },
           { label: "설정", icon: "settings", onSelect: () => navigate("/settings") },
-          { label: "알림", icon: "important", onSelect: () => setPushOpen(true) },
+          { label: "알림", icon: "important", onSelect: () => navigate("/notifications") },
+          { label: "푸시 알림 설정", icon: "settings", onSelect: () => setPushOpen(true) },
           { label: "다크 모드", icon: "moon", checked: isDark, onSelect: toggle },
           { label: "로그아웃", icon: "logout", onSelect: () => void out(), separatorBefore: true },
         ]}

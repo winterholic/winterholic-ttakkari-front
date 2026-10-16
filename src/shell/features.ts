@@ -21,6 +21,7 @@ export interface Feature {
  * 새 기능은 라우트를 만들고 여기에 항목 하나만 넣으면 양쪽에 같이 나타난다. 순서도 이 순서다.
  */
 export const FEATURES: readonly Feature[] = [
+  { root: "notifications", to: "/notifications", icon: "important", label: "알림", description: "따까리·작업·일정의 알림을 유형별로" },
   // 작업 공간은 마지막 세션이 아니라 개요로 보낸다. 맥락 없이 특정 세션이 뜨면 무슨 화면인지 알 수 없었다.
   { root: "workspace", to: "/workspace", icon: "workspace", label: "작업 공간", description: "세션별 결과물을 보며 이어서 지시" },
   { root: "library", to: "/library", icon: "library", label: "보관함", description: "모든 결과물을 날짜별로" },

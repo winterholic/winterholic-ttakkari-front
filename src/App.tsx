@@ -13,6 +13,7 @@ import { MeetingsPage } from "./pages/MeetingsPage";
 import { MemosPage } from "./pages/MemosPage";
 import { ChecklistsPage } from "./pages/ChecklistsPage";
 import { MorePage } from "./pages/MorePage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { ResourcesPage } from "./pages/ResourcesPage";
 import { TasksPage } from "./pages/TasksPage";
 import { FailedTasksPage } from "./pages/FailedTasksPage";
@@ -69,6 +70,7 @@ export function App() {
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/assistant" element={<AssistantPage />} />
         <Route path="/more" element={<MorePage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/meetings" element={<MeetingsPage />} />
         <Route path="/meetings/new" element={<MeetingNewPage />} />

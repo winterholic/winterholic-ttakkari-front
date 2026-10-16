@@ -188,6 +188,15 @@ async function json<T>(path: string, o: ReqOpts = {}): Promise<T> {
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
+// ---- notifications
+import type { NotificationListParams, NotificationOut, NotificationPage, NotificationCategory } from "./notificationTypes";
+export const listNotifications = (params: NotificationListParams = {}): Promise<NotificationPage> =>
+  json("/api/notifications", { query: { ...params } });
+export const readNotification = (id: number): Promise<NotificationOut> =>
+  json(`/api/notifications/${id}/read`, { method: "PATCH" });
+export const readAllNotifications = (body: { category?: NotificationCategory; through_id: number }): Promise<{ updated: number }> =>
+  json("/api/notifications/read-all", { method: "POST", json: body });
+
 // ---- auth
 export async function login(password: string): Promise<TokenOut> {
   const t = await json<TokenOut>("/api/auth/login", { method: "POST", json: { password }, noAuth: true });

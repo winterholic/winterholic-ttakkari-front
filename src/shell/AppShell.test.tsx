@@ -119,7 +119,7 @@ describe("AppShell 인증 가드", () => {
     within(nav).getByRole("button", { name: "부가 기능" }).click();
     const dialog = await screen.findByRole("dialog", { name: "부가 기능" });
     const links = within(dialog).getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/checklists", "/meetings", "/pms", "/wbs"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/notifications", "/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/checklists", "/meetings", "/pms", "/wbs"]);
     expect(links.filter((l) => l.getAttribute("aria-current") === "page").map((l) => l.getAttribute("href"))).toEqual(["/memos"]);
   });
 
@@ -152,6 +152,7 @@ describe("AppShell 인증 가드", () => {
     const more = await screen.findByRole("navigation", { name: "더보기 메뉴" });
     const links = within(more).getAllByRole("link");
     expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
+      ["알림", "/notifications"],
       ["작업 공간", "/workspace"],
       ["보관함", "/library"],
       ["맥락 도서관", "/context-library"],
