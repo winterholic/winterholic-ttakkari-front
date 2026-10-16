@@ -5,13 +5,53 @@
   "outputDirectory": "dist",
   "headers": [
     {
+      "source": "/share/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'sha256-IvmUnw8QY4fCwGD4DFUmMEdIMDbKu0Sr0ssiVzlxIw0='; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://*.winterholic.net; img-src 'self' data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'none'"
+        }
+      ]
+    },
+    {
       "source": "/sw.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
     },
     {
       "source": "/push-sw.js",
-      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
     }
   ],
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

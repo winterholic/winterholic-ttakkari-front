@@ -198,6 +198,29 @@ export const readAllNotifications = (body: { category?: NotificationCategory; th
   json("/api/notifications/read-all", { method: "POST", json: body });
 
 // ---- auth
+// 회의록 공유: 소유자 경로와 익명 capability 경로는 인증을 섞지 않는다.
+import type { ExportFormat, ExportPart, MeetingExportInput, OwnerShare, PublicMeetingShare, PublishShareInput, ShareInput, SharePreview } from "./sharingTypes";
+export const previewMeetingShare = (body: ShareInput): Promise<SharePreview> => json("/api/shares/preview", { method: "POST", json: body });
+export const listMeetingShares = (id: string): Promise<OwnerShare[]> => json("/api/shares", { query: { resource_type: "meeting", resource_id: id } });
+export const publishMeetingShare = (body: PublishShareInput): Promise<OwnerShare> => json("/api/shares", { method: "POST", json: body });
+export const republishMeetingShare = (id: string, body: PublishShareInput & { expected_publication_revision: number }): Promise<OwnerShare> => json(`/api/shares/${encodeURIComponent(id)}/publication`, { method: "PUT", json: body });
+export const revokeMeetingShare = (id: string): Promise<void> => json(`/api/shares/${encodeURIComponent(id)}`, { method: "DELETE" });
+export const exportMeetingDocument = async (body: MeetingExportInput): Promise<Blob> => (await raw("/api/exports", { method: "POST", json: body })).blob();
+
+/** owner token·cookie·refresh를 쓰지 않는다. 공개 본문은 영구 캐시에 두지 않는다. */
+async function publicShareRequest(id: string, capability: string, query?: string): Promise<Response> {
+  const res = await fetch(apiUrl(`/api/public/shares/${encodeURIComponent(id)}${query ?? ""}`), {
+    headers: { Authorization: `Bearer ${capability}` }, credentials: "omit", cache: "no-store", referrerPolicy: "no-referrer",
+  });
+  if (!res.ok) throw await toApiError(res);
+  return res;
+}
+export const getPublicMeetingShare = async (id: string, capability: string): Promise<PublicMeetingShare> => (await publicShareRequest(id, capability)).json();
+export const downloadPublicMeetingShare = async (id: string, capability: string, format: ExportFormat, part: ExportPart, revision: number): Promise<Blob> => {
+  const qs = new URLSearchParams({ format, part, revision: String(revision) });
+  return (await publicShareRequest(id, capability, `/download?${qs}`)).blob();
+};
+
 export async function login(password: string): Promise<TokenOut> {
   const t = await json<TokenOut>("/api/auth/login", { method: "POST", json: { password }, noAuth: true });
   accessToken = t.access_token;

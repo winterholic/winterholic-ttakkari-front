@@ -19,6 +19,7 @@ import { TasksPage } from "./pages/TasksPage";
 import { FailedTasksPage } from "./pages/FailedTasksPage";
 import { DeskHome } from "./pages/DeskHome";
 import { AppShell } from "./shell/AppShell";
+import { PublicMeetingPage } from "./pages/PublicMeetingPage";
 
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
@@ -44,6 +45,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/share/:shareId" element={<PublicMeetingPage />} />
       <Route element={<AppShell />}>
         {/* /chat·/work 는 맡긴 일의 계층 캔버스(ADR 0014), /thread 는 따까리 대화 전체 화면 */}
         <Route path="/chat" element={<DeskHome pool="personal" />} />

@@ -36,7 +36,7 @@ export default defineConfig({
         // xlsx 청크는 SheetView 와 WBS 내보내기가 같이 쓰는데, 내보낼 때만 받으면 되니 같이 뺀다.
         globIgnores: ["**/PdfView-*.js", "**/SheetView-*.js", "**/xlsx-*.js"],
         // API 는 인증·실시간 데이터라 서비스워커가 절대 캐시하지 않는다.
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/share\//],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/api/") || url.port === "8787",
