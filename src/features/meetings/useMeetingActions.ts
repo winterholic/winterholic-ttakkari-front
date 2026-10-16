@@ -3,7 +3,7 @@ import {
   analyzeMeeting, cancelMeetingAnalysis, patchMeeting, patchMeetingItem, putMeetingTranscript, requestMeetingTranscription,
   resolveMeetingProposal,
 } from "../../api/client";
-import type { MeetingDetail, MeetingItem } from "../../api/client";
+import type { MeetingDetail, MeetingItem, MeetingScope } from "../../api/client";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 
@@ -23,6 +23,18 @@ export function useMeetingActions(m: MeetingDetail) {
     localTranscribe: useMutation({ mutationFn: () => requestMeetingTranscription(m.id, "local_whisper"), onSuccess: put }),
     transcript: useMutation({ mutationFn: (v: { text: string; source: "paste" | "file" }) => putMeetingTranscript(m.id, v.text, v.source), onSuccess: put }),
     project: useMutation({ mutationFn: (projectId: string) => patchMeeting(m.id, { project_id: projectId || null }), onSuccess: put, onError: fail }),
+    scope: useMutation({
+      mutationFn: async (scope: MeetingScope) => {
+        const d = await patchMeeting(m.id, { scope });
+        if (d.scope !== scope) throw new Error("서버 업데이트 후 범위 변경을 사용할 수 있어요.");
+        return d;
+      },
+      onSuccess: (d) => {
+        put(d);
+        void qc.invalidateQueries({ queryKey: ["meetings", "shares", m.id] });
+        toast({ message: `${d.scope === "work" ? "회사" : "개인"} 회의록으로 옮겼어요.` });
+      },
+    }),
     item: useMutation({
       mutationFn: (v: { item: MeetingItem; status: "open" | "done" }) => patchMeetingItem(m.id, v.item.id, { status: v.status }),
       onSuccess: () => void qc.invalidateQueries({ queryKey: detailKey(m.id) }),

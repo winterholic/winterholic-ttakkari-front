@@ -115,6 +115,50 @@ describe("기능 목록", () => {
   });
 });
 
+describe("회의록 범위 변경", () => {
+  it("구버전 서버가 범위를 무시하면 성공으로 표시하지 않는다", async () => {
+    h.getMeeting.mockResolvedValue(detail());
+    h.patchMeeting.mockResolvedValue(detail());
+    renderAt("/meetings/m1");
+    fireEvent.click(await screen.findByRole("combobox", { name: "범위" }));
+    fireEvent.click(screen.getByRole("option", { name: "회사" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "회사 회의록으로 옮길까요?" })).getByRole("button", { name: "회사로 옮기기" }));
+    expect((await screen.findByRole("alert")).textContent).toContain("서버 업데이트 후 범위 변경을 사용할 수 있어요.");
+    expect(screen.getByRole("combobox", { name: "범위" }).textContent).toContain("개인");
+  });
+
+  it("전사·분석 중에는 범위를 바꿀 수 없다", async () => {
+    h.getMeeting.mockResolvedValue(detail({ status: "analyzing" }));
+    renderAt("/meetings/m1");
+    expect((await screen.findByRole("combobox", { name: "범위" }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("회사로 변경하기 전 확인하고, 응답의 범위와 프로젝트를 즉시 표시한다", async () => {
+    h.getMeeting.mockResolvedValue(detail());
+    h.patchMeeting.mockResolvedValue(detail({ scope: "work", project: null }));
+    renderAt("/meetings/m1");
+    fireEvent.click(await screen.findByRole("combobox", { name: "범위" }));
+    fireEvent.click(screen.getByRole("option", { name: "회사" }));
+    expect(h.patchMeeting).not.toHaveBeenCalled();
+    const dialog = screen.getByRole("dialog", { name: "회사 회의록으로 옮길까요?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "회사로 옮기기" }));
+    await waitFor(() => expect(h.patchMeeting).toHaveBeenCalledWith("m1", { scope: "work" }));
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "범위" }).textContent).toContain("회사"));
+    expect(screen.getByRole("combobox", { name: "프로젝트" }).textContent).toContain("연결 안 함");
+  });
+
+  it("취소하면 기존 범위와 연결을 보존한다", async () => {
+    h.getMeeting.mockResolvedValue(detail());
+    renderAt("/meetings/m1");
+    fireEvent.click(await screen.findByRole("combobox", { name: "범위" }));
+    fireEvent.click(screen.getByRole("option", { name: "회사" }));
+    const dialog = screen.getByRole("dialog", { name: "회사 회의록으로 옮길까요?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "취소" }));
+    expect(h.patchMeeting).not.toHaveBeenCalled();
+    expect(screen.getByRole("combobox", { name: "범위" }).textContent).toContain("개인");
+  });
+});
+
 describe("회의록 목록", () => {
   it("상태·프로젝트·결정/액션 수·승인 대기를 보여 주고 범위로 거른다", async () => {
     h.listMeetings.mockResolvedValue({ meetings: [summary(), summary({ id: "m2", title: "분석 중 회의", status: "analyzing", summary: null, counts: { ...counts, decision: 0, action: 0, open_issue: 0, pending_proposals: 0 } })] });

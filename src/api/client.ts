@@ -486,7 +486,7 @@ export const listMeetings = (p: { scope?: "personal" | "work"; q?: string } = {}
   json(M, { query: { scope: p.scope ?? "all", q: p.q || undefined } });
 export const createMeeting = (body: MeetingIn): Promise<MeetingDetail> => json(M, { method: "POST", json: body });
 export const getMeeting = (id: string): Promise<MeetingDetail> => json(`${M}/${id}`);
-export const patchMeeting = (id: string, body: { title?: string; project_id?: string | null }): Promise<MeetingDetail> =>
+export const patchMeeting = (id: string, body: { title?: string; scope?: MeetingScope; project_id?: string | null }): Promise<MeetingDetail> =>
   json(`${M}/${id}`, { method: "PATCH", json: body });
 export const deleteMeeting = (id: string): Promise<void> => json(`${M}/${id}`, { method: "DELETE" });
 export const putMeetingTranscript = (id: string, text: string, source: "paste" | "file"): Promise<MeetingDetail> =>

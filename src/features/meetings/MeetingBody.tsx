@@ -3,16 +3,17 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { meetingProviders } from "../../api/client";
-import type { MeetingDetail, MeetingProposal } from "../../api/client";
+import type { MeetingDetail, MeetingProposal, MeetingScope } from "../../api/client";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
+import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { Select } from "../../ui/Select";
 import { errorText } from "../viewer/api";
 import { EmptyState } from "../viewer/screenStates";
 import { AnalysisView, Pending } from "./AnalysisView";
 import { useProjectOptions } from "./projects";
-import { Callout, PipelineSteps, isRunning } from "./shared";
+import { Callout, PipelineSteps, SCOPE_OPTIONS, isRunning, scopeLabel } from "./shared";
 import { TranscriptField } from "./TranscriptField";
 import { TranscriptView } from "./TranscriptView";
 import type { TranscriptFocus } from "./TranscriptView";
@@ -50,7 +51,7 @@ export function MeetingBody({ m }: { m: MeetingDetail }) {
         )}
       </ProjectField>
       <RelatedMeetings m={m} />
-      <MeetingSharing m={m} />
+      <MeetingSharing key={`${m.id}:${m.scope}`} m={m} />
       <div className="tk-segmented tk-segmented--block mt-tabs" role="radiogroup" aria-label="회의록 내용">
         {tabs.map((t) => (
           <label key={t.id}>
@@ -134,11 +135,22 @@ function StatusPanel({ m, a }: { m: MeetingDetail; a: Actions }) {
 function ProjectField({ m, a, children }: { m: MeetingDetail; a: Actions; children?: ReactNode }) {
   const id = useId();
   const { options } = useProjectOptions(m.scope);
+  const projectOptions = m.project && !options.some((o) => o.value === m.project?.id)
+    ? [...options, { value: m.project.id, label: m.project.name }] : options;
+  const [target, setTarget] = useState<MeetingScope | null>(null);
+  const busy = a.scope.isPending;
   return (
     <div className="mt-meta">
+      <div className="tk-field mt-meta__scope">
+        <label className="tk-label" id={`${id}-scope-l`} htmlFor={`${id}-scope`}>범위</label>
+        <Select id={`${id}-scope`} labelledBy={`${id}-scope-l`} size="sm" value={m.scope} options={SCOPE_OPTIONS}
+          disabled={isRunning(m.status) || busy}
+          onChange={(v) => { if (v !== m.scope) { a.scope.reset(); setTarget(v as MeetingScope); } }} />
+      </div>
       <div className="tk-field mt-meta__project">
         <label className="tk-label" id={`${id}-l`} htmlFor={`${id}-p`}>프로젝트</label>
-        <Select id={`${id}-p`} labelledBy={`${id}-l`} size="sm" value={m.project?.id ?? ""} options={options} onChange={(v) => a.project.mutate(v)} />
+        <Select id={`${id}-p`} labelledBy={`${id}-l`} size="sm" value={m.project?.id ?? ""} options={projectOptions} disabled={busy}
+          onChange={(v) => a.project.mutate(v)} />
       </div>
       {children}
       {m.participants.length > 0 && (
@@ -146,6 +158,18 @@ function ProjectField({ m, a, children }: { m: MeetingDetail; a: Actions; childr
           <div><dt>참석자</dt><dd>{m.participants.join(", ")}</dd></div>
         </dl>
       )}
+      <Dialog open={target !== null} onClose={() => { if (!busy) setTarget(null); }} modal={busy ? "strict" : undefined}
+        title={`${scopeLabel(target ?? m.scope)} 회의록으로 옮길까요?`}
+        footer={<>
+          <Button size="sm" disabled={busy} onClick={() => setTarget(null)}>취소</Button>
+          <Button size="sm" variant="primary" busy={busy} onClick={() => {
+            if (target) a.scope.mutate(target, { onSuccess: () => setTarget(null) });
+          }}>{scopeLabel(target ?? m.scope)}로 옮기기</Button>
+        </>}>
+        <p>녹음·전사·분석 내용은 유지돼요. 새 범위와 맞지 않는 프로젝트 연결은 해제돼요.</p>
+        <p>기존 공개 공유 링크는 해제돼요. 이미 맥락 도서관에 승인한 기억의 범위는 그대로예요.</p>
+        {a.scope.error && <p className="tk-error" role="alert">{errorText(a.scope.error).message}</p>}
+      </Dialog>
     </div>
   );
 }
