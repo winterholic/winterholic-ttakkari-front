@@ -42,7 +42,7 @@ function Text({ u, query, hitStart, mark }: { u: Utterance; query: string; hitSt
         const current = mark?.hit?.uid === u.id && mark.hit.inner === (i - 1) / 2;
         return <mark key={i} data-hit={n} aria-current={current || undefined}>{p}</mark>;
       })}
-      {u.review && <span className="mt-review">검증 필요{u.folded ? ` · 반복 ${u.folded}회 접힘` : ""}</span>}
+      {u.review && <span className="mt-review" data-folded={u.folded || undefined}>검증 필요{u.folded ? ` · 반복 ${u.folded}회 접힘` : ""}</span>}
       {" "}
     </span>
   );
@@ -85,6 +85,7 @@ export function TranscriptView({ m, focus }: { m: MeetingDetail; focus?: Transcr
   const [pos, setPos] = useState({ q: "", i: 0 });
   const cur = pos.q === query ? pos.i : 0;
   const [editing, setEditing] = useState<string | null>(null);
+  const [review, setReview] = useState(false);
   const [flashDone, setFlashDone] = useState(0);
   const listRef = useRef<HTMLDivElement>(null);
   const searchId = useId();
@@ -138,7 +139,7 @@ export function TranscriptView({ m, focus }: { m: MeetingDetail; focus?: Transcr
   const noSpeakers = data.mode === "segments" && !order.length;
 
   return (
-    <div className="mt-tr">
+    <div className="mt-tr" data-review={review || undefined}>
       <div className="mt-tr__bar">
         <div className="tk-findbar">
           <span className="tk-input-wrap">
@@ -165,6 +166,7 @@ export function TranscriptView({ m, focus }: { m: MeetingDetail; focus?: Transcr
         </div>
       </div>
 
+      <label className="mt-review-toggle"><input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} />검수 표시</label>
       <p className="mt-item__meta" aria-label="전사 정보">
         <span>{m.transcript_chars.toLocaleString("ko-KR")}자</span>
         {sourceText && <span>{sourceText}</span>}
@@ -182,6 +184,7 @@ export function TranscriptView({ m, focus }: { m: MeetingDetail; focus?: Transcr
         </ul>
       )}
       {data.degraded && <p className="tk-help">구간 정보를 불러오지 못해 본문 텍스트로 보여 드려요.</p>}
+      {data.utterances.some((u) => u.review || u.uncertain) && <p className="tk-help">검토할 구간이 있어요. ‘검수 표시’를 켜면 위치를 볼 수 있어요. 반복을 접은 구간은 별도로 표시해요.</p>}
       {noSpeakers && (
         <p className="tk-help">{data.diarization === "unavailable" || data.diarization === "failed" ? "화자 구분을 하지 못해서 시각별로만 나눠 보여 드려요." : "화자 구분 정보가 없어서 시각별로만 나눠 보여 드려요."}</p>
       )}

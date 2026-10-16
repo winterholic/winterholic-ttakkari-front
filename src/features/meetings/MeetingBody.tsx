@@ -20,6 +20,7 @@ import { detailKey, useMeetingActions } from "./useMeetingActions";
 import type { Actions } from "./useMeetingActions";
 import { RelatedMeetings, transcribeStateText, useSttJobs } from "./retranscribe";
 import { VectorLine } from "./VectorLine";
+import { MeetingSharing } from "./MeetingSharing";
 
 export { detailKey };
 
@@ -49,6 +50,7 @@ export function MeetingBody({ m }: { m: MeetingDetail }) {
         )}
       </ProjectField>
       <RelatedMeetings m={m} />
+      <MeetingSharing m={m} />
       <div className="tk-segmented tk-segmented--block mt-tabs" role="radiogroup" aria-label="회의록 내용">
         {tabs.map((t) => (
           <label key={t.id}>

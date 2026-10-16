@@ -67,6 +67,16 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("전사 뷰: 화자 있음", () => {
+  it("읽기 모드에서는 반복 검수 배지를 줄이고 검수 표시를 켜면 원래 위치에 보여 준다", async () => {
+    wrap(<TranscriptView m={meeting()} />);
+    await screen.findAllByRole("article");
+    const toggle = screen.getByRole("checkbox", { name: /검수 표시/ }) as HTMLInputElement;
+    expect(toggle.checked).toBe(false);
+    expect(document.querySelector(".mt-tr")?.getAttribute("data-review")).toBeNull();
+    fireEvent.click(toggle);
+    expect(document.querySelector(".mt-tr")?.getAttribute("data-review")).toBe("true");
+    expect(screen.getByText(/검증 필요/)).toBeTruthy();
+  });
   it("화자별 차례로 묶고 라벨·시각을 붙이며 같은 화자의 연속 발화는 한 카드에 둔다", async () => {
     wrap(<TranscriptView m={meeting()} />);
     const turns = await screen.findAllByRole("article");
