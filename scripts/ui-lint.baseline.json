@@ -12,7 +12,7 @@
  "src/features/contextlib/contextlib.css": {
   "px-literal": 39,
   "z-index-number": 4,
-  "child-margin-top": 3,
+  "child-margin-top": 2,
   "nowrap-unpaired": 2
  },
  "src/features/knowledge/knowledge.css": {

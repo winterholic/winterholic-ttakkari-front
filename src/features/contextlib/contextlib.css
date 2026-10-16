@@ -171,5 +171,4 @@
 .cl-hist__count { margin-bottom: 2px; color: var(--tk-color-text-primary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono); font-variant-numeric: tabular-nums; }
 .cl-hist__label { position: absolute; top: 100%; margin-top: 4px; color: var(--tk-color-chart-label); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / 1.1 var(--tk-font-family-mono); white-space: nowrap; }
 .cl-hist__tag { position: absolute; top: 100%; margin-top: 18px; color: var(--tk-color-text-warning); font-size: var(--tk-font-size-xs); white-space: nowrap; }
-.cl-hist figcaption { margin-top: var(--tk-space-2); }
 @media (max-width: 480px) { .cl-hist__label { transform: rotate(40deg); transform-origin: left top; margin-left: 6px; } .cl-hist__tag { display: none; } }
