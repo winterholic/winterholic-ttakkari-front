@@ -245,7 +245,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                     const on = g.pool === "work" ? a.work_enabled : a.enabled;
                     const st = statusOf(a, activeId === a.id, g.pool);
                     return (
-                      <li key={a.id} className="usage-card" data-engine={a.engine} data-off={!on || undefined} data-active={activeId === a.id || undefined}>
+                      <li key={a.id} aria-label={`${a.name} 사용량`} className="usage-card" data-engine={a.engine} data-off={!on || undefined} data-active={activeId === a.id || undefined}>
                         <div className="usage-card__head">
                           <span className="usage-card__rank" aria-label={`${rankOf(a, g.pool)}순위`}>{rankOf(a, g.pool)}</span>
                           <span className="usage-card__title">
