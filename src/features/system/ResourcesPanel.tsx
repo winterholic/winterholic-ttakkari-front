@@ -2,7 +2,7 @@ import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { systemResourceHistory, systemResources } from "../../api/client";
-import type { ResourceHistory, ResourceHistoryPoint, ResourceHistoryRange, ResourceProcess, SystemResources } from "../../api/client";
+import type { ResourceHistory, ResourceHistoryPoint, ResourceHistoryRange, ResourceProcess } from "../../api/client";
 import { errorText } from "../viewer/api";
 import "./resources.css";
 
@@ -21,6 +21,14 @@ const HISTORY_RANGES: { value: ResourceHistoryRange; label: string }[] = [
 ];
 
 type Level = "ok" | "warn" | "danger";
+type ResourceTab = "cpu" | "memory" | "gpu" | "system";
+
+const RESOURCE_TABS: { id: ResourceTab; label: string }[] = [
+  { id: "cpu", label: "CPU" },
+  { id: "memory", label: "메모리" },
+  { id: "gpu", label: "GPU" },
+  { id: "system", label: "시스템" },
+];
 
 export function level(p: number): Level {
   return p >= DANGER ? "danger" : p >= WARN ? "warn" : "ok";
@@ -96,81 +104,6 @@ function ProcList({ title, rows, show }: { title: string; rows: ResourceProcess[
   );
 }
 
-function Body({ d, children }: { d: SystemResources; children: React.ReactNode }) {
-  const { cpu, gpu, memory: mem, disks, network: net, processes: procs } = d;
-  const cores = [
-    cpu.performance_cores != null && `P ${cpu.performance_cores}`,
-    cpu.efficiency_cores != null && `E ${cpu.efficiency_cores}`,
-  ].filter(Boolean).join(" + ");
-  const pressure = mem.pressure ? PRESSURE[mem.pressure] : null;
-  return (
-    <>
-      <div className="res-gauges">
-        <Gauge title="CPU" percent={cpu.percent}>
-          <span>{cpu.chip ?? "CPU"} · {cpu.cores_logical}코어{cores ? ` (${cores})` : ""}</span>
-          <span>부하 평균 {cpu.load_avg.map((x) => x.toFixed(2)).join(" · ")}</span>
-        </Gauge>
-        <Gauge title="GPU" percent={gpu?.status === "available" ? gpu.percent : null}>
-          {gpu && (gpu.model || gpu.cores != null) && <span>{[gpu.model, gpu.cores != null ? `${gpu.cores}코어` : null].filter(Boolean).join(" · ")}</span>}
-          {gpu?.status === "available" ? <>
-            <span>전체 사용률 · 코어별 사용률은 제공되지 않아요.</span>
-            {(gpu.memory_used_bytes != null || gpu.memory_allocated_bytes != null) && <span>
-              통합 메모리 중 {[
-                gpu.memory_used_bytes != null ? `사용 ${bytes(gpu.memory_used_bytes)}` : null,
-                gpu.memory_allocated_bytes != null ? `할당 ${bytes(gpu.memory_allocated_bytes)}` : null,
-              ].filter(Boolean).join(" · ")}
-            </span>}
-          </> : <span>{!gpu ? "GPU 정보를 아직 받을 수 없어요." : gpu.status === "unsupported" ? "이 환경에서는 GPU 모니터링을 지원하지 않아요." : "GPU 사용률을 읽을 수 없어요."}</span>}
-        </Gauge>
-        <Gauge title="메모리" percent={mem.percent}>
-          <span>{bytes(mem.used)} / {bytes(mem.total)} · 가용 {bytes(mem.available)}</span>
-          <span className="res-inline">
-            {pressure && <span className={`tk-badge tk-badge--${pressure.tone}`}>{pressure.text}</span>}
-            <span>스왑 {mem.swap.total > 0 ? `${bytes(mem.swap.used)} / ${bytes(mem.swap.total)}` : "사용 안 함"}</span>
-          </span>
-        </Gauge>
-        {disks.map((k) => (
-          <Gauge key={k.mounts.join(",")} title={disks.length > 1 ? k.name : "디스크"} percent={k.percent}>
-            <span>{bytes(k.used)} / {bytes(k.total)} · 남음 {bytes(k.free)}</span>
-            {k.volumes.length > 1 && <span>{k.volumes.map((v) => `${v.mount === "/" ? "시스템" : v.mount === "/System/Volumes/Data" ? "데이터" : v.mount} ${bytes(v.used)}`).join(" · ")}</span>}
-          </Gauge>
-        ))}
-      </div>
-
-      {children}
-
-      <section className="res-cores" aria-label="CPU 코어별 사용률">
-        <h3 className="res-section-title">CPU 코어별</h3>
-        <ol className="res-cores__grid">
-          {cpu.per_core.map((p, i) => (
-            <li key={i} className="res-core" data-level={level(p)}>
-              <span className="res-core__label">{i + 1}</span>
-              <Bar percent={p} label={`코어 ${i + 1}`} size="sm" />
-              <span className="res-core__pct">{Math.round(p)}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="res-net" aria-label="네트워크">
-        <span className="res-net__item"><span className="res-net__label">수신</span>{bytes(net.rx_bytes_per_sec)}/s</span>
-        <span className="res-net__item"><span className="res-net__label">송신</span>{bytes(net.tx_bytes_per_sec)}/s</span>
-      </section>
-
-      <ProcList
-        title={`따까리 프로세스 · CPU ${procs.ttakkari_total.cpu_percent.toFixed(1)}% · ${bytes(procs.ttakkari_total.memory_bytes)}`}
-        rows={procs.ttakkari}
-        show="kind"
-      />
-      <div className="res-procs-pair">
-        <ProcList title="CPU 상위" rows={procs.top_cpu} show="cpu" />
-        <ProcList title="메모리 상위" rows={procs.top_memory} show="mem" />
-      </div>
-      <p className="res-note">CPU % 는 코어 하나를 100% 로 셉니다. 다른 사용자(root) 프로세스는 메모리를 읽을 수 없어 상위 목록에서 빠져요.</p>
-    </>
-  );
-}
-
 type HistoryMetric = "cpu" | "memory" | "gpu";
 const GIB = 1024 ** 3;
 const METRIC_LABEL: Record<HistoryMetric, string> = {
@@ -239,61 +172,37 @@ function MetricHistoryChart({ history, metric, memoryTotal }: { history: Resourc
   const paths = historySegments(history.points, history, metric, maximum, width);
   const validPoints = history.points.filter((p) => metricValue(p, metric) != null && Number.isFinite(Date.parse(p.timestamp)));
   const label = METRIC_LABEL[metric];
-  return <section className="res-history__metric" aria-label={label}>
-    <h3 className="res-section-title">{label}</h3>
-    {metric === "gpu" && <p className="res-note">전체 사용률은 40코어 중 사용한 코어 수를 뜻하지 않아요. GPU 수집 실패와 유휴 0%는 구분됩니다.</p>}
-    {validPoints.length === 0 ? <p className="res-note">{metric === "gpu" ? "GPU 사용률을 수집하지 못했어요." : metric === "cpu" ? "CPU 사용률을 수집하지 못했어요." : "메모리 사용량을 수집하지 못했어요."}</p> :
-      <svg ref={plot} className="res-history__plot" viewBox={`0 0 ${width} 190`} role="img" aria-label={label} preserveAspectRatio="none">
-        {[0, 0.5, 1].map((ratio) => {
-          const y = 164 - ratio * 148;
-          return <g key={ratio} className="res-history__tick">
-            <line x1="42" x2={width - 6} y1={y} y2={y} />
-            <text x="34" y={y + 4} textAnchor="end">{metric === "memory" ? `${Number((maximum * ratio / GIB).toFixed(1))} GiB` : `${ratio * 100}%`}</text>
-          </g>;
-        })}
-        {paths.map((path, index) => <path key={index} data-series={metric} d={path} />)}
-        {validPoints.map((point) => {
-          const { x, y } = pointPosition(point, history, metric, maximum, width);
-          const value = metricValue(point, metric)!;
-          return <circle key={point.timestamp} className="res-history__point" cx={x} cy={y} r="2.5">
-            <title>{new Date(point.timestamp).toLocaleString("ko-KR")} · {metric === "memory" ? `${(value / GIB).toFixed(2)} GiB` : `${value.toFixed(1)}%`}</title>
-          </circle>;
-        })}
-        <text className="res-history__axis" x="42" y="187">{formatAxisTime(history.from, history.range)}</text>
-        <text className="res-history__axis" x={width - 6} y="187" textAnchor="end">{formatAxisTime(history.to, history.range)}</text>
-      </svg>}
-  </section>;
-}
-
-function ResourceHistory({ memoryTotal }: { memoryTotal?: number }) {
-  const [selected, setSelected] = useState<ResourceHistoryRange>("1h");
-  const query = useQuery({
-    queryKey: ["system", "resources", "history", selected],
-    queryFn: () => systemResourceHistory(selected),
-    refetchInterval: 30_000,
-  });
-  const history = query.data;
   return (
-    <section className="res-history" aria-labelledby="res-history-title">
-      <div className="res-history__head">
-        <div>
-          <h2 className="res-section-title" id="res-history-title">자원 사용 기록</h2>
-          <p className="res-note">Mac 전체 CPU·메모리·GPU 사용 추이 · 30초마다 갱신</p>
-        </div>
-        <div className="res-history__ranges" role="group" aria-label="자원 기록 기간">
-          {HISTORY_RANGES.map((item) => (
-            <button key={item.value} type="button" aria-pressed={selected === item.value}
-              onClick={() => setSelected(item.value)}>{item.label}</button>
-          ))}
-        </div>
-      </div>
-      {query.isPending && <p className="res-note" role="status">기록을 불러오는 중…</p>}
-      {query.isError && <p className="res-note" role="alert">자원 기록을 불러오지 못했어요.{history ? " 마지막 측정값을 표시합니다." : ""}</p>}
-      {history && history.points.length === 0 && <p className="res-note">선택한 기간에 저장된 자원 기록이 없어요.</p>}
-      {history && history.points.length > 0 && <>
-        {(["cpu", "memory", "gpu"] as const).map((metric) => <MetricHistoryChart key={metric} history={history} metric={metric} memoryTotal={memoryTotal} />)}
-        <p className="res-note">{history.bucket_seconds === 30 ? "30초 간격 원본" : `구간별 평균 · ${history.bucket_seconds === 60 ? "1분" : "10분"}`} · 결측 구간은 선을 끊어 표시합니다. 메모리는 GiB 단위입니다.</p>
-      </>}
+    <section className="res-history__metric" aria-label={label}>
+      <h3 className="res-section-title">{label}</h3>
+      {metric === "gpu" && <p className="res-note">전체 사용률은 40코어 중 사용한 코어 수를 뜻하지 않아요. GPU 수집 실패와 유휴 0%는 구분됩니다.</p>}
+      {validPoints.length === 0 ? (
+        <p className="res-note">{metric === "gpu" ? "GPU 사용률을 수집하지 못했어요." : metric === "cpu" ? "CPU 사용률을 수집하지 못했어요." : "메모리 사용량을 수집하지 못했어요."}</p>
+      ) : (
+        <svg ref={plot} className="res-history__plot" viewBox={`0 0 ${width} 190`} role="img" aria-label={label} preserveAspectRatio="none">
+          {[0, 0.5, 1].map((ratio) => {
+            const y = 164 - ratio * 148;
+            return (
+              <g key={ratio} className="res-history__tick">
+                <line x1="42" x2={width - 6} y1={y} y2={y} />
+                <text x="34" y={y + 4} textAnchor="end">{metric === "memory" ? `${Number((maximum * ratio / GIB).toFixed(1))} GiB` : `${ratio * 100}%`}</text>
+              </g>
+            );
+          })}
+          {paths.map((path, index) => <path key={index} data-series={metric} d={path} />)}
+          {validPoints.map((point) => {
+            const { x, y } = pointPosition(point, history, metric, maximum, width);
+            const value = metricValue(point, metric)!;
+            return (
+              <circle key={point.timestamp} className="res-history__point" cx={x} cy={y} r="2.5">
+                <title>{new Date(point.timestamp).toLocaleString("ko-KR")} · {metric === "memory" ? `${(value / GIB).toFixed(2)} GiB` : `${value.toFixed(1)}%`}</title>
+              </circle>
+            );
+          })}
+          <text className="res-history__axis" x="42" y="187">{formatAxisTime(history.from, history.range)}</text>
+          <text className="res-history__axis" x={width - 6} y="187" textAnchor="end">{formatAxisTime(history.to, history.range)}</text>
+        </svg>
+      )}
     </section>
   );
 }
@@ -303,12 +212,78 @@ function ResourceHistory({ memoryTotal }: { memoryTotal?: number }) {
  * 마운트된 동안만 4초마다 다시 읽는다. 페이지를 벗어나면 옵저버가 없어져 폴링도 멈춘다.
  */
 export function ResourcesPanel() {
+  const [tab, setTabState] = useState<ResourceTab>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlTab = params.get("tab") as ResourceTab;
+        if (urlTab === "cpu" || urlTab === "memory" || urlTab === "gpu" || urlTab === "system") {
+          return urlTab;
+        }
+        const saved = localStorage.getItem("ttakkari:resources-tab") as ResourceTab;
+        if (saved === "cpu" || saved === "memory" || saved === "gpu" || saved === "system") {
+          return saved;
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return "cpu";
+  });
+
+  const selectTab = (nextTab: ResourceTab) => {
+    setTabState(nextTab);
+    try {
+      localStorage.setItem("ttakkari:resources-tab", nextTab);
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", nextTab);
+      window.history.replaceState(null, "", url.toString());
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, currentIndex: number) => {
+    const nextIndex = event.key === "ArrowRight"
+      ? (currentIndex + 1) % RESOURCE_TABS.length
+      : event.key === "ArrowLeft"
+        ? (currentIndex + RESOURCE_TABS.length - 1) % RESOURCE_TABS.length
+        : event.key === "Home"
+          ? 0
+          : event.key === "End"
+            ? RESOURCE_TABS.length - 1
+            : null;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    selectTab(RESOURCE_TABS[nextIndex].id);
+    const target = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=tab]")[nextIndex];
+    target?.focus();
+  };
+
+  const [historyRange, setHistoryRange] = useState<ResourceHistoryRange>("1h");
+
   const q = useQuery({
     queryKey: ["system", "resources"],
     queryFn: () => systemResources(),
     refetchInterval: POLL_MS,
   });
+
+  const historyQuery = useQuery({
+    queryKey: ["system", "resources", "history", historyRange],
+    queryFn: () => systemResourceHistory(historyRange),
+    refetchInterval: 30_000,
+  });
+
   const d = q.data;
+  const history = historyQuery.data;
+
+  const cores = d ? [
+    d.cpu.performance_cores != null && `P ${d.cpu.performance_cores}`,
+    d.cpu.efficiency_cores != null && `E ${d.cpu.efficiency_cores}`,
+  ].filter(Boolean).join(" + ") : "";
+
+  const pressure = d?.memory.pressure ? PRESSURE[d.memory.pressure] : null;
+
   return (
     <div className="res">
       <p className="res-note res-host">
@@ -316,7 +291,197 @@ export function ResourcesPanel() {
         {q.isError && d && " · 갱신 실패, 마지막 값"}
       </p>
       {q.isError && !d && <p className="tk-error" role="alert">{errorText(q.error).message}</p>}
-      {d ? <Body d={d}><ResourceHistory memoryTotal={d.memory.total} /></Body> : <ResourceHistory />}
+
+      <div className="res__tabs-wrap">
+        <div className="tk-tablist res__tabs" role="tablist" aria-label="서버 리소스 부문">
+          {RESOURCE_TABS.map((t, idx) => (
+            <button
+              key={t.id}
+              role="tab"
+              type="button"
+              className="tk-tab"
+              id={`res-tab-${t.id}`}
+              aria-selected={tab === t.id}
+              aria-controls={`res-panel-${t.id}`}
+              tabIndex={tab === t.id ? 0 : -1}
+              onClick={() => selectTab(t.id)}
+              onKeyDown={(e) => handleTabKeyDown(e, idx)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="res-history__ranges" role="group" aria-label="자원 기록 기간">
+          {HISTORY_RANGES.map((item) => (
+            <button
+              key={item.value}
+              type="button"
+              aria-pressed={historyRange === item.value}
+              onClick={() => setHistoryRange(item.value)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* CPU 탭 */}
+      <section
+        role="tabpanel"
+        id="res-panel-cpu"
+        aria-labelledby="res-tab-cpu"
+        data-active={tab === "cpu"}
+        tabIndex={0}
+      >
+        {d && (
+          <>
+            <div className="res-gauges">
+              <Gauge title="CPU" percent={d.cpu.percent}>
+                <span>{d.cpu.chip ?? "CPU"} · {d.cpu.cores_logical}코어{cores ? ` (${cores})` : ""}</span>
+                <span>부하 평균 {d.cpu.load_avg.map((x) => x.toFixed(2)).join(" · ")}</span>
+              </Gauge>
+            </div>
+
+            <section className="res-history" aria-label="CPU 자원 사용 기록">
+              {historyQuery.isPending && <p className="res-note" role="status">기록을 불러오는 중…</p>}
+              {historyQuery.isError && <p className="res-note" role="alert">자원 기록을 불러오지 못했어요.{history ? " 마지막 측정값을 표시합니다." : ""}</p>}
+              {history && history.points.length === 0 && <p className="res-note">선택한 기간에 저장된 자원 기록이 없어요.</p>}
+              {history && history.points.length > 0 && (
+                <>
+                  <MetricHistoryChart history={history} metric="cpu" />
+                  <p className="res-note">{history.bucket_seconds === 30 ? "30초 간격 원본" : `구간별 평균 · ${history.bucket_seconds === 60 ? "1분" : "10분"}`} · 결측 구간은 선을 끊어 표시합니다.</p>
+                </>
+              )}
+            </section>
+
+            <section className="res-cores" aria-label="CPU 코어별 사용률">
+              <h3 className="res-section-title">CPU 코어별</h3>
+              <ol className="res-cores__grid">
+                {d.cpu.per_core.map((p, i) => (
+                  <li key={i} className="res-core" data-level={level(p)}>
+                    <span className="res-core__label">{i + 1}</span>
+                    <Bar percent={p} label={`코어 ${i + 1}`} size="sm" />
+                    <span className="res-core__pct">{Math.round(p)}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <ProcList title="CPU 상위" rows={d.processes.top_cpu} show="cpu" />
+            <p className="res-note">CPU % 는 코어 하나를 100% 로 셉니다. 다른 사용자(root) 프로세스는 메모리를 읽을 수 없어 상위 목록에서 빠져요.</p>
+          </>
+        )}
+      </section>
+
+      {/* 메모리 탭 */}
+      <section
+        role="tabpanel"
+        id="res-panel-memory"
+        aria-labelledby="res-tab-memory"
+        data-active={tab === "memory"}
+        tabIndex={0}
+      >
+        {d && (
+          <>
+            <div className="res-gauges">
+              <Gauge title="메모리" percent={d.memory.percent}>
+                <span>{bytes(d.memory.used)} / {bytes(d.memory.total)} · 가용 {bytes(d.memory.available)}</span>
+                <span className="res-inline">
+                  {pressure && <span className={`tk-badge tk-badge--${pressure.tone}`}>{pressure.text}</span>}
+                  <span>스왑 {d.memory.swap.total > 0 ? `${bytes(d.memory.swap.used)} / ${bytes(d.memory.swap.total)}` : "사용 안 함"}</span>
+                </span>
+              </Gauge>
+            </div>
+
+            <section className="res-history" aria-label="메모리 자원 사용 기록">
+              {historyQuery.isPending && <p className="res-note" role="status">기록을 불러오는 중…</p>}
+              {historyQuery.isError && <p className="res-note" role="alert">자원 기록을 불러오지 못했어요.{history ? " 마지막 측정값을 표시합니다." : ""}</p>}
+              {history && history.points.length === 0 && <p className="res-note">선택한 기간에 저장된 자원 기록이 없어요.</p>}
+              {history && history.points.length > 0 && (
+                <>
+                  <MetricHistoryChart history={history} metric="memory" memoryTotal={d.memory.total} />
+                  <p className="res-note">{history.bucket_seconds === 30 ? "30초 간격 원본" : `구간별 평균 · ${history.bucket_seconds === 60 ? "1분" : "10분"}`} · 결측 구간은 선을 끊어 표시합니다. 메모리는 GiB 단위입니다.</p>
+                </>
+              )}
+            </section>
+
+            <ProcList title="메모리 상위" rows={d.processes.top_memory} show="mem" />
+          </>
+        )}
+      </section>
+
+      {/* GPU 탭 */}
+      <section
+        role="tabpanel"
+        id="res-panel-gpu"
+        aria-labelledby="res-tab-gpu"
+        data-active={tab === "gpu"}
+        tabIndex={0}
+      >
+        {d && (
+          <>
+            <div className="res-gauges">
+              <Gauge title="GPU" percent={d.gpu?.status === "available" ? d.gpu.percent : null}>
+                {d.gpu && (d.gpu.model || d.gpu.cores != null) && <span>{[d.gpu.model, d.gpu.cores != null ? `${d.gpu.cores}코어` : null].filter(Boolean).join(" · ")}</span>}
+                {d.gpu?.status === "available" ? <>
+                  <span>전체 사용률 · 코어별 사용률은 제공되지 않아요.</span>
+                  {(d.gpu.memory_used_bytes != null || d.gpu.memory_allocated_bytes != null) && <span>
+                    통합 메모리 중 {[
+                      d.gpu.memory_used_bytes != null ? `사용 ${bytes(d.gpu.memory_used_bytes)}` : null,
+                      d.gpu.memory_allocated_bytes != null ? `할당 ${bytes(d.gpu.memory_allocated_bytes)}` : null,
+                    ].filter(Boolean).join(" · ")}
+                  </span>}
+                </> : <span>{!d.gpu ? "GPU 정보를 아직 받을 수 없어요." : d.gpu.status === "unsupported" ? "이 환경에서는 GPU 모니터링을 지원하지 않아요." : "GPU 사용률을 읽을 수 없어요."}</span>}
+              </Gauge>
+            </div>
+
+            <section className="res-history" aria-label="GPU 자원 사용 기록">
+              {historyQuery.isPending && <p className="res-note" role="status">기록을 불러오는 중…</p>}
+              {historyQuery.isError && <p className="res-note" role="alert">자원 기록을 불러오지 못했어요.{history ? " 마지막 측정값을 표시합니다." : ""}</p>}
+              {history && history.points.length === 0 && <p className="res-note">선택한 기간에 저장된 자원 기록이 없어요.</p>}
+              {history && history.points.length > 0 && (
+                <>
+                  <MetricHistoryChart history={history} metric="gpu" />
+                  <p className="res-note">{history.bucket_seconds === 30 ? "30초 간격 원본" : `구간별 평균 · ${history.bucket_seconds === 60 ? "1분" : "10분"}`} · 결측 구간은 선을 끊어 표시합니다.</p>
+                </>
+              )}
+            </section>
+          </>
+        )}
+      </section>
+
+      {/* 시스템 탭 */}
+      <section
+        role="tabpanel"
+        id="res-panel-system"
+        aria-labelledby="res-tab-system"
+        data-active={tab === "system"}
+        tabIndex={0}
+      >
+        {d && (
+          <>
+            <div className="res-gauges">
+              {d.disks.map((k) => (
+                <Gauge key={k.mounts.join(",")} title={d.disks.length > 1 ? k.name : "디스크"} percent={k.percent}>
+                  <span>{bytes(k.used)} / {bytes(k.total)} · 남음 {bytes(k.free)}</span>
+                  {k.volumes.length > 1 && <span>{k.volumes.map((v) => `${v.mount === "/" ? "시스템" : v.mount === "/System/Volumes/Data" ? "데이터" : v.mount} ${bytes(v.used)}`).join(" · ")}</span>}
+                </Gauge>
+              ))}
+            </div>
+
+            <section className="res-net" aria-label="네트워크">
+              <span className="res-net__item"><span className="res-net__label">수신</span>{bytes(d.network.rx_bytes_per_sec)}/s</span>
+              <span className="res-net__item"><span className="res-net__label">송신</span>{bytes(d.network.tx_bytes_per_sec)}/s</span>
+            </section>
+
+            <ProcList
+              title={`따까리 프로세스 · CPU ${d.processes.ttakkari_total.cpu_percent.toFixed(1)}% · ${bytes(d.processes.ttakkari_total.memory_bytes)}`}
+              rows={d.processes.ttakkari}
+              show="kind"
+            />
+          </>
+        )}
+      </section>
     </div>
   );
 }

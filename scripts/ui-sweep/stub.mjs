@@ -31,6 +31,20 @@ const artifact = (i) => ({
   size_bytes: 1024, sha256: '0', preview_status: 'not_required', preview_mime: null, preview_error: null, export_policy: 'allow',
   downloadable: true, retention_until: null, created_at: now,
 });
+// 실데이터 규모: 보관함 한 쪽(30건) 가득, 알림 148건·여러 날짜, PMS 작업이 네 상태에 고르게 있다. 실기기 결함은 합성 3건짜리 데이터에서는 보이지 않았다.
+const dayAgo = (n, h = 12) => new Date(Date.UTC(2026, 9, 17 - n, h - 9, 30)).toISOString();
+const realArtifacts = (n) => Array.from({ length: n }, (_, i) => ({
+  ...artifact(i + 1),
+  filename: i % 7 === 0 ? `resource-history-mobile-${i}.png` : i % 5 === 0 ? `아주 긴 프로젝트 이름의 모바일 검증 보고서와 참고자료_${i}_VeryLongUnbrokenIdentifier_ABCDEFGHIJKLMNOPQRSTUVWXYZ.md` : `보고서-${i}.md`,
+  kind: i % 7 === 0 ? 'image' : 'markdown', mime_type: i % 7 === 0 ? 'image/png' : 'text/markdown', created_at: dayAgo(Math.floor(i / 9), 12 + (i % 9)),
+}));
+const STATUS_CYCLE = ['todo', 'doing', 'review', 'done'];
+export const pmsTask = (i) => ({
+  id: `t${i}`, project_id: 'p1', parent_id: null, position: i, depth: 0, wbs: String(i + 1), has_children: false,
+  title: i === 3 ? '아주 긴 제목의 작업 VeryLongUnbrokenIdentifier_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 칸반 카드 줄바꿈 확인' : `작업 ${i + 1} 칸반 카드 제목`,
+  description: '', priority: ['low', 'normal', 'high', 'urgent'][i % 4], assignee: i % 3 ? '민수' : null, status: STATUS_CYCLE[i % 4], progress: i % 4 === 3 ? 100 : i % 4 === 0 ? 0 : 50,
+  start_date: '2026-10-01', end_date: '2026-10-20', dates_rollup: false, overdue: i === 2, predecessors: [], created_at: now, updated_at: now, done_at: i % 4 === 3 ? now : null,
+});
 const project = (i) => ({
   id: `p${i}`, name: `AIP (Application Intent Protocol) 긴 프로젝트 이름 ${i} 그리고 더 긴 부제목`, description: '모바일에서 프로젝트의 긴 이름과 설명이 모두 표시되는지 확인합니다. '.repeat(2),
   scope: 'work', status: 'active', progress: 35, counts: { total: 10, done: 3, todo: 5, doing: 2, review: 0, overdue: 1, due_soon: 0, no_dates: 2 },
@@ -46,13 +60,62 @@ const meeting = (i) => ({
   counts: { discussion: 1, decision: 2, action: 3, open_issue: 1, pending_proposals: 1 },
 });
 
-function body(path, method) {
+function body(path, method, search) {
+  const q = new URLSearchParams(search ?? '');
   if (path === 'auth/refresh') return { access_token: 'fixture', expires_in: 900, token_type: 'bearer' };
   if (path === 'auth/me') return { id: 'u1', name: '테스트', role: 'owner' };
   if (path === 'health') return { ok: true };
   if (path === 'tasks/active') return { roots: [], nodes: [] };
   if (path === 'accounts') return accounts;
-  if (path === 'accounts/usage') return [];
+  if (path === 'accounts/usage') {
+    return [
+      {
+        id: 'a1', name: '내 클로드 (iuholic83@example.com)', engine: 'claude', pool: 'personal', enabled: true, rank: 1,
+        max_used_percent: 38, remaining_to_limit_percent: 62, stale: false, work_enabled: true, work_rank: 1, login: 'ok',
+        cooldown_seconds: 0, windows: [{ key: '5h', label: '5시간 한도', percent: 38, resets_at: Math.floor(Date.now() / 1000) + 7200 }],
+        source: 'api', plan: 'Team', error: null, updated_at: Math.floor(Date.now() / 1000),
+      },
+      {
+        id: 'a2', name: 'Daddy codex (hyeonmin@example.com)', engine: 'codex', pool: 'personal', enabled: true, rank: 2,
+        max_used_percent: 15, remaining_to_limit_percent: 85, stale: false, work_enabled: true, work_rank: 2, login: 'ok',
+        cooldown_seconds: 0, windows: [{ key: '5h', label: '5시간 한도', percent: 15, resets_at: Math.floor(Date.now() / 1000) + 11000 }],
+        source: 'session_log', plan: 'Plus', error: null, updated_at: Math.floor(Date.now() / 1000),
+      },
+      {
+        id: 'a3', name: 'Antigravity Workspace', engine: 'antigravity', pool: 'personal', enabled: true, rank: 3,
+        max_used_percent: 45, remaining_to_limit_percent: 55, stale: false, work_enabled: false, work_rank: null, login: 'ok',
+        cooldown_seconds: 0, windows: [{ key: 'agy_gemini_models_flash', label: 'Flash Quota', percent: 45, resets_at: Math.floor(Date.now() / 1000) + 14400 }],
+        source: 'antigravity_cli', plan: 'Standard', error: null, updated_at: Math.floor(Date.now() / 1000),
+      },
+    ];
+  }
+  if (path === 'accounts/qwen-flash-usage') {
+    return {
+      model: 'qwen2.5-coder:7b',
+      observed_at: now,
+      collection_started_at: '2026-10-17T00:00:00+09:00',
+      server: { status: 'running', detail: null },
+      metrics_status: 'available',
+      requests_processing: 0,
+      requests_deferred: 0,
+      today: { starts_at: '2026-10-17T00:00:00+09:00', ends_at: '2026-10-18T00:00:00+09:00', input_tokens: 158400, cached_input_tokens: 42000, output_tokens: 89200, total_tokens: 247600, last_used_at: now },
+      week: { starts_at: '2026-10-12T00:00:00+09:00', ends_at: '2026-10-19T00:00:00+09:00', input_tokens: 984000, cached_input_tokens: 280000, output_tokens: 542000, total_tokens: 1526000, last_used_at: now },
+    };
+  }
+  if (path === 'accounts/qwen-usage') {
+    const period = (starts_at, ends_at, calls, input_tokens, output_tokens) => ({
+      starts_at, ends_at, calls, metered_calls: calls, usage_missing_calls: 0, failed_calls: 0, unmetered_calls: 0,
+      input_tokens, output_tokens, total_tokens: input_tokens + output_tokens, last_used_at: now,
+    });
+    return {
+      model: 'qwen2.5-coder:0.5b',
+      timezone: 'Asia/Seoul',
+      collection_started_at: '2026-10-17T00:00:00+09:00',
+      server: { enabled: true, status: 'running', detail: null },
+      today: period('2026-10-17T00:00:00+09:00', '2026-10-18T00:00:00+09:00', 56, 285000, 142000),
+      week: period('2026-10-12T00:00:00+09:00', '2026-10-19T00:00:00+09:00', 312, 1520000, 780000),
+    };
+  }
   if (path === 'accounts/override') return { active: true, ids: ['a1', 'a2', 'a3'], until: '2099-10-14T00:00:00Z' };
   if (path === 'push/status') return { configured: false, enabled: false };
   if (path === 'workspaces/default') return { id: 'fixture', name: '테스트', root_path: '/tmp/fixture', extra_writable_roots: [] };
@@ -64,7 +127,7 @@ function body(path, method) {
   if (path === 'memos/tags') return { tags: [{ name: '모바일개선', count: 1 }, { name: '아주긴프로젝트태그이름', count: 2 }] };
   if (path === 'memos' && method === 'GET') return { memos: [memo(1), memo(2)] };
   if (path.startsWith('memos/memo')) return memo(1);
-  if (path === 'artifacts') return [artifact(1), artifact(2), artifact(3)];
+  if (path === 'artifacts') return realArtifacts(Number(q.get('limit') ?? 30));
   if (/^sessions\/[^/]+\/runs/.test(path)) return [];
   if (path === 'runs/failed') return { items: [], next_before: null, next_before_id: null };
   if (path === 'checklists') return { day: '2026-10-17', items: [{ id: 'c1', day: '2026-10-17', title: '아주 긴 체크리스트 항목 제목 VeryLongUnbrokenIdentifier_ABCDEFGHIJKLMNOPQRSTUVWXYZ', checked: false, template_id: null }], completed: 0, total: 1 };
@@ -81,6 +144,8 @@ function body(path, method) {
     return { rel_path: '.', entries: [{ name: '긴 이름의 파일과 모바일 화면 검증자료_VeryLongUnbrokenIdentifier_ABCDEFGHIJKLMNOPQRSTUVWXYZ.md', rel_path: 'mobile.md', type: 'file', size_bytes: 2048, mtime: now }], truncated: false };
   }
   if (path === 'meetings') return { meetings: [meeting(1), meeting(2)] };
+  if (/^pms\/projects\/[^/]+\/tasks$/.test(path)) return { tasks: Array.from({ length: 14 }, (_, i) => pmsTask(i)) };
+  if (/^pms\/projects\/[^/]+$/.test(path)) return project(1);
   if (path === 'pms/projects') return { projects: [project(1), project(2)] };
   if (path === 'clovanote/status') return { state: 'unconfigured', message: '테스트', notes: 0, active_jobs: 0, login: { state: 'idle' } };
   if (path === 'clovanote/jobs') return { jobs: [] };
@@ -88,8 +153,14 @@ function body(path, method) {
   if (path === 'calendar/events') return { events: [] };
   if (path === 'calendar/holidays') return { holidays: [] };
   if (path === 'notifications') {
-    const n = (i, category) => ({ id: i, kind: 'run.completed', category, title: '아주 긴 제목의 알림 ' + i + ' VeryLongUnbrokenIdentifier_ABCDEFGHIJKLMNOPQRSTUVWXYZ', body: '긴 본문이 들어가는 알림입니다. '.repeat(4), url: '/tasks', created_at: now, read_at: null });
-    return { items: [n(1, 'tasks'), n(2, 'planner'), n(3, 'meetings')], next_before: null, unread_counts: { all: 3, tasks: 1, assistant: 0, planner: 1, weather: 0, meetings: 1, system: 0 } };
+    const cats = ['tasks', 'assistant', 'assistant', 'planner', 'meetings'];
+    const n = (i) => ({
+      id: 1000 - i, kind: 'run.completed', category: cats[i % cats.length],
+      title: i % 6 === 0 ? `e8415e3 UI 재검증 보고서 ${i} VeryLongUnbrokenIdentifier_ABCDEFGHIJKLMNOPQRSTUVWXYZ` : `작업 ${i} 완료 알림`,
+      body: i % 3 ? '긴 본문이 들어가는 알림입니다. '.repeat(3) : '', url: '/tasks', created_at: dayAgo(Math.floor(i / 8), 12 - (i % 8)), read_at: i < 21 ? null : now,
+    });
+    const limit = Number(q.get('limit') ?? 30);
+    return { items: Array.from({ length: limit }, (_, i) => n(i)), next_before: 900, unread_counts: { all: 148, tasks: 21, assistant: 115, planner: 6, weather: 0, meetings: 6, system: 0 } };
   }
   if (path === 'tasks/library') return { roots: [], next_before: null };
   return [];
@@ -109,6 +180,6 @@ export default async function stub(ctx) {
     };
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers });
     const path = url.pathname.replace(/^\/api\//, '');
-    return route.fulfill({ json: body(path, req.method()), headers });
+    return route.fulfill({ json: body(path, req.method(), url.search), headers });
   });
 }

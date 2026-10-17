@@ -159,4 +159,14 @@ describe("CPU and memory history", () => {
     expect(cpu.querySelectorAll("path[data-series='cpu']")).toHaveLength(2);
     expect(screen.getByText("GPU 사용률을 수집하지 못했어요.")).toBeTruthy();
   });
+
+  it("상단 탭으로 CPU·메모리·GPU·시스템 섹션을 전환하고 로컬스토리지에 저장한다", async () => {
+    renderIt(true);
+    const memTab = screen.getByRole("tab", { name: "메모리" });
+    expect(memTab.getAttribute("aria-selected")).toBe("false");
+    await act(async () => { memTab.click(); });
+    expect(memTab.getAttribute("aria-selected")).toBe("true");
+    expect(localStorage.getItem("ttakkari:resources-tab")).toBe("memory");
+  });
 });
+

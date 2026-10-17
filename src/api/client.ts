@@ -861,10 +861,21 @@ export const deleteOverride = (pool: AccountPool = "personal"): Promise<void> =>
   json("/api/accounts/override", { method: "DELETE", query: { pool } });
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });
 export const qwenUsage = (): Promise<QwenUsageSummary> => json("/api/accounts/qwen-usage");
+export interface QwenFlashPeriod {
+  starts_at: string;
+  ends_at: string;
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  last_used_at: string | null;
+}
 export interface QwenFlashUsage {
   model: string;
-  scope: "server_lifetime";
+  scope?: "server_lifetime" | string;
+  timezone?: string;
   observed_at: string;
+  collection_started_at?: string | null;
   server: { status: "running" | "starting" | "unavailable" | "model_mismatch"; detail: string | null };
   metrics_status: "available" | "partial" | "unavailable";
   input_tokens: number | null;
@@ -872,6 +883,8 @@ export interface QwenFlashUsage {
   output_tokens: number | null;
   requests_processing: number | null;
   requests_deferred: number | null;
+  today?: QwenFlashPeriod;
+  week?: QwenFlashPeriod;
 }
 export const qwenFlashUsage = (): Promise<QwenFlashUsage> => json("/api/accounts/qwen-flash-usage");
 

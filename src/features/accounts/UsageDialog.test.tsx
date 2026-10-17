@@ -151,4 +151,57 @@ describe("Flash Next usage", () => {
     expect(within(flash).queryByText("0")).toBeNull();
     expect(within(flash).getAllByText("—")).toHaveLength(3);
   });
+
+  it("Flash Next의 일일 및 주간 영속 집계 윈도우를 분리해 보여 준다", async () => {
+    api.qwenFlashUsage.mockResolvedValue({
+      model: "Qwen3.8-Flash-Next Q2_K",
+      scope: "server_lifetime",
+      timezone: "Asia/Seoul",
+      observed_at: "2026-10-17T03:00:00Z",
+      collection_started_at: "2026-10-17T00:00:00Z",
+      server: { status: "running", detail: null },
+      metrics_status: "available",
+      input_tokens: 1500,
+      cached_input_tokens: 500,
+      output_tokens: 250,
+      requests_processing: 0,
+      requests_deferred: 0,
+      today: {
+        starts_at: "2026-10-16T15:00:00Z",
+        ends_at: "2026-10-17T03:00:00Z",
+        input_tokens: 1500,
+        cached_input_tokens: 500,
+        output_tokens: 250,
+        total_tokens: 1750,
+        last_used_at: "2026-10-17T02:50:00Z",
+      },
+      week: {
+        starts_at: "2026-10-11T15:00:00Z",
+        ends_at: "2026-10-17T03:00:00Z",
+        input_tokens: 3000,
+        cached_input_tokens: 1000,
+        output_tokens: 500,
+        total_tokens: 3500,
+        last_used_at: "2026-10-17T02:50:00Z",
+      },
+    });
+    renderUsage();
+    const flash = await screen.findByRole("region", { name: "Qwen Flash Next 사용량" });
+    expect(await within(flash).findByText("1,500")).toBeTruthy();
+    expect(within(flash).getByText("1,750")).toBeTruthy();
+    expect(within(flash).getByText("3,000")).toBeTruthy();
+    expect(within(flash).getByText("3,500")).toBeTruthy();
+    expect(within(flash).getByText(/영속 집계\(서버 재시작 후에도 유지\)/)).toBeTruthy();
+  });
+
+  it("상단 탭으로 계정·Flash Next·접수 Qwen 섹션을 전환하고 로컬스토리지에 저장한다", async () => {
+    renderUsage();
+    const flashTab = screen.getByRole("tab", { name: "Flash Next" });
+    expect(flashTab.getAttribute("aria-selected")).toBe("false");
+    const { act } = await import("@testing-library/react");
+    await act(async () => { flashTab.click(); });
+    expect(flashTab.getAttribute("aria-selected")).toBe("true");
+    expect(localStorage.getItem("ttakkari:usage-tab")).toBe("flash");
+  });
 });
+
