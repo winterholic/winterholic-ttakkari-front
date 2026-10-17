@@ -15,11 +15,12 @@ import { ErrorState, ListSkeleton } from "../viewer/screenStates";
 
 export const ACCOUNTS_KEY = ["accounts"] as const;
 
-const ENGINE_LABEL: Record<AccountEngine, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI" };
+const ENGINE_LABEL: Record<AccountEngine, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI", muse: "Muse Code" };
 const ENGINE_OPTIONS = [
   { value: "claude" as const, label: "Claude Code" },
   { value: "codex" as const, label: "Codex" },
   { value: "antigravity" as const, label: "Antigravity CLI · Gemini 3.8 Flash" },
+  { value: "muse" as const, label: "Muse Code · 구독 모델 · 운영 검증 전" },
 ];
 
 function errMessage(e: unknown): string {

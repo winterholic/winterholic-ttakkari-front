@@ -12,7 +12,7 @@ import { OrderButtons } from "./OrderButtons";
 import { ErrorState, ListSkeleton } from "../viewer/screenStates";
 
 export const overrideKey = (pool: AccountPool) => ["accounts", "override", pool] as const;
-const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI" };
+const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI", muse: "Muse Code" };
 
 export function useOverride(pool: AccountPool = "personal") {
   // 기한이 지나면 서버가 비활성으로 돌려준다. 화면도 그 즈음 다시 읽는다. 개인·회사 모드가 각자 하나씩 가진다.

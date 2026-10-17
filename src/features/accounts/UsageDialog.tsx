@@ -15,8 +15,8 @@ import "./usage.css";
 // ezwork fsw(ezChat) 와 같은 경계: 80% 부터 아끼고, 95% 부터 거의 없다.
 const WARN = 80;
 const DANGER = 95;
-const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI" };
-const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준", antigravity_cli: "Antigravity 공식 CLI 기준" };
+const ENGINE: Record<string, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI", muse: "Muse Code" };
+const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준", antigravity_cli: "Antigravity 공식 CLI 기준", muse_cli: "Muse Code 구독 사용량 기준" };
 
 function level(p: number): "ok" | "warn" | "danger" {
   return p >= DANGER ? "danger" : p >= WARN ? "warn" : "ok";
@@ -49,6 +49,9 @@ type Status = { tone: "success" | "warning" | "neutral" | "info"; text: string }
 /** pool 모드에서의 상태. 켜기는 개인·회사 모드가 따로라 그 모드의 값으로 본다. */
 function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status {
   if (!(pool === "work" ? a.work_enabled : a.enabled)) return { tone: "neutral", text: "꺼짐" };
+  if (a.execution_enabled === false) return { tone: "neutral", text: "검증 대기" };
+  if (a.engine === "muse" && !a.windows.length) return { tone: "warning", text: "사용량 미관측" };
+  if (a.engine === "muse" && a.stale) return { tone: "warning", text: "오래된 측정" };
   if (a.engine === "antigravity" && !a.windows.length) return { tone: a.error ? "warning" : "neutral", text: a.error ? "조회 실패" : "사용량 미관측" };
   if (a.engine === "antigravity" && a.stale) return { tone: "warning", text: "오래된 측정" };
   if (a.login !== "ok" && a.engine === "claude") return { tone: "warning", text: "로그인 필요" };
@@ -118,8 +121,8 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     ? a.windows.filter((w) => w.key.startsWith("agy_gemini_models_"))
     : a.windows;
   const usable = (a: AccountUsage, pool: AccountPool) =>
-    (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 &&
-    (a.stale || a.remaining_to_limit_percent !== 0) && !usageWindows(a).some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex" || a.engine === "antigravity");
+    a.execution_enabled !== false && (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 &&
+    (a.stale || a.remaining_to_limit_percent !== 0) && !usageWindows(a).some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex" || a.engine === "antigravity" || (a.engine === "muse" && a.windows.length > 0 && !a.stale));
   // 개인·회사 모드가 켜기·순서를 따로 가지므로 지금 쓰는 계정도 모드마다 따로 있다.
   // 회사 계정은 개인 계정 중 회사 모드에 들인 계정이고, 순서는 회사 순위(work_rank)다.
   const groups = (["personal", "work"] as const)

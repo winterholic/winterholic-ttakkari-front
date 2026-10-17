@@ -809,13 +809,15 @@ export interface UsageWindow {
 export interface AccountUsage {
   id: string;
   name: string;
-  engine: "claude" | "codex" | "antigravity";
+  engine: "claude" | "codex" | "antigravity" | "muse";
   pool: AccountPool;
   /** 개인 모드 켜기·순위 */
   enabled: boolean;
   rank: number;
   max_used_percent: number;
   remaining_to_limit_percent: number | null;
+  /** Provider execution can remain off while operating-runtime validation is pending. */
+  execution_enabled?: boolean;
   stale: boolean;
   /** 회사 모드 켜기·순위. 회사에 안 들어온 계정은 work_rank 가 null */
   work_enabled: boolean;
@@ -828,7 +830,7 @@ export interface AccountUsage {
   /** Antigravity AI credits balance. Different unit from Codex rate-limit reset credits. */
   credits_balance?: number | null;
   credits_error?: string | null;
-  source: "api" | "stream" | "session_log" | "antigravity_cli" | null;
+  source: "api" | "stream" | "session_log" | "antigravity_cli" | "muse_cli" | null;
   plan: string | null;
   error: string | null;
   updated_at: number | null;

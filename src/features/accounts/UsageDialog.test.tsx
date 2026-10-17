@@ -40,6 +40,15 @@ function renderUsage(value: AccountUsage = account) {
   render(<MemoryRouter><QueryClientProvider client={qc}><UsageDialog open onClose={vi.fn()} /></QueryClientProvider></MemoryRouter>);
 }
 
+describe("Muse Code preparation state", () => {
+  it("운영 검증 전인 엔진을 사용 가능 계정으로 표시하지 않는다", async () => {
+    renderUsage({ ...account, engine: "muse", name: "Muse", windows: [], source: null,
+      execution_enabled: false, error: "Muse 실행은 운영 검증 전까지 비활성 상태예요" } as AccountUsage);
+    expect(await screen.findByText("검증 대기")).toBeTruthy();
+    expect(screen.queryByText("지금 사용")).toBeNull();
+  });
+});
+
 describe("UsageDialog Antigravity quota", () => {
   it("모델 그룹별 잔여 quota 와 AI 크레딧을 단위를 나눠 보여 준다", async () => {
     renderUsage();

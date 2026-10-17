@@ -2,7 +2,7 @@ import "./engineBadge.css";
 
 export type EngineName = "claude" | "codex" | "auto" | string;
 
-const LABELS: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity", auto: "자동" };
+const LABELS: Record<string, string> = { claude: "Claude", codex: "Codex", antigravity: "Antigravity", muse: "Muse Code", auto: "자동" };
 
 export function EngineBadge({ engine }: { engine: EngineName }) {
   const key = engine.toLowerCase();
