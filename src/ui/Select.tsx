@@ -1,9 +1,30 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
 export interface SelectOption<T extends string> {
   value: T;
   label: string;
+}
+
+/** 트리거와 목록 사이 offset(4) + 목록과 화면 가장자리·고정 막대 사이 여백(8). 열 방향과 높이 상한을 정하는 계산에만 쓴다. */
+const EDGE_GAP = 12;
+
+/**
+ * 목록이 놓일 수 있는 화면 세로 범위. 아래는 보이는 화면 끝(키보드 포함)과 컴포저·탭바 윗면 중 작은 쪽,
+ * 위는 화면 위 끝과 고정 헤더 아랫면 중 큰 쪽이다. 숨겨진 막대(키보드로 가린 탭바)는 높이 0 이라 건너뛴다.
+ */
+function viewportBounds() {
+  const vv = window.visualViewport;
+  let top = vv ? vv.offsetTop : 0;
+  let bottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+  bottom = Math.min(bottom, window.innerHeight);
+  for (const bar of document.querySelectorAll(".tk-composer, .tk-tabbar")) {
+    const r = bar.getBoundingClientRect();
+    if (r.height > 0 && r.top < bottom && r.top > top) bottom = r.top;
+  }
+  const header = document.querySelector(".tk-header")?.getBoundingClientRect();
+  if (header && header.height > 0 && header.bottom > top && header.bottom < bottom) top = header.bottom;
+  return { top, bottom };
 }
 
 export interface SelectProps<T extends string> {
@@ -35,15 +56,47 @@ export function Select<T extends string>({ id, value, options, onChange, labelle
 
   const items = () => [...(list.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
 
+  // 열린 목록을 그리기 전에 방향과 높이 상한을 정한다. 아래·위 중 넉넉한 쪽으로 열고, 그래도 모자라면
+  // 목록 안에서 스크롤한다(--tk-select-room 이 .tk-select > .tk-menu 의 max-height 를 줄인다).
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const el = list.current;
+      const t = trigger.current?.getBoundingClientRect();
+      if (!el || !t) return;
+      el.style.removeProperty("--tk-select-room");
+      const natural = el.offsetHeight;
+      const { top, bottom } = viewportBounds();
+      const below = bottom - t.bottom - EDGE_GAP;
+      const above = t.top - top - EDGE_GAP;
+      const flip = natural > below && above > below;
+      const room = flip ? above : below;
+      // 옵션이 최소 둘은 보이도록 바닥을 둔다
+      const item = el.querySelector<HTMLElement>('[role="option"]')?.offsetHeight ?? 0;
+      const floor = Math.min(natural, 2 * item + (el.offsetHeight - el.clientHeight));
+      if (room < natural) el.style.setProperty("--tk-select-room", `${Math.max(room, floor)}px`);
+      setUp(flip);
+    };
+    place();
+    window.addEventListener("resize", place);
+    window.visualViewport?.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("resize", place);
+      window.visualViewport?.removeEventListener("resize", place);
+    };
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    // 아래 공간이 모자라면 위로 연다. 화면 아래쪽 컴포저·탭바에 목록이 가리지 않게 한다.
-    const t = trigger.current?.getBoundingClientRect();
-    const h = list.current?.offsetHeight ?? 0;
-    const bottomEdge = document.querySelector(".tk-composer, .tk-tabbar")?.getBoundingClientRect().top ?? window.innerHeight;
-    if (t) setUp(t.bottom + h > Math.min(bottomEdge, window.innerHeight) && t.top - h > 0);
+    // 포커스가 문서를 끌고 가지 않게 하고, 고른 항목은 목록 안에서만 보이는 자리로 옮긴다.
     const all = items();
-    (all.find((el) => el.getAttribute("aria-selected") === "true") ?? all[0])?.focus();
+    const start = all.find((el) => el.getAttribute("aria-selected") === "true") ?? all[0];
+    start?.focus({ preventScroll: true });
+    if (start && list.current) {
+      const box = list.current;
+      if (start.offsetTop < box.scrollTop) box.scrollTop = start.offsetTop;
+      else if (start.offsetTop + start.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = start.offsetTop + start.offsetHeight - box.clientHeight;
+    }
     const outside = (e: PointerEvent) => {
       const t = e.target as Node;
       if (!list.current?.contains(t) && !trigger.current?.contains(t)) setOpen(false);

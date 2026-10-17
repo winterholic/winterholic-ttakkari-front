@@ -8,6 +8,8 @@
 /* 사용자 메뉴: 이름 + 연결 상태를 한 버튼에 담고, 설정·알림·테마·로그아웃은 위로 여는 메뉴에 모은다 */
 .app-user-menu { display: block; flex: 1 1 auto; min-width: 0; }
 .app-user-menu > .tk-menu { right: 0; }
+/* Select 목록 높이: ui/Select.tsx 가 열 때 아래·위 남는 칸을 --tk-select-room 으로 넘기면 그 안에서 스크롤한다(짧은 가로 화면에서 탭바 뒤로 새지 않게) */
+.tk-select > .tk-menu { max-height: min(var(--tk-component-menu-max-height), var(--tk-select-room, var(--tk-component-menu-max-height))); }
 .app-user-menu__trigger {
   display: flex; align-items: center; gap: var(--tk-space-2); width: 100%; min-height: var(--tk-size-touch-target-min);
   padding: var(--tk-space-1) var(--tk-space-2); border: 0; border-radius: var(--tk-radius-md);

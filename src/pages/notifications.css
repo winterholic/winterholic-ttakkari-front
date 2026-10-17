@@ -1,5 +1,16 @@
 .notifications-page { padding-bottom: var(--tk-space-8); }
-.notifications-tabs { margin-top: var(--tk-space-4); }
+.notifications-tabs {
+  margin-top: var(--tk-space-4);
+  /* 좁은 폭에서 탭 7개가 가로로 스크롤된다는 단서: 잘린 쪽 끝에만 그림자가 보이고(background-attachment: local 이 덮개 역할) 끝까지 가면 사라진다.
+     선택·포커스된 탭을 scrollIntoView 할 때 옆 탭이 조금 보이게 scroll-padding 을 둔다 */
+  --notifications-fade: color-mix(in srgb, var(--tk-color-text-primary) 16%, transparent);
+  background:
+    linear-gradient(to right, var(--tk-color-surface-canvas) 30%, transparent) left / var(--tk-space-8) 100% no-repeat local,
+    linear-gradient(to left, var(--tk-color-surface-canvas) 30%, transparent) right / var(--tk-space-8) 100% no-repeat local,
+    linear-gradient(to right, var(--notifications-fade), transparent) left / var(--tk-space-3) 100% no-repeat scroll,
+    linear-gradient(to left, var(--notifications-fade), transparent) right / var(--tk-space-3) 100% no-repeat scroll;
+  scroll-padding-inline: var(--tk-space-8);
+}
 .notifications-tabs .tk-tab { min-height: var(--tk-size-touch-target-min); min-width: var(--tk-size-touch-target-min); justify-content: center; }
 .notification-push-settings { min-height: var(--tk-size-touch-target-min); }
 .notifications-toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-3); padding-block: var(--tk-space-3); flex-wrap: wrap; }
