@@ -144,6 +144,16 @@ function body(path, method, search) {
     return { rel_path: '.', entries: [{ name: '긴 이름의 파일과 모바일 화면 검증자료_VeryLongUnbrokenIdentifier_ABCDEFGHIJKLMNOPQRSTUVWXYZ.md', rel_path: 'mobile.md', type: 'file', size_bytes: 2048, mtime: now }], truncated: false };
   }
   if (path === 'meetings') return { meetings: [meeting(1), meeting(2)] };
+  // 맥락 도서관 '근거·검토' 탭. 이전 스텁에는 없어 이 탭이 화면을 그리다 멈췄고(counts 없음) 한 번도 검사되지 않았다.
+  if (path === 'assistant/knowledge/status') return { scope: q.get('scope') ?? 'all', counts: { revisions: 349, units: 5175, assertion_states: { candidate: 193, accepted: 15 } } };
+  if (path === 'assistant/knowledge/assertions') {
+    const item = (i) => ({
+      id: `as${i}`, version: 1, subject: `프로젝트 ${i} 아주 긴 주어 VeryLongUnbrokenIdentifier_ABCDEFGHIJKLMNOPQRSTUVWXYZ`, predicate: 'depends_on', object: '또 다른 긴 대상 이름', state: 'candidate',
+      review_level: 'agent_checked', modality: 'fact', polarity: true, valid_from: null, valid_to: null,
+      evidence: [{ id: `ev${i}`, revision_id: 'rev1', quote: '긴 인용문이 들어가는 근거입니다. '.repeat(3), speaker: '사용자', locator: 'work-history/2026-10-17.md#L12', revision_sha256: 'abc', start: 0, end: 40, event_time: null, active_branch: null }], history: [],
+    });
+    return { items: Array.from({ length: 6 }, (_, i) => item(i)) };
+  }
   if (/^pms\/projects\/[^/]+\/tasks$/.test(path)) return { tasks: Array.from({ length: 14 }, (_, i) => pmsTask(i)) };
   if (/^pms\/projects\/[^/]+$/.test(path)) return project(1);
   if (path === 'pms/projects') return { projects: [project(1), project(2)] };

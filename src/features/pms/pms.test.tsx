@@ -252,6 +252,44 @@ describe("칸반", () => {
     fireEvent.click(await screen.findByRole("menuitem", { name: "검토(으)로" }));
     await waitFor(() => expect(h.patchPmsTask).toHaveBeenCalledWith("a1", { status: "review" }));
   });
+  describe("폰(767 이하)", () => {
+    const original = window.matchMedia;
+    beforeEach(() => {
+      window.matchMedia = ((query: string) => ({ matches: query.includes("max-width: 767px"), media: query, addEventListener: () => {}, removeEventListener: () => {} })) as unknown as typeof window.matchMedia;
+    });
+    afterEach(() => {
+      window.matchMedia = original;
+    });
+    it("상태 탭(개수 표시)으로 한 칸씩만 보이고, 카드가 있는 첫 상태(진행)가 먼저 열린다", async () => {
+      h.listPmsTasks.mockResolvedValue({ tasks: list });
+      wrap(<Board project={project()} />);
+      await screen.findByText("하는 중");
+      const tabs = screen.getAllByRole("tab");
+      expect(tabs.map((t) => t.textContent)).toEqual(["할 일1", "진행1", "검토0", "완료1"]);
+      expect(screen.getByRole("tab", { name: /^진행/ }).getAttribute("aria-selected")).toBe("true");
+      expect(screen.getAllByRole("region")).toHaveLength(1);
+      expect(screen.queryByText("할 작업")).toBeNull();
+      fireEvent.click(screen.getByRole("tab", { name: /^할 일/ }));
+      expect(screen.getByText("할 작업")).toBeTruthy();
+      expect(screen.queryByText("하는 중")).toBeNull();
+    });
+    it("카드 메뉴의 상태 변경으로 옮긴다(끌기 없이)", async () => {
+      h.listPmsTasks.mockResolvedValue({ tasks: list });
+      h.patchPmsTask.mockResolvedValue({ task: { ...list[2], status: "review" }, tasks: list });
+      wrap(<Board project={project()} />);
+      await screen.findByText("하는 중");
+      fireEvent.click(screen.getByRole("button", { name: "하는 중 옮기기" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "검토(으)로" }));
+      await waitFor(() => expect(h.patchPmsTask).toHaveBeenCalledWith("a2", { status: "review" }));
+    });
+  });
+  it("데스크톱은 네 칸을 모두 보이고 탭이 없다", async () => {
+    h.listPmsTasks.mockResolvedValue({ tasks: list });
+    wrap(<Board project={project()} />);
+    await screen.findByText("할 작업");
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(screen.getAllByRole("region")).toHaveLength(4);
+  });
   it("담당자로 거른다", async () => {
     h.listPmsTasks.mockResolvedValue({ tasks: list });
     wrap(<Board project={project()} />);

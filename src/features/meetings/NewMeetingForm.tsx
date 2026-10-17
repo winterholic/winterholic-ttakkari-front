@@ -1,9 +1,10 @@
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { createMeeting, meetingProviders, uploadFile } from "../../api/client";
 import type { MeetingScope } from "../../api/client";
 import { Button } from "../../ui/Button";
+import { FileButton } from "../../ui/FileButton";
 import { Icon } from "../../ui/Icon";
 import { Select } from "../../ui/Select";
 import { toast } from "../../ui/toastStore";
@@ -36,7 +37,6 @@ export function NewMeetingForm() {
   const [project, setProject] = useState("");
   const [date, setDate] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const [transcript, setTranscript] = useState("");
   const [source, setSource] = useState<"paste" | "file">("paste");
   const { options } = useProjectOptions(scope);
@@ -128,9 +128,9 @@ export function NewMeetingForm() {
           <div className="tk-field">
             <span className="tk-label" id={`${id}-file-label`}>녹음 파일</span>
             <div className="mt-file">
-              <input ref={fileRef} type="file" hidden aria-labelledby={`${id}-file-label`} accept=".m4a,.mp3,.aac,.amr,.wav,audio/mp4,audio/mpeg,audio/aac,audio/wav"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-              <button className="tk-button" type="button" onClick={() => fileRef.current?.click()}><Icon name="paperclip" />{file ? "다른 파일 고르기" : "파일 고르기"}</button>
+              <FileButton className="tk-button" aria-labelledby={`${id}-file-label`} accept=".m4a,.mp3,.aac,.amr,.wav,audio/mp4,audio/mpeg,audio/aac,audio/wav" onFiles={(files) => setFile(files[0] ?? null)}>
+                <Icon name="paperclip" />{file ? "다른 파일 고르기" : "파일 고르기"}
+              </FileButton>
               <span className="mt-file__name">{file ? `${file.name} · ${formatSize(file.size)}` : "고른 파일 없음"}</span>
             </div>
             <p className="tk-help">M4A, MP3, AAC, AMR, WAV · 올린 파일은 보관함에도 저장돼요. 업로드 한도는 서버 설정을 따라요.</p>

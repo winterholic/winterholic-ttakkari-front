@@ -110,7 +110,7 @@ export function LibraryPage() {
   };
 
   return (
-    <div className="tk-screen">
+    <div className="tk-screen library-page">
       <PageHeader title="보관함" meta={list.isSuccess ? `${area === "agent" ? "에이전트 파일" : "파일"} ${items.length}${list.hasNextPage ? "+" : ""}개` : undefined} />
       <ArtifactViewerHost alwaysOpen onDelete={setToDelete} onMove={(a) => !move.isPending && move.mutate(a)} resolveInitial={(id) => items.find((a) => a.id === id)}>
         <div className="tk-screen__body">

@@ -29,6 +29,8 @@ const only = args.widths ? String(args.widths).split(',') : null;
 
 const browser = await webkit.launch();
 const rows = [];
+// 화면 본문(.tk-screen__body)이 옆으로 밀리면(scrollWidth > clientWidth) 문서 scrollWidth 가 정상이어도 실패다(맥락 도서관 실기기 증상)
+const scrollerFits = (s) => { if (!s || s === '-') return true; const [a, b] = s.split('/').map(Number); return a <= b; };
 await mkdir(out, { recursive: true });
 for (const p of profiles) {
   if (only && !only.includes(p.name)) continue;
@@ -72,7 +74,7 @@ for (const p of profiles) {
         });
         const file = `${tag}-${route.replace(/[^\w.-]+/g, '_')}-${p.name}-${scheme}.png`;
         await page.screenshot({ path: join(out, file) });
-        rows.push({ route, width: p.name, scheme, file, ...m, ok: m.scrollWidth <= m.innerWidth && m.bodyScrollWidth <= m.innerWidth && m.fileInputs.every((x) => x.shown && x.onButton) });
+        rows.push({ route, width: p.name, scheme, file, ...m, ok: m.scrollWidth <= m.innerWidth && m.bodyScrollWidth <= m.innerWidth && m.fileInputs.every((x) => x.shown && x.onButton) && scrollerFits(m.bodyScroller) });
       } catch (e) { rows.push({ route, width: p.name, scheme, error: String(e.message).split('\n')[0], ok: false }); }
     }
     for (const e of errors) rows.push({ route: '(pageerror)', width: p.name, scheme, error: e, ok: false });

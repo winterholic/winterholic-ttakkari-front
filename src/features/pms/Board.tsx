@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, pointerWithin, rectIntersection, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
-import type { CollisionDetection, DragEndEvent, DragStartEvent } from "@dnd-kit/core";
+import type { CollisionDetection, DragEndEvent, DragStartEvent, SensorDescriptor, SensorOptions } from "@dnd-kit/core";
 import { Link } from "react-router";
 import type { PmsPriority, PmsProject, PmsTask, PmsTaskStatus } from "../../api/types";
+import { useMediaQuery } from "../../shell/useMediaQuery";
 import { Icon } from "../../ui/Icon";
 import { Menu } from "../../ui/Menu";
+import { toast } from "../../ui/toastStore";
 import { ErrorState, ListSkeleton } from "../viewer/screenStates";
 import { EmptyState } from "../viewer/screenStates";
 import { dueText, shortDate, diffDays, todayStr } from "./dates";
@@ -15,6 +17,9 @@ import { TaskDialog } from "./TaskDialog";
 import type { TaskTarget } from "./TaskDialog";
 
 const PRIO_RANK: Record<PmsPriority, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+/** 폰(칸을 가로로 늘어놓으면 옆 칸이 잘리는 폭)에서는 상태 탭으로 한 칸씩 보여 준다. 칸 사이 끌기는 없고 카드 메뉴로 옮긴다. 데스크톱 칸반은 그대로. */
+const COMPACT = "(max-width: 767px)";
+const NO_SENSORS: SensorDescriptor<SensorOptions>[] = [];
 const ALL = "__all";
 const NONE = "__none";
 
@@ -118,7 +123,7 @@ function Column({ status, tasks, byId, blockedIds, onOpen, onMove, onAdd, draggi
 
 /**
  * 칸반: 말단 작업이 카드다(WBS 의 같은 작업). 카드를 칸으로 끌면 상태가 바뀌고 진행률이 맞춰진다.
- * 폰에서는 칸을 가로로 넘기며 보고, 카드를 길게 눌러 끌거나 ⋮ 메뉴로 옮긴다.
+ * 폰에서는 상태 탭(할 일·진행·검토·완료, 개수 표시)으로 한 칸씩 보고 ⋮ 메뉴로 옮긴다. 데스크톱은 네 칸을 나란히 두고 끌어 옮긴다.
  */
 export function Board({ project }: { project: PmsProject }) {
   const q = useTasks(project.id);
@@ -126,6 +131,8 @@ export function Board({ project }: { project: PmsProject }) {
   const [target, setTarget] = useState<TaskTarget | null>(null);
   const [who, setWho] = useState(ALL);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const compact = useMediaQuery(COMPACT);
+  const [picked, setPicked] = useState<PmsTaskStatus | null>(null);
   const sensors = useSensors(
     // PointerSensor 는 터치 스크롤과 다투므로 마우스·터치 센서를 따로 둔다. 터치는 길게 눌러야 끌려서 칸을 가로로 넘기는 스크롤과 구분된다.
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
@@ -142,13 +149,21 @@ export function Board({ project }: { project: PmsProject }) {
 
   const move = (id: string, status: PmsTaskStatus) => {
     const t = byId.get(id);
-    if (t && t.status !== status) actions.patch.mutate({ id, body: { status } });
+    if (!t || t.status === status) return;
+    actions.patch.mutate({ id, body: { status } });
+    // 폰: 옮긴 카드가 지금 탭에서 사라지므로 어디로 갔는지 알려 준다
+    if (compact) toast({ message: `"${t.title}"을(를) ${STATUS_LABEL[status]}(으)로 옮겼어요.` });
   };
   const onDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
     const to = e.over?.id;
     if (typeof to === "string" && (STATUSES as readonly string[]).includes(to)) move(String(e.active.id), to as PmsTaskStatus);
   };
+
+  // 탭: 고른 상태가 없으면 카드가 있는 첫 상태(진행 → 할 일 → 검토 → 완료)
+  const counts = Object.fromEntries(STATUSES.map((st) => [st, shown.filter((t) => t.status === st).length])) as Record<PmsTaskStatus, number>;
+  const current: PmsTaskStatus = picked ?? (["doing", "todo", "review", "done"] as const).find((st) => counts[st] > 0) ?? "todo";
+  const visible = compact ? [current] : STATUSES;
 
   if (q.isPending) return <ListSkeleton rows={4} label="작업을 불러오는 중" />;
   if (q.isError) return <ErrorState error={q.error} what="작업" onRetry={() => void q.refetch()} />;
@@ -179,15 +194,24 @@ export function Board({ project }: { project: PmsProject }) {
             </div>
           )}
           <DndContext
-            sensors={sensors}
+            sensors={compact ? NO_SENSORS : sensors}
             collisionDetection={byColumn}
             onDragStart={(e: DragStartEvent) => setActiveId(String(e.active.id))}
             onDragCancel={() => setActiveId(null)}
             onDragEnd={onDragEnd}
             accessibility={{ screenReaderInstructions: { draggable: "Space 로 카드를 집고 좌우 화살표로 칸을 옮긴 뒤 Space 로 놓아요. Enter 는 상세 열기예요." } }}
           >
-            <div className="pms-cols">
-              {STATUSES.map((s) => (
+            {compact && (
+              <div className="tk-tablist pms-board__tabs" role="tablist" aria-label="상태">
+                {STATUSES.map((st) => (
+                  <button key={st} type="button" id={`pms-tab-${st}`} className="tk-tab" role="tab" data-status={st} aria-selected={current === st} aria-controls="pms-tabpanel" tabIndex={current === st ? 0 : -1} onClick={() => setPicked(st)}>
+                    {STATUS_LABEL[st]}<span className="pms-board__tabcount">{counts[st]}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="pms-cols" data-compact={compact || undefined} {...(compact ? { id: "pms-tabpanel", role: "tabpanel", "aria-labelledby": `pms-tab-${current}` } : {})}>
+              {visible.map((s) => (
                 <Column
                   key={s}
                   status={s}
@@ -205,7 +229,7 @@ export function Board({ project }: { project: PmsProject }) {
               {active && <div className="pms-card2 pms-card2--overlay" data-status={active.status}><CardBody t={active} parent={active.parent_id ? byId.get(active.parent_id) : undefined} blocked={false} overlay /></div>}
             </DragOverlay>
           </DndContext>
-          <p className="pms-hint">카드를 끌어 칸을 옮기면 상태가 바뀌어요. 완료로 옮기면 진행률이 100%가 돼요.</p>
+          <p className="pms-hint">{compact ? "위 탭으로 상태를 바꿔 보고, 카드의 ⋮ 메뉴에서 상태를 옮겨요. 완료로 옮기면 진행률이 100%가 돼요." : "카드를 끌어 칸을 옮기면 상태가 바뀌어요. 완료로 옮기면 진행률이 100%가 돼요."}</p>
         </>
       )}
       <TaskDialog target={target} tasks={all} members={names} actions={actions} onClose={() => setTarget(null)} onAddChild={(id) => setTarget({ mode: "create", parentId: id })} />

@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 import {
@@ -12,6 +12,7 @@ import { EmptyState, ErrorState, ListSkeleton } from "../features/viewer/screenS
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 import { Select } from "../ui/Select";
+import { useScrollFade } from "../ui/useScrollFade";
 import { toast } from "../ui/toastStore";
 import { OrchestrationFlow } from "./OrchestrationFlow";
 import "./settings.css";
@@ -55,6 +56,8 @@ export function AssistantPage() {
   const tab = (TABS.find((t) => t.id === params.get("tab"))?.id ?? "instructions") as Tab;
   const status = useQuery({ queryKey: ["assistant", "status"], queryFn: assistantStatus, refetchInterval: (q) => (q.state.data?.ready ? false : 3000) });
   const s = status.data;
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useScrollFade(tabsRef, "label:has(input:checked)", tab);
   return (
     <div className="tk-screen">
       <PageHeader
@@ -63,7 +66,7 @@ export function AssistantPage() {
       />
       <div className="tk-screen__body">
         <div className="tk-container tk-container--md">
-          <div className="tk-segmented tk-segmented--block assistant-tabs" role="radiogroup" aria-label="비서 관리">
+          <div className="tk-segmented tk-segmented--block tk-segmented--scroll assistant-tabs" role="radiogroup" aria-label="비서 관리" ref={tabsRef}>
             {TABS.map((t) => (
               <label key={t.id}>
                 <input type="radio" name="assistant-tab" checked={tab === t.id} onChange={() => setParams(t.id === "instructions" ? {} : { tab: t.id })} />

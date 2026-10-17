@@ -1,4 +1,5 @@
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
+import { FileButton } from "../../ui/FileButton";
 import { Icon } from "../../ui/Icon";
 import { readTextFile } from "./shared";
 
@@ -14,7 +15,6 @@ export function TranscriptField({ value, onChange, onSource, rows = 10, disabled
   disabled?: boolean;
 }) {
   const id = useId();
-  const fileRef = useRef<HTMLInputElement>(null);
   const [fileError, setFileError] = useState<string | null>(null);
 
   const load = async (file: File | undefined) => {
@@ -25,8 +25,6 @@ export function TranscriptField({ value, onChange, onSource, rows = 10, disabled
       onSource("file");
     } catch {
       setFileError("파일을 읽지 못했어요. 텍스트 파일(.txt, .md)인지 확인해 주세요.");
-    } finally {
-      if (fileRef.current) fileRef.current.value = "";
     }
   };
 
@@ -46,10 +44,9 @@ export function TranscriptField({ value, onChange, onSource, rows = 10, disabled
         }}
       />
       <div className="mt-field-row">
-        <input ref={fileRef} type="file" accept=".txt,.md,.text,text/plain,text/markdown" hidden onChange={(e) => void load(e.target.files?.[0])} />
-        <button className="tk-button tk-button--sm" type="button" disabled={disabled} onClick={() => fileRef.current?.click()}>
+        <FileButton className="tk-button tk-button--sm" disabled={disabled} accept=".txt,.md,.text,text/plain,text/markdown" onFiles={(files) => void load(files[0])}>
           <Icon name="file-text" />텍스트 파일 불러오기
-        </button>
+        </FileButton>
         <span className="mt-count">{value.length.toLocaleString("ko-KR")}자</span>
       </div>
       {fileError && <p className="tk-error" role="alert">{fileError}</p>}

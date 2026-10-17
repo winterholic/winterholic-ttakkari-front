@@ -42,3 +42,7 @@
   .notification-row__icon { display: flex; }
   .notification-row__chevron { display: block; }
 }
+/* 필터 줄(체크·모두 읽음) ↔ 날짜 머리 ↔ 카드 사이: 줄 위아래 padding(12)·날짜 margin(12)·묶음 margin(24)이 겹쳐 실기기에서 한 칸씩 더 벌어졌다. 한 단계 작은 값으로 묶는다. */
+.notifications-toolbar { padding-block: var(--tk-space-1); }
+.notifications-day { margin-bottom: var(--tk-space-4); }
+.notifications-day__title { margin: var(--tk-space-2) 0; }

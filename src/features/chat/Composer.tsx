@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ClipboardEvent, FormEvent, KeyboardEvent, ReactNode } from "react";
+import { FileButton } from "../../ui/FileButton";
 import { Icon } from "../../ui/Icon";
 import { filesFromClipboard } from "./clipboardFiles";
 import "./attachments.css";
@@ -87,7 +88,6 @@ export interface ComposerProps {
 }
 
 export function Composer({ draftKey, running, queued, onSubmit, onStop, context, fill, label = "따까리에게 지시하기", onAttach, blocked, notice }: ComposerProps) {
-  const fileInput = useRef<HTMLInputElement>(null);
   const [text, setText] = useState(() => loadDraft(draftKey));
   const [online, setOnline] = useState(() => navigator.onLine);
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -183,22 +183,9 @@ export function Composer({ draftKey, running, queued, onSubmit, onStop, context,
         {context}
         <div className="tk-composer__row">
           {onAttach && (
-            <>
-              <button className="tk-icon-button tk-composer__attach" type="button" aria-label="파일 첨부" onClick={() => fileInput.current?.click()}>
-                <Icon name="paperclip" />
-              </button>
-              <input
-                ref={fileInput}
-                type="file"
-                multiple
-                hidden
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? []);
-                  e.target.value = "";
-                  if (files.length) onAttach(files);
-                }}
-              />
-            </>
+            <FileButton className="tk-icon-button tk-composer__attach" slotClassName="tk-composer__attach-slot" aria-label="파일 첨부" multiple onFiles={onAttach}>
+              <Icon name="paperclip" />
+            </FileButton>
           )}
           <label className="tk-sr-only" htmlFor={`composer-${draftKey}`}>지시</label>
           <textarea

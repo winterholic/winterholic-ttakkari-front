@@ -1,2 +1,4 @@
 /* 보관함의 파일 / 에이전트 파일 구분. 헤더와 첫 줄 사이는 파일(.files-tabs)·비서 관리(.assistant-tabs)와 같은 space-4. */
 .library-tabs { margin-top: var(--tk-space-4); }
+/* 필터 줄 → 개수 → 날짜 묶음 사이: 필터 아래 padding(12)이 개수 줄과 묶음 머리 사이에 한 번 더 쌓여 상하가 벌어졌다. 묶음 머리의 기본 margin 은 디자인 시스템(.tk-list__group)에서 걷었다. */
+.library-page .tk-filterbar { padding-bottom: var(--tk-space-1); }

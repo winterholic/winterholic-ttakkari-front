@@ -89,13 +89,12 @@ export function NotificationsPage() {
     event.preventDefault();
     setCategory(TABS[next].id);
     const target = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=tab]")[next];
-    target?.focus();
-    target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+    target?.focus({ preventScroll: true });
   }
 
   return (
     <div className="tk-screen">
-      <PageHeader title="알림" meta="따까리의 소식과 놓친 알림을 한곳에서 확인하세요."
+      <PageHeader title="알림" meta={counts?.all ? `안 읽은 알림 ${counts.all}개` : "따까리의 소식과 놓친 알림"}
         actions={<Button variant="ghost" className="notification-push-settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" />푸시 설정</Button>} />
       <div className="tk-screen__body">
         <div className="tk-container tk-container--thread notifications-page">
@@ -103,7 +102,7 @@ export function NotificationsPage() {
             {TABS.map((tab, index) => (
               <button key={tab.id} type="button" id={`notification-tab-${tab.id}`} className="tk-tab" role="tab"
                 aria-selected={category === tab.id} aria-controls="notification-panel" tabIndex={category === tab.id ? 0 : -1}
-                onClick={(e) => { setCategory(tab.id); e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" }); }} onKeyDown={e => tabKey(e, index)}>
+                onClick={() => setCategory(tab.id)} onKeyDown={e => tabKey(e, index)}>
                 {tab.label}{!!counts?.[tab.id] && <span className="tk-badge tk-badge--count" aria-label={`안 읽음 ${counts[tab.id]}개`}>{counts[tab.id]}</span>}
               </button>
             ))}

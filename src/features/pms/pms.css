@@ -29,7 +29,9 @@
 .pms-text-danger { color: var(--tk-color-text-danger); }
 .pms-text-success { color: var(--tk-color-text-success); }
 .pms-text-warning { color: var(--tk-color-text-warning); }
-.pms-header-meta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1) var(--tk-space-2); }
+/* 헤더 메타는 한 줄이다. wrap 하면 좁은 폰(320)에서 두 번째 줄이 헤더 아래 선 밖으로 삐져나갔다(WebKit 320 다크 캡처). 넘치는 기간은 잘린다 */
+.pms-header-meta { display: inline-flex; align-items: center; gap: var(--tk-space-2); min-width: 0; max-width: 100%; overflow: hidden; white-space: nowrap; }
+.pms-header-meta > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .pms-switch { flex: none; }
 .pms-back { align-self: flex-start; display: inline-flex; align-items: center; gap: var(--tk-space-1); font-size: var(--tk-font-size-sm); text-decoration: none; }
 .pms-back > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); }
@@ -400,3 +402,11 @@
 .pms-ms[data-done] > i { background: var(--tk-color-status-success-solid); }
 .pms-ms[data-late] > i { background: var(--tk-color-status-danger-solid); }
 .pms-ms[data-done] > span { color: var(--tk-color-text-tertiary); text-decoration: line-through; }
+
+/* 폰 칸반: 상태 탭 + 한 칸. 열을 가로로 늘어놓으면 옆 칸이 잘려 보였다(실기기). 탭마다 개수를 단다. */
+.pms-board__tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); overflow: visible; }
+.pms-board__tabs .tk-tab { min-height: var(--tk-size-touch-target-min); justify-content: center; gap: var(--tk-space-1-5); padding-inline: var(--tk-space-1); }
+.pms-board__tabcount { color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono); font-variant-numeric: tabular-nums; }
+.pms-board__tabs .tk-tab[aria-selected="true"] .pms-board__tabcount { color: var(--tk-color-text-primary); }
+.pms-cols[data-compact] { display: block; overflow: visible; scroll-snap-type: none; padding-bottom: 0; }
+.pms-cols[data-compact] > .pms-col { flex: none; }

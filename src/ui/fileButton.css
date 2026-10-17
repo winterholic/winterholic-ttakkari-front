@@ -1,0 +1,3 @@
+/* FileButton: 투명한 input[type=file] 을 버튼 위에 같은 크기로 겹쳐 선택 UI의 기준 상자를 맞춘다. */
+.tk-file-slot { position: relative; display: inline-flex; flex: none; }
+.tk-file-slot > input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }

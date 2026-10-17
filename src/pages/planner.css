@@ -88,7 +88,7 @@
 .memo-editor__tag-x > .tk-icon { --tk-_icon: var(--tk-size-icon-xs); }
 @media (hover: hover) { .memo-editor__tag-x:hover { background: var(--tk-color-interactive-hover-overlay); color: var(--tk-color-text-primary); } }
 @media (pointer: coarse) { .memo-editor__tag-x::after { content: ""; position: absolute; inset: calc(-1 * var(--tk-space-2)) calc(-1 * var(--tk-space-1)); } }
-.memo-editor__tag-add { display: flex; align-items: center; gap: var(--tk-space-2); }
+.memo-editor__tag-add { display: flex; align-items: stretch; gap: var(--tk-space-2); }
 .memo-editor__tag-add > .tk-input { flex: 1 1 auto; }
 .memo-editor__tag-add > .tk-button { flex: none; }
 .memo-editor__tag-issue { margin: 0; }
@@ -102,11 +102,24 @@
 .memo-editor__preview { flex: 1 1 auto; }
 .memo-editor__preview-title { margin: 0 0 var(--tk-space-3); color: var(--tk-color-text-primary); font: var(--tk-font-weight-bold) var(--tk-font-size-xl) / var(--tk-font-line-height-heading) var(--tk-font-family-sans); }
 .memo-editor__note { margin: 0; }
-.memo-page__body { padding: var(--tk-space-3) var(--tk-size-layout-page-gutter); }
-.memo-page .memo-editor { min-height: 100%; }
+.memo-page__body { padding: 0 var(--tk-size-layout-page-gutter) var(--tk-space-4); }
+.memo-page .memo-editor { min-height: 100%; gap: var(--tk-space-2); }
 .memo-page .memo-editor__body { flex: 1 0 auto; min-height: 20rem; }
-.memo-page .memo-editor__bar { flex-wrap: wrap; position: sticky; top: 0; z-index: var(--tk-z-index-sticky); padding-block: var(--tk-space-1); background: var(--tk-color-surface-default); }
+/* 도구 줄: 배경을 페이지 바탕(canvas)과 같게 둔다. 흰색(surface-default)이면 캔버스 위에 흰 띠가 떠서 오류처럼 보였다.
+   좌우 gutter 만큼 밖으로 펴서 스크롤될 때 아래 글자가 줄 옆으로 비치지 않게 한다. */
+.memo-page .memo-editor__bar {
+  flex-wrap: nowrap; position: sticky; top: 0; z-index: var(--tk-z-index-sticky);
+  margin-inline: calc(-1 * var(--tk-size-layout-page-gutter)); padding: var(--tk-space-2) var(--tk-size-layout-page-gutter);
+  background: var(--tk-color-surface-canvas);
+}
+.memo-page .memo-editor__bar > .tk-icon-button:last-child { margin-right: calc(-1 * var(--tk-space-2)); }
 .memo-page .memo-editor__status { overflow-wrap: anywhere; }
+/* 제목은 글 머리처럼: 상자 없이 아래 줄 하나만. 제목·태그·본문 상자가 연달아 쌓이던 것을 줄인다 */
+.memo-page .memo-editor__title {
+  padding-inline: 0; border-color: transparent; border-bottom-color: var(--tk-color-border-subtle); border-radius: 0; background: transparent;
+  font-size: var(--tk-font-size-xl);
+}
+.memo-page .memo-editor__title:focus-visible { box-shadow: none; border-bottom-color: var(--tk-component-input-border-focus); }
 .memo-editor__tag { max-width: 100%; }
 .memo-editor__tag > span { min-width: 0; overflow-wrap: anywhere; white-space: normal; }
 .memo-editor__tag-add > .tk-input { min-width: 0; }

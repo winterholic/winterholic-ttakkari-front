@@ -1,2 +1,6 @@
 .notification-link { position: relative; flex: none; min-width: var(--tk-size-touch-target-min); min-height: var(--tk-size-touch-target-min); }
-.notification-link__count { position: absolute; top: 0; right: 0; pointer-events: none; }
+/* 개수 배지는 버튼 오른쪽 위 모서리에 걸친다. 0 에 붙이면 "99+"(약 38px)가 44px 버튼의 아이콘을 거의 다 덮었다(실기기 채팅 헤더). 헤더 좌우 여백(8) 안에서만 밖으로 나간다. */
+.notification-link__count {
+  position: absolute; top: 0; right: calc(-1 * var(--tk-space-1)); pointer-events: none;
+  min-width: var(--tk-space-4); height: var(--tk-space-4); padding-inline: var(--tk-space-1); font-size: var(--tk-font-size-xs); line-height: 1;
+}

@@ -7,6 +7,7 @@ import { useShell } from "./ShellContext";
  * 각 화면(.tk-screen) 맨 위 헤더. 마크업은 디자인 시스템 examples/chat.html 의 .tk-header 그대로.
  * 앱 전체 상태 띠(오프라인·Mac Studio 끊김)는 헤더 바로 아래에 붙는다(docs/06 §23).
  * 제목·메타는 한 줄 말줄임이라 잘렸을 때 전체를 볼 방법(title)을 붙인다(docs/22 A7).
+ * 메타가 글자 하나면 .tk-header__meta-text 에 담는다. flex 상자인 .tk-header__meta 자체에는 text-overflow 가 먹지 않아 말줄임 없이 잘린다(WebKit).
  */
 export function PageHeader({ title, meta, actions }: { title: string; meta?: ReactNode; actions?: ReactNode }) {
   const { openDrawer } = useShell();
@@ -24,7 +25,7 @@ export function PageHeader({ title, meta, actions }: { title: string; meta?: Rea
           </button>
           <div className="tk-header__title">
             <h1 title={title}>{title}</h1>
-            {meta && <p className="tk-header__meta" ref={metaRef}>{meta}</p>}
+            {meta && <p className="tk-header__meta" ref={metaRef}>{typeof meta === "string" || typeof meta === "number" ? <span className="tk-header__meta-text">{meta}</span> : meta}</p>}
           </div>
           {actions && <div className="tk-header__actions">{actions}</div>}
         </div>

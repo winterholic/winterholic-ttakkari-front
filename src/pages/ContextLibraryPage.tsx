@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useRef } from "react";
 import { Link, useSearchParams } from "react-router";
 import { libOverview } from "../api/client";
 import type { LibScope } from "../api/client";
@@ -11,6 +12,7 @@ import { SCOPES, n } from "../features/contextlib/shared";
 import { KnowledgeTab } from "../features/knowledge/KnowledgeTab";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
+import { useScrollFade } from "../ui/useScrollFade";
 import "../features/contextlib/contextlib.css";
 
 type Tab = "evidence" | "overview" | "structure" | "ontology" | "search" | "quality";
@@ -40,6 +42,9 @@ export function ContextLibraryPage() {
     if ("scope" in patch) next.delete("page");
     setParams(next, { replace: true });
   };
+  const tabsRef = useRef<HTMLDivElement>(null);
+  // 탭 6개는 좁은 폰에서 상자보다 길다. 상자 안에서만 스크롤하고, 잘린 쪽은 흐리게 보인다.
+  useScrollFade(tabsRef, "label:has(input:checked)", tab);
   const overview = useQuery({ queryKey: ["ctxlib", "overview", scope], queryFn: () => libOverview(scope) });
   const t = overview.data?.totals;
   return (
@@ -56,7 +61,7 @@ export function ContextLibraryPage() {
       <div className="tk-screen__body">
         <div className="tk-container tk-container--lg">
           <div className="cl-page">
-            <div className="tk-segmented tk-segmented--block" role="radiogroup" aria-label="맥락 도서관 화면">
+            <div className="tk-segmented tk-segmented--block tk-segmented--scroll" role="radiogroup" aria-label="맥락 도서관 화면" ref={tabsRef}>
               {TABS.map((x) => (
                 <label key={x.id}>
                   <input type="radio" name="cl-tab" checked={tab === x.id} onChange={() => set({ tab: x.id === "overview" ? null : x.id })} />
