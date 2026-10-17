@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   createAccount: vi.fn(),
   deleteAccount: vi.fn(),
   clearAccountCooldown: vi.fn(),
+  checkAntigravityAccount: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
@@ -86,6 +87,27 @@ describe("AccountsSection", () => {
     await waitFor(() => expect(api.createAccount).toHaveBeenCalledWith({
       name: "Antigravity", engine: "antigravity", max_used_percent: 100,
     }));
+  });
+
+  it("Antigravity 추가 계정은 전용 로그인 명령과 계정 확인 단계를 보이고, 확인 뒤 준비 상태가 된다", async () => {
+    const pending = acc({
+      id: "agy2", name: "agy-b", engine: "antigravity", login: "missing", login_label: null,
+      login_command: "env PYTHONPATH=/x python -m ttakkari.antigravity_accounts login /h/antigravity-home",
+      auth_state: "auth_required", isolation_mode: "managed_home_keychain", execution_enabled: false,
+    });
+    api.listAccounts.mockResolvedValue([pending]);
+    api.checkAntigravityAccount.mockResolvedValue({
+      ...pending, login: "ok", login_label: "b@example.test", login_command: null, auth_state: "ready", execution_enabled: true,
+    });
+    renderIt();
+    expect(await screen.findByText("로그인 필요")).toBeTruthy();
+    expect(screen.getByText(/ttakkari\.antigravity_accounts login/)).toBeTruthy();
+    const input = screen.getByLabelText("로그인한 Google 계정");
+    fireEvent.change(input, { target: { value: "b@example.test" } });
+    fireEvent.click(screen.getByRole("button", { name: "로그인 확인" }));
+    await waitFor(() => expect(api.checkAntigravityAccount).toHaveBeenCalledWith("agy2", { principal: "b@example.test", confirm: true }));
+    expect(await screen.findByText("b@example.test")).toBeTruthy();
+    expect(screen.queryByLabelText("로그인한 Google 계정")).toBeNull();
   });
 
   it("우선순위 번호·로그인·한도 대기를 보이고, 스위치로 끈다", async () => {

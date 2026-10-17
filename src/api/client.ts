@@ -890,6 +890,10 @@ export interface QwenFlashUsage {
 }
 export const qwenFlashUsage = (): Promise<QwenFlashUsage> => json("/api/accounts/qwen-flash-usage");
 
+/** 전용 HOME 으로 로그인한 Antigravity 추가 계정을 확인한다. confirm 이면 사용자가 입력한 Google 계정으로 격리 확인을 기록한다. */
+export const checkAntigravityAccount = (id: string, body: { principal?: string; confirm?: boolean }): Promise<AccountOut> =>
+  json(`/api/accounts/${id}/antigravity/check`, { method: "POST", json: body });
+
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });
 

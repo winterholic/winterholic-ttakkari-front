@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
+import { ApiError, checkAntigravityAccount, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
 import type { AccountEngine, AccountOut, AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
@@ -28,7 +28,20 @@ function errMessage(e: unknown): string {
   return errorText(e).message;
 }
 
+const AGY_STATE_TEXT: Record<string, string> = {
+  setup_required: "설정 필요 · 로그인 전",
+  auth_required: "로그인 필요",
+  auth_expired: "로그인 만료 · 다시 로그인 필요",
+  isolation_unverified: "격리 확인 대기",
+  keychain_locked: "전용 키체인 잠김",
+  keychain_mismatch: "키체인 격리 불일치",
+  keychain_unavailable: "전용 키체인 사용 불가",
+  invalid_profile: "프로필 손상",
+  unsafe_path: "프로필 경로 위험",
+};
+
 function loginText(a: AccountOut): string {
+  if (a.isolation_mode && a.login !== "ok") return AGY_STATE_TEXT[a.auth_state ?? ""] ?? "로그인 상태 미확인";
   if (a.login === "ok") return a.login_label ? a.login_label : "로그인됨";
   if (a.engine === "antigravity") return "로그인 상태 미확인";
   return "로그인 필요";
@@ -51,6 +64,54 @@ function LoginHint({ engine, command }: { engine: AccountEngine; command: string
           복사
         </button>
       </span>
+    </span>
+  );
+}
+
+/** 전용 HOME 을 쓰는 Antigravity 추가 계정. 터미널 로그인 뒤 사용자가 로그인한 Google 계정을 입력해 격리를 확인해야 실행에 배정된다. */
+function AntigravitySetup({ account, onChecked }: { account: AccountOut; onChecked: (a: AccountOut) => void }) {
+  const id = useId();
+  const [principal, setPrincipal] = useState("");
+  const check = useMutation({
+    mutationFn: () => checkAntigravityAccount(account.id, { principal: principal.trim(), confirm: true }),
+    onSuccess: (a) => {
+      onChecked(a);
+      toast({ message: `${a.name} 로그인을 확인했어요. 이제 작업에 배정돼요.` });
+    },
+  });
+  const copy = () =>
+    void navigator.clipboard?.writeText(account.login_command ?? "").then(
+      () => toast({ message: "명령을 복사했어요. Mac Studio 터미널에 붙여 넣으세요." }),
+      () => toast({ message: "복사하지 못했어요. 길게 눌러 직접 복사해 주세요.", tone: "danger" }),
+    );
+  return (
+    <span className="account-login">
+      <span>1. Mac Studio 터미널에서 아래 명령을 실행해 이 계정 전용 보관함으로 agy 에 로그인하고, 끝나면 agy 를 종료해요. 기존 계정의 로그인은 바뀌지 않아요.</span>
+      <span className="account-login__row">
+        <code className="tk-mono">{account.login_command}</code>
+        <button className="tk-button tk-button--xs" type="button" onClick={copy}>
+          <Icon name="copy" />
+          복사
+        </button>
+      </span>
+      <span>2. 방금 로그인한 Google 계정을 적고 확인해요. 따까리는 토큰을 읽지 않아서 이 값은 직접 적어야 해요.</span>
+      <form
+        className="account-login__row"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (principal.trim() && !check.isPending) check.mutate();
+        }}
+      >
+        <label className="tk-label" htmlFor={`${id}-principal`}>로그인한 Google 계정</label>
+        <input id={`${id}-principal`} className="tk-input" type="email" value={principal} maxLength={254}
+          onChange={(e) => setPrincipal(e.target.value)} placeholder="name@gmail.com" />
+        <button className="tk-button tk-button--xs" type="submit" aria-busy={check.isPending || undefined}
+          aria-disabled={!principal.trim() || undefined}>
+          로그인 확인
+        </button>
+      </form>
+      {check.error && <span className="tk-error" role="alert">{errMessage(check.error)}</span>}
+      {!check.error && account.auth_error && <span className="account-row__warn">마지막 오류: {account.auth_error}</span>}
     </span>
   );
 }
@@ -225,7 +286,9 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
                     <span className={a.login === "ok" ? undefined : "account-row__warn"}>{loginText(a)}</span>
                     {a.cooldown_seconds > 0 && <span className="tk-badge tk-badge--warning">한도 대기 {minutes(a.cooldown_seconds)}</span>}
                   </span>
-                  {a.login !== "ok" && a.login_command && <LoginHint engine={a.engine} command={a.login_command} />}
+                  {a.login !== "ok" && a.login_command && (a.isolation_mode
+                    ? <AntigravitySetup account={a} onChecked={replace} />
+                    : <LoginHint engine={a.engine} command={a.login_command} />)}
                 </span>
                 <span className="tk-list__end">
                   <OrderButtons name={a.name} index={i} count={rows.length} disabled={reorder.isPending}
@@ -403,7 +466,7 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
           )}
         </div>
         <p className="tk-help">
-          <span>{engine === "antigravity" ? "로그인된 단일 agy 프로필을 연결해요. 사용량과 로그인 상태는 앱에서 확인할 수 없어요." : account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
+          <span>{engine === "antigravity" ? "첫 Antigravity 계정은 Mac Studio 에 로그인된 agy 를 그대로 연결해요(로그인 상태는 앱에서 확인할 수 없어요). 두 번째부터는 따까리가 전용 보관함을 만들고, 추가한 뒤 목록의 안내대로 로그인과 계정 확인을 마쳐야 작업에 배정돼요." : account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
         </p>
         {save.error && (
           <p className="tk-error" role="alert">

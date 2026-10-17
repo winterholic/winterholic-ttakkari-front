@@ -341,6 +341,12 @@ export interface AccountOut {
   cooldown_seconds: number;
   /** 처음 한 번 Mac Studio 터미널에서 실행할 로그인 명령. 로그인돼 있으면 null */
   login_command?: string | null;
+  /** Antigravity 추가 계정(전용 HOME)의 준비 상태. 호스트 로그인 계정에는 없다. */
+  auth_state?: string | null;
+  auth_error?: string | null;
+  isolation_mode?: string | null;
+  /** false 면 인증·격리 확인 전이라 새 Run 에 배정되지 않는다. */
+  execution_enabled?: boolean;
 }
 export interface AccountIn {
   name: string;
