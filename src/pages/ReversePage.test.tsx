@@ -27,7 +27,9 @@ const stages = [
   { key: "inventory", label: "목록화", status: "done", started_at: null, finished_at: null, evidence: ["파일 10개 관찰"], notes: [] },
   { key: "structure", label: "구조 파악", status: "done", started_at: null, finished_at: null, evidence: ["README에서 제목 확인"], notes: [] },
   { key: "flows", label: "핵심 흐름", status: "done", started_at: null, finished_at: null, evidence: ["import 3건 관찰"], notes: [] },
-  { key: "summarize", label: "정리·요약", status: "done", started_at: null, finished_at: null, evidence: [], notes: [] },
+  { key: "survey", label: "모델 조사", status: "done", started_at: null, finished_at: null, evidence: ["모델이 읽을 파일 2개 지정"], notes: [] },
+  { key: "synthesize", label: "모델 합성", status: "done", started_at: null, finished_at: null, evidence: ["모델 합성: 모듈 1건"], notes: [] },
+  { key: "summarize", label: "정리·요약", status: "done", started_at: null, finished_at: null, evidence: ["모델 합성 병합"], notes: [] },
 ];
 const detail = {
   ...doneJob,
@@ -39,7 +41,8 @@ const detail = {
     flows: [{ title: "cli 흐름", steps: ["cli.js", "setup.js"], evidence: ["cli.js"] }],
     ideas: [{ title: "근거 명시", body: "관행", evidence: ["docs/"] }],
     limitations: ["런타임 동작은 확인 필요"],
-    stats: { files: 10, bytes: 2048, langs: [["typescript", 5]], revision: "a".repeat(40), files_parsed: 4 },
+    stats: { files: 10, bytes: 2048, langs: [["typescript", 5]], revision: "a".repeat(40), files_parsed: 4,
+             model: { engine: "claude", model: "opus", via: "policy", files_read: 2 } },
   },
 };
 
@@ -100,4 +103,9 @@ it("상세에서 타임라인 근거와 최종 결과를 모두 본다", async (
 it("진행 중에는 결과 대신 대기 문구를 낸다", async () => {
   mountDetail({ ...doneJob, status: "running", result: null, stages: stages.map((s) => ({ ...s, status: "running" })) });
   expect(await screen.findByText("분석이 진행 중입니다. 잠시 후 결과가 나옵니다.")).toBeTruthy();
+});
+
+it("모델 합성 정보를 결과 하단에 보여준다", async () => {
+  mountDetail(detail);
+  expect(await screen.findByText(/모델 합성: claude\/opus/)).toBeTruthy();
 });

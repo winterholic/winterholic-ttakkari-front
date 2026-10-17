@@ -80,6 +80,7 @@ function Result({ result }: { result: NonNullable<ReverseDetail["result"]> }) {
       <ul className="rv-limits">{result.limitations.map((l, i) => <li key={i}>{l}</li>)}</ul>
       <p className="rv-note">파일 {result.stats.files}개({Math.round(result.stats.bytes / 1024).toLocaleString()} KiB) 중 {result.stats.files_parsed}개 파싱
         {result.stats.revision ? ` · rev ${result.stats.revision.slice(0, 12)}` : ""}</p>
+      {result.stats.model && <p className="rv-note">모델 합성: {result.stats.model.engine}/{result.stats.model.model} · 발췌 {result.stats.model.files_read}개 읽음</p>}
     </section>
   </div>;
 }
@@ -89,14 +90,13 @@ export function ReverseDetailPage() {
   const { jobId = "" } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const job = useQuery({ queryKey: ["reverse", "job", jobId], queryFn: () => getReverseJob(jobId) });
-  const active = job.data?.status === "queued" || job.data?.status === "running";
-  const live = useQuery({
-    queryKey: ["reverse", "job", jobId, "live"], queryFn: () => getReverseJob(jobId),
-    refetchInterval: active ? 2500 : false, enabled: active,
+  const job = useQuery({
+    queryKey: ["reverse", "job", jobId], queryFn: () => getReverseJob(jobId),
+    refetchInterval: (q) => (q.state.data?.status === "queued" || q.state.data?.status === "running" ? 2500 : false),
   });
   useForegroundResync(() => { void qc.invalidateQueries({ queryKey: ["reverse"] }); });
-  const data = (active && live.data ? live.data : job.data) ?? null;
+  const data = job.data ?? null;
+  const active = data?.status === "queued" || data?.status === "running";
   return (
     <div className="tk-screen">
       <PageHeader title="분석 결과" meta={data ? data.target : "리버스 엔지니어링"}
