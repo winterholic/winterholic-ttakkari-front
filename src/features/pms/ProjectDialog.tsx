@@ -202,13 +202,13 @@ function ProjectForm({ project, onClose, onCreated, onDeleted, defaultScope }: {
           <>
             <span className="pms-form__confirm" role="alert">작업·마일스톤·이슈까지 모두 지워져요.</span>
             <Button variant="danger" busy={del.isPending} onClick={() => del.mutate()}>네, 지울게요</Button>
-            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>취소</Button>
+            <Button onClick={() => setConfirmDelete(false)}>취소</Button>
           </>
         )}
         {!confirmDelete && (
           <>
             <span className="pms-form__spacer" />
-            <Button variant="ghost" onClick={onClose}>닫기</Button>
+            <Button onClick={onClose}>닫기</Button>
             <Button variant="primary" type="submit" busy={save.isPending}>{project ? "저장" : "만들기"}</Button>
           </>
         )}

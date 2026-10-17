@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { detail } from './fixtures-detail.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const lib = JSON.parse(readFileSync(join(here, 'fixtures-library.json'), 'utf8'));
@@ -62,6 +63,8 @@ const meeting = (i) => ({
 
 function body(path, method, search) {
   const q = new URLSearchParams(search ?? '');
+  const d = detail(path, method);
+  if (d !== undefined) return d;
   if (path === 'auth/refresh') return { access_token: 'fixture', expires_in: 900, token_type: 'bearer' };
   if (path === 'auth/me') return { id: 'u1', name: '테스트', role: 'owner' };
   if (path === 'health') return { ok: true };

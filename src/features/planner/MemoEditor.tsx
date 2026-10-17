@@ -326,16 +326,15 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
       <Dialog
         open={confirmDelete}
         onClose={() => setConfirmDelete(false)}
+        size="sm"
         title="메모를 지울까요?"
         footer={
-          <div className="tk-button-group tk-button-group--end">
-            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>
-              취소
-            </Button>
+          <>
+            <Button onClick={() => setConfirmDelete(false)}>취소</Button>
             <Button variant="danger" busy={del.isPending} onClick={() => del.mutate()}>
               지우기
             </Button>
-          </div>
+          </>
         }
         id="memo-delete"
       >

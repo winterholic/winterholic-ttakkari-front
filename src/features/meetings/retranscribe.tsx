@@ -70,6 +70,7 @@ export function RetranscribeDialog({ m, open, onClose }: { m: MeetingDetail; ope
       open={open}
       onClose={close}
       modal
+      size="sm"
       title="다시 전사할까요?"
       id="meeting-retranscribe"
       footer={

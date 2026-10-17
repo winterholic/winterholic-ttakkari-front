@@ -11,7 +11,6 @@
 .account-row[aria-disabled="true"] .tk-list__title { color: var(--tk-color-text-tertiary); }
 .account-group { margin-left: var(--tk-space-1-5); vertical-align: text-bottom; }
 .account-row__warn { color: var(--tk-color-text-warning); }
-.account-form { display: flex; flex-direction: column; gap: var(--tk-space-4); }
 .account-form__cmd {
   display: block; padding: var(--tk-space-2) var(--tk-space-3); border-radius: var(--tk-radius-md);
   background: var(--tk-color-ink-bg); color: var(--tk-color-ink-text); overflow-wrap: anywhere;
@@ -30,7 +29,6 @@
 .account-actions { display: flex; flex-direction: column; gap: var(--tk-space-2); }
 /* 넓은 화면에서 안내 문구가 한 줄 100자를 넘지 않게. 모바일은 이미 그보다 좁아 영향 없다. */
 .account-help { max-width: 68ch; word-break: keep-all; }
-.override-form { display: flex; flex-direction: column; gap: var(--tk-space-4); }
 .override-form .tk-field > .tk-chips, .override-accounts { flex-wrap: wrap; overflow: visible; }
 .override-accounts > .tk-chip { max-width: 100%; height: auto; min-height: var(--tk-component-chip-height); white-space: normal; padding-block: var(--tk-space-1-5); }
 .override-accounts > .tk-chip > span { min-width: 0; overflow-wrap: anywhere; text-align: left; }

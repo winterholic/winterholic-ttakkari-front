@@ -17,6 +17,12 @@ const walk = (dir) => readdirSync(dir).flatMap((n) => {
   return [p];
 });
 const files = walk(join(root, 'src'));
+// 앱 코드가 쓰는 var(--tk-*) 가 디자인 시스템에 실제로 있는지 본다. 없는 토큰은 조용히 무효가 되어 padding·line-height 가 사라진다(예: --tk-space-7, 날씨 빈 상태).
+const defined = new Set();
+for (const f of walk(join(root, 'src', 'vendor')).filter((p) => p.endsWith('.css'))) for (const m of readFileSync(f, 'utf8').matchAll(/(--tk-[\w-]+)\s*:/g)) defined.add(m[1]);
+// 런타임이 style 로 넣는 변수(Select 높이, 스크롤 힌트 등)와 컴포넌트 사유 변수(--tk-_*)는 정의가 CSS 밖에 있다
+const RUNTIME_TOKENS = new Set(['--tk-select-room', '--tk-pan-x', '--tk-pan-y', '--tk-progress']);
+const undefinedTokens = (text) => [...text.matchAll(/var\((--tk-[\w-]+)/g)].filter((m) => !m[1].startsWith('--tk-_') && !RUNTIME_TOKENS.has(m[1]) && !defined.has(m[1])).length;
 const strip = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '').replace(/url\([^)]*\)/g, 'url()');
 
 const RULES = {
@@ -52,6 +58,7 @@ for (const f of files) {
     // @media 조건(폭 px)은 값이 아니라 조건이라 뺀다
     const noMedia = css.replace(/@media[^{]*\{/g, '{');
     for (const [rule, fn] of Object.entries(RULES)) add(rel, rule, fn(noMedia));
+    add(rel, 'undefined-token', undefinedTokens(css));
     for (const m of text.replace(/url\([^)]*\)/g, 'url()').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       const raw = m[2];
       if (/lint-ok:/.test(raw)) continue;
@@ -61,6 +68,7 @@ for (const f of files) {
   } else if (/\.(tsx|ts)$/.test(f)) {
     add(rel, 'hex', (text.match(/["'`]#[0-9a-fA-F]{3,8}["'`]/g) ?? []).length);
     add(rel, 'inline-px', (text.match(/style=\{\{[^}]*\b\d+px\b/g) ?? []).length);
+    add(rel, 'undefined-token', undefinedTokens(text));
   }
 }
 

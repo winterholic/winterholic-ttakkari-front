@@ -1,7 +1,5 @@
 /* 문서의 흐름은 본문으로, 제어는 문서 밖으로. 기존 따까리 토큰을 따른다. */
 .mt-delivery { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tk-space-2); }
-.mt-share-form { display: flex; flex-direction: column; gap: var(--tk-space-5); min-width: 0; }
-.mt-share-controls { display: flex; flex-direction: column; gap: var(--tk-space-5); }
 .mt-share-controls[hidden] { display: none; }
 .mt-share-review-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--tk-space-2); }
 .mt-share-fields { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; margin: 0; padding: 0; border: 0; }

@@ -159,8 +159,11 @@ button.task-row__link { width: 100%; border: 0; background: none; text-align: le
 
 /* 따까리 대화 옆 서랍(데스크톱). 왼쪽 경계선 하나로 대화와 나누고, 서랍 안에서만 스크롤한다.
    .tk-split 을 쓰지 않는다: 그 규칙은 자손 선택자라 안쪽 결과물 뷰어의 분할까지 같이 열린다. */
+/* 헤더 오른쪽(판 보기 · 개인|회사 · 작업 공간 · 메뉴)이 320 폭에서 328 이라 화면이 405 로 넓어졌다. 좁은 폭에서는 글자를 빼고 아이콘만 둔다(이름은 aria-label). 390 에서도 제목 칸이 8 만 남아 아이콘 넷이 4 간격으로 붙어 있었다. */
+@media (max-width: 430px) { .desk-board-link__text { display: none; } }
+@media (max-width: 380px) { .desk-pool-switch .tk-icon { display: none; } }
 .desk-split { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
-.desk-split__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: var(--tk-size-layout-pane-min); min-height: 0; }
+.desk-split__main { display: flex; flex-direction: column; flex: 1 1 auto; min-width: min(var(--tk-size-layout-pane-min), 100%); min-height: 0; } /* 360 고정이면 320 폭에서 채팅 열이 화면보다 넓어 헤더·본문·입력창이 오른쪽으로 잘렸다 */
 .desk-split__node { display: none; }
 @media (min-width: 1024px) {
   .desk-split[data-open] > .desk-split__node {

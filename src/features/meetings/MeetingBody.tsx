@@ -158,11 +158,11 @@ function ProjectField({ m, a, children }: { m: MeetingDetail; a: Actions; childr
           <div><dt>참석자</dt><dd>{m.participants.join(", ")}</dd></div>
         </dl>
       )}
-      <Dialog open={target !== null} onClose={() => { if (!busy) setTarget(null); }} modal={busy ? "strict" : undefined}
+      <Dialog open={target !== null} onClose={() => { if (!busy) setTarget(null); }} modal={busy ? "strict" : undefined} size="sm"
         title={`${scopeLabel(target ?? m.scope)} 회의록으로 옮길까요?`}
         footer={<>
-          <Button size="sm" disabled={busy} onClick={() => setTarget(null)}>취소</Button>
-          <Button size="sm" variant="primary" busy={busy} onClick={() => {
+          <Button disabled={busy} onClick={() => setTarget(null)}>취소</Button>
+          <Button variant="primary" busy={busy} onClick={() => {
             if (target) a.scope.mutate(target, { onSuccess: () => setTarget(null) });
           }}>{scopeLabel(target ?? m.scope)}로 옮기기</Button>
         </>}>

@@ -435,7 +435,7 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
     >
       <form
         id={`${id}-form`}
-        className="account-form"
+        className="tk-stack account-form"
         onSubmit={(e) => {
           e.preventDefault();
           if (ready && !save.isPending) save.mutate();

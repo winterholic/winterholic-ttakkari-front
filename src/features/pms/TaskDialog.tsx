@@ -142,19 +142,19 @@ function TaskForm({ target, task, tasks, members, actions, onClose, onAddChild }
 
   return (
     <form
-      className="pms-form"
+      className="tk-stack pms-form"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
       <div className="tk-field">
-        <label htmlFor={`${id}-title`}>작업 이름</label>
+        <label className="tk-label" htmlFor={`${id}-title`}>작업 이름</label>
         <input id={`${id}-title`} className="tk-input tk-input--lg" value={f.title} maxLength={300} autoComplete="off" autoFocus={!task} onChange={(e) => set({ title: e.target.value })} />
       </div>
 
       <div className="tk-field">
-        <span id={`${id}-status`}>상태</span>
+        <span className="tk-label" id={`${id}-status`}>상태</span>
         <div className="tk-segmented tk-segmented--block" role="radiogroup" aria-labelledby={`${id}-status`}>
           {STATUSES.map((s) => (
             <label key={s}>
@@ -167,10 +167,10 @@ function TaskForm({ target, task, tasks, members, actions, onClose, onAddChild }
       </div>
 
       <div className="tk-field">
-        <label htmlFor={`${id}-progress`}>진행률 <span className="pms-optional">{f.progress}%</span></label>
+        <label className="tk-label" htmlFor={`${id}-progress`}>진행률 <span className="pms-optional">{f.progress}%</span></label>
         <div className="pms-progress-edit">
           <input id={`${id}-progress`} className="tk-input pms-progress-edit__num" type="number" inputMode="numeric" min={0} max={100} step={5} value={f.progress} disabled={rollup} onChange={(e) => setProgress(Number(e.target.value))} />
-          <div className="tk-chips" role="group" aria-label="진행률 빠른 선택">
+          <div className="tk-chips tk-chips--wrap" role="group" aria-label="진행률 빠른 선택">
             {QUICK_PROGRESS.map((n) => (
               <button key={n} type="button" className="tk-chip" aria-pressed={f.progress === n} disabled={rollup} onClick={() => setProgress(n)}>{n}%</button>
             ))}
@@ -180,23 +180,23 @@ function TaskForm({ target, task, tasks, members, actions, onClose, onAddChild }
 
       <div className="pms-form__pair">
         <div className="tk-field">
-          <label htmlFor={`${id}-assignee`}>담당자</label>
+          <label className="tk-label" htmlFor={`${id}-assignee`}>담당자</label>
           <input id={`${id}-assignee`} className="tk-input" list={`${id}-members`} value={f.assignee} maxLength={100} autoComplete="off" placeholder="이름" onChange={(e) => set({ assignee: e.target.value })} />
           <datalist id={`${id}-members`}>{members.map((m) => <option key={m} value={m} />)}</datalist>
         </div>
         <div className="tk-field">
-          <span id={`${id}-prio`}>우선순위</span>
+          <span className="tk-label" id={`${id}-prio`}>우선순위</span>
           <Select id={`${id}-priosel`} labelledBy={`${id}-prio`} value={f.priority} options={PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABEL[p] }))} onChange={(v) => set({ priority: v })} />
         </div>
       </div>
 
       <div className="pms-form__pair">
         <div className="tk-field">
-          <label htmlFor={`${id}-start`}>시작일</label>
+          <label className="tk-label" htmlFor={`${id}-start`}>시작일</label>
           <input id={`${id}-start`} className="tk-input" type="date" value={f.start} disabled={datesLocked} onChange={(e) => set({ start: e.target.value, ...(f.end && e.target.value > f.end ? { end: e.target.value } : {}) })} />
         </div>
         <div className="tk-field">
-          <label htmlFor={`${id}-end`}>종료일</label>
+          <label className="tk-label" htmlFor={`${id}-end`}>종료일</label>
           <input id={`${id}-end`} className="tk-input" type="date" min={f.start || undefined} value={f.end} disabled={datesLocked} onChange={(e) => set({ end: e.target.value })} />
         </div>
       </div>
@@ -204,13 +204,13 @@ function TaskForm({ target, task, tasks, members, actions, onClose, onAddChild }
 
       {!task && target.mode === "create" && !target.afterId && (
         <div className="tk-field">
-          <span id={`${id}-parent`}>상위 작업</span>
+          <span className="tk-label" id={`${id}-parent`}>상위 작업</span>
           <Select id={`${id}-parentsel`} labelledBy={`${id}-parent`} value={f.parent} options={parentOptions} onChange={(v) => set({ parent: v })} />
         </div>
       )}
 
       <div className="tk-field">
-        <span id={`${id}-pred`}>선행 작업 <span className="pms-optional">끝나야 시작할 수 있는 작업</span></span>
+        <span className="tk-label" id={`${id}-pred`}>선행 작업 <span className="pms-optional">끝나야 시작할 수 있는 작업</span></span>
         {f.predecessors.length > 0 && (
           <div className="tk-chips tk-chips--wrap" role="list" aria-labelledby={`${id}-pred`}>
             {f.predecessors.map((pid) => {
@@ -236,7 +236,7 @@ function TaskForm({ target, task, tasks, members, actions, onClose, onAddChild }
       </div>
 
       <div className="tk-field">
-        <label htmlFor={`${id}-desc`}>설명 <span className="pms-optional">선택</span></label>
+        <label className="tk-label" htmlFor={`${id}-desc`}>설명 <span className="pms-optional">선택</span></label>
         <textarea id={`${id}-desc`} className="tk-textarea" rows={3} value={f.description} maxLength={20000} onChange={(e) => set({ description: e.target.value })} />
       </div>
 
@@ -252,13 +252,13 @@ function TaskForm({ target, task, tasks, members, actions, onClose, onAddChild }
           <>
             <span className="pms-form__confirm" role="alert">{task.has_children ? "하위 작업까지 모두 지워져요." : "이 작업을 지울까요?"}</span>
             <Button variant="danger" busy={actions.remove.isPending} onClick={() => actions.remove.mutate(task.id, { onSuccess: onClose })}>네, 지울게요</Button>
-            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>취소</Button>
+            <Button onClick={() => setConfirmDelete(false)}>취소</Button>
           </>
         )}
         {!confirmDelete && (
           <>
             <span className="pms-form__spacer" />
-            <Button variant="ghost" onClick={onClose}>닫기</Button>
+            <Button onClick={onClose}>닫기</Button>
             <Button variant="primary" type="submit" busy={busy}>{task ? "저장" : "만들기"}</Button>
           </>
         )}

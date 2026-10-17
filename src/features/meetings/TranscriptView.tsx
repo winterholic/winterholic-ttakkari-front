@@ -166,7 +166,7 @@ export function TranscriptView({ m, focus }: { m: MeetingDetail; focus?: Transcr
         </div>
       </div>
 
-      <label className="mt-review-toggle"><input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} />검수 표시</label>
+      <label className="tk-checkbox mt-review-toggle"><input type="checkbox" checked={review} onChange={(e) => setReview(e.target.checked)} />검수 표시</label>
       <p className="mt-item__meta" aria-label="전사 정보">
         <span>{m.transcript_chars.toLocaleString("ko-KR")}자</span>
         {sourceText && <span>{sourceText}</span>}

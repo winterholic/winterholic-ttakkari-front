@@ -51,7 +51,7 @@ function NoteForm({ project, target, onClose }: { project: PmsProject; target: N
 
   return (
     <form
-      className="pms-form"
+      className="tk-stack pms-form"
       onSubmit={(e) => {
         e.preventDefault();
         if (!title.trim()) return setProblem("제목을 적어 주세요.");
@@ -60,32 +60,32 @@ function NoteForm({ project, target, onClose }: { project: PmsProject; target: N
       }}
     >
       <div className="tk-field">
-        <span id={`${id}-kind`}>종류</span>
+        <span className="tk-label" id={`${id}-kind`}>종류</span>
         <div className="tk-segmented tk-segmented--block" role="radiogroup" aria-labelledby={`${id}-kind`}>
           {NOTE_KINDS.map((k) => <label key={k}><input type="radio" name={`${id}-kind`} checked={kind === k} onChange={() => setKind(k)} />{NOTE_KIND_LABEL[k]}</label>)}
         </div>
       </div>
       <div className="tk-field">
-        <label htmlFor={`${id}-title`}>제목</label>
+        <label className="tk-label" htmlFor={`${id}-title`}>제목</label>
         <input id={`${id}-title`} className="tk-input tk-input--lg" value={title} maxLength={300} autoComplete="off" autoFocus={!note} placeholder={kind === "risk" ? "예) 외부 API 심사가 늦어질 수 있음" : "예) 로그인 후 빈 화면이 나와요"} onChange={(e) => setTitle(e.target.value)} />
       </div>
       <div className="tk-field">
-        <label htmlFor={`${id}-body`}>내용 <span className="pms-optional">선택</span></label>
+        <label className="tk-label" htmlFor={`${id}-body`}>내용 <span className="pms-optional">선택</span></label>
         <textarea id={`${id}-body`} className="tk-textarea" rows={4} value={body} maxLength={20000} onChange={(e) => setBody(e.target.value)} />
       </div>
       <div className="pms-form__pair">
         <div className="tk-field">
-          <span id={`${id}-sev`}>심각도</span>
+          <span className="tk-label" id={`${id}-sev`}>심각도</span>
           <Select id={`${id}-sevsel`} labelledBy={`${id}-sev`} value={severity} options={SEVERITIES.map((s) => ({ value: s, label: SEVERITY_LABEL[s] }))} onChange={setSeverity} />
         </div>
         <div className="tk-field">
-          <label htmlFor={`${id}-owner`}>담당자 <span className="pms-optional">선택</span></label>
+          <label className="tk-label" htmlFor={`${id}-owner`}>담당자 <span className="pms-optional">선택</span></label>
           <input id={`${id}-owner`} className="tk-input" list={`${id}-names`} value={owner} maxLength={100} autoComplete="off" onChange={(e) => setOwner(e.target.value)} />
           <datalist id={`${id}-names`}>{names.map((n) => <option key={n} value={n} />)}</datalist>
         </div>
       </div>
       <div className="tk-field">
-        <span id={`${id}-task`}>관련 작업 <span className="pms-optional">선택</span></span>
+        <span className="tk-label" id={`${id}-task`}>관련 작업 <span className="pms-optional">선택</span></span>
         <Select
           id={`${id}-tasksel`}
           labelledBy={`${id}-task`}
@@ -101,13 +101,13 @@ function NoteForm({ project, target, onClose }: { project: PmsProject; target: N
           <>
             <span className="pms-form__confirm" role="alert">이 항목을 지울까요?</span>
             <Button variant="danger" busy={del.isPending} onClick={() => del.mutate()}>네, 지울게요</Button>
-            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>취소</Button>
+            <Button onClick={() => setConfirmDelete(false)}>취소</Button>
           </>
         )}
         {!confirmDelete && (
           <>
             <span className="pms-form__spacer" />
-            <Button variant="ghost" onClick={onClose}>닫기</Button>
+            <Button onClick={onClose}>닫기</Button>
             <Button variant="primary" type="submit" busy={save.isPending}>{note ? "저장" : "추가"}</Button>
           </>
         )}

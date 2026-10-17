@@ -14,7 +14,7 @@
 .checklist-row__title[data-checked] > span { text-decoration: line-through; color: var(--tk-color-text-secondary); }
 .checklist-fixed { display: inline-flex; color: var(--tk-color-text-secondary); }
 .checklist-error { color: var(--tk-color-text-danger); }
-.checklist-edit p { overflow-wrap: anywhere; }
+.checklist-edit p { margin: 0; overflow-wrap: anywhere; } /* 부모 gap 이 간격을 정한다: <p> 기본 margin(14)이 gap 16 에 더해져 30 이 됐다 */
 
 /* 기본 조회: 읽기 전용 카드 목록. 관리 컨트롤은 편집·날짜별 조회 화면에만 둔다. */
 .checklist-view { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; }

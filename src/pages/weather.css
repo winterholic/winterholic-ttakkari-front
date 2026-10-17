@@ -1,6 +1,6 @@
 .weather-page__container { max-width: 64rem; }
 .weather-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-4); padding-block: var(--tk-space-5) var(--tk-space-4); }
-.weather-heading h1 { margin: 0; font-size: var(--tk-font-size-2xl); line-height: var(--tk-font-line-height-tight); }
+.weather-heading h1 { margin: 0; font-size: var(--tk-font-size-2xl); line-height: var(--tk-font-line-height-snug); }
 .weather-heading p { margin: var(--tk-space-1) 0 0; color: var(--tk-color-text-secondary); }
 .weather-heading > button { flex: none; }
 .weather-eyebrow { color: var(--tk-color-text-brand) !important; font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-semibold); letter-spacing: .04em; }
@@ -55,7 +55,7 @@
 .weather-commute__place strong { text-align: right; font-size: var(--tk-font-size-md); }
 .weather-commute__place span,.weather-commute__place small { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .weather-commute__place small { grid-column: 1 / -1; }
-.weather-insight { margin: var(--tk-space-3) 0 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.weather-insight { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
 .weather-week { display: grid; gap: var(--tk-space-1); }
 .weather-week__day { display: grid; grid-template-columns: 2.5rem 3.3rem minmax(2rem, 1fr) 3.3rem 1.4rem; align-items: center; gap: var(--tk-space-2); min-height: 2.75rem; font-size: var(--tk-font-size-xs); font-variant-numeric: tabular-nums; }
 .weather-week__date { color: var(--tk-color-text-secondary); }
@@ -72,7 +72,7 @@
 .weather-source__missing,.weather-source__degraded { color: var(--tk-color-text-warning); }
 .weather-state { display: grid; justify-items: start; gap: var(--tk-space-2); margin-block: var(--tk-space-4); padding: var(--tk-space-4); border: 1px solid var(--tk-color-border-danger); border-radius: var(--tk-radius-lg); }
 .weather-state > p { margin: 0; color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
-.weather-state--empty { justify-items: center; padding-block: var(--tk-space-7); border-color: var(--tk-color-border-default); text-align: center; }
+.weather-state--empty { justify-items: center; padding-block: var(--tk-space-8); border-color: var(--tk-color-border-default); text-align: center; }
 .weather-state--empty > .tk-icon { width: 2rem; height: 2rem; color: var(--tk-color-text-brand); }
 .weather-state--error { border-color: var(--tk-color-border-danger); }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }

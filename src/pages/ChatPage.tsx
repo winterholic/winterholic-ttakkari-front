@@ -142,7 +142,7 @@ function DeskScreen({ pool }: { pool: AccountPool }) {
 function PoolSwitch({ pool }: { pool: AccountPool }) {
   const navigate = useNavigate();
   return (
-    <div className="tk-segmented" role="radiogroup" aria-label="모드">
+    <div className="tk-segmented desk-pool-switch" role="radiogroup" aria-label="모드">
       <label>
         <input type="radio" name="desk-pool" checked={pool === "personal"} onChange={() => navigate("/chat/thread")} />
         개인
@@ -380,9 +380,9 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
           session.data && (
             <>
               {isDesk && (
-                <Link className="tk-button tk-button--sm tk-button--ghost" to={deskHome}>
+                <Link className="tk-button tk-button--sm tk-button--ghost desk-board-link" to={deskHome} aria-label="판 보기">
                   <Icon name="tasks" />
-                  판 보기
+                  <span className="desk-board-link__text">판 보기</span>
                 </Link>
               )}
               {isDesk && <PoolSwitch pool={pool} />}

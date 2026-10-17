@@ -144,7 +144,7 @@ export function ChecklistsPage() {
           </>}
         </div>
       </div>
-      <Dialog open={!!edit} onClose={() => { if (!busy) setEdit(null); }} title="항목 수정" modal={busy ? "strict" : true}>
+      <Dialog open={!!edit} onClose={() => { if (!busy) setEdit(null); }} size="sm" title="항목 수정" modal={busy ? "strict" : true}>
         <form className="checklist-edit" onSubmit={e => { e.preventDefault(); if (!edit || !editTitle.trim() || busy) return;
           const target = edit; run(() => target.fixed ? patchChecklistTemplate(target.id, editTitle.trim()) : patchChecklistItem(target.id, { title: editTitle.trim() }), () => setEdit(null)); }}>
           <label className="tk-field"><span className="tk-label">항목 이름</span><input className="tk-input" aria-label="항목 이름" required maxLength={300} value={editTitle} disabled={busy} onChange={e => setEditTitle(e.target.value)} /></label>
@@ -152,7 +152,7 @@ export function ChecklistsPage() {
           <div className="tk-button-group tk-button-group--end"><Button disabled={busy} onClick={() => setEdit(null)}>취소</Button><Button type="submit" variant="primary" busy={busy} disabled={!editTitle.trim()}>저장</Button></div>
         </form>
       </Dialog>
-      <Dialog open={!!remove} onClose={() => { if (!busy) setRemove(null); }} title="항목 삭제" modal={busy ? "strict" : true}>
+      <Dialog open={!!remove} onClose={() => { if (!busy) setRemove(null); }} size="sm" title="항목 삭제" modal={busy ? "strict" : true}>
         <div className="checklist-edit"><p>‘{remove?.title}’ 항목을 삭제할까요?</p><p className="checklist-note">{remove?.fixed ? "앞으로 반복하지 않습니다. 이미 만들어진 날짜별 기록은 유지돼요." : "선택한 날짜에서만 삭제합니다. 고정 항목은 계속 반복돼요."}</p>
           {mutation.isError && <p role="alert">{mutation.error.message}</p>}
           <div className="tk-button-group tk-button-group--end"><Button disabled={busy} onClick={() => setRemove(null)}>취소</Button><Button variant="danger" busy={busy} onClick={() => { if (!remove || busy) return; const target = remove; run(() => target.fixed ? deleteChecklistTemplate(target.id) : deleteChecklistItem(target.id), () => setRemove(null)); }}>삭제</Button></div>

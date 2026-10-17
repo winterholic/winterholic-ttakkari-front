@@ -1,7 +1,6 @@
 {
  "src/features/accounts/usage.css": {
-  "nowrap-unpaired": 1,
-  "child-margin-top": 1
+  "nowrap-unpaired": 1
  },
  "src/features/canvas/canvas.css": {
   "px-literal": 1
@@ -68,7 +67,7 @@
  "src/pages/weather.css": {
   "px-literal": 21,
   "important": 1,
-  "child-margin-top": 3
+  "child-margin-top": 2
  },
  "src/ui/engineBadge.css": {
   "hex": 15,

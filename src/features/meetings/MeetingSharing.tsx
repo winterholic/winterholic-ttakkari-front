@@ -94,19 +94,19 @@ function DeliveryDialog({ m, mode, onClose }: { m: MeetingDetail; mode: Mode; on
     {sharing && action.isSuccess ? <Button variant="primary" onClick={onClose}>확인</Button> : !reviewed ? <Button variant="primary" disabled={!canPreview || busy} busy={preview.isPending} onClick={() => preview.mutate()}>미리보기</Button>
       : <Button variant="primary" disabled={busy || (!sharing && format !== "html" && !parts.includes(part)) || (sharing && (shares.isPending || shares.isError || reviewed.preview.public_sharing_enabled === false))} busy={action.isPending} onClick={() => action.mutate()}>{sharing ? (active ? "공개 내용 갱신" : "공개 링크 만들기") : "파일 저장"}</Button>}
   </>}>
-    <div className="mt-share-form">
+    <div className="tk-stack mt-share-form">
       <p className="tk-help">{sharing ? "선택해 게시한 내용만 링크를 가진 사람이 로그인 없이 볼 수 있어요. 원본 수정은 자동 공개되지 않아요." : "선택한 내용만 파일로 저장해요. 공개 링크는 만들어지지 않아요."}</p>
-      <div className="mt-share-controls" hidden={!!reviewed}><fieldset disabled={busy} className="mt-share-fields"><legend>포함할 내용</legend><div className="mt-share-checks">
-        {(Object.keys(SECTION_LABELS) as MeetingSection[]).map((s) => <label key={s}><input type="checkbox" checked={selection.sections.includes(s)} onChange={(e) => {
+      <div className="tk-stack mt-share-controls" hidden={!!reviewed}><fieldset disabled={busy} className="mt-share-fields"><legend>포함할 내용</legend><div className="mt-share-checks">
+        {(Object.keys(SECTION_LABELS) as MeetingSection[]).map((s) => <label key={s} className="tk-checkbox"><input type="checkbox" checked={selection.sections.includes(s)} onChange={(e) => {
           invalidateReview(); setSelection({ ...selection, sections: e.target.checked ? [...selection.sections, s] : selection.sections.filter((v) => v !== s), include_evidence: s === "transcript" && !e.target.checked ? false : selection.include_evidence });
         }} />{SECTION_LABELS[s]}</label>)}
       </div><div className="mt-share-checks">
-        <label><input type="checkbox" checked={selection.include_people} onChange={(e) => { invalidateReview(); setSelection({ ...selection, include_people: e.target.checked }); }} />참석자·화자 이름·담당자 포함</label>
-        <label><input type="checkbox" disabled={!selection.sections.includes("transcript")} checked={selection.include_evidence} onChange={(e) => { invalidateReview(); setSelection({ ...selection, include_evidence: e.target.checked }); }} />근거 발화 포함</label>
+        <label className="tk-checkbox"><input type="checkbox" checked={selection.include_people} onChange={(e) => { invalidateReview(); setSelection({ ...selection, include_people: e.target.checked }); }} />참석자·화자 이름·담당자 포함</label>
+        <label className="tk-checkbox"><input type="checkbox" disabled={!selection.sections.includes("transcript")} checked={selection.include_evidence} onChange={(e) => { invalidateReview(); setSelection({ ...selection, include_evidence: e.target.checked }); }} />근거 발화 포함</label>
       </div></fieldset>
-      {m.scope === "work" && <label className="mt-share-confirm"><input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => { invalidateReview(); setConfirmed(e.target.checked); }} />회사 자료의 선택 내용과 외부 전달 가능 여부를 확인했어요</label>}
+      {m.scope === "work" && <label className="tk-checkbox mt-share-confirm"><input type="checkbox" checked={confirmed} disabled={busy} onChange={(e) => { invalidateReview(); setConfirmed(e.target.checked); }} />회사 자료의 선택 내용과 외부 전달 가능 여부를 확인했어요</label>}
       {sharing && <fieldset disabled={busy} className="mt-share-fields"><legend>받는 사람이 다운로드할 형식</legend><div className="mt-share-checks">
-        {FORMATS.map((f) => <label key={f}><input type="checkbox" checked={formats.includes(f)} onChange={(e) => { invalidateReview(); setFormats(e.target.checked ? [...formats, f] : formats.filter((x) => x !== f)); }} />{FORMAT_LABELS[f]}</label>)}
+        {FORMATS.map((f) => <label key={f} className="tk-checkbox"><input type="checkbox" checked={formats.includes(f)} onChange={(e) => { invalidateReview(); setFormats(e.target.checked ? [...formats, f] : formats.filter((x) => x !== f)); }} />{FORMAT_LABELS[f]}</label>)}
       </div><p className="tk-help">모두 끄면 조회만 허용해요. CSV는 시각이 있는 전사나 분석 목록을 선택했을 때 제공해요. 하나라도 켜면 웹 문서(.html)도 함께 받을 수 있어요.</p>
         <label className="tk-field">링크 유효 기간<span className="tk-select"><select value={days} onChange={(e) => setDays(e.target.value)}><option value="1">1일</option><option value="7">7일</option><option value="30">30일</option></select></span></label>
       </fieldset>}</div>

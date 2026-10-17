@@ -94,14 +94,11 @@
 .pms-card__milestone > span:nth-child(2) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---- 폼(모달) */
-.pms-form { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
 .pms-form__pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: var(--tk-space-4); }
+.pms-form .pms-form__pair > .tk-field + .tk-field { margin-top: 0; } /* .tk-field + .tk-field 의 margin 이 두 번째 칸만 20 내려 앞 칸과 높이가 어긋났다 */
 .pms-form__actions { align-items: center; flex-wrap: wrap; }
 .pms-form__spacer { flex: 1 1 auto; }
 .pms-form__confirm { flex: 1 1 100%; color: var(--tk-color-text-danger); font-size: var(--tk-font-size-sm); }
-.pms-project-form { gap: var(--tk-component-input-field-gap); }
-.pms-project-form .tk-segmented { height: var(--tk-size-control-md); box-sizing: border-box; align-items: stretch; }
-.pms-project-form .tk-segmented > label { height: auto; }
 .pms-project-form .pms-form__actions { padding-top: var(--tk-space-4); border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); }
 .pms-project-phases { display: flex; flex-direction: column; gap: var(--tk-space-3); }
 .pms-project-phases > legend { float: none; margin-bottom: var(--tk-space-3); font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-medium); }
@@ -302,6 +299,7 @@
 .pms-trow__sum { grid-area: sum; display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1) var(--tk-space-3); margin: 0 0 var(--tk-space-1) 2.75rem; padding: var(--tk-space-1) var(--tk-space-2); border: 0; border-radius: var(--tk-radius-md); background: none; color: var(--tk-color-text-secondary); text-align: left; cursor: pointer; font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / 1.3 var(--tk-font-family-sans); font-variant-numeric: tabular-nums; }
 .pms-trow__sum > [data-late] { color: var(--tk-color-text-danger); font-weight: var(--tk-font-weight-medium); }
 .pms-trow__bar { grid-area: bar; margin-left: 2.75rem; padding-right: var(--tk-space-2); }
+.pms-wbs:not([data-wide]) :is(.pms-trow__sum, .pms-trow__bar) { margin-left: calc(2.75rem + var(--tk-size-icon-lg)); } /* 제목 앞 twisty 칸만큼 같이 들여 세 줄의 왼쪽을 맞춘다 */
 .pms-trow__bar > .tk-progress { height: var(--tk-space-1); }
 .pms-wbs[data-wide] .pms-trow { grid-template-areas: none; padding: var(--tk-space-0-5) var(--tk-space-2); min-height: calc(var(--tk-size-control-md) + var(--tk-space-1)); }
 .pms-wbs[data-wide] .pms-trow > * { grid-area: auto; }

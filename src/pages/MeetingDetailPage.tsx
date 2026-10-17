@@ -79,6 +79,7 @@ export function MeetingDetailPage() {
         open={confirm}
         onClose={() => setConfirm(false)}
         modal
+        size="sm"
         title="회의록을 지울까요?"
         id="meeting-delete"
         footer={

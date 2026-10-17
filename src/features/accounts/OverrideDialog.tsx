@@ -134,7 +134,7 @@ function OverrideEditor({ accounts, pool, onClose, current }: {
       }
     >
       <p className="tk-help"><span>정한 시각까지만 이 순서로 써요. 기본 순서는 바뀌지 않고, 시각이 지나면 저절로 돌아가요. 목록에 없는 계정은 기본 순서대로 뒤에 붙어요.{pool === "work" ? " 회사 업무 탭에만 적용돼요." : " 개인 계정 순서에만 적용되고, 회사 계정 순서는 따로 정해요."}</span></p>
-      <div className="override-form">
+      <div className="tk-stack override-form">
         <div className="tk-field">
           <label className="tk-label" htmlFor="override-until">언제까지</label>
           <input id="override-until" className="tk-input" type="datetime-local" value={until} min={localInput(new Date(openedAt))} disabled={save.isPending} onChange={(e) => setUntil(e.target.value)} />

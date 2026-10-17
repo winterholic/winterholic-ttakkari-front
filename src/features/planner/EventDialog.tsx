@@ -73,21 +73,21 @@ function EventFormView({ initial, eventId, recurring, onClose, showLunar }: { in
 
   return (
     <form
-      className="planner-form"
+      className="tk-stack planner-form"
       onSubmit={(e) => {
         e.preventDefault();
         submit();
       }}
     >
       <div className="tk-field">
-        <label htmlFor={`${id}-title`}>제목</label>
+        <label className="tk-label" htmlFor={`${id}-title`}>제목</label>
         <input id={`${id}-title`} className="tk-input tk-input--lg" value={f.title} maxLength={200} autoComplete="off" onChange={(e) => set({ title: e.target.value })} />
       </div>
       <label className="tk-switch tk-switch--row">
         <input type="checkbox" role="switch" checked={f.allDay} onChange={(e) => set({ allDay: e.target.checked, reminder: reminderFor(e.target.checked, f.reminder) })} />
         종일
       </label>
-      <div className="planner-form__when">
+      <div className="tk-stack planner-form__when">
         {showLunar && (
           <div className="planner-form__lunar" aria-live="polite">
             {lunarStart && <span>{formatLunarDate(lunarStart)}</span>}
@@ -95,14 +95,14 @@ function EventFormView({ initial, eventId, recurring, onClose, showLunar }: { in
           </div>
         )}
         <div className="tk-field">
-          <label htmlFor={`${id}-sd`}>시작</label>
+          <label className="tk-label" htmlFor={`${id}-sd`}>시작</label>
           <div className="planner-form__pair">
             <input id={`${id}-sd`} className="tk-input" type="date" value={f.startDate} onChange={(e) => moveStart(e.target.value, f.startTime)} />
             {!f.allDay && <input className="tk-input" type="time" aria-label="시작 시각" value={f.startTime} onChange={(e) => moveStart(f.startDate, e.target.value)} />}
           </div>
         </div>
         <div className="tk-field">
-          <label htmlFor={`${id}-ed`}>끝</label>
+          <label className="tk-label" htmlFor={`${id}-ed`}>끝</label>
           <div className="planner-form__pair">
             <input id={`${id}-ed`} className="tk-input" type="date" min={f.startDate} value={f.endDate} onChange={(e) => set({ endDate: e.target.value })} />
             {!f.allDay && <input className="tk-input" type="time" aria-label="끝 시각" value={f.endTime} onChange={(e) => set({ endTime: e.target.value })} />}
@@ -112,7 +112,7 @@ function EventFormView({ initial, eventId, recurring, onClose, showLunar }: { in
       <p className="tk-help">한국 표준시(Asia/Seoul) 기준이에요.</p>
 
       <div className="tk-field">
-        <span id={`${id}-rem`}>알림</span>
+        <span className="tk-label" id={`${id}-rem`}>알림</span>
         {recurring ? (
           <p className="tk-help">반복 일정에는 알림을 걸 수 없어요. 반복 기능은 다시 설계하는 중이라, 지금은 고치면 반복 전체가 함께 바뀌어요.</p>
         ) : (
@@ -130,11 +130,11 @@ function EventFormView({ initial, eventId, recurring, onClose, showLunar }: { in
       </div>
 
       <div className="tk-field">
-        <label htmlFor={`${id}-loc`}>장소</label>
+        <label className="tk-label" htmlFor={`${id}-loc`}>장소</label>
         <input id={`${id}-loc`} className="tk-input" value={f.location} maxLength={200} onChange={(e) => set({ location: e.target.value })} />
       </div>
       <div className="tk-field">
-        <label htmlFor={`${id}-desc`}>메모</label>
+        <label className="tk-label" htmlFor={`${id}-desc`}>메모</label>
         <textarea id={`${id}-desc`} className="tk-textarea" rows={4} value={f.description} maxLength={10000} onChange={(e) => set({ description: e.target.value })} />
       </div>
 
@@ -147,13 +147,13 @@ function EventFormView({ initial, eventId, recurring, onClose, showLunar }: { in
           <>
             <span className="planner-form__confirm" role="alert">{recurring ? "반복 일정 전체가 지워져요." : "이 일정을 지울까요?"}</span>
             <Button variant="danger" busy={del.isPending} onClick={() => del.mutate()}>네, 지울게요</Button>
-            <Button variant="ghost" onClick={() => setConfirmDelete(false)}>취소</Button>
+            <Button onClick={() => setConfirmDelete(false)}>취소</Button>
           </>
         )}
         {!confirmDelete && (
           <>
             <span className="planner-form__spacer" />
-            <Button variant="ghost" onClick={onClose}>닫기</Button>
+            <Button onClick={onClose}>닫기</Button>
             <Button variant="primary" type="submit" busy={save.isPending}>저장</Button>
           </>
         )}

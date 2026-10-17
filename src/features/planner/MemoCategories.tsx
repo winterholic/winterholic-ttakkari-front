@@ -168,16 +168,15 @@ export function CategoryManager({ open, onClose, onDeleted }: { open: boolean; o
       <Dialog
         open={toDelete !== null}
         onClose={() => setToDelete(null)}
+        size="sm"
         title={`'${toDelete?.name ?? ""}' 카테고리를 지울까요?`}
         footer={
-          <div className="tk-button-group tk-button-group--end">
-            <Button variant="ghost" onClick={() => setToDelete(null)}>
-              취소
-            </Button>
+          <>
+            <Button onClick={() => setToDelete(null)}>취소</Button>
             <Button variant="danger" busy={del.isPending} onClick={() => toDelete && del.mutate(toDelete)}>
               지우기
             </Button>
-          </div>
+          </>
         }
         id="memo-category-delete"
       >
