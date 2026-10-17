@@ -107,7 +107,7 @@
 @media (max-width: 767px) {
   .ds-heading > .ds-select > .ds-note, .ds-preview__intro { display: none; }
   .ds-kinds { grid-template-columns: minmax(0, 1.3fr) repeat(4, minmax(0, 1fr)); }
-  .ds-kinds button { padding: var(--tk-space-1); white-space: normal; line-height: var(--tk-font-line-height-tight); }
+  .ds-kinds button { padding: var(--tk-space-1); white-space: normal; line-height: var(--tk-font-line-height-snug); }
   .ds-kind-full { display: none; }
   .ds-kind-short { display: inline; }
   .ds-preview .ds-segment { padding: 0; }

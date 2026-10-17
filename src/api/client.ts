@@ -1216,3 +1216,12 @@ export const setArtcraftBug = (id: string, body: { status: ArtcraftBugStatus; no
 export const getArtcraftAgentConfig = (): Promise<ArtcraftAgentConfig> => json("/api/artcraft/agent-config");
 export const getDesignSystemPreview = (system: string, p: { item?: string; revision: string; theme: "light" | "dark" }): Promise<DesignPreview> =>
   json(`/api/design-systems/${encodeURIComponent(system)}/preview`, { query: p });
+
+// ---- 리버스 엔지니어링 (백엔드 ADR 0038). 요청→수집→정리의 전 과정을 단계별 근거와 함께 본다.
+import type { ReverseDetail, ReverseSummary } from "./reverseTypes";
+export const listReverseJobs = (): Promise<{ items: ReverseSummary[] }> => json("/api/reverse");
+export const startReverseJob = (target: string): Promise<ReverseSummary> =>
+  json("/api/reverse", { method: "POST", json: { target } });
+export const getReverseJob = (id: string): Promise<ReverseDetail> => json(`/api/reverse/${encodeURIComponent(id)}`);
+export const deleteReverseJob = (id: string): Promise<{ id: string; deleted: boolean }> =>
+  json(`/api/reverse/${encodeURIComponent(id)}`, { method: "DELETE" });
