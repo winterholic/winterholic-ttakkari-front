@@ -89,7 +89,8 @@ export function NotificationsPage() {
     event.preventDefault();
     setCategory(TABS[next].id);
     const target = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=tab]")[next];
-    target?.focus({ preventScroll: true });
+    target?.focus();
+    target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }
 
   return (
@@ -102,7 +103,7 @@ export function NotificationsPage() {
             {TABS.map((tab, index) => (
               <button key={tab.id} type="button" id={`notification-tab-${tab.id}`} className="tk-tab" role="tab"
                 aria-selected={category === tab.id} aria-controls="notification-panel" tabIndex={category === tab.id ? 0 : -1}
-                onClick={() => setCategory(tab.id)} onKeyDown={e => tabKey(e, index)}>
+                onClick={(e) => { setCategory(tab.id); e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" }); }} onKeyDown={e => tabKey(e, index)}>
                 {tab.label}{!!counts?.[tab.id] && <span className="tk-badge tk-badge--count" aria-label={`안 읽음 ${counts[tab.id]}개`}>{counts[tab.id]}</span>}
               </button>
             ))}
