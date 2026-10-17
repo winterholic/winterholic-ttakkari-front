@@ -22,6 +22,7 @@ import { AppShell } from "./shell/AppShell";
 import { PublicMeetingPage } from "./pages/PublicMeetingPage";
 import { WeatherPage } from "./pages/WeatherPage";
 import { OpsLogsPage } from "./pages/OpsLogsPage";
+import { ArtcraftPage } from "./pages/ArtcraftPage";
 import { DesignSystemPage } from "./pages/DesignSystemPage";
 import { OpsIssuePage } from "./pages/OpsIssuePage";
 
@@ -81,6 +82,7 @@ export function App() {
         <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/logs" element={<OpsLogsPage />} />
         <Route path="/design-systems" element={<DesignSystemPage />} />
+        <Route path="/artcraft" element={<ArtcraftPage />} />
         <Route path="/logs/issues/:id" element={<OpsIssuePage />} />
         <Route path="/meetings" element={<MeetingsPage />} />
         <Route path="/meetings/new" element={<MeetingNewPage />} />

@@ -1200,3 +1200,17 @@ export const searchDesignSystem = (system: string, p: { q?: string; kind?: Desig
   json(`/api/design-systems/${encodeURIComponent(system)}/items`, { query: { ...p, limit: 20 } });
 export const getDesignSystemItem = (system: string, item: string, p: { offset?: number; revision?: string }): Promise<DesignItem> =>
   json(`/api/design-systems/${encodeURIComponent(system)}/item`, { query: { ...p, item, length: 6000 } });
+
+// ---- ArtCraft 관제. 디자인시스템과 별개 도메인이다.
+import type { ArtcraftAgentConfig, ArtcraftBug, ArtcraftBugList, ArtcraftBugStatus, ArtcraftJob, ArtcraftOverview, ArtcraftSmokeMode } from "./artcraftTypes";
+export const getArtcraftApps = (refresh = false): Promise<ArtcraftOverview> => json("/api/artcraft/apps", { query: { refresh: refresh || undefined } });
+export const checkArtcraftRemote = (): Promise<ArtcraftJob> => json("/api/artcraft/remote-check", { method: "POST" });
+export const runArtcraftSmoke = (body: { apps?: string[]; mode: ArtcraftSmokeMode; confirm?: boolean }): Promise<ArtcraftJob> =>
+  json("/api/artcraft/smoke", { method: "POST", json: body });
+export const controlArtcraftApp = (app: string, body: { action: "start" | "stop"; confirm?: boolean }): Promise<ArtcraftJob> =>
+  json(`/api/artcraft/apps/${encodeURIComponent(app)}/gui`, { method: "POST", json: body });
+export const getArtcraftJob = (id: string): Promise<ArtcraftJob> => json(`/api/artcraft/jobs/${encodeURIComponent(id)}`);
+export const listArtcraftBugs = (): Promise<ArtcraftBugList> => json("/api/artcraft/bugs");
+export const setArtcraftBug = (id: string, body: { status: ArtcraftBugStatus; note?: string }): Promise<ArtcraftBug> =>
+  json(`/api/artcraft/bugs/${encodeURIComponent(id)}`, { method: "PUT", json: body });
+export const getArtcraftAgentConfig = (): Promise<ArtcraftAgentConfig> => json("/api/artcraft/agent-config");

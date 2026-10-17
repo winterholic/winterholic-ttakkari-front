@@ -36,6 +36,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "wbs", to: "/wbs", icon: "wbs", label: "WBS", description: "작업 분해 트리와 간트 일정" },
   { root: "logs", to: "/logs", icon: "terminal", label: "로그·이슈", description: "운영 오류를 이슈로 묶어 보고 배포 실패 원인 확인" },
   { root: "design-systems", to: "/design-systems", icon: "library", label: "디자인시스템", description: "프로젝트별 토큰·컴포넌트·사용 지침과 원본 조회" },
+  { root: "artcraft", to: "/artcraft", icon: "palette", label: "ArtCraft 관제", description: "설치된 ArtCraft 앱 13개의 상태·스모크·버그 후보·MCP 설정" },
 ];
 
 /** 지금 경로가 어느 부가 기능 안인가. 채팅·설정처럼 목록에 없는 화면이면 undefined. */
