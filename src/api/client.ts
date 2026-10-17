@@ -1181,3 +1181,14 @@ export const knowledgeRecall = (query: string, scope: LibScope): Promise<import(
 export const knowledgeReview = (id:string, version:number, state:string, reason:string): Promise<unknown> => json(`${K}/assertions/${encodeURIComponent(id)}/reviews`, {method:'POST',json:{expected_version:version,state,review_level:'user_confirmed',reason}});
 export const knowledgeCorrect = (id:string, version:number, reason:string, replacement:{unit_id:string;start:number;end:number;quote:string;subject:string;predicate:string;object:string;modality:string;polarity:boolean;valid_from:string|null;valid_to:string|null}): Promise<unknown> => json(`${K}/assertions/${encodeURIComponent(id)}/corrections`, {method:'POST',json:{expected_version:version,reason,replacement}});
 export const knowledgeAssertion = (id:string, scope:LibScope): Promise<import('../features/knowledge/types').Assertion> => json(`${K}/assertions/${encodeURIComponent(id)}`,{query:{scope}});
+
+// ---- 운영 로그·이슈 (백엔드 ADR 0033)
+import type { OpsDeploy, OpsDeployLog, OpsIssueDetail, OpsIssueList, OpsIssueRow, OpsSource, OpsStatus, OpsTrend } from "./opsLogTypes";
+export const listOpsIssues = (p: { status?: OpsStatus | "all"; source?: OpsSource; q?: string; cursor?: number; limit?: number } = {}): Promise<OpsIssueList> =>
+  json("/api/ops-logs/issues", { query: { status: p.status ?? "unresolved", source: p.source, q: p.q || undefined, cursor: p.cursor, limit: p.limit ?? 20 } });
+export const getOpsIssue = (id: string): Promise<OpsIssueDetail> => json(`/api/ops-logs/issues/${encodeURIComponent(id)}`, { query: { events: 5 } });
+export const patchOpsIssue = (id: string, body: { status?: OpsStatus; note?: string }): Promise<{ issue: OpsIssueRow }> =>
+  json(`/api/ops-logs/issues/${encodeURIComponent(id)}`, { method: "PATCH", json: body });
+export const opsTrend = (hours: number, unit: "hour" | "day"): Promise<OpsTrend> => json("/api/ops-logs/trend", { query: { hours, unit } });
+export const listOpsDeploys = (limit = 20): Promise<{ items: OpsDeploy[] }> => json("/api/ops-logs/deploys", { query: { limit } });
+export const getOpsDeployLog = (id: string): Promise<OpsDeployLog> => json(`/api/ops-logs/deploys/${encodeURIComponent(id)}/log`, { query: { mode: "summary" } });
