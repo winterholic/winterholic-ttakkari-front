@@ -29,12 +29,11 @@ function shortDate(iso: string) {
 export function ReversePage() {
   const [target, setTarget] = useState("");
   const qc = useQueryClient();
-  const jobs = useQuery({ queryKey: KEY, queryFn: listReverseJobs });
-  const active = (jobs.data?.items ?? []).some((j) => j.status === "queued" || j.status === "running");
-  const poll = useQuery({
-    queryKey: [...KEY, "poll"], queryFn: listReverseJobs, refetchInterval: active ? 3000 : false, enabled: active,
+  const jobs = useQuery({
+    queryKey: KEY, queryFn: listReverseJobs,
+    refetchInterval: (q) => ((q.state.data?.items ?? []).some((j) => j.status === "queued" || j.status === "running") ? 3000 : false),
   });
-  const items = (active && poll.data ? poll.data.items : jobs.data?.items) ?? [];
+  const items = jobs.data?.items ?? [];
   useForegroundResync(() => { void qc.invalidateQueries({ queryKey: KEY }); });
   const start = useMutation({
     mutationFn: () => startReverseJob(target.trim()),

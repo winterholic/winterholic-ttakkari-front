@@ -57,7 +57,10 @@ export interface ReverseResult {
   flows: ReverseFlow[];
   ideas: ReverseIdea[];
   limitations: string[];
-  stats: { files: number; bytes: number; langs: [string, number][]; revision: string | null; files_parsed: number };
+  stats: {
+    files: number; bytes: number; langs: [string, number][]; revision: string | null; files_parsed: number;
+    model?: { engine: string; model: string; via: string; files_read: number };
+  };
 }
 
 export interface ReverseDetail extends ReverseSummary {
