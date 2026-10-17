@@ -13,6 +13,9 @@
    왼쪽 테두리→아이콘 거리를 오른쪽 보내기 버튼→테두리 거리와 같게 맞춘다. */
 .tk-composer .tk-composer__attach-slot { margin-inline-start: calc(-1 * var(--tk-space-1-5)); }
 .tk-composer .tk-composer__attach { --tk-_h: var(--tk-size-control-md); width: calc(var(--tk-size-control-md) - var(--tk-space-2)); }
+@media (pointer: coarse), (max-width: 767px) {
+  .tk-composer .tk-composer__attach { --tk-_h: var(--tk-size-touch-target-min); width: var(--tk-size-touch-target-min); }
+}
 .tk-composer .tk-composer__attach-slot ~ .tk-composer__input { padding-inline-start: var(--tk-space-1); }
 
 /* 터치 화면에서는 단축키 안내를 숨기므로, 안내 문구까지 없으면 빈 줄이 아래 여백만 키운다 */

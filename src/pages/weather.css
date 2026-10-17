@@ -47,7 +47,7 @@
 .weather-prob-track span { display: block; height: 100%; border-radius: inherit; background: var(--tk-color-text-brand); }
 .weather-hour-grid { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); border-top: 1px solid var(--tk-color-border-subtle); border-bottom: 1px solid var(--tk-color-border-subtle); }
 .weather-hour-grid > div { display: grid; gap: var(--tk-space-1); min-width: 0; padding: var(--tk-space-2) var(--tk-space-1); text-align: center; }
-.weather-hour-grid time,.weather-hour-grid span { color: var(--tk-color-text-tertiary); font-size: 11px; }
+.weather-hour-grid time,.weather-hour-grid span { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .weather-hour-grid strong { font-size: var(--tk-font-size-xs); font-variant-numeric: tabular-nums; }
 .weather-commute { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--tk-space-3); }
 .weather-commute__place { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: var(--tk-space-1) var(--tk-space-3); min-width: 0; padding: var(--tk-space-3); border: 1px solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); }
@@ -66,7 +66,7 @@
 .weather-week__rain { color: var(--tk-color-text-brand); text-align: center; font-weight: var(--tk-font-weight-semibold); }
 .weather-week__day[data-weekend="true"] .weather-week__date { color: var(--tk-color-text-brand); font-weight: var(--tk-font-weight-semibold); }
 .weather-source { display: grid; gap: var(--tk-space-1); margin-block: var(--tk-space-5); padding-block: var(--tk-space-3); border-top: 1px solid var(--tk-color-border-subtle); color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); line-height: var(--tk-font-line-height-relaxed); }
-.weather-source a { color: var(--tk-color-text-link); text-underline-offset: 2px; }
+.weather-source a { display: inline-flex; align-items: center; min-height: var(--tk-size-touch-target-min); color: var(--tk-color-text-link); text-underline-offset: 2px; }
 .weather-source__engine { display: inline-flex; align-items: center; gap: var(--tk-space-2); flex-wrap: wrap; }
 .weather-source__engine small { font-size: var(--tk-font-size-xs); }
 .weather-source__missing,.weather-source__degraded { color: var(--tk-color-text-warning); }
