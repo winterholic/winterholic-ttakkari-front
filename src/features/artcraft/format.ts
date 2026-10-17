@@ -1,8 +1,31 @@
-import type { ArtcraftBugStatus, ArtcraftSnippetKind } from "../../api/artcraftTypes";
+import type { ArtcraftBug, ArtcraftBugKind, ArtcraftBugSection, ArtcraftBugStatus, ArtcraftSnippetKind } from "../../api/artcraftTypes";
 import { toast } from "../../ui/toastStore";
 
-export const BUG_STATUS_LABEL: Record<ArtcraftBugStatus, string> = { unreported: "미보고", reported: "보고됨", resolved: "해결" };
-export const BUG_STATUSES: ArtcraftBugStatus[] = ["unreported", "reported", "resolved"];
+export const BUG_STATUS_LABEL: Record<ArtcraftBugStatus, string> = {
+  candidate: "미검토", selected: "기여 선택", in_progress: "진행 중", reported: "보고됨·PR 올림", resolved: "해결", deferred: "보류", excluded: "제외",
+};
+export const BUG_STATUSES: ArtcraftBugStatus[] = ["candidate", "selected", "in_progress", "reported", "resolved", "deferred", "excluded"];
+/** 본 흐름. 보류·제외는 어느 단계에서든 빠지는 옆길이다. */
+export const BUG_FLOW: ArtcraftBugStatus[] = ["candidate", "selected", "in_progress", "reported", "resolved"];
+export const BUG_NEXT: Partial<Record<ArtcraftBugStatus, { to: ArtcraftBugStatus; label: string }>> = {
+  candidate: { to: "selected", label: "기여로 선택" },
+  selected: { to: "in_progress", label: "진행 중으로" },
+  in_progress: { to: "reported", label: "보고함·PR 올림" },
+  reported: { to: "resolved", label: "해결로 표시" },
+};
+export const BUG_KIND_LABEL: Record<ArtcraftBugKind, string> = { issue: "이슈만", pr: "PR 가능", security: "보안 비공개 신고 필요" };
+export const BUG_DIFFICULTY_LABEL = { easy: "쉬움", medium: "보통", hard: "어려움" } as const;
+export const BUG_UPSTREAM_LABEL: Record<ArtcraftBug["upstream"]["state"], string> = {
+  unchecked: "중복 미확인", none: "중복 없음", related: "비슷한 이슈 있음", duplicate: "이미 있는 이슈",
+};
+export const BUG_SECTIONS: { key: ArtcraftBugSection; label: string; open: boolean }[] = [
+  { key: "summary", label: "요약", open: true },
+  { key: "repro", label: "재현 절차", open: true },
+  { key: "evidence", label: "증거(로그·명령 출력)", open: true },
+  { key: "impact", label: "영향", open: false },
+  { key: "suggestion", label: "제안", open: false },
+  { key: "unverified", label: "확인하지 못한 것", open: false },
+];
 export const SNIPPET_LABEL: Record<ArtcraftSnippetKind, string> = { json: "JSON", claude: "Claude Code", codex: "Codex" };
 export const SNIPPET_KINDS: ArtcraftSnippetKind[] = ["json", "claude", "codex"];
 

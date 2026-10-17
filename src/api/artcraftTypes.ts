@@ -1,6 +1,9 @@
 /** ArtCraft 관제 API(백엔드 docs/adr/0035-artcraft-control.md). 디자인시스템 타입과 섞지 않는다. */
 export type ArtcraftAuthMode = "none" | "token" | "key" | "file" | "unknown";
-export type ArtcraftBugStatus = "unreported" | "reported" | "resolved";
+/** 후보(미검토) → 기여 선택 → 진행 중 → 보고됨·PR 올림 → 해결, 옆길로 보류·제외. 상태는 따까리에만 저장된다. */
+export type ArtcraftBugStatus = "candidate" | "selected" | "in_progress" | "reported" | "resolved" | "deferred" | "excluded";
+export type ArtcraftBugKind = "issue" | "pr" | "security";
+export type ArtcraftBugSection = "summary" | "impact" | "repro" | "evidence" | "suggestion" | "unverified";
 export type ArtcraftJobState = "queued" | "running" | "succeeded" | "failed" | "timeout";
 export type ArtcraftSmokeMode = "cli" | "full";
 
@@ -62,22 +65,35 @@ export interface ArtcraftOverview {
 
 export interface ArtcraftBug {
   id: string;
-  apps: string;
-  severity: "S1" | "S2" | "S3" | null;
-  severity_text: string;
-  summary: string;
-  verified: string;
   title: string;
-  body: string;
-  truncated: boolean;
+  repos: string[];
+  apps: string[];
+  severity: "S1" | "S2" | "S3" | null;
+  kind: ArtcraftBugKind | null;
+  /** 기록한 에이전트의 추정 */
+  difficulty: "easy" | "medium" | "hard" | null;
+  upstream: { state: "unchecked" | "none" | "related" | "duplicate"; note: string };
+  found: string | null;
+  verified: string;
+  sections: Partial<Record<ArtcraftBugSection, string>>;
+  truncated: string[];
+  /** BUGS.md 형식이 어긋난 곳. 숨기지 않고 보여 준다. */
+  problems: string[];
   status: ArtcraftBugStatus;
   note: string;
+  /** 사용자가 올린 이슈·PR 링크(https://github.com/ 만) */
+  url: string;
   updated_at: string | null;
+  history: { status: ArtcraftBugStatus; at: string }[];
+  /** 기여 선택 뒤 에이전트에게 넘길 요청 문구 */
+  handoff: string;
 }
 
 export interface ArtcraftBugList {
   source_modified_at: string | null;
   counts: Record<ArtcraftBugStatus, number>;
+  apps: string[];
+  problems: number;
   bugs: ArtcraftBug[];
 }
 

@@ -1211,7 +1211,7 @@ export const controlArtcraftApp = (app: string, body: { action: "start" | "stop"
   json(`/api/artcraft/apps/${encodeURIComponent(app)}/gui`, { method: "POST", json: body });
 export const getArtcraftJob = (id: string): Promise<ArtcraftJob> => json(`/api/artcraft/jobs/${encodeURIComponent(id)}`);
 export const listArtcraftBugs = (): Promise<ArtcraftBugList> => json("/api/artcraft/bugs");
-export const setArtcraftBug = (id: string, body: { status: ArtcraftBugStatus; note?: string }): Promise<ArtcraftBug> =>
+export const setArtcraftBug = (id: string, body: { status: ArtcraftBugStatus; note?: string; url?: string }): Promise<ArtcraftBug> =>
   json(`/api/artcraft/bugs/${encodeURIComponent(id)}`, { method: "PUT", json: body });
 export const getArtcraftAgentConfig = (): Promise<ArtcraftAgentConfig> => json("/api/artcraft/agent-config");
 export const getDesignSystemPreview = (system: string, p: { item?: string; revision: string; theme: "light" | "dark" }): Promise<DesignPreview> =>

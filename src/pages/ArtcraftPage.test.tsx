@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
-import type { ArtcraftApp, ArtcraftBugList, ArtcraftJob, ArtcraftOverview } from "../api/artcraftTypes";
+import type { ArtcraftApp, ArtcraftBug, ArtcraftBugList, ArtcraftJob, ArtcraftOverview } from "../api/artcraftTypes";
 import { ApiError } from "../api/client";
 
 const h = vi.hoisted(() => ({
@@ -49,12 +49,23 @@ const overview = (over: Partial<ArtcraftOverview> = {}): ArtcraftOverview => ({
   generated_at: "2026-10-18T00:00:00+00:00", stale: false, error: null, apps: [photo, vector],
   remote: { checked_at: null, attempted_at: null, error: null, checking: false }, jobs: [], ...over,
 });
+const bug = (over: Partial<ArtcraftBug> & { id: string; title: string }): ArtcraftBug => ({
+  repos: ["storytold/photocraft"], apps: ["photocraft"], severity: "S1", kind: "pr", difficulty: "medium",
+  upstream: { state: "related", note: "checked 2026-10-18, similar photocraft#3336" }, found: "2026-10-18", verified: "yes, release 0.9.0",
+  sections: { summary: "font scan stalls", repro: "run `photocraft-cli info in.png`", evidence: "```\n1:36.66 total\n```", suggestion: "scan lazily" },
+  truncated: [], problems: [], status: "candidate", note: "", url: "", updated_at: null, history: [],
+  handoff: "ArtCraft 버그 후보 BUG-001 를 업스트림에 기여하려고 해.\n내가 초안을 확인하고 올리라고 말한 뒤에만 해.", ...over,
+});
+const sec = bug({
+  id: "BUG-002", title: "control channel is open", kind: "security", severity: "S2", difficulty: "hard", apps: ["vectorcraft", "filmcraft", "cadcraft", "gridcraft"],
+  repos: ["storytold/vectorcraft"], upstream: { state: "unchecked", note: "" }, status: "selected", sections: { summary: "no auth", repro: "nc", evidence: "ok" },
+  handoff: "ArtCraft 버그 후보 BUG-002 (보안)",
+});
+const sloppy = bug({ id: "BUG-003", title: "help exits 1", severity: "S3", kind: "issue", apps: ["deckcraft"], problems: ["필수 소절 '### Evidence' 가 없거나 비었습니다."], status: "reported", url: "https://github.com/storytold/deckcraft/issues/5" });
 const bugs: ArtcraftBugList = {
-  source_modified_at: null, counts: { unreported: 1, reported: 1, resolved: 0 },
-  bugs: [
-    { id: "BUG-001", apps: "photocraft", severity: "S1", severity_text: "S1", summary: "font scan", verified: "yes", title: "photocraft font scan", body: "repro steps", truncated: false, status: "unreported", note: "", updated_at: null },
-    { id: "BUG-003", apps: "deckcraft", severity: "S3", severity_text: "S3", summary: "help exit 1", verified: "yes", title: "help exits 1", body: "", truncated: false, status: "reported", note: "up#1", updated_at: "2026-10-18T00:00:00+00:00" },
-  ],
+  source_modified_at: null, apps: ["cadcraft", "deckcraft", "filmcraft", "gridcraft", "photocraft", "vectorcraft"], problems: 1,
+  counts: { candidate: 1, selected: 1, in_progress: 0, reported: 1, resolved: 0, deferred: 0, excluded: 0 },
+  bugs: [bug({ id: "BUG-001", title: "photocraft font scan" }), sec, sloppy],
 };
 
 function mount(path = "/artcraft") {
@@ -187,27 +198,111 @@ it("상태를 못 읽으면 오류와 다시 시도를 보인다", async () => {
   expect(await screen.findByText(/이전 값을 보여 줘요/)).toBeTruthy();
 });
 
-it("버그 탭: 상태 필터·상태 변경·메모 저장", async () => {
-  h.setBug.mockResolvedValue({});
+const row = (title: string | RegExp) => screen.getByRole("button", { name: title });
+const pickOption = (trigger: HTMLElement, option: string) => { fireEvent.click(trigger); fireEvent.click(screen.getByRole("option", { name: option })); };
+
+it("버그 탭: 앱·심각도·상태로 거르고 카드에 종류·상태를 보인다", async () => {
   mount("/artcraft?tab=bugs");
   expect(await screen.findByText("photocraft font scan")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "해결 0" }));
-  expect(screen.getByText("이 상태의 항목이 없어요.")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "전체 2" }));
-  const group = screen.getByRole("group", { name: "BUG-001 상태" });
-  fireEvent.click(within(group).getByRole("button", { name: "보고됨" }));
-  await waitFor(() => expect(h.setBug).toHaveBeenCalledWith("BUG-001", { status: "reported", note: "" }));
-  fireEvent.click(screen.getByRole("button", { name: /photocraft font scan/ }));
-  expect(screen.getByText("repro steps")).toBeTruthy();
-  fireEvent.change(screen.getByRole("textbox", { name: /메모/ }), { target: { value: "upstream#9" } });
-  fireEvent.click(screen.getByRole("button", { name: "메모 저장" }));
-  await waitFor(() => expect(h.setBug).toHaveBeenLastCalledWith("BUG-001", { status: "unreported", note: "upstream#9" }));
+  expect(screen.getByText("BUGS.md 형식이 어긋난 항목이 1개 있어요. 해당 항목의 안내를 확인하세요.")).toBeTruthy();
+  const first = row(/photocraft font scan/);
+  expect(first.textContent).toContain("PR 가능");
+  expect(row(/control channel is open/).textContent).toContain("보안 비공개 신고 필요");
+  expect(row(/control channel is open/).textContent).toContain("vectorcraft, filmcraft, cadcraft 외 1개");
+  fireEvent.click(screen.getByRole("button", { name: "기여 선택 1" }));
+  expect(screen.queryByText("photocraft font scan")).toBeNull();
+  expect(screen.getByText("control channel is open")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "전체 3" }));
+  fireEvent.click(screen.getByRole("button", { name: "S1" }));
+  expect(screen.getByText("photocraft font scan")).toBeTruthy();
+  expect(screen.queryByText("help exits 1")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "모든 심각도" }));
+  pickOption(screen.getByRole("combobox", { name: /앱/ }), "deckcraft");
+  expect(screen.getByText("help exits 1")).toBeTruthy();
+  expect(screen.queryByText("photocraft font scan")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "진행 중 0" }));
+  expect(screen.getByText("조건에 맞는 항목이 없어요.")).toBeTruthy();
+});
+
+it("예전 API 응답(프런트가 먼저 배포된 사이)에서는 깨지지 않고 안내만 보인다", async () => {
+  h.bugs.mockResolvedValue({ source_modified_at: null, counts: { unreported: 2 }, bugs: [{ id: "BUG-001", title: "x", apps: "photocraft", body: "old" }] });
+  mount("/artcraft?tab=bugs");
+  expect(await screen.findByText("백엔드가 새 버전으로 바뀌는 중이에요. 잠시 뒤 다시 열어 주세요.")).toBeTruthy();
+});
+
+it("버그 상세: 앱·저장소·심각도·종류·난이도·중복 여부·재현·증거를 보인다", async () => {
+  mount("/artcraft?tab=bugs");
+  fireEvent.click(await screen.findByRole("button", { name: /photocraft font scan/ }));
+  expect(screen.getByText("storytold/photocraft").getAttribute("href")).toBe("https://github.com/storytold/photocraft");
+  expect(screen.getByText("비슷한 이슈 있음")).toBeTruthy();
+  expect(screen.getByText("checked 2026-10-18, similar photocraft#3336")).toBeTruthy();
+  expect(screen.getByText("보통")).toBeTruthy();
+  expect(screen.getByText("에이전트 추정")).toBeTruthy();
+  expect(screen.getByText("재현 절차")).toBeTruthy();
+  expect(screen.getByText("photocraft-cli info in.png")).toBeTruthy();
+  expect(screen.getByText(/1:36\.66 total/)).toBeTruthy();
+  expect(screen.queryByText("영향")).toBeNull();
+  expect(screen.getByText("제안").closest("details")?.hasAttribute("open")).toBe(false);
+  expect(screen.getByText("재현 절차").closest("details")?.hasAttribute("open")).toBe(true);
+});
+
+it("기여 선택: 후보 → 선택 → 진행 중 → 보고됨 → 해결, GitHub 로는 아무것도 보내지 않는다", async () => {
+  h.setBug.mockResolvedValue({});
+  const fetchSpy = vi.spyOn(globalThis, "fetch");
+  mount("/artcraft?tab=bugs");
+  fireEvent.click(await screen.findByRole("button", { name: /photocraft font scan/ }));
+  expect(screen.queryByText("에이전트에게 넘길 요청 문구")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "기여로 선택" }));
+  await waitFor(() => expect(h.setBug).toHaveBeenCalledWith("BUG-001", { status: "selected", note: "", url: "" }));
+  expect(h.setBug).toHaveBeenCalledTimes(1);
+  expect(fetchSpy.mock.calls.filter(([u]) => String(u).includes("github.com"))).toHaveLength(0);
+  fetchSpy.mockRestore();
+});
+
+it("선택된 후보에는 요청 문구가 나오고 복사된다. 보안 후보는 공개 신고 금지 안내가 붙는다", async () => {
+  const write = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
+  mount("/artcraft?tab=bugs&focus=BUG-002");
+  expect(await screen.findByText("에이전트에게 넘길 요청 문구")).toBeTruthy();
+  expect(screen.getByText("보안 후보예요")).toBeTruthy();
+  expect(screen.getByText(/공개 이슈나 PR 로 올리지 마세요/)).toBeTruthy();
+  expect(screen.getByText(/자동으로 없고/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "요청 문구 복사" }));
+  await waitFor(() => expect(write).toHaveBeenCalledWith("ArtCraft 버그 후보 BUG-002 (보안)"));
+});
+
+it("진행 단계 표시·다음 단계 버튼·보류·제외·되돌리기·직접 바꾸기", async () => {
+  h.setBug.mockResolvedValue({});
+  mount("/artcraft?tab=bugs&focus=BUG-002");
+  const flow = await screen.findByRole("list", { name: "진행 단계" });
+  expect(within(flow).getByText("기여 선택").getAttribute("aria-current")).toBe("step");
+  fireEvent.click(screen.getByRole("button", { name: "진행 중으로" }));
+  await waitFor(() => expect(h.setBug).toHaveBeenLastCalledWith("BUG-002", { status: "in_progress", note: "", url: "" }));
+  fireEvent.click(screen.getByRole("button", { name: "보류" }));
+  await waitFor(() => expect(h.setBug).toHaveBeenLastCalledWith("BUG-002", { status: "deferred", note: "", url: "" }));
+  fireEvent.click(screen.getByRole("button", { name: "제외" }));
+  await waitFor(() => expect(h.setBug).toHaveBeenLastCalledWith("BUG-002", { status: "excluded", note: "", url: "" }));
+  pickOption(screen.getByRole("combobox", { name: /상태 직접 바꾸기/ }), "해결");
+  await waitFor(() => expect(h.setBug).toHaveBeenLastCalledWith("BUG-002", { status: "resolved", note: "", url: "" }));
+});
+
+it("보고됨 후보: 링크·메모를 저장하고 형식 문제를 숨기지 않는다", async () => {
+  h.setBug.mockResolvedValue({});
+  mount("/artcraft?tab=bugs&focus=BUG-003");
+  expect(await screen.findByText("BUGS.md 형식이 어긋났어요")).toBeTruthy();
+  expect(screen.getByText(/필수 소절 '### Evidence'/)).toBeTruthy();
+  const url = screen.getByLabelText(/올린 이슈·PR 링크/) as HTMLInputElement;
+  expect(url.value).toBe("https://github.com/storytold/deckcraft/issues/5");
+  fireEvent.change(url, { target: { value: "https://github.com/storytold/deckcraft/pull/6" } });
+  fireEvent.change(screen.getByRole("textbox", { name: "메모" }), { target: { value: "PR 올림" } });
+  fireEvent.click(screen.getByRole("button", { name: "링크·메모 저장" }));
+  await waitFor(() => expect(h.setBug).toHaveBeenCalledWith("BUG-003", { status: "reported", note: "PR 올림", url: "https://github.com/storytold/deckcraft/pull/6" }));
 });
 
 it("앱 카드의 BUG 칩은 버그 탭의 해당 항목을 연다", async () => {
   mount();
   fireEvent.click(await within(await screen.findByRole("listitem", { name: "PhotoCraft" })).findByRole("button", { name: "BUG-001" }));
-  expect(await screen.findByText("repro steps")).toBeTruthy();
+  expect(await screen.findByText("재현 절차")).toBeTruthy();
 });
 
 it("에이전트 탭: 형식을 고르고 앱별·전체 설정을 복사한다", async () => {
