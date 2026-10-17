@@ -36,7 +36,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "wbs", to: "/wbs", icon: "wbs", label: "WBS", description: "작업 분해 트리와 간트 일정" },
   { root: "logs", to: "/logs", icon: "terminal", label: "로그·이슈", description: "운영 오류를 이슈로 묶어 보고 배포 실패 원인 확인" },
   { root: "design-systems", to: "/design-systems", icon: "library", label: "디자인시스템", description: "프로젝트별 토큰·컴포넌트·사용 지침과 원본 조회" },
-  { root: "artcraft", to: "/artcraft", icon: "palette", label: "ArtCraft 관제", description: "설치된 ArtCraft 앱 13개의 상태·스모크·버그 후보·MCP 설정" },
+  { root: "artcraft", to: "/artcraft", icon: "palette", label: "ArtCraft", description: "사진·PDF·문서·영상 같은 창작 작업을 에이전트에게 시키기" },
   { root: "reverse", to: "/reverse", icon: "search", label: "리버스 엔지니어링", description: "저장소를 뜯어보고 구조·흐름·차용할 점을 단계별 근거와 함께 정리" },
 ];
 

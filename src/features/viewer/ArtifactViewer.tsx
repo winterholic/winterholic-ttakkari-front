@@ -218,13 +218,16 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
         return <ImageBody a={a} zoom={zoom} />;
       case "html":
         return <HtmlBody a={a} />;
+      case "audio":
+      case "video":
+        return <MediaBody a={a} kind={mode} />;
       default:
         return mode ? fallbackBody(mode) : null;
     }
   };
 
   const noScrollBody = mode === "sheet" || mode === "code";
-  const label = mode === "markdown" ? "문서 본문" : mode === "pdf" || mode === "preview-pdf" ? "PDF 페이지" : mode === "image" ? "이미지" : "미리보기";
+  const label = mode === "markdown" ? "문서 본문" : mode === "pdf" || mode === "preview-pdf" ? "PDF 페이지" : mode === "image" ? "이미지" : mode === "video" ? "영상" : mode === "audio" ? "오디오" : "미리보기";
 
   return (
     <section
@@ -439,6 +442,23 @@ function ImageBody({ a, zoom }: { a: ArtifactOut; zoom: number }) {
   return (
     <div className="tk-stage" style={{ "--tk-zoom": zoom } as React.CSSProperties}>
       <img src={b.url} alt={a.filename} />
+    </div>
+  );
+}
+
+/** 영상·오디오. 서명된 5분 링크(Range 지원)를 소스로 쓰므로 재생 중 탐색도 된다. 만료 4분 전에 새 링크를 받는다. */
+function MediaBody({ a, kind }: { a: ArtifactOut; kind: "audio" | "video" }) {
+  const q = useQuery({ queryKey: ["artifact-inline", a.id], queryFn: () => inlineViewLink(a.id), staleTime: 4 * 60_000, gcTime: 0 });
+  const err = bodyError(q.error, q.refetch);
+  const url = q.data?.url;
+  if (err) return err;
+  if (!url) return <LoadingBody label={kind === "video" ? "영상을 여는 중" : "오디오를 여는 중"} />;
+  return (
+    <div className="tk-media" data-kind={kind}>
+      {kind === "video"
+        ? <video src={url} controls playsInline preload="metadata" aria-label={a.filename} />
+        : <audio src={url} controls preload="metadata" aria-label={a.filename} />}
+      <p className="tk-media__meta">{extOf(a.filename).toUpperCase()} · {formatSize(a.size_bytes)}</p>
     </div>
   );
 }

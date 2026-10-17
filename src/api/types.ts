@@ -193,7 +193,7 @@ export interface DeskFeedbackOut extends DeskFeedbackBrief {
 }
 
 // ---- artifacts
-export type ArtifactKind = "markdown" | "html" | "pdf" | "pptx" | "docx" | "sheet" | "image" | "code" | "other";
+export type ArtifactKind = "markdown" | "html" | "pdf" | "pptx" | "docx" | "sheet" | "image" | "audio" | "video" | "code" | "other";
 export type ArtifactSource = "agent_output" | "agent_modified" | "user_registered" | "upload";
 /** 보관함 분류. files 는 사용자가 올렸거나 넘겨받은 결과물, agent 는 에이전트가 작업 중 만든 파일. */
 export type ArtifactArea = "files" | "agent";

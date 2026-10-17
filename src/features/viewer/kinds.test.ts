@@ -11,6 +11,8 @@ describe("resolveViewMode: kind → 렌더러", () => {
     ["code", "code"],
     ["sheet", "sheet"],
     ["image", "image"],
+    ["audio", "audio"],
+    ["video", "video"],
     ["html", "html"],
     ["other", "other"],
   ] as const)("%s → %s", (kind, mode) => {

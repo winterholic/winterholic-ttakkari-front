@@ -1202,7 +1202,10 @@ export const getDesignSystemItem = (system: string, item: string, p: { offset?: 
   json(`/api/design-systems/${encodeURIComponent(system)}/item`, { query: { ...p, item, length: 6000 } });
 
 // ---- ArtCraft 관제. 디자인시스템과 별개 도메인이다.
-import type { ArtcraftAgentConfig, ArtcraftBug, ArtcraftBugList, ArtcraftBugStatus, ArtcraftJob, ArtcraftOverview, ArtcraftSmokeMode } from "./artcraftTypes";
+import type {
+  ArtcraftAgentConfig, ArtcraftBug, ArtcraftBugList, ArtcraftBugStatus, ArtcraftCatalog, ArtcraftCategoryId, ArtcraftJob,
+  ArtcraftOutputPage, ArtcraftOverview, ArtcraftRoundIn, ArtcraftSmokeMode, ArtcraftTaskDetail, ArtcraftTaskIn, ArtcraftTaskSummary,
+} from "./artcraftTypes";
 export const getArtcraftApps = (refresh = false): Promise<ArtcraftOverview> => json("/api/artcraft/apps", { query: { refresh: refresh || undefined } });
 export const checkArtcraftRemote = (): Promise<ArtcraftJob> => json("/api/artcraft/remote-check", { method: "POST" });
 export const runArtcraftSmoke = (body: { apps?: string[]; mode: ArtcraftSmokeMode; confirm?: boolean }): Promise<ArtcraftJob> =>
@@ -1214,6 +1217,19 @@ export const listArtcraftBugs = (): Promise<ArtcraftBugList> => json("/api/artcr
 export const setArtcraftBug = (id: string, body: { status: ArtcraftBugStatus; note?: string; url?: string }): Promise<ArtcraftBug> =>
   json(`/api/artcraft/bugs/${encodeURIComponent(id)}`, { method: "PUT", json: body });
 export const getArtcraftAgentConfig = (): Promise<ArtcraftAgentConfig> => json("/api/artcraft/agent-config");
+
+// ---- ArtCraft 작업 플랫폼(ADR 0039)
+export const getArtcraftCatalog = (): Promise<ArtcraftCatalog> => json("/api/artcraft/catalog");
+export const createArtcraftTask = (body: ArtcraftTaskIn): Promise<ArtcraftTaskDetail> => json("/api/artcraft/tasks", { method: "POST", json: body });
+export const listArtcraftTasks = (p: { category?: ArtcraftCategoryId; state?: "active" | "all"; session_id?: string; limit?: number } = {}): Promise<{ items: ArtcraftTaskSummary[] }> =>
+  json("/api/artcraft/tasks", { query: { ...p } });
+export const getArtcraftTask = (id: string): Promise<ArtcraftTaskDetail> => json(`/api/artcraft/tasks/${encodeURIComponent(id)}`);
+export const addArtcraftRound = (id: string, body: ArtcraftRoundIn): Promise<ArtcraftTaskDetail> =>
+  json(`/api/artcraft/tasks/${encodeURIComponent(id)}/runs`, { method: "POST", json: body });
+export const patchArtcraftTask = (id: string, body: { title?: string; archived?: boolean }): Promise<ArtcraftTaskDetail> =>
+  json(`/api/artcraft/tasks/${encodeURIComponent(id)}`, { method: "PATCH", json: body });
+export const listArtcraftOutputs = (p: { category?: ArtcraftCategoryId; kind?: string; q?: string; limit?: number; offset?: number } = {}): Promise<ArtcraftOutputPage> =>
+  json("/api/artcraft/outputs", { query: { ...p } });
 export const getDesignSystemPreview = (system: string, p: { item?: string; revision: string; theme: "light" | "dark" }): Promise<DesignPreview> =>
   json(`/api/design-systems/${encodeURIComponent(system)}/preview`, { query: p });
 

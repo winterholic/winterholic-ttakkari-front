@@ -1,71 +1,20 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearchParams } from "react-router";
-import { getArtcraftApps } from "../api/client";
-import { AgentTab } from "../features/artcraft/AgentTab";
-import { AppsTab } from "../features/artcraft/AppsTab";
-import { BugsTab } from "../features/artcraft/BugsTab";
-import { useForegroundResync } from "../hooks/useForegroundResync";
-import { PageHeader } from "../shell/PageHeader";
-import { IconButton } from "../ui/Button";
-import { Icon } from "../ui/Icon";
-import { toast } from "../ui/toastStore";
-import { ErrorState, ListSkeleton } from "../features/viewer/screenStates";
-import { errorText } from "../features/viewer/api";
+import { Navigate, useSearchParams } from "react-router";
+import { HubScreen } from "../features/artcraft/work/HubScreen";
 import "../features/artcraft/artcraft.css";
+import "../features/artcraft/work/work.css";
 
-type Tab = "apps" | "bugs" | "agent";
-const TABS: { id: Tab; label: string }[] = [
-  { id: "apps", label: "앱" },
-  { id: "bugs", label: "버그·기여" },
-  { id: "agent", label: "에이전트 연결" },
-];
-const KEY = ["artcraft", "apps"] as const;
+const LEGACY_TABS = ["apps", "bugs", "agent"];
 
-/** 더보기 > ArtCraft 관제. Mac Studio 에 설치된 ArtCraft 앱 13개의 상태·스모크·버그 후보·MCP 설정(디자인시스템과 별개 도메인). */
+/**
+ * 더보기 > ArtCraft 허브(ADR 0039). 하고 싶은 일(범주)을 골라 에이전트에게 작업을 시킨다.
+ * 예전 관제 화면 링크(/artcraft?tab=bugs&focus=BUG-001)는 /artcraft/manage 로 넘긴다(알림·메모에 남은 링크 보호).
+ */
 export function ArtcraftPage() {
-  const [params, setParams] = useSearchParams();
-  const requested = params.get("tab");
-  const tab: Tab = TABS.some((t) => t.id === requested) ? (requested as Tab) : "apps";
-  const qc = useQueryClient();
-  const overview = useQuery({ queryKey: KEY, queryFn: () => getArtcraftApps(false), refetchInterval: 30_000 });
-  useForegroundResync(() => { void qc.invalidateQueries({ queryKey: ["artcraft"] }); });
-  const refresh = useMutation({
-    mutationFn: () => getArtcraftApps(true),
-    onSuccess: (data) => qc.setQueryData(KEY, data),
-    onError: (e) => toast({ message: errorText(e).message, tone: "danger" }),
-  });
-  const go = (next: Tab, key?: string) => setParams(next === "apps" ? {} : { tab: next, ...(key ? { focus: key } : {}) }, { replace: true });
-  const apps = overview.data?.apps;
-  const meta = apps ? `${apps.length}개 앱 · 실행 중 ${apps.filter((a) => a.gui.running).length}` : "설치된 ArtCraft 앱 관제";
-  return (
-    <div className="tk-screen">
-      <PageHeader
-        title="ArtCraft 관제"
-        meta={meta}
-        actions={
-          <IconButton aria-label="상태 새로고침" disabled={refresh.isPending} aria-busy={refresh.isPending || undefined} onClick={() => refresh.mutate()}>
-            <Icon name="retry" />
-          </IconButton>
-        }
-      />
-      <div className="tk-screen__body">
-        <div className="tk-container tk-container--lg">
-          <div className="ac">
-            <div className="tk-tablist" role="tablist" aria-label="ArtCraft 관제 보기">
-              {TABS.map((t) => (
-                <button key={t.id} role="tab" type="button" className="tk-tab" aria-selected={tab === t.id} onClick={() => go(t.id)}>{t.label}</button>
-              ))}
-            </div>
-            {tab === "apps" && (
-              overview.isPending ? <ListSkeleton label="앱 상태를 읽는 중" rows={4} />
-                : overview.isError ? <ErrorState what="ArtCraft 상태" error={overview.error} onRetry={() => void overview.refetch()} />
-                  : <AppsTab data={overview.data} onGoto={(next, key) => go(next, key)} />
-            )}
-            {tab === "bugs" && <BugsTab focus={params.get("focus")} />}
-            {tab === "agent" && <AgentTab focus={params.get("focus")} />}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  const [params] = useSearchParams();
+  const tab = params.get("tab");
+  if (tab && LEGACY_TABS.includes(tab)) {
+    const next = new URLSearchParams(params);
+    return <Navigate to={`/artcraft/manage?${next.toString()}`} replace />;
+  }
+  return <HubScreen />;
 }

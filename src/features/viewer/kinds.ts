@@ -8,6 +8,8 @@ export type ViewMode =
   | "code"
   | "sheet"
   | "image"
+  | "audio"
+  | "video"
   | "html"
   | "preview-pdf"
   | "preview-pending"
@@ -30,6 +32,10 @@ export function resolveViewMode(a: Pick<ArtifactOut, "kind" | "preview_status" |
       return "sheet";
     case "image":
       return "image";
+    case "audio":
+      return "audio";
+    case "video":
+      return "video";
     case "html":
       return "html";
     case "pptx":

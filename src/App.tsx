@@ -23,6 +23,9 @@ import { PublicMeetingPage } from "./pages/PublicMeetingPage";
 import { WeatherPage } from "./pages/WeatherPage";
 import { OpsLogsPage } from "./pages/OpsLogsPage";
 import { ArtcraftPage } from "./pages/ArtcraftPage";
+import { ArtcraftManagePage } from "./pages/ArtcraftManagePage";
+import { ArtcraftCategoryPage } from "./pages/ArtcraftCategoryPage";
+import { ArtcraftTaskPage } from "./pages/ArtcraftTaskPage";
 import { DesignSystemPage } from "./pages/DesignSystemPage";
 import { ReverseDetailPage } from "./pages/ReverseDetailPage";
 import { ReversePage } from "./pages/ReversePage";
@@ -87,6 +90,9 @@ export function App() {
         <Route path="/artcraft" element={<ArtcraftPage />} />
         <Route path="/reverse" element={<ReversePage />} />
         <Route path="/reverse/:jobId" element={<ReverseDetailPage />} />
+        <Route path="/artcraft/manage" element={<ArtcraftManagePage />} />
+        <Route path="/artcraft/c/:category" element={<ArtcraftCategoryPage />} />
+        <Route path="/artcraft/t/:taskId" element={<ArtcraftTaskPage />} />
         <Route path="/logs/issues/:id" element={<OpsIssuePage />} />
         <Route path="/meetings" element={<MeetingsPage />} />
         <Route path="/meetings/new" element={<MeetingNewPage />} />

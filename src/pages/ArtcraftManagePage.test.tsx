@@ -19,7 +19,7 @@ vi.mock("../api/client", async (orig) => ({
   setArtcraftBug: (...a: unknown[]) => h.setBug(...a),
   getArtcraftAgentConfig: (...a: unknown[]) => h.agent(...a),
 }));
-import { ArtcraftPage } from "./ArtcraftPage";
+import { ArtcraftManagePage } from "./ArtcraftManagePage";
 import { FEATURES, moreFeatures } from "../shell/features";
 
 const app = (over: Partial<ArtcraftApp> & { app: string; title: string }): ArtcraftApp => ({
@@ -68,10 +68,10 @@ const bugs: ArtcraftBugList = {
   bugs: [bug({ id: "BUG-001", title: "photocraft font scan" }), sec, sloppy],
 };
 
-function mount(path = "/artcraft") {
+function mount(path = "/artcraft/manage") {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={[path]}><ArtcraftPage /></MemoryRouter>
+      <MemoryRouter initialEntries={[path]}><ArtcraftManagePage /></MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -88,7 +88,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 it("더보기에서 발견된다", () => {
-  expect(FEATURES.find((f) => f.root === "artcraft")).toMatchObject({ to: "/artcraft", label: "ArtCraft 관제" });
+  expect(FEATURES.find((f) => f.root === "artcraft")).toMatchObject({ to: "/artcraft", label: "ArtCraft" });
   expect(moreFeatures().some((f) => f.root === "artcraft")).toBe(true);
 });
 
@@ -202,7 +202,7 @@ const row = (title: string | RegExp) => screen.getByRole("button", { name: title
 const pickOption = (trigger: HTMLElement, option: string) => { fireEvent.click(trigger); fireEvent.click(screen.getByRole("option", { name: option })); };
 
 it("버그 탭: 앱·심각도·상태로 거르고 카드에 종류·상태를 보인다", async () => {
-  mount("/artcraft?tab=bugs");
+  mount("/artcraft/manage?tab=bugs");
   expect(await screen.findByText("photocraft font scan")).toBeTruthy();
   expect(screen.getByText("BUGS.md 형식이 어긋난 항목이 1개 있어요. 해당 항목의 안내를 확인하세요.")).toBeTruthy();
   const first = row(/photocraft font scan/);
@@ -226,12 +226,12 @@ it("버그 탭: 앱·심각도·상태로 거르고 카드에 종류·상태를 
 
 it("예전 API 응답(프런트가 먼저 배포된 사이)에서는 깨지지 않고 안내만 보인다", async () => {
   h.bugs.mockResolvedValue({ source_modified_at: null, counts: { unreported: 2 }, bugs: [{ id: "BUG-001", title: "x", apps: "photocraft", body: "old" }] });
-  mount("/artcraft?tab=bugs");
+  mount("/artcraft/manage?tab=bugs");
   expect(await screen.findByText("백엔드가 새 버전으로 바뀌는 중이에요. 잠시 뒤 다시 열어 주세요.")).toBeTruthy();
 });
 
 it("버그 상세: 앱·저장소·심각도·종류·난이도·중복 여부·재현·증거를 보인다", async () => {
-  mount("/artcraft?tab=bugs");
+  mount("/artcraft/manage?tab=bugs");
   fireEvent.click(await screen.findByRole("button", { name: /photocraft font scan/ }));
   expect(screen.getByText("storytold/photocraft").getAttribute("href")).toBe("https://github.com/storytold/photocraft");
   expect(screen.getByText("비슷한 이슈 있음")).toBeTruthy();
@@ -249,7 +249,7 @@ it("버그 상세: 앱·저장소·심각도·종류·난이도·중복 여부·
 it("기여 선택: 후보 → 선택 → 진행 중 → 보고됨 → 해결, GitHub 로는 아무것도 보내지 않는다", async () => {
   h.setBug.mockResolvedValue({});
   const fetchSpy = vi.spyOn(globalThis, "fetch");
-  mount("/artcraft?tab=bugs");
+  mount("/artcraft/manage?tab=bugs");
   fireEvent.click(await screen.findByRole("button", { name: /photocraft font scan/ }));
   expect(screen.queryByText("에이전트에게 넘길 요청 문구")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "기여로 선택" }));
@@ -262,7 +262,7 @@ it("기여 선택: 후보 → 선택 → 진행 중 → 보고됨 → 해결, Gi
 it("선택된 후보에는 요청 문구가 나오고 복사된다. 보안 후보는 공개 신고 금지 안내가 붙는다", async () => {
   const write = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
-  mount("/artcraft?tab=bugs&focus=BUG-002");
+  mount("/artcraft/manage?tab=bugs&focus=BUG-002");
   expect(await screen.findByText("에이전트에게 넘길 요청 문구")).toBeTruthy();
   expect(screen.getByText("보안 후보예요")).toBeTruthy();
   expect(screen.getByText(/공개 이슈나 PR 로 올리지 마세요/)).toBeTruthy();
@@ -273,7 +273,7 @@ it("선택된 후보에는 요청 문구가 나오고 복사된다. 보안 후�
 
 it("진행 단계 표시·다음 단계 버튼·보류·제외·되돌리기·직접 바꾸기", async () => {
   h.setBug.mockResolvedValue({});
-  mount("/artcraft?tab=bugs&focus=BUG-002");
+  mount("/artcraft/manage?tab=bugs&focus=BUG-002");
   const flow = await screen.findByRole("list", { name: "진행 단계" });
   expect(within(flow).getByText("기여 선택").getAttribute("aria-current")).toBe("step");
   fireEvent.click(screen.getByRole("button", { name: "진행 중으로" }));
@@ -288,7 +288,7 @@ it("진행 단계 표시·다음 단계 버튼·보류·제외·되돌리기·�
 
 it("보고됨 후보: 링크·메모를 저장하고 형식 문제를 숨기지 않는다", async () => {
   h.setBug.mockResolvedValue({});
-  mount("/artcraft?tab=bugs&focus=BUG-003");
+  mount("/artcraft/manage?tab=bugs&focus=BUG-003");
   expect(await screen.findByText("BUGS.md 형식이 어긋났어요")).toBeTruthy();
   expect(screen.getByText(/필수 소절 '### Evidence'/)).toBeTruthy();
   const url = screen.getByLabelText(/올린 이슈·PR 링크/) as HTMLInputElement;
@@ -313,7 +313,7 @@ it("에이전트 탭: 형식을 고르고 앱별·전체 설정을 복사한다"
     apps: [{ app: "photocraft", title: "PhotoCraft", server: "artcraft-photocraft", tool_count: 25, notes: ["PHOTOCRAFT_NO_SYSTEM_FONTS=1 자동 적용"],
       snippets: { json: '{"mcpServers":{"artcraft-photocraft":{}}}', claude: "claude mcp add artcraft-photocraft -- /x mcp photocraft", codex: "[mcp_servers.artcraft-photocraft]" } }],
   });
-  mount("/artcraft?tab=agent");
+  mount("/artcraft/manage?tab=agent");
   expect(await screen.findByText("artcraft-photocraft")).toBeTruthy();
   expect(screen.getByText("PHOTOCRAFT_NO_SYSTEM_FONTS=1 자동 적용")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "JSON 복사" }));

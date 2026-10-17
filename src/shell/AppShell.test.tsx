@@ -167,7 +167,7 @@ describe("AppShell 인증 가드", () => {
       ["WBS", "/wbs"],
       ["로그·이슈", "/logs"],
       ["디자인시스템", "/design-systems"],
-      ["ArtCraft 관제", "/artcraft"],
+      ["ArtCraft", "/artcraft"],
       ["리버스 엔지니어링", "/reverse"],
     ]);
   });
