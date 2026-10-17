@@ -1194,7 +1194,7 @@ export const listOpsDeploys = (limit = 20): Promise<{ items: OpsDeploy[] }> => j
 export const getOpsDeployLog = (id: string): Promise<OpsDeployLog> => json(`/api/ops-logs/deploys/${encodeURIComponent(id)}/log`, { query: { mode: "summary" } });
 
 // ---- 디자인시스템 (백엔드 ADR 0034). 원본 저장소의 커밋 SHA로 목록과 상세를 고정한다.
-import type { DesignCatalog, DesignItem, DesignKind, DesignSearch } from "./designSystemTypes";
+import type { DesignCatalog, DesignItem, DesignKind, DesignSearch, DesignPreview } from "./designSystemTypes";
 export const designSystemCatalog = (): Promise<DesignCatalog> => json("/api/design-systems");
 export const searchDesignSystem = (system: string, p: { q?: string; kind?: DesignKind; cursor?: number; revision?: string }): Promise<DesignSearch> =>
   json(`/api/design-systems/${encodeURIComponent(system)}/items`, { query: { ...p, limit: 20 } });
@@ -1214,3 +1214,5 @@ export const listArtcraftBugs = (): Promise<ArtcraftBugList> => json("/api/artcr
 export const setArtcraftBug = (id: string, body: { status: ArtcraftBugStatus; note?: string }): Promise<ArtcraftBug> =>
   json(`/api/artcraft/bugs/${encodeURIComponent(id)}`, { method: "PUT", json: body });
 export const getArtcraftAgentConfig = (): Promise<ArtcraftAgentConfig> => json("/api/artcraft/agent-config");
+export const getDesignSystemPreview = (system: string, p: { item?: string; revision: string; theme: "light" | "dark" }): Promise<DesignPreview> =>
+  json(`/api/design-systems/${encodeURIComponent(system)}/preview`, { query: p });

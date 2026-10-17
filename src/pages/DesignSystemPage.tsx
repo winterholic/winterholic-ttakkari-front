@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useSearchParams } from "react-router";
@@ -7,12 +7,22 @@ import { designSystemCatalog, getDesignSystemItem, searchDesignSystem } from "..
 import type { DesignItem, DesignKind, DesignTheme } from "../api/designSystemTypes";
 import { PageHeader } from "../shell/PageHeader";
 import { Button } from "../ui/Button";
+import { DesignPreview } from "./DesignPreview";
 import "./design-system.css";
 
 const KINDS: { id: DesignKind; label: string }[] = [
   { id: "token", label: "토큰" }, { id: "document", label: "사용 지침" },
-  { id: "component", label: "컴포넌트 CSS" }, { id: "example", label: "예제 소스" },
+  { id: "component", label: "컴포넌트 CSS" }, { id: "example", label: "화면 예제" },
 ];
+type View = DesignKind | "preview";
+const VIEWS: { id: View; label: string; hint: string }[] = [
+  { id: "preview", label: "미리보기", hint: "색상과 컴포넌트를 실제 화면으로" },
+  { id: "token", label: "토큰", hint: "색상·간격·글자에 쓰는 디자인 값" },
+  { id: "document", label: "사용 지침", hint: "어디에, 어떻게 사용하는지" },
+  { id: "example", label: "화면 예제", hint: "채팅·로그인 등 완성된 화면" },
+  { id: "component", label: "컴포넌트 CSS", hint: "구성 요소의 스타일 코드" },
+];
+const colorValue = (value: unknown) => typeof value === "string" && /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(value) ? value : null;
 const message = (e: unknown) => e instanceof Error ? e.message : "불러오지 못했어요.";
 const valueText = (v: unknown) => typeof v === "string" ? v : JSON.stringify(v, null, 2) ?? "값 없음";
 
@@ -29,7 +39,7 @@ function Copy({ text, label }: { text: string; label: string }) {
 }
 
 function ThemeValue({ label, theme, select }: { label: string; theme?: DesignTheme | null; select: (id: string) => void }) {
-  const color = theme?.type === "color" && typeof theme.resolved === "string" && /^#(?:[\da-f]{3}|[\da-f]{4}|[\da-f]{6}|[\da-f]{8})$/i.test(theme.resolved) ? theme.resolved : null;
+  const color = theme?.type === "color" ? colorValue(theme.resolved) : null;
   return <section className="ds-theme" aria-label={`${label} 값`}>
     <h3 className="tk-heading-4">{label}</h3>
     {!theme ? <p className="ds-note">이 테마의 정의가 없어요.</p> : <>
@@ -37,10 +47,10 @@ function ThemeValue({ label, theme, select }: { label: string; theme?: DesignThe
         {color && <span className="ds-swatch" style={{ backgroundColor: color }} aria-label={`${label} 색상 ${color}`} role="img" />}
         <pre className="ds-code">{valueText(theme.resolved)}</pre>
       </div>}
-      <dl className="ds-properties"><dt>원본 값</dt><dd><code>{valueText(theme.raw)}</code></dd><dt>용도</dt><dd>{theme.description || "설명이 없어요."}</dd>
+      <p className="ds-note">{theme.description || "용도 설명이 없어요."}</p><details className="ds-disclosure"><summary>원본·참조 정보</summary><dl className="ds-properties"><dt>원본 값</dt><dd><code>{valueText(theme.raw)}</code></dd><dt>용도</dt><dd>{theme.description || "설명이 없어요."}</dd>
         <dt>출처</dt><dd><code>{theme.source}</code><br /><code>{theme.pointer}</code></dd></dl>
       {theme.references.length > 0 && <div className="ds-stack"><span className="ds-note">직접 참조</span><div className="ds-references">{theme.references.map((ref) => <Button variant="ghost" size="sm" key={ref} aria-label={`참조 ${ref}`} onClick={() => select("token:" + ref)}>{ref}</Button>)}</div></div>}
-    </>}
+    </details></>}
   </section>;
 }
 
@@ -77,23 +87,29 @@ function Source({ item, offset, setOffset, select }: { item: DesignItem; offset:
   </div>;
 }
 
-function Detail({ system, id, revision, select, back }: { system: string; id: string; revision: string; select: (id: string) => void; back: () => void }) {
+function Detail({ system, name, id, revision, select, back, initialRaw }: { system: string; name: string; id: string; revision: string; select: (id: string) => void; back: () => void; initialRaw: boolean }) {
   const [offset, setOffset] = useState(0);
+  const [raw, setRaw] = useState(initialRaw);
+  const heading = useRef<HTMLHeadingElement>(null);
   const query = useQuery({ queryKey: ["design-system-item", system, id, revision, offset], queryFn: () => getDesignSystemItem(system, id, { revision, offset }) });
   const item = query.data;
+  useLayoutEffect(() => { heading.current?.focus({ preventScroll: true }); }, [id, query.isSuccess]);
   return <section className="ds-detail ds-stack" aria-label="항목 상세">
     <div className="ds-tools"><Button variant="ghost" onClick={back}>목록으로</Button></div>
     {query.isPending && <p role="status" className="ds-note">원본을 읽는 중</p>}
     {query.isError && <Failure error={query.error} retry={() => void query.refetch()} />}
     {item && <>
-      <header className="ds-stack"><h2 className="tk-heading-3 ds-break">{item.title}</h2>
+      <header className="ds-stack"><h2 ref={heading} tabIndex={-1} className="tk-heading-3 ds-break">{item.kind === "token" ? item.title : item.title.replace(/\.html$/, "")}</h2>
         <span className="ds-note">{KINDS.find((k) => k.id === item.kind)?.label}{item.type ? ` · ${item.type}` : ""}</span>
-        <code className="ds-path">{item.source}</code>
+        <details className="ds-disclosure"><summary>원본 파일</summary><code className="ds-path">{item.source}</code></details>
       </header>
       {item.kind === "token" ? <>
         <div className="ds-stack"><code className="ds-code ds-break">var({item.css_variable})</code><Copy key={item.id} text={`var(${item.css_variable})`} label="CSS 변수 복사" /></div>
         <div className="ds-themes"><ThemeValue label="라이트" theme={item.light} select={select} /><ThemeValue label="다크" theme={item.dark} select={select} /></div>
-      </> : <Source item={item} offset={offset} setOffset={setOffset} select={select} />}
+      </> : item.kind === "example" && !raw ? <DesignPreview system={system} name={name} revision={revision} item={item.id} source={() => setRaw(true)} /> : <>
+        {item.kind === "example" && <Button variant="ghost" onClick={() => setRaw(false)}>시각 미리보기</Button>}
+        <Source item={item} offset={offset} setOffset={setOffset} select={select} />
+      </>}
     </>}
   </section>;
 }
@@ -120,21 +136,24 @@ function Entries({ system, kind, text, revision, selected, select }: { system: s
     {query.isSuccess && items.length === 0 && <div className="tk-empty tk-empty--boxed"><p>조건에 맞는 항목이 없어요.</p><p>검색어를 바꾸거나 다른 종류를 골라 보세요.</p></div>}
     {items.length > 0 && <ul className="ds-list">{items.map((entry) => <li key={entry.id}>
       <button type="button" className="ds-row" aria-pressed={selected === entry.id} onClick={() => select(entry.id)}>
-        <span className="ds-row__title">{entry.title}</span><span className="ds-row__excerpt">{entry.excerpt}</span>
-        <span className="ds-path">{entry.source}</span>
+        <span className="ds-row__main"><span className="ds-row__title">{entry.title}</span><span aria-hidden="true" className="ds-row__arrow">›</span></span>
+        {entry.values && <span className="ds-row__values">{(["light", "dark"] as const).map((theme) => <span className="ds-row__value" key={theme}>{colorValue(entry.values?.[theme]) && <span className="ds-row__swatch" style={{ backgroundColor: colorValue(entry.values?.[theme])! }} />}<span>{theme === "light" ? "밝음" : "어두움"} <code>{valueText(entry.values?.[theme])}</code></span></span>)}</span>}
+        {entry.kind === "example" ? <span className="ds-row__excerpt">눌러서 실제 화면 보기</span> : entry.excerpt && <span className="ds-row__excerpt">{entry.excerpt}</span>}
+        {entry.kind !== "token" && <span className="ds-path">{entry.source.split("/").at(-1)}</span>}
       </button>
     </li>)}</ul>}
     {query.hasNextPage && <Button variant="ghost" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>더 보기</Button>}
   </section>;
 }
 
-/** 저장소 브라우저 아키타입: 목록 → 읽기 전용 원본 상세. 모바일은 상세만, 넓은 화면은 두 열. */
+/** Preview first, with committed source browsing one tap away. */
 export function DesignSystemPage() {
   const [params, setParams] = useSearchParams();
   const catalog = useQuery({ queryKey: ["design-system-catalog"], queryFn: designSystemCatalog });
   const data = catalog.data;
   const system = params.get("system") || "ttakkari";
-  const kind = KINDS.find((k) => k.id === params.get("kind"))?.id ?? "token";
+  const view: View = VIEWS.find((k) => k.id === params.get("kind"))?.id ?? ((params.has("item") || params.has("q")) ? "token" : "preview");
+  const kind: DesignKind = view === "preview" ? "example" : view;
   const text = params.get("q") || "";
   const selected = params.get("item") || "";
   const revision = params.get("revision") || data?.revision || "";
@@ -142,28 +161,31 @@ export function DesignSystemPage() {
   function update(values: Record<string, string | null>) {
     setParams((prev) => { const next = new URLSearchParams(prev); for (const [k, v] of Object.entries(values)) { if (v) next.set(k, v); else next.delete(k); } return next; });
   }
-  function select(id: string) { update({ item: id, revision }); }
+  function select(id: string) {
+    update({ item: id, revision, raw: null });
+    if (window.matchMedia?.("(max-width: 1023px)").matches) requestAnimationFrame(() => document.querySelector(".ds-detail")?.scrollIntoView({ block: "start" }));
+  }
   return <div className="tk-screen">
-    <PageHeader title="디자인시스템" meta="토큰·컴포넌트·사용 지침을 원본과 함께" />
+    <PageHeader title="디자인시스템" meta="눈으로 보고, 필요한 정보를 찾아보세요" />
     <div className="tk-screen__body"><div className="tk-container tk-container--lg ds-stack">
       {catalog.isPending && <p className="ds-note" role="status">디자인시스템을 불러오는 중</p>}
       {catalog.isError && <Failure error={catalog.error} retry={() => void catalog.refetch()} />}
       {data && <>
         <div className="ds-heading ds-stack" data-selected={Boolean(selected)}>
-          <div className="ds-tools"><label className="ds-select"><span className="ds-note">프로젝트</span>
-            <select className="tk-select" aria-label="디자인시스템 선택" value={system} onChange={(e) => update({ system: e.target.value, item: null, q: null })}>
+          <label className="ds-select"><span className="ds-note">프로젝트</span>
+            <select className="tk-select" aria-label="디자인시스템 선택" value={system} onChange={(e) => update({ system: e.target.value, item: null, q: null, raw: null })}>
               {data.items.map((s) => <option key={s.id} value={s.id}>{s.name} · v{s.version}</option>)}
             </select>
-          </label><Button variant="ghost" busy={catalog.isFetching} onClick={() => { update({ revision: null, item: null }); void catalog.refetch(); }}>최신 커밋 조회</Button></div>
-          <p className="ds-note">커밋된 원본 기준 · <code title={revision}>{revision.slice(0, 12)}</code> · 저장소의 미커밋 변경은 제외해요.</p>
-          {revision !== data.revision && <p className="ds-note">이전 커밋을 보고 있어요. 프로젝트 선택기의 버전은 최신 목록 기준입니다.</p>}
-          <div className="ds-kinds" role="group" aria-label="조회 종류">{KINDS.map((k) => <Button key={k.id} variant="ghost" aria-pressed={kind === k.id} onClick={() => update({ kind: k.id, item: null })}>{`${k.label} ${ds?.counts[k.id] ?? 0}`}</Button>)}</div>
-          <SearchBox key={`${system}:${text}`} initial={text} submit={(q) => update({ q, item: null })} />
+          </label>
+          <nav className="ds-kinds" aria-label="조회 종류">{VIEWS.map((k) => <Button key={k.id} variant="ghost" aria-pressed={view === k.id} aria-label={k.label} onClick={() => update({ kind: k.id, item: null, q: null, raw: null })}><span className="ds-kind-full">{k.label}</span><span className="ds-kind-short" aria-hidden="true">{k.id === "component" ? "스타일" : k.id === "document" ? "지침" : k.id === "example" ? "예제" : k.label}</span></Button>)}</nav>
+          {view !== "preview" && <><p className="ds-note">{VIEWS.find((v) => v.id === view)?.hint} · {(ds?.counts[kind] ?? 0).toLocaleString()}개</p><SearchBox key={`${system}:${text}`} initial={text} submit={(q) => update({ q, item: null })} /></>}
+
         </div>
-        {data.items.length === 0 ? <p className="ds-note">조회 가능한 디자인시스템이 없어요.</p> : !ds ? <p className="tk-error" role="alert">등록되지 않은 디자인시스템입니다. 프로젝트를 선택해 주세요.</p> : <div className="ds-browser" data-selected={Boolean(selected)}>
+        {data.items.length === 0 ? <p className="ds-note">조회 가능한 디자인시스템이 없어요.</p> : !ds ? <p className="tk-error" role="alert">등록되지 않은 디자인시스템입니다. 프로젝트를 선택해 주세요.</p> : view === "preview" && !selected ? <DesignPreview key={system + revision} system={system} name={ds.name} revision={revision} source={() => update({ kind: "example", item: `file:${system}/examples/preview.html`, raw: "1", revision })} /> : <div className="ds-browser" data-selected={Boolean(selected)}>
           <Entries system={system} kind={kind} text={text} revision={revision} selected={selected} select={select} />
-          {selected ? <Detail key={`${system}:${selected}:${revision}`} system={system} id={selected} revision={revision} select={select} back={() => update({ item: null })} /> : <div className="ds-placeholder"><p>항목을 고르면 원본과 상세 정보가 여기에 보여요.</p><p className="ds-note">토큰은 라이트·다크 값과 참조 관계를 함께 확인할 수 있어요.</p></div>}
+          {selected ? <Detail key={`${system}:${selected}:${revision}`} system={system} name={ds.name} initialRaw={params.get("raw") === "1"} id={selected} revision={revision} select={select} back={() => update({ item: null })} /> : <div className="ds-placeholder"><p>항목을 고르면 원본과 상세 정보가 여기에 보여요.</p><p className="ds-note">토큰은 라이트·다크 값과 참조 관계를 함께 확인할 수 있어요.</p></div>}
         </div>}
+        <details className="ds-disclosure ds-source-info"><summary>원본 정보 · {revision.slice(0, 7)}</summary><div className="ds-stack"><p className="ds-note">커밋된 원본 기준이에요. 작업 중인 변경은 포함하지 않아요.</p><code className="ds-path">{revision}</code>{revision !== data.revision && <p className="ds-note">이전 커밋을 보고 있어요. 프로젝트 버전·개수는 최신 목록 기준입니다.</p>}<Button variant="ghost" busy={catalog.isFetching} onClick={() => { update({ revision: null, item: null, raw: null }); void catalog.refetch(); }}>최신 커밋 조회</Button></div></details>
       </>}
     </div></div>
   </div>;

@@ -12,6 +12,7 @@ export interface DesignRow {
   excerpt: string;
   type?: string | null;
   css_variable?: string;
+  values?: { light: unknown; dark: unknown };
 }
 export interface DesignSearch {
   revision: string;
@@ -46,4 +47,12 @@ export interface DesignItem {
   offset?: number;
   total_chars?: number;
   next_offset?: number | null;
+}
+export interface DesignPreview {
+  revision: string;
+  system: string;
+  source: string;
+  html: string;
+  sections: { id: string; title: string }[];
+  warnings: string[];
 }

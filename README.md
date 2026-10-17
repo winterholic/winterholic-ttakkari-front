@@ -24,4 +24,4 @@ pnpm dev
 
 환경 파일 내용 없이 검사하려면 `TTAKKARI_NO_ENV_FILE=1 pnpm test --run`, `TTAKKARI_NO_ENV_FILE=1 pnpm build`를 사용한다. 이 플래그는 Vite의 환경 파일 자동 로드를 끄며, 일반 개발·Vercel 설정은 유지한다.
 
-부가 기능 > 디자인시스템(`/design-systems`)은 `winterholic-design-system`의 프로젝트별 토큰·라이트/다크·참조·문서·컴포넌트 CSS·예제 원문을 조회한다. 백엔드 ADR 0034의 `/api/design-systems` API가 필요하다. 목록·상세는 원본 커밋으로 고정하며, 디자인시스템 편집과 HTML 예제 실행은 제공하지 않는다.
+부가 기능 > 디자인시스템(`/design-systems`)은 `winterholic-design-system`의 프로젝트별 토큰·라이트/다크·참조·문서·컴포넌트 CSS·예제 원문을 조회한다. 백엔드 ADR 0034의 `/api/design-systems` API가 필요하다. 첫 화면은 각 프로젝트의 `preview.html` 시각 미리보기다. 라이트·다크, 구간 이동, 크게 보기, 예제 화면/원문 전환과 토큰의 색상 견본을 지원한다. 목록·상세·미리보기는 같은 커밋에 고정한다. 예제는 서버에서 실행하지 않으며, 브라우저의 격리 iframe에서만 동작한다. 편집 기능은 제공하지 않는다.
