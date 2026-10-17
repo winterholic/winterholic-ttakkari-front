@@ -44,6 +44,8 @@
 .usage-card__sub { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .usage-card__head > .tk-badge { flex: none; }
 .usage-card__windows { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--tk-space-3) var(--tk-space-4); }
+.usage-card__loading { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.usage-card__retry { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); color: var(--tk-color-text-danger); }
 .usage-card__foot { margin: 0; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .qwen-usage { gap: var(--tk-space-2); }
 .qwen-usage__periods { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-2); }

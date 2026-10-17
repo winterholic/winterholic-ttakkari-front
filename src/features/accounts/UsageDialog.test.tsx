@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router";
 import type { AccountUsage } from "../../api/client";
 import { UsageDialog } from "./UsageDialog";
 
-const api = vi.hoisted(() => ({ accountUsage: vi.fn(), qwenUsage: vi.fn(), qwenFlashUsage: vi.fn() }));
+const api = vi.hoisted(() => ({ accountUsageCached: vi.fn(), accountUsageOne: vi.fn(), qwenUsage: vi.fn(), qwenFlashUsage: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
 const account: AccountUsage = {
@@ -20,10 +20,16 @@ const account: AccountUsage = {
   credits_balance: 0, credits_error: null, source: "antigravity_cli", plan: null, error: null, updated_at: 1792088498,
 };
 
+/** 목록은 사용량 없이 오고(캐시 비어 있음), 계정별 조회가 값을 채운다. */
+function mockAccounts(rows: AccountUsage[]) {
+  api.accountUsageCached.mockResolvedValue(rows.map((r) => ({ ...r, windows: [], updated_at: null, stale: true, source: null, plan: null, error: null })));
+  api.accountUsageOne.mockImplementation((id: string) => Promise.resolve(rows.find((r) => r.id === id)));
+}
+
 beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
-  api.accountUsage.mockResolvedValue([account]);
+  mockAccounts([account]);
   api.qwenFlashUsage.mockResolvedValue({ model: "Qwen3.8-Flash-Next Q2_K", scope: "server_lifetime", observed_at: "2026-10-17T03:00:00Z", server: { status: "running", detail: null }, metrics_status: "available", input_tokens: 6732, cached_input_tokens: 26609, output_tokens: 1804, requests_processing: 0, requests_deferred: 1 });
   api.qwenUsage.mockResolvedValue({
     model: "Qwen3.5-4B Q4_K_M", timezone: "Asia/Seoul", collection_started_at: "2026-10-16T00:00:00+00:00",
@@ -36,7 +42,7 @@ afterEach(() => { cleanup(); vi.resetAllMocks(); });
 
 function renderUsage(value: AccountUsage = account) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  api.accountUsage.mockResolvedValue([value]);
+  mockAccounts([value]);
   render(<MemoryRouter><QueryClientProvider client={qc}><UsageDialog open onClose={vi.fn()} /></QueryClientProvider></MemoryRouter>);
 }
 
@@ -229,7 +235,7 @@ describe("Flash Next usage", () => {
 describe("전체 계정 사용량 비교", () => {
   it("계정 선택 없이 모든 계정의 사용량과 엔진 구분을 함께 표시한다", async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    api.accountUsage.mockResolvedValue([
+    mockAccounts([
       { ...account, id: "first", engine: "codex", name: "개인 Codex", login: "ok", rank: 1,
         windows: [{ key: "five_hour", label: "5시간", percent: 24, resets_at: null }] },
       { ...account, id: "second", engine: "codex", name: "회사 Codex", login: "ok", rank: 2, work_rank: 1,
@@ -247,5 +253,60 @@ describe("전체 계정 사용량 비교", () => {
     expect(within(list).getByLabelText("Muse Code 엔진")).toBeTruthy();
     expect(screen.getByRole("region", { name: "회사 계정" })).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "개인 계정 선택" })).toBeNull();
+  });
+});
+
+
+describe("카드별 독립 로딩", () => {
+  const rows: AccountUsage[] = [
+    { ...account, id: "fast", engine: "codex", name: "빠른 Codex", login: "ok", rank: 1,
+      windows: [{ key: "five_hour", label: "5시간", percent: 24, resets_at: null }] },
+    { ...account, id: "slow", engine: "codex", name: "느린 Codex", login: "ok", rank: 2,
+      windows: [{ key: "five_hour", label: "5시간", percent: 61, resets_at: null }] },
+  ];
+
+  function renderRows() {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<MemoryRouter><QueryClientProvider client={qc}><UsageDialog open onClose={vi.fn()} /></QueryClientProvider></MemoryRouter>);
+  }
+
+  it("느린 계정이 끝나지 않아도 준비된 카드는 먼저 보이고 느린 카드는 로딩 표시를 둔다", async () => {
+    mockAccounts(rows);
+    let release: (v: AccountUsage) => void = () => {};
+    api.accountUsageOne.mockImplementation((id: string) => id === "slow"
+      ? new Promise<AccountUsage>((resolve) => { release = resolve; })
+      : Promise.resolve(rows[0]));
+    renderRows();
+    expect(await screen.findByText("24%")).toBeTruthy();
+    expect(screen.getByRole("status", { name: "느린 Codex 사용량을 불러오는 중" })).toBeTruthy();
+    expect(screen.getByText("확인 중")).toBeTruthy();
+    release(rows[1]);
+    expect(await screen.findByText("61%")).toBeTruthy();
+    expect(screen.queryByText("확인 중")).toBeNull();
+  });
+
+  it("한 계정 조회가 실패하면 그 카드에만 오류와 다시 시도를 보이고 재시도로 복구한다", async () => {
+    mockAccounts(rows);
+    api.accountUsageOne.mockImplementation((id: string) => id === "slow"
+      ? Promise.reject(new Error("조회 실패 사유"))
+      : Promise.resolve(rows[0]));
+    renderRows();
+    expect(await screen.findByText("24%")).toBeTruthy();
+    expect(await screen.findByText("조회 실패 사유")).toBeTruthy();
+    api.accountUsageOne.mockImplementation((id: string) => Promise.resolve(rows.find((r) => r.id === id)));
+    const { act } = await import("@testing-library/react");
+    await act(async () => { screen.getByRole("button", { name: "다시 시도" }).click(); });
+    expect(await screen.findByText("61%")).toBeTruthy();
+    expect(screen.queryByText("조회 실패 사유")).toBeNull();
+    expect(api.accountUsageOne).toHaveBeenLastCalledWith("slow", true);
+  });
+
+  it("목록의 캐시 값은 계정별 조회가 끝나기 전에도 마지막 관측값으로 보인다", async () => {
+    const cachedRows = rows.map((r) => ({ ...r }));
+    api.accountUsageCached.mockResolvedValue(cachedRows);
+    api.accountUsageOne.mockImplementation(() => new Promise<AccountUsage>(() => {}));
+    renderRows();
+    expect(await screen.findByText("24%")).toBeTruthy();
+    expect(screen.getByText("61%")).toBeTruthy();
   });
 });

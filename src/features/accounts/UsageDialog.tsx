@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type React from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { accountUsage, codexReset, qwenFlashUsage, qwenUsage } from "../../api/client";
+import { accountUsageCached, accountUsageOne, codexReset, qwenFlashUsage, qwenUsage } from "../../api/client";
 import type { AccountUsage, QwenFlashPeriod, QwenUsagePeriod, UsageWindow } from "../../api/client";
 import type { AccountPool } from "../../api/types";
 import { Art } from "../../ui/Art";
@@ -62,6 +62,13 @@ function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status
   return isActive ? { tone: "success", text: "지금 사용" } : { tone: "info", text: "대기" };
 }
 
+/** 목록(캐시 값) 위에 계정별 조회 결과를 덮는다. 둘 중 더 최근에 관측한 사용량 쪽을 쓰고, 순서·켜기는 목록이 늘 기준이다. */
+function mergeUsage(base: AccountUsage, live: AccountUsage | undefined): AccountUsage {
+  if (!live || (live.updated_at ?? 0) < (base.updated_at ?? 0)) return base;
+  const { windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing } = live;
+  return { ...base, windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing };
+}
+
 type UsageTab = "accounts" | "flash" | "intake";
 const USAGE_TABS: { id: UsageTab; label: string }[] = [
   { id: "accounts", label: "계정·모델별" },
@@ -71,7 +78,6 @@ const USAGE_TABS: { id: UsageTab; label: string }[] = [
 
 /** 사용자 메뉴 > 사용량. 계정마다 5시간·주간(·모델별 주간) 한도를 지금 적용되는 순서로 보여 준다. */
 export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [refresh, setRefresh] = useState(false);
   const [tab, setTab] = useState<UsageTab>(() => {
     try {
       const saved = localStorage.getItem("ttakkari:usage-tab");
@@ -91,12 +97,26 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     }
   };
 
+  // 목록은 캐시 값만 읽어 바로 오고, 사용량은 카드마다 따로 읽는다. 느린 계정이 다른 카드를 붙잡지 않는다.
   const q = useQuery({
-    queryKey: ["accounts", "usage", refresh],
-    queryFn: () => accountUsage(refresh),
+    queryKey: ["accounts", "usage", "list"],
+    queryFn: accountUsageCached,
     enabled: open,
     refetchInterval: open ? 120_000 : false,
   });
+  const forceIds = useRef(new Set<string>());
+  const accountIds = (q.data ?? []).map((a) => a.id);
+  const live = useQueries({
+    queries: accountIds.map((id) => ({
+      queryKey: ["accounts", "usage", "account", id],
+      queryFn: () => accountUsageOne(id, forceIds.current.delete(id)),
+      enabled: open,
+      // 서버가 아직 읽는 중이라고 하면(시간 초과로 마지막 값을 받은 경우) 곧 다시 본다.
+      refetchInterval: (query: { state: { data?: AccountUsage } }) => (open ? (query.state.data?.refreshing ? 5_000 : 120_000) : false),
+    })),
+  });
+  const liveById = new Map(accountIds.map((id, i) => [id, live[i]]));
+  const anyFetching = q.isFetching || live.some((l) => l.isFetching);
   const qwen = useQuery({
     queryKey: ["accounts", "qwen-usage"],
     queryFn: qwenUsage,
@@ -116,12 +136,16 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     const t = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(t);
   }, [open]);
-  const rows = q.data ?? [];
+  const rows = (q.data ?? []).map((a) => mergeUsage(a, liveById.get(a.id)?.data));
+  const refreshAccount = (id: string) => {
+    forceIds.current.add(id);
+    void liveById.get(id)?.refetch();
+  };
   const usageWindows = (a: AccountUsage) => a.engine === "antigravity"
     ? a.windows.filter((w) => w.key.startsWith("agy_gemini_models_"))
     : a.windows;
   const usable = (a: AccountUsage, pool: AccountPool) =>
-    a.execution_enabled !== false && (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 &&
+    !(a.updated_at == null && liveById.get(a.id)?.isFetching) && a.execution_enabled !== false && (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 &&
     (a.stale || a.remaining_to_limit_percent !== 0) && !usageWindows(a).some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex" || a.engine === "antigravity" || (a.engine === "muse" && a.windows.length > 0 && !a.stale));
   // 개인·회사 모드가 켜기·순서를 따로 가지므로 지금 쓰는 계정도 모드마다 따로 있다.
   // 회사 계정은 개인 계정 중 회사 모드에 들인 계정이고, 순서는 회사 순위(work_rank)다.
@@ -182,16 +206,16 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
           </div>
           <div className="usage__bar">
             <p className="usage__meta">
-              {q.isFetching || qwen.isFetching || flash.isFetching ? "불러오는 중" : q.dataUpdatedAt ? `${ago(Math.round(q.dataUpdatedAt / 1000), now)} 갱신` : ""}
+              {anyFetching || qwen.isFetching || flash.isFetching ? "불러오는 중" : q.dataUpdatedAt ? `${ago(Math.round(Math.max(q.dataUpdatedAt, ...live.map((l) => l.dataUpdatedAt)) / 1000), now)} 갱신` : ""}
             </p>
             <button
               className="tk-icon-button tk-icon-button--sm"
               type="button"
               aria-label="새로 고침"
-              aria-busy={q.isFetching || qwen.isFetching || flash.isFetching || undefined}
+              aria-busy={anyFetching || qwen.isFetching || flash.isFetching || undefined}
               onClick={() => {
-                if (refresh) void q.refetch();
-                else setRefresh(true);
+                void q.refetch();
+                accountIds.forEach(refreshAccount);
                 void qwen.refetch();
                 void flash.refetch();
               }}
@@ -244,6 +268,9 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                   {g.rows.map((a) => {
                     const on = g.pool === "work" ? a.work_enabled : a.enabled;
                     const st = statusOf(a, activeId === a.id, g.pool);
+                    const lq = liveById.get(a.id);
+                    const loading = !!lq && !lq.data && lq.isFetching;
+                    const failed = !!lq && lq.isError && !lq.isFetching;
                     return (
                       <li key={a.id} aria-label={`${a.name} 사용량`} className="usage-card" data-engine={a.engine} data-off={!on || undefined} data-active={activeId === a.id || undefined}>
                         <div className="usage-card__head">
@@ -252,13 +279,18 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                             <span className="usage-card__name">{a.name}</span>
                             <span className="usage-card__sub"><EngineBadge engine={a.engine} />{a.plan ? <span>{a.plan}</span> : null}</span>
                           </span>
-                          <span className={st.tone === "neutral" ? "tk-badge" : `tk-badge tk-badge--${st.tone}`}>{st.text}</span>
+                          <span className={st.tone === "neutral" || loading ? "tk-badge" : `tk-badge tk-badge--${st.tone}`}>{loading && a.windows.length === 0 ? "확인 중" : st.text}</span>
                         </div>
                         {a.engine === "muse" && <div className="usage-card__status">
                           {a.execution_enabled === false && <span className="tk-badge">실행 검증 전</span>}
                           {a.login === "ok" && <span className="tk-badge tk-badge--success">로그인 확인</span>}
                         </div>}
-                        {a.windows.length > 0 ? (
+                        {loading && a.windows.length === 0 ? (
+                          <div className="usage-card__loading" role="status" aria-label={`${a.name} 사용량을 불러오는 중`}>
+                            <span className="tk-skeleton tk-skeleton--text" />
+                            <span className="tk-skeleton tk-skeleton--text" />
+                          </div>
+                        ) : a.windows.length > 0 ? (
                           <div className="usage-card__windows">
                             {a.engine === "antigravity"
                               ? <p className="usage__note">모델 그룹 quota · 각 그룹이 별도 한도를 공유해요.</p>
@@ -268,10 +300,17 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                         ) : (
                           <p className="usage__note">{a.error ?? "아직 사용량 기록이 없어요."}</p>
                         )}
-                        {a.engine === "antigravity" && (
+                        {(loading && a.windows.length > 0) || (a.refreshing && !failed) ? <p className="usage__note" role="status">새 값을 읽는 중이에요 · 지금은 마지막 관측값이에요</p> : null}
+                        {failed && (
+                          <p className="usage__note usage-card__retry" role="alert">
+                            {errorText(lq.error).message}
+                            <button className="tk-button tk-button--secondary tk-button--sm" type="button" onClick={() => refreshAccount(a.id)}>다시 시도</button>
+                          </p>
+                        )}
+                        {a.engine === "antigravity" && !(loading && a.windows.length === 0) && (
                           <p className="usage__note">AI 크레딧 잔액: {a.credits_balance == null ? (a.credits_error ?? (a.error ? "조회 실패" : "미측정")) : `${a.credits_balance} 크레딧`}</p>
                         )}
-                        {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => void q.refetch()} />}
+                        {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => refreshAccount(a.id)} />}
                         {a.windows.length > 0 && (
                           <p className="usage-card__foot">
                             {a.source ? (a.source === "api" ? (a.engine === "codex" ? "ChatGPT 사용량 기준" : "Claude 구독 사용량 기준") : SOURCE[a.source]) : ""}

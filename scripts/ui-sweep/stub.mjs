@@ -67,8 +67,9 @@ function body(path, method, search) {
   if (path === 'health') return { ok: true };
   if (path === 'tasks/active') return { roots: [], nodes: [] };
   if (path === 'accounts') return accounts;
-  if (path === 'accounts/usage') {
-    return [
+  const usageOne = path.match(/^accounts\/([^/]+)\/usage$/);
+  if (path === 'accounts/usage' || path === 'accounts/usage/cached' || usageOne) {
+    const rows = [
       {
         id: 'a1', name: '내 클로드 (iuholic83@example.com)', engine: 'claude', pool: 'personal', enabled: true, rank: 1,
         max_used_percent: 38, remaining_to_limit_percent: 62, stale: false, work_enabled: true, work_rank: 1, login: 'ok',
@@ -88,6 +89,7 @@ function body(path, method, search) {
         source: 'antigravity_cli', plan: 'Standard', error: null, updated_at: Math.floor(Date.now() / 1000),
       },
     ];
+    return usageOne ? rows.find((r) => r.id === usageOne[1]) : rows;
   }
   if (path === 'accounts/qwen-flash-usage') {
     return {

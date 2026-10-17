@@ -834,6 +834,8 @@ export interface AccountUsage {
   plan: string | null;
   error: string | null;
   updated_at: number | null;
+  /** 새 값을 읽는 조회가 아직 진행 중. 지금 값은 마지막 관측값일 수 있다. */
+  refreshing?: boolean;
 }
 export interface QwenUsagePeriod {
   starts_at: string;
@@ -862,7 +864,12 @@ export const putOverride = (ids: string[], until: string, pool: AccountPool = "p
 export const deleteOverride = (pool: AccountPool = "personal"): Promise<void> =>
   json("/api/accounts/override", { method: "DELETE", query: { pool } });
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });
-export const qwenUsage = (): Promise<QwenUsageSummary> => json("/api/accounts/qwen-usage");
+/** 네트워크 없이 마지막 관측값만. 카드를 바로 그리는 용도. */
+export const accountUsageCached = (): Promise<AccountUsage[]> => json("/api/accounts/usage/cached");
+/** 계정 하나. 느린 공급자가 다른 카드를 붙잡지 않게 카드마다 따로 부른다. */
+export const accountUsageOne = (id: string, refresh = false): Promise<AccountUsage> =>
+  json(`/api/accounts/${id}/usage`, { query: { refresh } });
+export const qwenUsage = ():Promise<QwenUsageSummary> => json("/api/accounts/qwen-usage");
 export interface QwenFlashPeriod {
   starts_at: string;
   ends_at: string;
