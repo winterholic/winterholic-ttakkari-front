@@ -182,6 +182,7 @@ export function WbsTable({ project, tasks, actions, onOpen }: {
     return (
       <EmptyState
         icon="wbs"
+        art="empty-work-visualization"
         title="아직 작업이 없어요"
         actions={<button className="tk-button tk-button--primary" type="button" onClick={addRoot}><Icon name="plus" />첫 단계 추가</button>}
       >

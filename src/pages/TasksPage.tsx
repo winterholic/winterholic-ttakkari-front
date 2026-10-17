@@ -12,6 +12,7 @@ import { groupByDay, splitMatch } from "../features/tasks/dayGroups";
 import { StatusGlyph, TaskTree } from "../features/tasks/TaskTree";
 import { useActiveTasks, useTaskTree } from "../features/tasks/useTasks";
 import "../features/tasks/tasks.css";
+import { Art } from "../ui/Art";
 
 const SCOPES: { value: AccountPool | null; label: string }[] = [
   { value: null, label: "전체" },
@@ -147,6 +148,7 @@ function LibrarySection({ pool }: { pool: AccountPool | null }) {
       )}
       {list.isError && (
         <div className="tk-empty tk-empty--boxed">
+          <Art name="state-error" />
           <p className="tk-empty__title">지난 작업을 못 불러왔어요</p>
           <Button size="sm" onClick={() => void list.refetch()}>
             <Icon name="retry" />
@@ -156,6 +158,7 @@ function LibrarySection({ pool }: { pool: AccountPool | null }) {
       )}
       {list.isSuccess && roots.length === 0 && (
         <div className="tk-empty tk-empty--boxed">
+          <Art name="state-empty" />
           <p className="tk-empty__title">아직 쌓인 일이 없어요</p>
           <p className="tk-body-sm tk-text-tertiary">따까리에게 일을 맡기면 끝난 일이 여기에 날짜별로 모여요.</p>
           <Link className="tk-button tk-button--sm" to={pool === "work" ? "/work" : "/chat"}>
@@ -272,6 +275,7 @@ function SearchResults({ q, pool }: { q: string; pool: AccountPool | null }) {
   if (r.isError)
     return (
       <div className="tk-empty tk-empty--boxed">
+        <Art name="state-error" size="sm" />
         <p className="tk-empty__title">찾지 못했어요</p>
         <Button size="sm" onClick={() => void r.refetch()}>
           <Icon name="retry" />
@@ -282,6 +286,7 @@ function SearchResults({ q, pool }: { q: string; pool: AccountPool | null }) {
   if (r.data.length === 0)
     return (
       <div className="tk-empty tk-empty--boxed">
+        <Art name="state-no-results" size="sm" />
         <p className="tk-empty__title">'{q}'가 든 일이 없어요</p>
         <p className="tk-body-sm tk-text-tertiary">더 짧은 낱말로 찾거나 모드를 '전체'로 바꿔 보세요.</p>
       </div>

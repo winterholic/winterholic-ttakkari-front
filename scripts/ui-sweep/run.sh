@@ -16,4 +16,10 @@ VITE_PID=$!
 trap 'kill $VITE_PID 2>/dev/null || true' EXIT
 for _ in $(seq 1 60); do curl -fs "http://127.0.0.1:$PORT/" >/dev/null 2>&1 && break; sleep 0.5; done
 
-node "$DS/scripts/ttakkari-layout.check.mjs" --url="http://127.0.0.1:$PORT" --routes="$ROUTES" --stub="$HERE/stub.mjs" "$@"
+status=0
+node "$DS/scripts/ttakkari-layout.check.mjs" --url="http://127.0.0.1:$PORT" --routes="$ROUTES" --stub="$HERE/stub.mjs" "$@" || status=$?
+# 첫 실행 소개가 열린 상태(모달 크기·넘침·터치)도 같은 폭으로 본다. --routes 로 좁힌 실행에서는 건너뛴다.
+if [[ ! " $* " =~ " --routes" ]]; then
+  SWEEP_ONBOARDING=1 node "$DS/scripts/ttakkari-layout.check.mjs" --url="http://127.0.0.1:$PORT" --routes="/chat" --stub="$HERE/stub.mjs" "$@" || status=$?
+fi
+exit $status

@@ -145,17 +145,17 @@ export function LibraryPage() {
           </div>
 
           {list.isLoading && <ListSkeleton label="파일을 찾는 중" />}
-          {list.isError && <div className="tk-container tk-container--md"><ErrorState error={list.error} what="파일 목록" onRetry={() => void list.refetch()} /></div>}
+          {list.isError && <div className="tk-container tk-container--md"><ErrorState error={list.error} what="파일 목록" art="md" onRetry={() => void list.refetch()} /></div>}
           {list.isSuccess && items.length === 0 && (
             filtered ? (
-              <EmptyState icon="search" title="찾는 파일이 없어요" actions={<button className="tk-button" type="button" onClick={reset}>필터 모두 풀기</button>}>
+              <EmptyState icon="search" art="state-no-results" title="찾는 파일이 없어요" actions={<button className="tk-button" type="button" onClick={reset}>필터 모두 풀기</button>}>
                 다른 단어로 찾거나 필터를 풀어 보세요. 삭제된 파일은 보관 기간이 지나면 찾을 수 없어요.
               </EmptyState>
             ) : (
               area === "agent" ? (
                 <EmptyState icon="terminal" title="에이전트 파일이 없어요">에이전트가 작업 중에 만든 중간 산출물과 고친 파일이 여기에 모여요. 필요한 파일은 열어서 "파일로 옮기기"를 눌러 주세요.</EmptyState>
               ) : (
-                <EmptyState icon="library" title="아직 파일이 없어요">직접 올린 파일과 에이전트가 사용자에게 넘긴 결과물이 여기에 모여요.</EmptyState>
+                <EmptyState icon="library" art="state-empty" title="아직 파일이 없어요">직접 올린 파일과 에이전트가 사용자에게 넘긴 결과물이 여기에 모여요.</EmptyState>
               )
             )
           )}

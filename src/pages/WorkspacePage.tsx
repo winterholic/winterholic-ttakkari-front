@@ -60,9 +60,9 @@ function WorkspaceOverview() {
       <div className="tk-screen__body">
         <p className="workspace-intro">에이전트가 만든 파일을 세션별로 모아 봐요. 세션을 열면 결과물을 보면서 이어서 지시할 수 있어요.</p>
         {arts.isLoading && <ListSkeleton rows={3} label="결과물이 있는 세션을 찾는 중" />}
-        {arts.isError && <ErrorState error={arts.error} what="결과물" onRetry={() => void arts.refetch()} />}
+        {arts.isError && <ErrorState error={arts.error} what="결과물" art="md" onRetry={() => void arts.refetch()} />}
         {arts.isSuccess && groups.length === 0 && (
-          <EmptyState icon="workspace" title="아직 결과물이 없어요" actions={<Link className="tk-button tk-button--primary" to="/chat">채팅 시작하기</Link>}>
+          <EmptyState icon="workspace" art="state-empty" title="아직 결과물이 없어요" actions={<Link className="tk-button tk-button--primary" to="/chat">채팅 시작하기</Link>}>
             채팅에서 문서·표·이미지 같은 파일을 만들어 달라고 하면 그 세션의 결과물이 여기에 모여요.
           </EmptyState>
         )}
@@ -140,10 +140,11 @@ function SessionWorkspace({ sessionId }: { sessionId: string }) {
             </span>
           </div>
           {arts.isLoading && <ListSkeleton label="결과물을 불러오는 중" />}
-          {arts.isError && <ErrorState error={arts.error} what="결과물" onRetry={() => void arts.refetch()} />}
+          {arts.isError && <ErrorState error={arts.error} what="결과물" art="md" onRetry={() => void arts.refetch()} />}
           {arts.isSuccess && items.length === 0 && (
             <EmptyState
               icon="workspace"
+              art="state-empty"
               title="이 세션에는 아직 결과물이 없어요"
               actions={
                 <>

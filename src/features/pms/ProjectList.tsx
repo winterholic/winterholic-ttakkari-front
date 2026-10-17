@@ -140,6 +140,7 @@ export function ProjectList({ base }: { base: Base }) {
             {list.isSuccess && projects.length === 0 && (
               <EmptyState
                 icon={base === "pms" ? "kanban" : "wbs"}
+                art={filtered ? "state-no-results" : "empty-work-visualization"}
                 title={filtered ? "조건에 맞는 프로젝트가 없어요" : "아직 프로젝트가 없어요"}
                 actions={!filtered && <Button variant="primary" onClick={() => setCreating(true)}><Icon name="plus" />새 프로젝트</Button>}
               >

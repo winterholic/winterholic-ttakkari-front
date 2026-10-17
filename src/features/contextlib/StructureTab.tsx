@@ -176,7 +176,7 @@ export function StructureTab({ scope }: { scope: LibScope }) {
   if (q.isError) return <LibError error={q.error} what="구조" onRetry={() => void q.refetch()} />;
   if (!q.data) return <ListSkeleton rows={5} label="구조를 불러오는 중" />;
   const cats = q.data.categories;
-  if (!cats.length) return <EmptyState icon="folder-search" title="등록된 출처가 없어요">비서 관리의 지식 탭에서 출처를 추가하면 여기에 나와요.</EmptyState>;
+  if (!cats.length) return <EmptyState icon="folder-search" art="empty-harness-visualization" title="등록된 출처가 없어요">비서 관리의 지식 탭에서 출처를 추가하면 여기에 나와요.</EmptyState>;
   // 범위를 바꿔 선택한 모음이 사라졌으면 선택을 풀어 오래된 데이터를 보여 주지 않는다.
   const current = sel && cats.find((c) => c.category === sel.category)?.groups.find((g) => gkey(sel.category, g) === gkey(sel.category, sel.group));
   const pick = (category: string, group: LibTreeGroup) => setSel({ category, group });

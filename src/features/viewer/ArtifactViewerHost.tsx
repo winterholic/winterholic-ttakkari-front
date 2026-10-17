@@ -6,7 +6,7 @@ import { useIsDesktop } from "./hooks";
 import { ModalDialog } from "./ModalDialog";
 import { useArtifactViewer } from "./useArtifactViewer";
 import { ViewerErrorBoundary } from "./ViewerErrorBoundary";
-import { Icon } from "../../ui/Icon";
+import { Art } from "../../ui/Art";
 
 /**
  * 결과물 뷰어 호스트. 어느 화면에서든 `?artifact=<id>` 가 있으면 뷰어를 연다(docs/19 §5).
@@ -112,7 +112,7 @@ export function ArtifactViewerHost({ children, alwaysOpen, placeholder, followup
         >
           {viewer ?? (
             <div className="tk-empty">
-              <Icon name="eye" />
+              <Art name="state-empty" />
               <p className="tk-empty__title">미리볼 결과물을 골라 주세요</p>
               {placeholder ?? <p>왼쪽 목록에서 결과물을 누르면 여기에서 열려요.</p>}
             </div>

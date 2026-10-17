@@ -158,6 +158,7 @@ export function Board({ project }: { project: PmsProject }) {
       {leaves.length === 0 ? (
         <EmptyState
           icon="kanban"
+          art="empty-work-visualization"
           title="칸반에 올릴 작업이 없어요"
           actions={
             <>

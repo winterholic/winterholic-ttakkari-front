@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useAuth } from "../auth";
+import { Onboarding, onboardingSeen } from "../features/onboarding/Onboarding";
 import { PushSettingsDialog } from "../features/push/PushSettings";
 import { UsageDialog } from "../features/accounts/UsageDialog";
 import { IconButton } from "../ui/Button";
@@ -44,7 +45,7 @@ function Presence({ c }: { c: ConnectionState }) {
   );
 }
 
-function SidebarFooter({ connection }: { connection: ConnectionState }) {
+function SidebarFooter({ connection, onTour }: { connection: ConnectionState; onTour: () => void }) {
   const { logout } = useAuth();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -71,6 +72,7 @@ function SidebarFooter({ connection }: { connection: ConnectionState }) {
           { label: "설정", icon: "settings", onSelect: () => navigate("/settings") },
           { label: "알림", icon: "important", onSelect: () => navigate("/notifications") },
           { label: "푸시 알림 설정", icon: "settings", onSelect: () => setPushOpen(true) },
+          { label: "소개 다시 보기", icon: "info", onSelect: onTour },
           { label: "다크 모드", icon: "moon", checked: isDark, onSelect: toggle },
           { label: "로그아웃", icon: "logout", onSelect: () => void out(), separatorBefore: true },
         ]}
@@ -102,6 +104,9 @@ export function AppShell() {
   const openDrawer = useCallback(() => setDrawerKey(location.key), [location.key]);
 
   const api = useMemo<ShellApi>(() => ({ openDrawer, connection }), [openDrawer, connection]);
+  // 첫 실행 소개(docs/23 §4.2). 사용자 메뉴의 「소개 다시 보기」로 다시 연다.
+  const [tourOpen, setTourOpen] = useState(() => !onboardingSeen());
+  const openTour = useCallback(() => setTourOpen(true), []);
 
   if (state === "out") {
     const next = location.pathname + location.search + location.hash;
@@ -111,10 +116,10 @@ export function AppShell() {
     return (
       <div className="tk-app">
         <main className="tk-app__main" id="main" tabIndex={-1} aria-busy="true">
-          <p className="tk-status tk-status--agent" role="status">
-            <span className="tk-spinner tk-spinner--sm" aria-hidden="true" />
-            불러오는 중
-          </p>
+          {/* index.html 의 스플래시와 같은 모양으로 이어진다(src/boot.css) */}
+          <div className="tk-boot" role="status" aria-label="불러오는 중">
+            <img src="/brand/logo-mark.svg" alt="" width="96" height="96" />
+          </div>
         </main>
       </div>
     );
@@ -137,7 +142,7 @@ export function AppShell() {
             {/* 캔버스 홈은 판 자체가 트리라 사이드바 트리를 숨긴다 */}
             {!isHome && <ActiveTasks currentId={sessionId} />}
           </nav>
-          <SidebarFooter connection={connection} />
+          <SidebarFooter connection={connection} onTour={openTour} />
         </aside>
 
         <main className="tk-app__main" id="main" tabIndex={-1}>
@@ -162,9 +167,10 @@ export function AppShell() {
               <ActiveTasks currentId={sessionId} />
             </nav>
           </div>
-          <SidebarFooter connection={connection} />
+          <SidebarFooter connection={connection} onTour={openTour} />
         </Dialog>
         <ToastRegion />
+        <Onboarding open={tourOpen} onClose={() => setTourOpen(false)} />
       </div>
     </ShellContext.Provider>
   );

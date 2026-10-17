@@ -12,6 +12,7 @@ import { Icon } from "../ui/Icon";
 import type { IconName } from "../ui/Icon";
 import { toast } from "../ui/toastStore";
 import "./notifications.css";
+import { Art } from "../ui/Art";
 
 type Category = NotificationCategory | "all";
 const TABS: { id: Category; label: string; icon: IconName }[] = [
@@ -117,6 +118,7 @@ export function NotificationsPage() {
             {(read.isError || readAll.isError) && <p className="tk-status tk-status--danger" role="alert">읽음 처리를 저장하지 못했어요. 다시 시도해 주세요.</p>}
             {query.isPending && <p className="tk-status" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />알림을 불러오는 중</p>}
             {query.isError && <div className="tk-empty tk-empty--boxed" role="alert">
+              <Art name="state-error" />
               <p className="tk-empty__title">알림을 불러오지 못했어요</p>
               <Button onClick={() => void (query.isFetchNextPageError ? query.fetchNextPage() : query.refetch())}>다시 시도</Button>
             </div>}
@@ -125,7 +127,7 @@ export function NotificationsPage() {
               <ul className="notifications-list">{group.map(item => <NotificationRow key={item.id} item={item} busy={busy} onRead={id => read.mutate(id)} />)}</ul>
             </section>)}
             {query.isSuccess && !items.length && <div className="tk-empty tk-empty--boxed notifications-empty">
-              <Icon name="important" />
+              <Art name="state-notifications-empty" />
               <p className="tk-empty__title">{unreadOnly ? "안 읽은 알림이 없어요" : category === "all" ? "아직 알림이 없어요" : `${selectedTab.label} 알림이 없어요`}</p>
               <p className="tk-body-sm tk-text-tertiary">{unreadOnly ? "새 알림이 도착하면 여기에 모여요." : "알림함을 켠 뒤 도착하는 알림부터 보관해요."}</p>
             </div>}

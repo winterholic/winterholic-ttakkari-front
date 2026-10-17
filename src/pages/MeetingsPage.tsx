@@ -86,10 +86,11 @@ function MeetingList() {
         </span>
       </div>
       {list.isPending && <ListSkeleton rows={4} label="회의록을 불러오는 중" />}
-      {list.isError && <ErrorState error={list.error} what="회의록" onRetry={() => void list.refetch()} />}
+      {list.isError && <ErrorState error={list.error} what="회의록" art="md" onRetry={() => void list.refetch()} />}
       {list.isSuccess && meetings.length === 0 && (
         <EmptyState
           icon="memo"
+          art={search ? "state-no-results" : "state-empty"}
           title={search ? "찾는 회의록이 없어요" : "아직 회의록이 없어요"}
           actions={!search && <Link className="tk-button tk-button--primary" to="/meetings/new"><Icon name="plus" />새 회의록</Link>}
         >

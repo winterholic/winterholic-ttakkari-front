@@ -164,7 +164,7 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
     switch (m) {
       case "blocked":
         return (
-          <StatePanel state="blocked" kind={a.kind} icon="lock" title="이 기기에서는 열 수 없어요" actions={downloadButton(false)}>
+          <StatePanel state="blocked" kind={a.kind} icon="lock" art="state-forbidden" title="이 기기에서는 열 수 없어요" actions={downloadButton(false)}>
             <p>이 파일은 <strong>민감 자료</strong>로 분류돼 열람·다운로드가 막혀 있어요. 꼭 필요하면 Mac Studio 에서 직접 여세요.</p>
             <span className="tk-policy" data-policy="restricted"><Icon name="lock" />민감 · 반출 차단</span>
           </StatePanel>

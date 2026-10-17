@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { accountUsage, codexReset, qwenUsage } from "../../api/client";
 import type { AccountUsage, QwenUsagePeriod, UsageWindow } from "../../api/client";
 import type { AccountPool } from "../../api/types";
+import { Art } from "../../ui/Art";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
@@ -97,6 +98,11 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     }))
     .filter((g) => g.rows.length > 0);
   const rankOf = (a: AccountUsage, pool: AccountPool) => (pool === "work" ? a.work_rank! : a.rank);
+  // 켜진 계정이 있는데 전부 사용량 한도(쿨다운·100%)에 걸린 경우만 한도 화면으로 본다. 꺼짐·로그인 필요는 한도가 아니다.
+  const allLimited = groups.length > 0 && groups.every((g) => {
+    const on = g.rows.filter((a) => (g.pool === "work" ? a.work_enabled : a.enabled));
+    return on.length > 0 && on.every((a) => a.cooldown_seconds > 0 || usageWindows(a).some((w) => w.percent >= 100));
+  });
   const onCount = rows.filter((a) => a.enabled).length;
   const workOnCount = rows.filter((a) => a.work_rank != null && a.work_enabled).length;
   return (
@@ -147,6 +153,13 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
           </button>
         </div>
 
+        {allLimited && (
+          <div className="tk-empty" role="status">
+            <Art name="state-usage-limit" size="sm" />
+            <p className="tk-empty__title">켜진 계정이 모두 한도에 걸렸어요</p>
+            <p>한도가 풀리는 계정부터 이어서 진행해요. 아래에서 풀리는 시각을 볼 수 있어요.</p>
+          </div>
+        )}
         <div className="usage__now">
         {groups.map((g) => {
           const active = g.rows.find((a) => usable(a, g.pool));

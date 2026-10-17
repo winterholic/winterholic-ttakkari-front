@@ -22,6 +22,7 @@ import { DESK_ID } from "../features/canvas/layout";
 import { CanvasBoundary } from "../features/canvas/CanvasBoundary";
 import "../features/canvas/canvas.css";
 import "../features/tasks/tasks.css";
+import { Art } from "../ui/Art";
 
 const THREAD_RUNS = 40;
 const SEARCH_DEBOUNCE_MS = 250;
@@ -42,6 +43,7 @@ export function DeskHome({ pool }: { pool: AccountPool }) {
       <div className="tk-screen__body">
         {desk.isError ? (
           <div className="tk-empty">
+            <Art name="state-error" />
             <p className="tk-empty__title">따까리를 열지 못했어요</p>
             <p className="tk-body-sm tk-text-tertiary">{desk.error instanceof Error ? desk.error.message : "Mac Studio 연결을 확인해 주세요."}</p>
             <Button size="sm" onClick={() => void desk.refetch()}>

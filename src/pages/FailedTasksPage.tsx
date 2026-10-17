@@ -7,6 +7,7 @@ import { PageHeader } from "../shell/PageHeader";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import "../features/tasks/tasks.css";
+import { Art } from "../ui/Art";
 
 const PERIODS = [
   { value: "all", label: "전체 기간" },
@@ -78,6 +79,7 @@ export function FailedTasksPage() {
           )}
           {query.isError && (
             <div className="tk-empty tk-empty--boxed">
+              <Art name="state-error" />
               <p className="tk-empty__title">실패 목록을 불러오지 못했어요</p>
               <Button size="sm" onClick={() => void query.refetch()}><Icon name="retry" />다시 시도</Button>
             </div>
@@ -119,6 +121,7 @@ export function FailedTasksPage() {
           )}
           {query.isSuccess && items.length === 0 && (
             <div className="tk-empty tk-empty--boxed">
+              <Art name="state-complete" />
               <p className="tk-empty__title">실패한 작업이 없어요</p>
               <p className="tk-body-sm tk-text-tertiary">실패한 실행이 생기면 이곳에 모여요.</p>
             </div>

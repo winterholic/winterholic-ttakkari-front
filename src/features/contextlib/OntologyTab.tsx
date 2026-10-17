@@ -111,7 +111,7 @@ export function OntologyTab({ scope }: { scope: LibScope }) {
   const highlight = useMemo(() => (g && flag ? new Set(g.nodes.filter((x) => x.flags[flag]).map((x) => x.id)) : null), [g, flag]);
   if (q.isError) return <LibError error={q.error} what="온톨로지" onRetry={() => void q.refetch()} />;
   if (!g) return <ListSkeleton rows={5} label="온톨로지를 불러오는 중" />;
-  if (!g.nodes.length) return <EmptyState icon="library" title="엔터티가 없어요">비서 관리에서 엔터티를 만들거나 목록을 등록하면 여기에 나와요.</EmptyState>;
+  if (!g.nodes.length) return <EmptyState icon="library" art="empty-harness-visualization" title="엔터티가 없어요">비서 관리에서 엔터티를 만들거나 목록을 등록하면 여기에 나와요.</EmptyState>;
   const selected = g.nodes.find((x) => x.id === selectedId) ?? null;
   const types = [...new Set(g.nodes.map((x) => x.type))];
   const counts = Object.fromEntries(FLAGS.map((f) => [f.key, g.nodes.filter((x) => x.flags[f.key]).length])) as Record<Flag, number>;

@@ -98,6 +98,8 @@ function body(path, method) {
 export default async function stub(ctx) {
   // 서비스워커 등록은 막혀 있어 pwaUpdate 가 오류를 던진다(검사 환경의 부산물). 등록 API 자체를 지운다.
   await ctx.addInitScript('delete Navigator.prototype.serviceWorker');
+  // 첫 실행 소개(Onboarding)는 평소 본 것으로 두어 다른 화면을 가리지 않게 하고, SWEEP_ONBOARDING=1 일 때만 연다.
+  if (!process.env.SWEEP_ONBOARDING) await ctx.addInitScript("try { localStorage.setItem('tk-onboarded', '1') } catch {}");
   await ctx.route((u) => u.pathname.startsWith('/api/'), (route) => {
     const req = route.request();
     const url = new URL(req.url());

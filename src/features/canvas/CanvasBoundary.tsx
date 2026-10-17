@@ -1,6 +1,7 @@
 import { Component } from "react";
 import type { ReactNode } from "react";
 import { Icon } from "../../ui/Icon";
+import { Art } from "../../ui/Art";
 
 interface State {
   error: Error | null;
@@ -22,7 +23,7 @@ export class CanvasBoundary extends Component<{ children: ReactNode }, State> {
     if (this.state.error)
       return (
         <div className="tk-empty tcanvas__crash" role="alert">
-          <Icon name="warning" />
+          <Art name="state-error" size="sm" />
           <p className="tk-empty__title">판을 그리다 멈췄어요</p>
           <p className="tk-body-sm tk-text-tertiary">{this.state.error.message}</p>
           <button className="tk-button tk-button--sm" type="button" onClick={() => this.setState((s) => ({ error: null, key: s.key + 1 }))}>

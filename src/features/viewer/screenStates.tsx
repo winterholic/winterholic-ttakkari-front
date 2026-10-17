@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { Art } from "../../ui/Art";
+import type { ArtSize } from "../../ui/Art";
 import { Icon, KIND_GLYPH } from "../../ui/Icon";
 import type { IconName } from "../../ui/Icon";
 import type { ArtifactOut } from "../../api/types";
@@ -24,11 +26,14 @@ export function ListSkeleton({ rows = 5, label }: { rows?: number; label: string
   );
 }
 
-/** 빈 상태는 오류가 아니다. 빨강·경고색 금지(docs/10 §2). */
-export function EmptyState({ icon, title, children, actions }: { icon: IconName; title: string; children?: ReactNode; actions?: ReactNode }) {
+/**
+ * 빈 상태는 오류가 아니다. 빨강·경고색 금지(docs/10 §2).
+ * art 를 주면 아이콘 대신 마스코트 컷(docs/23 키)을 얹는다. 한 화면에 한 장이라 쪽 단위 빈 상태에만 준다.
+ */
+export function EmptyState({ icon, title, children, actions, art, artSize }: { icon: IconName; title: string; children?: ReactNode; actions?: ReactNode; art?: string; artSize?: ArtSize }) {
   return (
     <div className="tk-empty">
-      <Icon name={icon} />
+      {art ? <Art name={art} size={artSize} /> : <Icon name={icon} />}
       <p className="tk-empty__title">{title}</p>
       {children && <p>{children}</p>}
       {actions && <div className="tk-button-group">{actions}</div>}
@@ -37,12 +42,12 @@ export function EmptyState({ icon, title, children, actions }: { icon: IconName;
 }
 
 /** 무엇이 잘못됐는지 → 왜 → 지금 할 수 있는 것. 기계 코드는 모노로 덧붙인다(docs/10 §3). */
-export function ErrorState({ error, onRetry, what }: { error: unknown; onRetry: () => void; what: string }) {
+export function ErrorState({ error, onRetry, what, art }: { error: unknown; onRetry: () => void; what: string; art?: ArtSize }) {
   const online = useOnline();
   const e = errorText(error);
   return (
     <div className="tk-empty tk-empty--boxed" role="alert">
-      <Icon name={online ? "warning" : "wifi-off"} />
+      {art ? <Art name={online ? "state-error" : "state-offline"} size={art} /> : <Icon name={online ? "warning" : "wifi-off"} />}
       <p className="tk-empty__title">{online ? `${what}을(를) 불러오지 못했어요` : "오프라인이에요"}</p>
       <p>{online ? e.message : "연결이 돌아오면 다시 시도해 주세요."}{e.code && <> <code>{e.code}</code></>}</p>
       <div className="tk-button-group"><button className="tk-button" type="button" onClick={onRetry}><Icon name="retry" />다시 시도</button></div>

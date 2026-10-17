@@ -51,6 +51,8 @@ beforeEach(() => {
   activeTasks.mockResolvedValue({ roots: [], nodes: [] });
   taskTree.mockReset();
   taskTree.mockRejectedValue(new Error("없음"));
+  // 첫 실행 소개는 Onboarding.test.tsx 가 따로 본다. 여기서는 본 것으로 둔다.
+  localStorage.setItem("tk-onboarded", "1");
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"ok":true}', { status: 200 })));
   // jsdom 에는 dialog.showModal 이 없을 수 있다. 계약(open 속성)만 흉내 낸다.
   HTMLDialogElement.prototype.showModal ??= function (this: HTMLDialogElement) {
@@ -92,7 +94,7 @@ describe("AppShell 인증 가드", () => {
     renderAt("/chat");
     expect(screen.queryByText("로그인 화면")).toBeNull();
     expect(screen.queryByText("채팅 본문")).toBeNull();
-    expect(screen.getByText("불러오는 중")).toBeTruthy();
+    expect(screen.getByRole("status", { name: "불러오는 중" })).toBeTruthy();
   });
 
   it("데스크톱 사이드바 맨 위는 채팅·작업·부가 기능 셋이고, 부가 기능 화면에서는 그 기능을 아래 줄에 켠다", () => {

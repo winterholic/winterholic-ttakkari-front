@@ -235,7 +235,7 @@ function MemoryTab() {
         </div>
         {err && <p className="tk-error" role="alert">{errorText(err).message}</p>}
         {mems.isPending && <ListSkeleton rows={3} label="기억을 불러오는 중" />}
-        {mems.isSuccess && mems.data.memories.length === 0 && <EmptyState icon="tip" title="아직 기억이 없어요">위에서 직접 넣거나, 따까리와 대화하면 쌓여요.</EmptyState>}
+        {mems.isSuccess && mems.data.memories.length === 0 && <EmptyState icon="tip" art="state-empty" artSize="sm" title="아직 기억이 없어요">위에서 직접 넣거나, 따까리와 대화하면 쌓여요.</EmptyState>}
         <ul className="tk-list" aria-label="기억 목록">
           {mems.data?.memories.map((m) => (
             <li key={m.id}>

@@ -1,0 +1,7 @@
+/* 스플래시: index.html 의 #root 안 첫 화면(마스코트 로고). React 가 루트를 그리면 이 노드가 통째로 바뀐다. */
+.tk-boot {
+  display: flex; align-items: center; justify-content: center; min-height: 100dvh;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background: var(--tk-color-surface-canvas);
+}
+.tk-boot > img { width: var(--tk-space-24); height: var(--tk-space-24); border-radius: var(--tk-component-avatar-radius); box-shadow: 0 0 0 var(--tk-border-width-hairline) var(--tk-color-border-default); }

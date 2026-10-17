@@ -108,7 +108,7 @@ export function Gantt({ project, tasks, actions, onOpen }: {
   };
 
   if (tasks.length === 0) {
-    return <EmptyState icon="gantt" title="간트에 그릴 작업이 없어요">WBS 표에서 작업을 만들고 시작·종료일을 잡으면 여기에 막대로 나타나요.</EmptyState>;
+    return <EmptyState icon="gantt" art="empty-work-visualization" title="간트에 그릴 작업이 없어요">WBS 표에서 작업을 만들고 시작·종료일을 잡으면 여기에 막대로 나타나요.</EmptyState>;
   }
 
   const lines = rows.flatMap((t) =>

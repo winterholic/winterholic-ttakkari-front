@@ -11,5 +11,7 @@ done
 find "$SRC/assets/brand" -maxdepth 1 -type f \( -name '*.png' -o -name '*.svg' -o -name '*.ico' -o -name '*.webp' \) -exec cp {} "$DEST/public/brand/" \;
 # 일러스트 웹 파생본(WebP 480·960). 원본은 디자인 시스템 brand/generated 에 있고 앱은 파생본만 가져간다(docs/23)
 find "$SRC/assets/art" -maxdepth 1 -type f -name '*.webp' -exec cp {} "$DEST/public/art/" \;
+# 납품된 컷의 키 목록. <Art> 가 이 목록에 없는 키는 요청하지 않고 자리(data-pending)만 그린다
+cp "$SRC/assets/art/manifest.json" "$DEST/src/vendor/ttakkari/art-manifest.json"
 git -C "$SRC" log -1 --format='%h %s' -- . > "$DEST/src/vendor/ttakkari/VERSION"
 echo "synced from $SRC ($(cat "$DEST/src/vendor/ttakkari/VERSION"))"

@@ -101,7 +101,7 @@ export function FilesPage() {
                     query={listing}
                     wsId={ws.id}
                     entriesOf={(d) => d.entries}
-                    empty={<EmptyState icon="folder-open" title="이 폴더는 비어 있어요">{showHidden ? "숨김 파일까지 봐도 비어 있어요." : "숨김 파일은 위의 숨김 파일 칩으로 볼 수 있어요."}</EmptyState>}
+                    empty={<EmptyState icon="folder-open" art="state-empty" artSize="sm" title="이 폴더는 비어 있어요">{showHidden ? "숨김 파일까지 봐도 비어 있어요." : "숨김 파일은 위의 숨김 파일 칩으로 볼 수 있어요."}</EmptyState>}
                     onRetry={() => void listing.refetch()}
                     onOpenDir={(p) => setNav({ path: p })}
                     notice={listing.data?.truncated ? "항목이 많아 앞부분만 보여요. 파일 이름 검색으로 좁혀 보세요." : undefined}
@@ -154,7 +154,7 @@ function FileResults<T extends FileEntry[] | { entries: FileEntry[]; truncated: 
   notice?: string;
 }) {
   if (query.isLoading) return <ListSkeleton label="파일을 찾는 중" />;
-  if (query.isError) return <ErrorState error={query.error} what="파일 목록" onRetry={onRetry} />;
+  if (query.isError) return <ErrorState error={query.error} what="파일 목록" art="md" onRetry={onRetry} />;
   if (!query.data) return null;
   const entries = entriesOf ? entriesOf(query.data) : (query.data as FileEntry[]);
   if (entries.length === 0) return <>{empty}</>;

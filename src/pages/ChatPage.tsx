@@ -21,6 +21,7 @@ import { buildForest, isActive } from "../features/tasks/buildTree";
 import { useActiveTasks, useTaskTree } from "../features/tasks/useTasks";
 import { NodePanel } from "../features/tasks/NodePanel";
 import "../features/orchestrator/orchestrator.css";
+import { Art } from "../ui/Art";
 
 const FOLLOW_THRESHOLD = 96;
 
@@ -118,6 +119,7 @@ function DeskScreen({ pool }: { pool: AccountPool }) {
       <div className="tk-screen__body">
         {desk.isError ? (
           <div className="tk-empty">
+            <Art name="state-error" />
             <p className="tk-empty__title">따까리 대화를 열지 못했어요</p>
             <p className="tk-body-sm tk-text-tertiary">{desk.error instanceof Error ? desk.error.message : "Mac Studio 연결을 확인해 주세요."}</p>
             <Button size="sm" onClick={() => void desk.refetch()}>
@@ -435,6 +437,7 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
           <div className="tk-thread__inner" ref={innerRef}>
             {session.isError && (
               <div className="tk-empty">
+                <Art name="state-not-found" />
                 <p className="tk-empty__title">세션을 찾을 수 없어요</p>
                 <div className="tk-button-group">
                   <Link className="tk-button" to="/chat">

@@ -3,6 +3,7 @@ import type { ErrorInfo, ReactNode } from "react";
 import { applyUpdate, isStaleChunkError } from "./pwaUpdate";
 import { Icon } from "./ui/Icon";
 import "./recovery.css";
+import { Art } from "./ui/Art";
 
 interface State {
   error: Error | null;
@@ -30,7 +31,7 @@ export class AppErrorBoundary extends Component<{ children: ReactNode }, State> 
     return (
       <main className="tk-app-crash">
         <div className="tk-empty tk-empty--boxed" role="alert" data-app-error="">
-          <Icon name={stale ? "retry" : "warning"} />
+          <Art name={stale ? "state-update-available" : "state-error"} />
           <p className="tk-empty__title">{stale ? "새 버전으로 바뀌어 다시 읽어야 해요" : "화면을 그리다 멈췄어요"}</p>
           <p>{stale ? "앱이 업데이트되는 사이에 이 화면을 열었어요." : "다시 읽으면 대부분 돌아와요."} <code>{error.message.slice(0, 200)}</code></p>
           <div className="tk-button-group">

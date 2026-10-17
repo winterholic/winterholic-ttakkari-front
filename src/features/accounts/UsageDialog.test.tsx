@@ -61,6 +61,24 @@ describe("UsageDialog Antigravity quota", () => {
   });
 });
 
+describe("UsageDialog 한도 화면", () => {
+  const limited: AccountUsage = { ...account, engine: "codex", windows: [{ key: "5h", label: "5시간", percent: 100, remaining_percent: 0, resets_at: 1792088498 }], login: "ok" };
+
+  it("켜진 계정이 모두 한도에 걸리면 일러스트(장식)와 안내를 보여 준다", async () => {
+    renderUsage(limited);
+    expect(await screen.findByText("켜진 계정이 모두 한도에 걸렸어요")).toBeTruthy();
+    const art = document.querySelector('figure[data-art="state-usage-limit"]');
+    expect(art).toBeTruthy();
+    expect(art?.querySelector("img")?.getAttribute("alt")).toBe("");
+  });
+
+  it("한도에 걸리지 않았거나 계정이 꺼져 있으면 한도 화면을 띄우지 않는다", async () => {
+    renderUsage({ ...limited, windows: [{ ...limited.windows[0], percent: 10 }] });
+    expect(await screen.findByText("지금 사용")).toBeTruthy();
+    expect(screen.queryByText("켜진 계정이 모두 한도에 걸렸어요")).toBeNull();
+  });
+});
+
 describe("UsageDialog Qwen token usage", () => {
   it("운영 접수 토큰의 일간·주간 입력/출력/합계와 미계측 수를 보여 준다", async () => {
     renderUsage();

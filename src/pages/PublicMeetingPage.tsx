@@ -9,6 +9,7 @@ import { MeetingDocumentView, FORMAT_LABELS, PART_LABELS } from "../features/mee
 import { saveExport } from "../features/meetings/saveExport";
 import type { SaveFormat } from "../features/meetings/saveExport";
 import { meetingHtmlBlob } from "../features/meetings/meetingHtml";
+import { Art } from "../ui/Art";
 import "../features/meetings/meetings.css";
 import "../features/meetings/sharing.css";
 
@@ -37,7 +38,7 @@ function PublicContent({ id, capability }: { id: string; capability: string }) {
     retry: false, gcTime: 0, staleTime: 0, refetchOnWindowFocus: "always", refetchInterval: 60_000,
   });
   if (q.isPending) return <PublicFrame><p role="status">공유 문서를 불러오는 중이에요.</p></PublicFrame>;
-  if (q.isError || blocked) return <PublicFrame><h1>공유를 열 수 없어요</h1><p>링크가 만료되었거나 공유가 해제됐을 수 있어요. 보낸 사람에게 확인해 주세요.</p><Button onClick={() => { setBlocked(false); void q.refetch(); }}>다시 확인</Button></PublicFrame>;
+  if (q.isError || blocked) return <PublicFrame><Art name="state-link-expired" size="sm" /><h1>공유를 열 수 없어요</h1><p>링크가 만료되었거나 공유가 해제됐을 수 있어요. 보낸 사람에게 확인해 주세요.</p><Button onClick={() => { setBlocked(false); void q.refetch(); }}>다시 확인</Button></PublicFrame>;
   const data = q.data;
   // 게시자가 다운로드를 하나라도 허용했을 때만 브라우저에서 만드는 HTML 사본을 함께 준다. 조회 전용이면 내려받기 도구가 없다.
   const downloads: { format: SaveFormat; parts: ExportPart[] }[] = data.downloads.length ? [...data.downloads, { format: "html", parts: ["document"] }] : [];

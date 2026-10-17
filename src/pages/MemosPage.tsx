@@ -154,9 +154,9 @@ export function MemosPage() {
           )}
         </div>
         {list.isPending && <ListSkeleton rows={4} label="메모를 불러오는 중" />}
-        {list.isError && <ErrorState error={list.error} what="메모" onRetry={() => void list.refetch()} />}
+        {list.isError && <ErrorState error={list.error} what="메모" art="md" onRetry={() => void list.refetch()} />}
         {list.isSuccess && memos.length === 0 && (
-          <EmptyState icon="memo" title={search || tags.length ? "찾는 메모가 없어요" : category ? "이 카테고리에는 메모가 없어요" : "아직 메모가 없어요"}>
+          <EmptyState icon="memo" art={search || tags.length ? "state-no-results" : "state-empty"} title={search || tags.length ? "찾는 메모가 없어요" : category ? "이 카테고리에는 메모가 없어요" : "아직 메모가 없어요"}>
             {search || tags.length
               ? "검색어나 태그를 바꿔 보세요."
               : category

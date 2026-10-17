@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cancelRun } from "../../api/client";
 import type { RunOut } from "../../api/types";
 import { RunBlock } from "../chat/RunBlock";
+import { Art } from "../../ui/Art";
 
 /**
  * 캔버스 옆 패널의 따까리 대화. 입력은 캔버스 아래 떠 있는 입력창 하나로 받는다.
@@ -63,6 +64,7 @@ export function DeskThread({
         )}
         {!pending && !error && runs.length === 0 && (
           <div className="tk-empty">
+            <Art name="state-empty" />
             <p className="tk-empty__title">따까리에게 무엇이든 말해 보세요</p>
             <p className="tk-body-sm tk-text-tertiary">바로 답할 일은 여기서 답하고, 손이 가는 일은 왼쪽 판에 가지로 펼쳐져요.</p>
           </div>

@@ -2,6 +2,7 @@ import { Component } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { applyUpdate, isStaleChunkError } from "../../pwaUpdate";
 import { Icon } from "../../ui/Icon";
+import { Art } from "../../ui/Art";
 
 interface Props {
   children: ReactNode;
@@ -39,7 +40,7 @@ export class ViewerErrorBoundary extends Component<Props, State> {
     const stale = isStaleChunkError(error);
     const body = (
       <div className="tk-empty tk-empty--boxed" role="alert" data-viewer-error={stale ? "stale" : ""}>
-        <Icon name={stale ? "retry" : "warning"} />
+        <Art name={stale ? "state-update-available" : "state-error"} size="sm" />
         <p className="tk-empty__title">{stale ? "새 버전으로 바뀌어 뷰어를 다시 읽어야 해요" : "이 결과물을 화면에 그리지 못했어요"}</p>
         <p>{stale ? "앱이 업데이트되는 사이에 열었어요." : "원본 다운로드는 그대로 쓸 수 있어요."} <code>{error.message.slice(0, 200)}</code></p>
         <div className="tk-button-group">

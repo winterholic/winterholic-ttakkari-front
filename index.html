@@ -9,14 +9,19 @@
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#080705" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/brand/favicon.ico" sizes="48x48" />
+    <link rel="icon" href="/brand/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" sizes="any" />
     <link rel="apple-touch-icon" href="/brand/apple-touch-icon-180.png" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5/index.min.css" />
     <title>Winterholic Ttakkari</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- 스플래시: JS 가 뜨기 전 첫 화면. React 가 루트를 그리면 사라진다(src/boot.css) -->
+      <div class="tk-boot" role="status" aria-label="불러오는 중"><img src="/brand/logo-mark.svg" alt="" width="96" height="96" /></div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -3,6 +3,7 @@ import "./vendor/ttakkari/tokens.css";
 import "./vendor/ttakkari/typography.css";
 import "./vendor/ttakkari/components.css";
 import "./vendor/ttakkari/prose.css";
+import "./boot.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes } from "react-router";
