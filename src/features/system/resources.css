@@ -52,7 +52,7 @@
 .res-history__plot { display: block; width: 100%; height: 14rem; overflow: visible; }
 .res-history__tick line { stroke: var(--tk-color-border-subtle); stroke-width: 1; }
 .res-history__tick text, .res-history__axis { fill: var(--tk-color-text-tertiary); font: var(--tk-font-size-xs) var(--tk-font-family-sans); }
-.res-history__plot path[data-series="gpu"] { fill: none; stroke: var(--tk-color-action-primary-bg); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.res-history__plot path[data-series] { fill: none; stroke: var(--tk-color-action-primary-bg); stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .res-history__point { fill: var(--tk-color-action-primary-bg); vector-effect: non-scaling-stroke; }
 @media (max-width: 480px) {
   .res-history { padding: var(--tk-space-3); }
@@ -60,3 +60,5 @@
   .res-history__ranges { align-self: flex-start; }
   .res-history__plot { height: 11rem; }
 }
+
+.res-history__metric { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; padding-top: var(--tk-space-3); border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); }

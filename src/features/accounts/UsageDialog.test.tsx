@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import type { AccountUsage } from "../../api/client";
 import { UsageDialog } from "./UsageDialog";
 
-const api = vi.hoisted(() => ({ accountUsage: vi.fn(), qwenUsage: vi.fn() }));
+const api = vi.hoisted(() => ({ accountUsage: vi.fn(), qwenUsage: vi.fn(), qwenFlashUsage: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
 const account: AccountUsage = {
@@ -24,6 +24,7 @@ beforeEach(() => {
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
   api.accountUsage.mockResolvedValue([account]);
+  api.qwenFlashUsage.mockResolvedValue({ model: "Qwen3.8-Flash-Next Q2_K", scope: "server_lifetime", observed_at: "2026-10-17T03:00:00Z", server: { status: "running", detail: null }, metrics_status: "available", input_tokens: 6732, cached_input_tokens: 26609, output_tokens: 1804, requests_processing: 0, requests_deferred: 1 });
   api.qwenUsage.mockResolvedValue({
     model: "Qwen3.5-4B Q4_K_M", timezone: "Asia/Seoul", collection_started_at: "2026-10-16T00:00:00+00:00",
     server: { enabled: true, status: "running", detail: null },
@@ -82,7 +83,7 @@ describe("UsageDialog 한도 화면", () => {
 describe("UsageDialog Qwen token usage", () => {
   it("운영 접수 토큰의 일간·주간 입력/출력/합계와 미계측 수를 보여 준다", async () => {
     renderUsage();
-    expect(await screen.findByText("Qwen 로컬 모델")).toBeTruthy();
+    expect(await screen.findByText("Qwen 접수 · 경량 모델")).toBeTruthy();
     expect(await screen.findByText("1,234")).toBeTruthy();
     expect(screen.getByText("321")).toBeTruthy();
     expect(screen.getByText("1,555")).toBeTruthy();
@@ -125,5 +126,29 @@ describe("UsageDialog Qwen token usage", () => {
     renderUsage();
     expect(await screen.findAllByText("—")).toHaveLength(6);
     expect(screen.getAllByText(/1회 호출 · 마지막 호출/)).toHaveLength(2);
+  });
+});
+
+
+describe("Flash Next usage", () => {
+  it("Flash Next 토큰과 접수 토큰을 별도 카드에서 보여 준다", async () => {
+    renderUsage();
+    const flash = await screen.findByRole("region", { name: "Qwen Flash Next 사용량" });
+    expect(await within(flash).findByText("6,732")).toBeTruthy();
+    expect(within(flash).getByText("26,609")).toBeTruthy();
+    expect(within(flash).getByText("1,804")).toBeTruthy();
+    expect(within(flash).getByText(/서버를 재시작하면 초기화/)).toBeTruthy();
+    const intake = screen.getByRole("region", { name: "Qwen 로컬 모델 토큰 사용량" });
+    expect(within(intake).getByText("1,234")).toBeTruthy();
+    expect(within(intake).queryByText("6,732")).toBeNull();
+  });
+
+  it("Flash 서버 중지·계측 누락은 0으로 표시하지 않는다", async () => {
+    api.qwenFlashUsage.mockResolvedValue({ model: "Qwen3.8-Flash-Next Q2_K", scope: "server_lifetime", observed_at: "2026-10-17T03:00:00Z", server: { status: "unavailable", detail: null }, metrics_status: "unavailable", input_tokens: null, cached_input_tokens: null, output_tokens: null, requests_processing: null, requests_deferred: null });
+    renderUsage();
+    const flash = await screen.findByRole("region", { name: "Qwen Flash Next 사용량" });
+    expect(await within(flash).findByText("서버 미연결")).toBeTruthy();
+    expect(within(flash).queryByText("0")).toBeNull();
+    expect(within(flash).getAllByText("—")).toHaveLength(3);
   });
 });

@@ -861,6 +861,20 @@ export const deleteOverride = (pool: AccountPool = "personal"): Promise<void> =>
   json("/api/accounts/override", { method: "DELETE", query: { pool } });
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });
 export const qwenUsage = (): Promise<QwenUsageSummary> => json("/api/accounts/qwen-usage");
+export interface QwenFlashUsage {
+  model: string;
+  scope: "server_lifetime";
+  observed_at: string;
+  server: { status: "running" | "starting" | "unavailable" | "model_mismatch"; detail: string | null };
+  metrics_status: "available" | "partial" | "unavailable";
+  input_tokens: number | null;
+  cached_input_tokens: number | null;
+  output_tokens: number | null;
+  requests_processing: number | null;
+  requests_deferred: number | null;
+}
+export const qwenFlashUsage = (): Promise<QwenFlashUsage> => json("/api/accounts/qwen-flash-usage");
+
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });
 

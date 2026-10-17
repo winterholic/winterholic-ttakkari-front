@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { SystemResources } from "../../api/client";
 import { bytes, level, ResourcesPanel, uptime } from "./ResourcesPanel";
@@ -133,5 +133,30 @@ describe("ResourcesPanel", () => {
     r.rerender(false);
     await act(() => vi.advanceTimersByTimeAsync(20_000));
     expect(api.systemResources).toHaveBeenCalledTimes(2);
+  });
+});
+
+
+describe("CPU and memory history", () => {
+  it("CPU·메모리 그래프도 0과 결측을 구분하고 기간을 함께 전환한다", async () => {
+    renderIt(true);
+    const cpu = await screen.findByRole("img", { name: "CPU 전체 사용률 기록" });
+    const memory = await screen.findByRole("img", { name: "메모리 사용량 기록" });
+    expect(cpu.querySelectorAll("path[data-series='cpu']")).toHaveLength(2);
+    expect(memory.querySelectorAll("path[data-series='memory']")).toHaveLength(2);
+    expect(within(memory).getByText("64 GiB")).toBeTruthy();
+    expect(cpu.querySelectorAll("circle")).toHaveLength(2);
+    await act(async () => { screen.getByRole("button", { name: "24시간" }).click(); });
+    expect(api.systemResourceHistory).toHaveBeenCalledWith("24h");
+    expect(screen.getAllByRole("button", { name: "24시간", pressed: true })).toHaveLength(1);
+  });
+
+  it("GPU 계측이 없어도 CPU·메모리는 기록을 그린다", async () => {
+    const history = await api.systemResourceHistory();
+    api.systemResourceHistory.mockResolvedValue({ ...history, points: history.points.map((p: object) => ({ ...p, gpu_percent: null })) });
+    renderIt(true);
+    const cpu = await screen.findByRole("img", { name: "CPU 전체 사용률 기록" });
+    expect(cpu.querySelectorAll("path[data-series='cpu']")).toHaveLength(2);
+    expect(screen.getByText("GPU 사용률을 수집하지 못했어요.")).toBeTruthy();
   });
 });
