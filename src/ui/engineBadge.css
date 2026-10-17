@@ -76,3 +76,9 @@
 
 .run-account-label { display: inline-flex; align-items: center; gap: var(--tk-space-1); }
 .chat-engine-badge { display: inline-flex; vertical-align: middle; margin-inline: var(--tk-space-1); }
+
+.engine-badge[data-engine="muse"] {
+  border-color: var(--tk-color-border-brand);
+  color: var(--tk-color-text-brand);
+  background: var(--tk-color-surface-brand-subtle);
+}

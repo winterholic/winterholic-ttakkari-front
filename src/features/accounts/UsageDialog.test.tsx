@@ -44,7 +44,18 @@ describe("Muse Code preparation state", () => {
   it("운영 검증 전인 엔진을 사용 가능 계정으로 표시하지 않는다", async () => {
     renderUsage({ ...account, engine: "muse", name: "Muse", windows: [], source: null,
       execution_enabled: false, error: "Muse 실행은 운영 검증 전까지 비활성 상태예요" } as AccountUsage);
-    expect(await screen.findByText("검증 대기")).toBeTruthy();
+    expect(await screen.findByText("실행 검증 전")).toBeTruthy();
+    expect(screen.queryByText("지금 사용")).toBeNull();
+  });
+});
+
+describe("Muse 구독 측정과 실행 상태 분리", () => {
+  it("실행 검증 전이어도 공급자가 관측한 사용량과 로그인 상태를 보여 준다", async () => {
+    renderUsage({ ...account, engine: "muse", name: "Muse 구독", login: "ok", execution_enabled: false,
+      source: "muse_cli", windows: [{ key: "five_hour", label: "5시간", percent: 17, resets_at: null }] });
+    expect(await screen.findByText("17%")).toBeTruthy();
+    expect(screen.getByText("로그인 확인")).toBeTruthy();
+    expect(screen.getByText("실행 검증 전")).toBeTruthy();
     expect(screen.queryByText("지금 사용")).toBeNull();
   });
 });
@@ -52,7 +63,7 @@ describe("Muse Code preparation state", () => {
 describe("UsageDialog Antigravity quota", () => {
   it("모델 그룹별 잔여 quota 와 AI 크레딧을 단위를 나눠 보여 준다", async () => {
     renderUsage();
-    expect(await screen.findByText("Gemini Models · 주간 99.3% 남음")).toBeTruthy();
+    expect(await screen.findByText("99.3% 남음")).toBeTruthy();
     expect(screen.getByText("AI 크레딧 잔액: 0 크레딧")).toBeTruthy();
     expect(screen.getByText("지금 사용")).toBeTruthy();
     expect(screen.queryByText(/계정 상한/)).toBeNull();
@@ -214,3 +225,31 @@ describe("Flash Next usage", () => {
   });
 });
 
+
+describe("계정별 사용량 탐색", () => {
+  it("계정을 선택하면 해당 계정의 상세만 표시하며 같은 엔진의 다른 계정도 구분한다", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    api.accountUsage.mockResolvedValue([
+      { ...account, id: "first", engine: "codex", name: "개인 Codex", login: "ok", rank: 1,
+        windows: [{ key: "five_hour", label: "5시간", percent: 24, resets_at: null }] },
+      { ...account, id: "second", engine: "codex", name: "회사 Codex", login: "ok", rank: 2, work_rank: 1,
+        windows: [{ key: "five_hour", label: "5시간", percent: 73, resets_at: null }] },
+      { ...account, id: "muse", engine: "muse", name: "내 Muse", rank: 3, login: "ok", execution_enabled: false,
+        windows: [], error: "Muse 로그인 확인 · 공식 CLI에서 구독 사용량 미제공" },
+    ]);
+    render(<MemoryRouter><QueryClientProvider client={qc}><UsageDialog open onClose={vi.fn()} /></QueryClientProvider></MemoryRouter>);
+    const choose = await screen.findByRole("navigation", { name: "개인 계정 선택" });
+    expect(screen.getByRole("region", { name: "개인 Codex 사용량 상세" })).toBeTruthy();
+    fireEvent.click(within(choose).getByRole("button", { name: /회사 Codex/ }));
+    expect(screen.getByRole("region", { name: "회사 Codex 사용량 상세" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "개인 Codex 사용량 상세" })).toBeNull();
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("73");
+    fireEvent.click(within(choose).getByRole("button", { name: /내 Muse/ }));
+    expect(screen.getByRole("region", { name: "내 Muse 사용량 상세" })).toBeTruthy();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /회사 계정 1개/ }));
+    expect(screen.getByRole("navigation", { name: "회사 계정 선택" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "회사 Codex 사용량 상세" })).toBeTruthy();
+  });
+});

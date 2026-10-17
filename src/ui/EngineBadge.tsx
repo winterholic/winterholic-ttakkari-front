@@ -9,7 +9,7 @@ export function EngineBadge({ engine }: { engine: EngineName }) {
   const label = LABELS[key] ?? engine;
   return (
     <span className="engine-badge" data-engine={key} aria-label={`${label} 엔진`}>
-      <span className="engine-badge__mark" aria-hidden="true">{key === "claude" ? "✳" : key === "codex" ? "⌘" : key === "antigravity" ? "◈" : "↗"}</span>
+      <span className="engine-badge__mark" aria-hidden="true">{key === "claude" ? "✳" : key === "codex" ? "⌘" : key === "antigravity" ? "◈" : key === "muse" ? "M" : "↗"}</span>
       <span>{label}</span>
     </span>
   );
