@@ -19,7 +19,7 @@ export function PageHeader({ title, meta, actions }: { title: string; meta?: Rea
     <>
       <header className="tk-header">
         <div className="tk-header__inner">
-          <button className="tk-icon-button tk-header__menu" type="button" aria-label="진행 중인 일 열기" onClick={openDrawer}>
+          <button className="tk-icon-button tk-header__menu" type="button" aria-label="메뉴 열기" aria-haspopup="dialog" aria-controls="nav-drawer" onClick={openDrawer}>
             <Icon name="menu" />
           </button>
           <div className="tk-header__title">

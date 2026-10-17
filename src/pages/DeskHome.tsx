@@ -39,7 +39,7 @@ export function DeskHome({ pool }: { pool: AccountPool }) {
   if (desk.isSuccess) return <Home key={desk.data.id} pool={pool} deskId={desk.data.id} />;
   return (
     <div className="tk-screen">
-      <PageHeader title="따까리" actions={<><PoolSwitch pool={pool} /><NotificationLink /></>} />
+      <PageHeader title={`따까리 · ${pool === "work" ? "회사" : "개인"}`} actions={<NotificationLink />} />
       <div className="tk-screen__body">
         {desk.isError ? (
           <div className="tk-empty">
@@ -58,23 +58,6 @@ export function DeskHome({ pool }: { pool: AccountPool }) {
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-export function PoolSwitch({ pool }: { pool: AccountPool }) {
-  const navigate = useNavigate();
-  return (
-    <div className="tk-segmented" role="radiogroup" aria-label="모드">
-      <label>
-        <input type="radio" name="desk-pool" checked={pool === "personal"} onChange={() => navigate("/chat")} />
-        개인
-      </label>
-      <label>
-        <input type="radio" name="desk-pool" checked={pool === "work"} onChange={() => navigate("/work")} />
-        <Icon name="briefcase" />
-        회사
-      </label>
     </div>
   );
 }
@@ -192,11 +175,10 @@ function Home({ pool, deskId }: { pool: AccountPool; deskId: string }) {
   return (
     <div className="tk-screen">
       <PageHeader
-        title={deskCard.title}
+        title={`따까리 · ${pool === "work" ? "회사" : "개인"}`}
         meta={meta}
         actions={
           <>
-            <PoolSwitch pool={pool} />
             {isDesktop && (
               <button className="tk-icon-button" type="button" aria-pressed={showPanel} aria-label={showPanel ? "옆 패널 닫기" : "대화 열기"} onClick={() => setPanelOpen((v) => !v)}>
                 <Icon name="workspace" />

@@ -4,8 +4,28 @@ import { Dialog } from "../ui/Dialog";
 import { Icon } from "../ui/Icon";
 import { FEATURES, featureAt } from "./features";
 
+/** 개인·회사는 필터가 아니라 각각의 대화 홈이다. 메뉴에서 목적지를 고른다. */
+export function ConversationLinks() {
+  const { pathname } = useLocation();
+  return (
+    <div className="app-conversation-spaces" role="group" aria-label="대화 공간">
+      <p className="app-nav__label">대화 공간</p>
+      {([
+        { to: "/chat", label: "개인 대화", icon: "chat" },
+        { to: "/work", label: "회사 대화", icon: "briefcase" },
+      ] as const).map(({ to, label, icon }) => (
+        <Link key={to} className="tk-nav__link" to={to}
+          aria-current={pathname === to ? "page" : pathname.startsWith(`${to}/`) ? "location" : undefined}>
+          <Icon name={icon} />
+          {label}
+        </Link>
+      ))}
+    </div>
+  );
+}
+
 /**
- * 데스크톱 사이드바 맨 위: 채팅·작업·부가 기능 셋뿐이다. 사용자 메뉴의 관리 화면을 제외한 기능을 부가 기능 모달(FEATURES)에 모은다.
+ * 데스크톱 사이드바: 개인·회사 대화, 작업, 부가 기능. 관리 화면을 제외한 기능을 FEATURES에 모은다.
  * 부가 기능 안의 화면에 있으면 "부가 기능"을 켜고, 그 아래 줄에 지금 기능을 보여 준다.
  */
 export function SidebarLinks() {
@@ -15,13 +35,7 @@ export function SidebarLinks() {
   const [open, setOpen] = useState(false);
   return (
     <div className="tk-nav">
-      {/* 새 세션 버튼을 따로 두지 않는다. 채팅이 곧 새 세션 화면이다(⌘⇧O 도 같다). */}
-      {/* 채팅은 따까리 대화 하나다. 회사 모드는 같은 화면 위쪽에서 바꾼다(/work). */}
-      {/* 따까리에서 뻗은 세션(/chat/:id)에서는 사이드바 트리의 그 줄이 켜지므로 채팅은 끈다 */}
-      <Link className="tk-nav__link" to="/chat" aria-current={pathname === "/chat" || pathname === "/work" ? "page" : undefined}>
-        <Icon name="chat" />
-        채팅
-      </Link>
+      <ConversationLinks />
       <Link className="tk-nav__link" to="/tasks" aria-current={here === "tasks" ? "page" : undefined}>
         <Icon name="tasks" />
         작업
@@ -96,7 +110,7 @@ export function TabbarLinks() {
   return (
     <>
       {TABS.map((t) => (
-        <Link key={t.root} className="tk-tabbar__item" to={t.to} aria-current={t.root === active ? "page" : undefined}>
+        <Link key={t.root} className="tk-tabbar__item" to={t.root === "chat" && here === "work" ? "/work" : t.to} aria-current={t.root === active ? "page" : undefined}>
           <Icon name={t.icon} />
           {t.label}
         </Link>

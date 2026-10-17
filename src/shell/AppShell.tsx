@@ -15,7 +15,7 @@ import "./shell.css";
 import { ShellContext } from "./ShellContext";
 import type { ShellApi } from "./ShellContext";
 import { ActiveTasks } from "./ActiveTasks";
-import { SidebarLinks, TabbarLinks } from "./ShellNav";
+import { ConversationLinks, SidebarLinks, TabbarLinks } from "./ShellNav";
 import { useShortcuts } from "./useShortcuts";
 import { useConnection } from "./useConnection";
 import { useKeyboardOpen } from "./useKeyboardOpen";
@@ -153,7 +153,7 @@ export function AppShell() {
           <TabbarLinks />
         </nav>
 
-        <Dialog kind="drawer" id="nav-drawer" label="진행 중인 일" open={drawerOpen} onClose={() => setDrawerKey(null)}>
+        <Dialog kind="drawer" id="nav-drawer" label="탐색 메뉴" open={drawerOpen} onClose={() => setDrawerKey(null)}>
           <div className="tk-drawer__header">
             <Link className="tk-header__brand" to="/chat">
               {BRAND}
@@ -164,6 +164,7 @@ export function AppShell() {
           </div>
           <div className="tk-drawer__body">
             <nav className="tk-sidebar" aria-label="진행 중인 일">
+              <ConversationLinks />
               <ActiveTasks currentId={sessionId} />
             </nav>
           </div>

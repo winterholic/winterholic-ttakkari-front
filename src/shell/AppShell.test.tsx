@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 
@@ -16,6 +16,7 @@ vi.mock("../api/client", () => ({
 
 import { AppShell } from "./AppShell";
 import { MorePage } from "../pages/MorePage";
+import { PageHeader } from "./PageHeader";
 
 function LoginDestination() {
   const location = useLocation();
@@ -30,9 +31,9 @@ function renderAt(path: string) {
         <Routes>
           <Route path="/login" element={<LoginDestination />} />
           <Route element={<AppShell />}>
-            <Route path="/chat" element={<p>채팅 본문</p>} />
+            <Route path="/chat" element={<><PageHeader title="따까리 · 개인" /><p>채팅 본문</p></>} />
             <Route path="/chat/:sessionId" element={<p>세션 본문</p>} />
-            <Route path="/work" element={<p>회사 모드 본문</p>} />
+            <Route path="/work" element={<><PageHeader title="따까리 · 회사" /><p>회사 모드 본문</p></>} />
             <Route path="/tasks" element={<p>작업 본문</p>} />
             <Route path="/workspace/:sessionId" element={<p>작업 공간 본문</p>} />
             <Route path="/library" element={<p>보관함 본문</p>} />
@@ -97,21 +98,21 @@ describe("AppShell 인증 가드", () => {
     expect(screen.getByRole("status", { name: "불러오는 중" })).toBeTruthy();
   });
 
-  it("데스크톱 사이드바 맨 위는 채팅·작업·부가 기능 셋이고, 부가 기능 화면에서는 그 기능을 아래 줄에 켠다", () => {
+  it("데스크톱 사이드바는 개인·회사 대화와 작업·부가 기능을 나누고, 지금 기능을 아래 줄에 켠다", () => {
     renderAt("/library");
     expect(screen.getByText("보관함 본문")).toBeTruthy();
     const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
     const top = nav.querySelector(".tk-nav")!;
-    expect([...top.querySelectorAll(".tk-nav__link")].map((l) => l.textContent)).toEqual(["채팅", "작업", "부가 기능", "보관함"]);
+    expect([...top.querySelectorAll(".tk-nav__link")].map((l) => l.textContent)).toEqual(["개인 대화", "회사 대화", "작업", "부가 기능", "보관함"]);
     expect(within(nav).getByRole("button", { name: "부가 기능" }).hasAttribute("data-active")).toBe(true);
     const current = within(nav).getAllByRole("link").filter((l) => l.getAttribute("aria-current") === "page");
     expect(current.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([["보관함", "/library"]]);
   });
 
-  it("채팅 화면에서는 채팅이 켜지고 부가 기능은 꺼져 있다", () => {
+  it("개인 대화 홈에서는 개인 대화가 켜지고 부가 기능은 꺼져 있다", () => {
     renderAt("/chat");
     const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
-    expect(within(nav).getByRole("link", { name: "채팅" }).getAttribute("aria-current")).toBe("page");
+    expect(within(nav).getByRole("link", { name: "개인 대화" }).getAttribute("aria-current")).toBe("page");
     expect(within(nav).getByRole("button", { name: "부가 기능" }).hasAttribute("data-active")).toBe(false);
   });
 
@@ -207,6 +208,28 @@ describe("AppShell 인증 가드", () => {
 });
 
 describe("작업 내비게이션", () => {
+  it.each([
+    ["/chat", "회사 대화", "회사 모드 본문"],
+    ["/work", "개인 대화", "채팅 본문"],
+  ])("%s에서 메뉴로 다른 대화 공간을 고르면 이동하고 메뉴가 닫힌다", async (path, label, destination) => {
+    renderAt(path);
+    fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+    const drawer = await screen.findByRole("dialog", { name: "탐색 메뉴" });
+    fireEvent.click(within(drawer).getByRole("link", { name: label }));
+    expect(await screen.findByText(destination)).toBeTruthy();
+    await waitFor(() => expect(drawer.hasAttribute("open")).toBe(false));
+    const nav = screen.getByRole("navigation", { name: "영역과 진행 중인 일" });
+    expect(within(nav).getByRole("link", { name: label }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("회사 대화에서 현재 채팅 탭을 눌러도 개인 대화로 바뀌지 않는다", () => {
+    renderAt("/work");
+    const tabbar = screen.getByRole("navigation", { name: "영역" });
+    fireEvent.click(within(tabbar).getByRole("link", { name: "채팅" }));
+    expect(screen.getByText("회사 모드 본문")).toBeTruthy();
+    expect(screen.queryByText("채팅 본문")).toBeNull();
+  });
+
   it("작업 화면에서 실패한 작업 목록으로 바로 이동할 수 있다", () => {
     renderAt("/tasks");
     const link = screen.getAllByRole("link", { name: "실패한 작업" }).find((item) => item.getAttribute("href") === "/tasks/failed");

@@ -55,6 +55,19 @@ button.tk-nav__link { width: 100%; border: 0; background: none; text-align: left
 .app-nav__chevron { margin-left: auto; color: var(--tk-color-text-tertiary); }
 .tk-nav__link > .app-nav__chevron { --tk-_icon: var(--tk-size-icon-sm); }
 .app-nav__sub { margin-left: var(--tk-space-6); }
+/* 대화 홈 선택은 탐색 메뉴에서 한다. 기존 작업 공간(/workspace)과 구분한다. */
+.app-conversation-spaces {
+  display: flex; flex-direction: column; gap: var(--tk-space-1);
+  padding-bottom: var(--tk-space-3); margin-bottom: var(--tk-space-2);
+  border-bottom: var(--tk-border-width-hairline) solid var(--tk-component-sidebar-border);
+}
+.app-nav__label {
+  margin: 0; padding: var(--tk-space-1) var(--tk-space-3);
+  color: var(--tk-color-text-secondary);
+  font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.app-conversation-spaces > .tk-nav__link { min-height: var(--tk-size-touch-target-min); }
+.tk-header__menu { min-width: var(--tk-size-touch-target-min); min-height: var(--tk-size-touch-target-min); }
 /* 부가 기능 모달: 2열 타일. 아이콘 옆에 이름, 그 아래 한 줄 설명 */
 .feature-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--tk-space-2); }
 .feature-grid__item {
