@@ -13,7 +13,8 @@ import "./reverse.css";
 
 const KEY = ["reverse", "jobs"] as const;
 const STATUS: Record<ReverseSummary["status"], string> = {
-  queued: "대기 중", running: "진행 중", done: "완료", failed: "실패",
+  queued: "대기 중", running: "진행 중", waiting: "모델 대기 중",
+  partial: "부분 완료", done: "완료", failed: "실패",
 };
 
 function shortTarget(target: string) {
@@ -82,7 +83,7 @@ export function ReversePage() {
                     {j.status === "failed" && j.error && <p className="tk-error" role="alert">{j.error}</p>}
                     <div className="rv-card__foot">
                       <span className="rv-note">{j.kind === "git_url" ? "GitHub 수집" : "로컬 경로"} · {j.revision ? `rev ${j.revision.slice(0, 12)}` : "rev 미정"}</span>
-                      {(j.status === "done" || j.status === "failed") && (
+                      {(j.status === "done" || j.status === "failed" || j.status === "partial") && (
                         <Button variant="ghost" size="sm" busy={remove.isPending} aria-label={`${shortTarget(j.target)} 지우기`}
                           onClick={() => remove.mutate(j.id)}>지우기</Button>
                       )}

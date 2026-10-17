@@ -1241,3 +1241,5 @@ export const startReverseJob = (target: string): Promise<ReverseSummary> =>
 export const getReverseJob = (id: string): Promise<ReverseDetail> => json(`/api/reverse/${encodeURIComponent(id)}`);
 export const deleteReverseJob = (id: string): Promise<{ id: string; deleted: boolean }> =>
   json(`/api/reverse/${encodeURIComponent(id)}`, { method: "DELETE" });
+export const retryReverseJob = (id: string): Promise<ReverseSummary> =>
+  json(`/api/reverse/${encodeURIComponent(id)}/retry`, { method: "POST" });

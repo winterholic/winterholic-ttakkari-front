@@ -1,12 +1,12 @@
 /** 리버스 엔지니어링 API(백엔드 docs/adr/0038-reverse-engineer.md). 디자인시스템 타입과 섞지 않는다. */
 
-export type ReverseStatus = "queued" | "running" | "done" | "failed";
+export type ReverseStatus = "queued" | "running" | "waiting" | "partial" | "done" | "failed";
 export type ReverseKind = "git_url" | "local_path";
 
 export interface ReverseStage {
   key: string;
   label: string;
-  status: "pending" | "running" | "done" | "failed";
+  status: "pending" | "running" | "waiting" | "done" | "failed";
   started_at: string | null;
   finished_at: string | null;
   evidence: string[];
@@ -51,7 +51,7 @@ export interface ReverseIdea {
 }
 
 export interface ReverseResult {
-  overview: string;
+  overview: { text: string; evidence: string[] };
   architecture: ReverseArchitecture[];
   modules: ReverseModule[];
   flows: ReverseFlow[];
@@ -59,7 +59,10 @@ export interface ReverseResult {
   limitations: string[];
   stats: {
     files: number; bytes: number; langs: [string, number][]; revision: string | null; files_parsed: number;
-    model?: { engine: string; model: string; via: string; files_read: number };
+    model?: {
+      engine: string; model: string; account?: string; via: string; files_read: number;
+      merged: boolean; masked: number;
+    };
   };
 }
 
