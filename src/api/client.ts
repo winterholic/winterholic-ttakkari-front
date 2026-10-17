@@ -864,11 +864,44 @@ export const putOverride = (ids: string[], until: string, pool: AccountPool = "p
 export const deleteOverride = (pool: AccountPool = "personal"): Promise<void> =>
   json("/api/accounts/override", { method: "DELETE", query: { pool } });
 export const accountUsage = (refresh = false): Promise<AccountUsage[]> => json("/api/accounts/usage", { query: { refresh } });
-/** 네트워크 없이 마지막 관측값만. 카드를 바로 그리는 용도. */
-export const accountUsageCached = (): Promise<AccountUsage[]> => json("/api/accounts/usage/cached");
-/** 계정 하나. 느린 공급자가 다른 카드를 붙잡지 않게 카드마다 따로 부른다. */
-export const accountUsageOne = (id: string, refresh = false): Promise<AccountUsage> =>
-  json(`/api/accounts/${id}/usage`, { query: { refresh } });
+/**
+ * 일괄 조회를 한 번만 부르게 모은다. 구버전 백엔드 폴백에서 카드 수만큼 같은 요청이 나가지 않게 한다.
+ * 짧게 재사용하는 이유는 목록 조회 직후 카드별 조회가 곧바로 이어지기 때문이다.
+ */
+const LEGACY_REUSE_MS = 5_000;
+const legacyUsage = new Map<boolean, { at: number; promise: Promise<AccountUsage[]> }>();
+function accountUsageShared(refresh: boolean): Promise<AccountUsage[]> {
+  const hit = legacyUsage.get(refresh);
+  if (hit && Date.now() - hit.at < LEGACY_REUSE_MS) return hit.promise;
+  const promise = accountUsage(refresh);
+  legacyUsage.set(refresh, { at: Date.now(), promise });
+  promise.catch(() => { if (legacyUsage.get(refresh)?.promise === promise) legacyUsage.delete(refresh); });
+  return promise;
+}
+const notFound = (e: unknown): boolean => e instanceof ApiError && e.status === 404;
+/**
+ * 네트워크 없이 마지막 관측값만. 카드를 바로 그리는 용도.
+ * 백엔드가 아직 구버전이라 새 엔드포인트가 404면 기존 일괄 API 결과로 대신한다(느리지만 예전처럼 동작).
+ */
+export const accountUsageCached = async (): Promise<AccountUsage[]> => {
+  try {
+    return await json<AccountUsage[]>("/api/accounts/usage/cached");
+  } catch (e) {
+    if (!notFound(e)) throw e;
+    return accountUsageShared(false);
+  }
+};
+/** 계정 하나. 느린 공급자가 다른 카드를 붙잡지 않게 카드마다 따로 부른다. 404면 일괄 결과에서 그 계정을 고른다. */
+export const accountUsageOne = async (id: string, refresh = false): Promise<AccountUsage> => {
+  try {
+    return await json<AccountUsage>(`/api/accounts/${id}/usage`, { query: { refresh } });
+  } catch (e) {
+    if (!notFound(e)) throw e;
+    const row = (await accountUsageShared(refresh)).find((a) => a.id === id);
+    if (!row) throw e;
+    return row;
+  }
+};
 export const qwenUsage = ():Promise<QwenUsageSummary> => json("/api/accounts/qwen-usage");
 export interface QwenFlashPeriod {
   starts_at: string;
