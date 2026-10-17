@@ -30,6 +30,47 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("선택 탭의 레이아웃이 바뀐 뒤에도 선택 상태와 최신 카운트 기준으로 다시 스크롤한다", async () => {
+  const scrollCalls: { selected: string | null; badge: string | null }[] = [];
+  const originalScrollIntoView = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "scrollIntoView");
+  Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+    configurable: true,
+    value: function (this: HTMLElement) {
+      scrollCalls.push({
+        selected: this.getAttribute("aria-selected"),
+        badge: this.querySelector(".tk-badge")?.textContent ?? null,
+      });
+    },
+  });
+
+  let resolveSystem!: (response: { items: typeof items; unread_counts: typeof counts; next_before: null }) => void;
+  const updatedCounts = { all: 9, tasks: 2, assistant: 3, planner: 1, weather: 1, meetings: 1, system: 1 };
+  h.listNotifications.mockImplementation((params) => {
+    if (params?.category === "system") {
+      return new Promise(resolve => { resolveSystem = resolve; });
+    }
+    return Promise.resolve({ items, unread_counts: counts, next_before: null });
+  });
+
+  try {
+    mount();
+    const allTab = await screen.findByRole("tab", { name: /전체/ });
+    allTab.focus();
+    fireEvent.keyDown(allTab, { key: "End" });
+
+    const systemTab = screen.getByRole("tab", { name: /시스템/ });
+    expect(systemTab.getAttribute("aria-selected")).toBe("true");
+    expect(scrollCalls.some(call => call.selected === "true")).toBe(true);
+
+    resolveSystem({ items: [], unread_counts: updatedCounts, next_before: null });
+    await screen.findByText("안 읽은 알림 9개");
+    await waitFor(() => expect(scrollCalls).toContainEqual({ selected: "true", badge: "1" }));
+  } finally {
+    if (originalScrollIntoView) Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScrollIntoView);
+    else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
+  }
+});
+
 it("유형 탭과 안 읽은 개수를 보여 주고 탭·키보드·미확인 필터로 목록을 조회한다", async () => {
   mount();
   expect(await screen.findByText("분석을 확인해 주세요")).toBeTruthy();

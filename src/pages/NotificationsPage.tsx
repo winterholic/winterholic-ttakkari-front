@@ -1,5 +1,5 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Link } from "react-router";
 import { listNotifications, readAllNotifications, readNotification } from "../api/client";
@@ -72,6 +72,11 @@ export function NotificationsPage() {
   const busy = read.isPending || readAll.isPending;
   const items = query.data?.pages.flatMap(p => p.items) ?? [];
   const counts = query.data?.pages[0]?.unread_counts;
+  const tabsRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    tabsRef.current?.querySelector<HTMLButtonElement>('[role="tab"][aria-selected="true"]')
+      ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+  }, [category, counts]);
   const selectedTab = TABS.find(t => t.id === category)!;
   const groups = new Map<string, NotificationOut[]>();
   for (const item of items) {
@@ -90,7 +95,6 @@ export function NotificationsPage() {
     setCategory(TABS[next].id);
     const target = event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("[role=tab]")[next];
     target?.focus();
-    target?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }
 
   return (
@@ -99,11 +103,11 @@ export function NotificationsPage() {
         actions={<Button variant="ghost" className="notification-push-settings" onClick={() => setSettingsOpen(true)}><Icon name="settings" />푸시 설정</Button>} />
       <div className="tk-screen__body">
         <div className="tk-container tk-container--thread notifications-page">
-          <div className="tk-tablist notifications-tabs" role="tablist" aria-label="알림 유형">
+          <div ref={tabsRef} className="tk-tablist notifications-tabs" role="tablist" aria-label="알림 유형">
             {TABS.map((tab, index) => (
               <button key={tab.id} type="button" id={`notification-tab-${tab.id}`} className="tk-tab" role="tab"
                 aria-selected={category === tab.id} aria-controls="notification-panel" tabIndex={category === tab.id ? 0 : -1}
-                onClick={(e) => { setCategory(tab.id); e.currentTarget.scrollIntoView?.({ block: "nearest", inline: "nearest" }); }} onKeyDown={e => tabKey(e, index)}>
+                onClick={() => setCategory(tab.id)} onKeyDown={e => tabKey(e, index)}>
                 {tab.label}{!!counts?.[tab.id] && <span className="tk-badge tk-badge--count" aria-label={`안 읽음 ${counts[tab.id]}개`}>{counts[tab.id]}</span>}
               </button>
             ))}
