@@ -14,6 +14,7 @@ export interface FileButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
 /**
  * 파일 선택 input 을 투명하게 버튼 위에 같은 크기로 겹쳐 버튼과 같은 상자를 쓴다.
  * 모바일 OS 선택 UI가 input 좌표를 기준으로 배치되는 경우에도 버튼 위치와 일치시키려는 구성이다.
+ * 터치·마우스는 input 이 직접 받고(프로그램 click() 보다 기준 상자가 확실하다), 버튼은 키보드·보조기기 경로다.
  * 파일을 고르는 곳은 이 컴포넌트를 쓴다(input[type=file] 에 hidden 금지: docs/22).
  */
 export function FileButton({ onFiles, accept, multiple, slotClassName, type = "button", ...rest }: FileButtonProps) {

@@ -43,5 +43,12 @@
 - 브라우저 도구는 WebKit/iPhone 프리셋을 제공하지 않는다. 디자인 시스템 `check:layout`은 Playwright Core 경로를 찾지 못해 브라우저 실행 전에 멈췄다. 따라서 WebKit 전체 재현, 날짜 네이티브 컨트롤, 파일 선택 메뉴, 실제 iPhone safe-area와 키보드 동작은 미검증이다. 상단 간격의 원인은 확정하지 않는다.
 - `pnpm exec vitest run`의 UI 관련 테스트, build와 scoped lint 결과는 마지막 실행 출력으로 확인해 기록한다.
 
+## 첨부 메뉴 위치: 투명 input 이 터치를 직접 받도록 변경 (2026-10-17 22시대)
+- 이전 구성은 투명 input 에 `pointer-events:none` 을 주고 버튼 onClick 에서 `input.click()` 을 불렀다. 이 경우 iOS 가 메뉴 기준 상자로 input 을 쓰는지는 근거가 없다(추정이며 실기기 미검증).
+- 변경: `.tk-file-slot > input[type=file]` 이 pointer-events 를 받아 손가락이 input 자체를 누른다. 눌린 요소가 file input 이면 iOS 는 그 요소 기준으로 메뉴를 붙이는 것이 일반적인 동작이라는 판단이며, 이 환경에서는 확인하지 못했다. 버튼은 키보드·보조기기 경로로 남아 `click()` 으로 같은 input 을 연다. disabled 일 때는 input 도 터치를 받지 않는다.
+- 근거 수준: 코드 구조 판단. WebKit·iOS 시뮬레이터·실기기에서 메뉴 위치를 보지 못했다. 같은 `pointer-events:none` 구조가 `TransferPanel`(`.transfer__file`)에도 남아 있다. input 에 disabled 연동이 필요해 이번에는 건드리지 않았다.
+- 경위: iOS 묶음 본체는 53ace03(18:32)으로 이미 origin/main 에 올라가 있었다. 원본 front 작업 트리는 그 커밋 전의 로컬 main(560a21a)에 머물러 있어 같은 변경이 미커밋처럼 보였을 뿐이다. 이 변경은 origin/main(ed94f39) 위에 얹은 후속 한 건이다.
+- 실행(origin/main + 이 변경, 깨끗한 worktree): vitest 80파일 통과(541 통과/1 skip), eslint 0, ui-lint 141건(기준선 이내), tsc -b 0, vite build 통과.
+
 ## 다른 세션 변경과의 관계
 `AccountsSection*`·`UsageDialog*`·`ResourcesPanel*`·`EngineBadge*`·`src/api/types.ts` 는 이 작업이 아니다. 커밋에서 제외한다.

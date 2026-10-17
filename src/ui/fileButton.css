@@ -1,3 +1,7 @@
-/* FileButton: 투명한 input[type=file] 을 버튼 위에 같은 크기로 겹쳐 선택 UI의 기준 상자를 맞춘다. */
+/* FileButton: 투명한 input[type=file] 을 버튼 위에 같은 크기로 겹쳐 선택 UI의 기준 상자를 맞춘다.
+   손가락이 input 을 직접 누르도록 pointer-events 를 받는다. 위치 지정된 input 은 위치 없는 버튼 위에 그려진다.
+   iOS 는 눌린 input 기준으로 선택 메뉴를 붙인다.
+   버튼은 키보드·보조기기용으로 남고 click() 으로 같은 input 을 연다. */
 .tk-file-slot { position: relative; display: inline-flex; flex: none; }
-.tk-file-slot > input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
+.tk-file-slot > input[type="file"] { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.tk-file-slot > input[type="file"]:disabled { pointer-events: none; }
