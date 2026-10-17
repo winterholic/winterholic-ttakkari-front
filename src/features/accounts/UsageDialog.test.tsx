@@ -226,9 +226,8 @@ describe("Flash Next usage", () => {
 });
 
 
-describe("계정별 사용량 탐색", () => {
-  it("계정을 선택하면 해당 계정의 상세만 표시하며 같은 엔진의 다른 계정도 구분한다", async () => {
-    const { fireEvent } = await import("@testing-library/react");
+describe("전체 계정 사용량 비교", () => {
+  it("계정 선택 없이 모든 계정의 사용량과 엔진 구분을 함께 표시한다", async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     api.accountUsage.mockResolvedValue([
       { ...account, id: "first", engine: "codex", name: "개인 Codex", login: "ok", rank: 1,
@@ -236,20 +235,17 @@ describe("계정별 사용량 탐색", () => {
       { ...account, id: "second", engine: "codex", name: "회사 Codex", login: "ok", rank: 2, work_rank: 1,
         windows: [{ key: "five_hour", label: "5시간", percent: 73, resets_at: null }] },
       { ...account, id: "muse", engine: "muse", name: "내 Muse", rank: 3, login: "ok", execution_enabled: false,
-        windows: [], error: "Muse 로그인 확인 · 공식 CLI에서 구독 사용량 미제공" },
+        windows: [], error: "Muse 로그인 확인 · 공식 CLI에서 구독 사용량 미관측" },
     ]);
     render(<MemoryRouter><QueryClientProvider client={qc}><UsageDialog open onClose={vi.fn()} /></QueryClientProvider></MemoryRouter>);
-    const choose = await screen.findByRole("navigation", { name: "개인 계정 선택" });
-    expect(screen.getByRole("region", { name: "개인 Codex 사용량 상세" })).toBeTruthy();
-    fireEvent.click(within(choose).getByRole("button", { name: /회사 Codex/ }));
-    expect(screen.getByRole("region", { name: "회사 Codex 사용량 상세" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "개인 Codex 사용량 상세" })).toBeNull();
-    expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("73");
-    fireEvent.click(within(choose).getByRole("button", { name: /내 Muse/ }));
-    expect(screen.getByRole("region", { name: "내 Muse 사용량 상세" })).toBeTruthy();
-    expect(screen.queryByRole("progressbar")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /회사 계정 1개/ }));
-    expect(screen.getByRole("navigation", { name: "회사 계정 선택" })).toBeTruthy();
-    expect(screen.getByRole("region", { name: "회사 Codex 사용량 상세" })).toBeTruthy();
+    const personal = await screen.findByRole("region", { name: "개인 계정" });
+    const list = within(personal).getByRole("list", { name: "개인 계정 사용량" });
+    expect(within(list).getByText("24%")).toBeTruthy();
+    expect(within(list).getByText("73%")).toBeTruthy();
+    expect(within(list).getByText("내 Muse")).toBeTruthy();
+    expect(within(list).getAllByLabelText("Codex 엔진")).toHaveLength(2);
+    expect(within(list).getByLabelText("Muse Code 엔진")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "회사 계정" })).toBeTruthy();
+    expect(screen.queryByRole("navigation", { name: "개인 계정 선택" })).toBeNull();
   });
 });
