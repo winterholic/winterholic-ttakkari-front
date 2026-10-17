@@ -208,6 +208,19 @@ function MetricHistoryChart({ history, metric, memoryTotal }: { history: Resourc
 }
 
 /**
+ * 탭 본문 배치. 좁은 폭(모바일)은 한 줄로 쌓고, 넓은 폭(데스크톱)은 게이지·그래프(main)와 코어·프로세스 목록(side)을 두 열로 나눈다(resources.css).
+ * side 가 없는 탭(GPU)은 한 열이다.
+ */
+function Cols({ main, side }: { main: React.ReactNode; side?: React.ReactNode }) {
+  return (
+    <div className="res-cols">
+      <div className="res-main">{main}</div>
+      {side && <div className="res-side">{side}</div>}
+    </div>
+  );
+}
+
+/**
  * 서버 리소스(/resources) 본문. 사용자 메뉴에서 이 페이지로 온다.
  * 마운트된 동안만 4초마다 다시 읽는다. 페이지를 벗어나면 옵저버가 없어져 폴링도 멈춘다.
  */
@@ -334,7 +347,8 @@ export function ResourcesPanel() {
         tabIndex={0}
       >
         {d && (
-          <>
+          <Cols
+            main={<>
             <div className="res-gauges">
               <Gauge title="CPU" percent={d.cpu.percent}>
                 <span>{d.cpu.chip ?? "CPU"} · {d.cpu.cores_logical}코어{cores ? ` (${cores})` : ""}</span>
@@ -353,7 +367,8 @@ export function ResourcesPanel() {
                 </>
               )}
             </section>
-
+            </>}
+            side={<>
             <section className="res-cores" aria-label="CPU 코어별 사용률">
               <h3 className="res-section-title">CPU 코어별</h3>
               <ol className="res-cores__grid">
@@ -369,7 +384,8 @@ export function ResourcesPanel() {
 
             <ProcList title="CPU 상위" rows={d.processes.top_cpu} show="cpu" />
             <p className="res-note">CPU % 는 코어 하나를 100% 로 셉니다. 다른 사용자(root) 프로세스는 메모리를 읽을 수 없어 상위 목록에서 빠져요.</p>
-          </>
+            </>}
+          />
         )}
       </section>
 
@@ -382,7 +398,8 @@ export function ResourcesPanel() {
         tabIndex={0}
       >
         {d && (
-          <>
+          <Cols
+            main={<>
             <div className="res-gauges">
               <Gauge title="메모리" percent={d.memory.percent}>
                 <span>{bytes(d.memory.used)} / {bytes(d.memory.total)} · 가용 {bytes(d.memory.available)}</span>
@@ -404,9 +421,9 @@ export function ResourcesPanel() {
                 </>
               )}
             </section>
-
-            <ProcList title="메모리 상위" rows={d.processes.top_memory} show="mem" />
-          </>
+            </>}
+            side={<ProcList title="메모리 상위" rows={d.processes.top_memory} show="mem" />}
+          />
         )}
       </section>
 
@@ -419,7 +436,8 @@ export function ResourcesPanel() {
         tabIndex={0}
       >
         {d && (
-          <>
+          <Cols
+            main={<>
             <div className="res-gauges">
               <Gauge title="GPU" percent={d.gpu?.status === "available" ? d.gpu.percent : null}>
                 {d.gpu && (d.gpu.model || d.gpu.cores != null) && <span>{[d.gpu.model, d.gpu.cores != null ? `${d.gpu.cores}코어` : null].filter(Boolean).join(" · ")}</span>}
@@ -446,7 +464,8 @@ export function ResourcesPanel() {
                 </>
               )}
             </section>
-          </>
+            </>}
+          />
         )}
       </section>
 
@@ -459,7 +478,8 @@ export function ResourcesPanel() {
         tabIndex={0}
       >
         {d && (
-          <>
+          <Cols
+            main={<>
             <div className="res-gauges">
               {d.disks.map((k) => (
                 <Gauge key={k.mounts.join(",")} title={d.disks.length > 1 ? k.name : "디스크"} percent={k.percent}>
@@ -473,13 +493,13 @@ export function ResourcesPanel() {
               <span className="res-net__item"><span className="res-net__label">수신</span>{bytes(d.network.rx_bytes_per_sec)}/s</span>
               <span className="res-net__item"><span className="res-net__label">송신</span>{bytes(d.network.tx_bytes_per_sec)}/s</span>
             </section>
-
-            <ProcList
+            </>}
+            side={<ProcList
               title={`따까리 프로세스 · CPU ${d.processes.ttakkari_total.cpu_percent.toFixed(1)}% · ${bytes(d.processes.ttakkari_total.memory_bytes)}`}
               rows={d.processes.ttakkari}
               show="kind"
-            />
-          </>
+            />}
+          />
         )}
       </section>
     </div>
