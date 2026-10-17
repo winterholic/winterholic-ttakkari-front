@@ -23,3 +23,5 @@ pnpm dev
 로컬 전사와 검색용 E5는 요청별 자식 프로세스에서 처리 후 종료한다. STT는 backend `.stt-runtime/`에 준비한 Python·가중치를 기본으로 찾아 `.env` 편집 없이 실행한다. 상세 경로·마이그레이션·운영 스모크는 backend ADR 0027과 `docs/stt/remove-clovanote-2026-10-15.md`를 따른다.
 
 환경 파일 내용 없이 검사하려면 `TTAKKARI_NO_ENV_FILE=1 pnpm test --run`, `TTAKKARI_NO_ENV_FILE=1 pnpm build`를 사용한다. 이 플래그는 Vite의 환경 파일 자동 로드를 끄며, 일반 개발·Vercel 설정은 유지한다.
+
+부가 기능 > 디자인시스템(`/design-systems`)은 `winterholic-design-system`의 프로젝트별 토큰·라이트/다크·참조·문서·컴포넌트 CSS·예제 원문을 조회한다. 백엔드 ADR 0034의 `/api/design-systems` API가 필요하다. 목록·상세는 원본 커밋으로 고정하며, 디자인시스템 편집과 HTML 예제 실행은 제공하지 않는다.

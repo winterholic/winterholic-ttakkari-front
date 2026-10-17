@@ -22,6 +22,7 @@ import { AppShell } from "./shell/AppShell";
 import { PublicMeetingPage } from "./pages/PublicMeetingPage";
 import { WeatherPage } from "./pages/WeatherPage";
 import { OpsLogsPage } from "./pages/OpsLogsPage";
+import { DesignSystemPage } from "./pages/DesignSystemPage";
 import { OpsIssuePage } from "./pages/OpsIssuePage";
 
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
@@ -79,6 +80,7 @@ export function App() {
         <Route path="/weather" element={<WeatherPage />} />
         <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/logs" element={<OpsLogsPage />} />
+        <Route path="/design-systems" element={<DesignSystemPage />} />
         <Route path="/logs/issues/:id" element={<OpsIssuePage />} />
         <Route path="/meetings" element={<MeetingsPage />} />
         <Route path="/meetings/new" element={<MeetingNewPage />} />

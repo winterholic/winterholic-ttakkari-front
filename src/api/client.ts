@@ -1192,3 +1192,11 @@ export const patchOpsIssue = (id: string, body: { status?: OpsStatus; note?: str
 export const opsTrend = (hours: number, unit: "hour" | "day"): Promise<OpsTrend> => json("/api/ops-logs/trend", { query: { hours, unit } });
 export const listOpsDeploys = (limit = 20): Promise<{ items: OpsDeploy[] }> => json("/api/ops-logs/deploys", { query: { limit } });
 export const getOpsDeployLog = (id: string): Promise<OpsDeployLog> => json(`/api/ops-logs/deploys/${encodeURIComponent(id)}/log`, { query: { mode: "summary" } });
+
+// ---- 디자인시스템 (백엔드 ADR 0034). 원본 저장소의 커밋 SHA로 목록과 상세를 고정한다.
+import type { DesignCatalog, DesignItem, DesignKind, DesignSearch } from "./designSystemTypes";
+export const designSystemCatalog = (): Promise<DesignCatalog> => json("/api/design-systems");
+export const searchDesignSystem = (system: string, p: { q?: string; kind?: DesignKind; cursor?: number; revision?: string }): Promise<DesignSearch> =>
+  json(`/api/design-systems/${encodeURIComponent(system)}/items`, { query: { ...p, limit: 20 } });
+export const getDesignSystemItem = (system: string, item: string, p: { offset?: number; revision?: string }): Promise<DesignItem> =>
+  json(`/api/design-systems/${encodeURIComponent(system)}/item`, { query: { ...p, item, length: 6000 } });
