@@ -4,7 +4,7 @@ import {
   FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Lock, LogOut, Mail, Maximize,
   Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, Palette, PanelRight, Paperclip, Pin, Play, Presentation, RefreshCw,
   Search, Send, Server, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, Square, SquarePen, Sun, Terminal, Trash2,
-  TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, Film, LayoutTemplate, Music, PenTool, Ruler, Sparkles, ChartGantt, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users, Workflow,
+  TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, Film, LayoutTemplate, Music, PenTool, Ruler, Sparkles, ChartGantt, Building2, CircleDot, Code, FileDiff, GitBranch, GitFork, GitMerge, GitPullRequest, GitPullRequestDraft, Star, User, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users, Workflow,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -30,6 +30,9 @@ const ICONS = {
   child: CornerDownRight, kanban: SquareKanban, wbs: ListTree, gantt: ChartGantt, flag: Flag, indent: IndentIncrease, outdent: IndentDecrease, users: Users,
   // 따까리에게 맡긴 일의 트리(작업 화면)
   tasks: Workflow,
+  // GitHub 탐색: lucide 1.x 에는 브랜드 아이콘이 없어 일반 아이콘으로 대신한다
+  "git-branch": GitBranch, "git-pull-request": GitPullRequest, "git-merge": GitMerge, "git-pr-draft": GitPullRequestDraft, "git-fork": GitFork,
+  issue: CircleDot, star: Star, code: Code, diff: FileDiff, user: User, org: Building2,
   // ArtCraft 관제
   palette: Palette, play: Play,
   // ArtCraft 작업 범주

@@ -38,6 +38,8 @@ const CalendarPage = lazy(() => import("./pages/CalendarPage").then((m) => ({ de
 // PMS·WBS 는 간트·칸반 코드가 모여 있어 열 때만 받는다.
 const PmsListPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default: m.PmsListPage })));
 const PmsProjectPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default: m.PmsProjectPage })));
+// GitHub 탐색은 코드·diff·로그 뷰어가 모여 있어 열 때만 받는다.
+const GithubPage = lazy(() => import("./pages/GithubPage").then((m) => ({ default: m.GithubPage })));
 const WbsListPage = lazy(() => import("./pages/WbsPage").then((m) => ({ default: m.WbsListPage })));
 const WbsProjectPage = lazy(() => import("./pages/WbsPage").then((m) => ({ default: m.WbsProjectPage })));
 
@@ -103,6 +105,7 @@ export function App() {
         <Route path="/wbs" element={<Suspense fallback={<RouteFallback />}><WbsListPage /></Suspense>} />
         <Route path="/wbs/:projectId" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/wbs/:projectId/:view" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
+        <Route path="/github/*" element={<Suspense fallback={<RouteFallback />}><GithubPage /></Suspense>} />
         <Route path="/checklists" element={<ChecklistsPage />} />
         <Route path="/memos" element={<MemosPage />} />
         <Route path="/memos/:memoId" element={<MemosPage />} />
