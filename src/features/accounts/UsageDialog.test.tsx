@@ -66,6 +66,39 @@ describe("Muse 구독 측정과 실행 상태 분리", () => {
   });
 });
 
+describe("Muse 조회 실패와 낡은 관측값", () => {
+  it("초기화가 지난 5시간 창은 사라지지 않고 확인 불가로, 주간은 오래된 값으로 표시한다", async () => {
+    const nowSec = Date.now() / 1000;
+    renderUsage({ ...account, engine: "muse", name: "Muse 구독", login: "ok", source: "muse_cli", stale: true,
+      remaining_to_limit_percent: null, updated_at: nowSec - 3 * 3600,
+      error: "Muse 로그인 확인 · /usage 구독 사용량 미관측: unavailable",
+      windows: [
+        { key: "five_hour", label: "5시간", percent: 0, resets_at: Math.floor(nowSec - 600), state: "unavailable" },
+        { key: "seven_day", label: "주간", percent: 33, resets_at: Math.floor(nowSec + 86400), state: "stale" },
+      ] });
+    expect(await screen.findByText("5시간")).toBeTruthy();
+    expect(screen.getByText("확인 불가")).toBeTruthy();
+    expect(screen.getByText(/초기화 시각이 지났고 새 관측이 없어요/)).toBeTruthy();
+    expect(screen.getByText("33%")).toBeTruthy();
+    expect(screen.getByText(/오래된 값 · 3시간 전 관측/)).toBeTruthy();
+    expect(screen.getByText("오래된 값", { selector: ".tk-badge" })).toBeTruthy();
+    expect(screen.getByText(/상한까지 여유 확인 불가/)).toBeTruthy();
+    expect(screen.queryByText("지금 사용")).toBeNull();
+  });
+
+  it("두 창 모두 관측이 없으면 배지가 확인 불가이고 0%를 만들지 않는다", async () => {
+    renderUsage({ ...account, engine: "muse", name: "Muse 구독", login: "ok", source: null, stale: true,
+      remaining_to_limit_percent: null, updated_at: null, error: "Muse 구독 사용량 미관측",
+      windows: [
+        { key: "five_hour", label: "5시간", percent: 0, resets_at: null, state: "unavailable" },
+        { key: "seven_day", label: "주간", percent: 0, resets_at: null, state: "unavailable" },
+      ] });
+    expect(await screen.findAllByText("확인 불가")).toHaveLength(3);
+    expect(screen.queryByText("0%")).toBeNull();
+    expect(screen.queryByText("지금 사용")).toBeNull();
+  });
+});
+
 describe("UsageDialog Antigravity quota", () => {
   it("모델 그룹별 잔여 quota 와 AI 크레딧을 단위를 나눠 보여 준다", async () => {
     renderUsage();

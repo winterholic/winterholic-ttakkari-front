@@ -44,13 +44,16 @@ function ago(ts: number | null, now: number): string {
   return `${Math.floor(s / 86400)}일 전`;
 }
 
+/** 실제로 관측한 창이 하나라도 있는가. Muse 는 못 읽은 창도 자리표시자로 내려오므로 windows.length 로 판단하면 안 된다. */
+const measured = (a: AccountUsage) => a.windows.some((w) => w.state !== "unavailable");
+
 type Status = { tone: "success" | "warning" | "neutral" | "info"; text: string };
 
 /** pool 모드에서의 상태. 켜기는 개인·회사 모드가 따로라 그 모드의 값으로 본다. */
 function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status {
   if (!(pool === "work" ? a.work_enabled : a.enabled)) return { tone: "neutral", text: "꺼짐" };
-  if (a.engine === "muse" && !a.windows.length) return { tone: "neutral", text: "사용량 미관측" };
-  if (a.engine === "muse" && a.stale) return { tone: "warning", text: "오래된 측정" };
+  if (a.engine === "muse" && !measured(a)) return { tone: "warning", text: "확인 불가" };
+  if (a.engine === "muse" && a.stale) return { tone: "warning", text: "오래된 값" };
   if (a.engine === "antigravity" && !a.windows.length) return { tone: a.error ? "warning" : "neutral", text: a.error ? "조회 실패" : "사용량 미관측" };
   if (a.engine === "antigravity" && a.stale) return { tone: "warning", text: "오래된 측정" };
   if (a.execution_enabled === false) return { tone: "neutral", text: "검증 대기" };
@@ -146,7 +149,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     : a.windows;
   const usable = (a: AccountUsage, pool: AccountPool) =>
     !(a.updated_at == null && liveById.get(a.id)?.isFetching) && a.execution_enabled !== false && (pool === "work" ? a.work_enabled : a.enabled) && a.cooldown_seconds === 0 &&
-    (a.stale || a.remaining_to_limit_percent !== 0) && !usageWindows(a).some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex" || a.engine === "antigravity" || (a.engine === "muse" && a.windows.length > 0 && !a.stale));
+    (a.stale || a.remaining_to_limit_percent !== 0) && !usageWindows(a).some((w) => w.percent >= 100) && (a.login === "ok" || a.engine === "codex" || a.engine === "antigravity" || (a.engine === "muse" && measured(a) && !a.stale));
   // 개인·회사 모드가 켜기·순서를 따로 가지므로 지금 쓰는 계정도 모드마다 따로 있다.
   // 회사 계정은 개인 계정 중 회사 모드에 들인 계정이고, 순서는 회사 순위(work_rank)다.
   const groups = (["personal", "work"] as const)
@@ -279,13 +282,13 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                             <span className="usage-card__name">{a.name}</span>
                             <span className="usage-card__sub"><EngineBadge engine={a.engine} />{a.plan ? <span>{a.plan}</span> : null}</span>
                           </span>
-                          <span className={st.tone === "neutral" || loading ? "tk-badge" : `tk-badge tk-badge--${st.tone}`}>{loading && a.windows.length === 0 ? "확인 중" : st.text}</span>
+                          <span className={st.tone === "neutral" || loading ? "tk-badge" : `tk-badge tk-badge--${st.tone}`}>{loading && !measured(a) ? "확인 중" : st.text}</span>
                         </div>
                         {a.engine === "muse" && <div className="usage-card__status">
                           {a.execution_enabled === false && <span className="tk-badge">실행 검증 전</span>}
                           {a.login === "ok" && <span className="tk-badge tk-badge--success">로그인 확인</span>}
                         </div>}
-                        {loading && a.windows.length === 0 ? (
+                        {loading && !measured(a) ? (
                           <div className="usage-card__loading" role="status" aria-label={`${a.name} 사용량을 불러오는 중`}>
                             <span className="tk-skeleton tk-skeleton--text" />
                             <span className="tk-skeleton tk-skeleton--text" />
@@ -294,13 +297,14 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                           <div className="usage-card__windows">
                             {a.engine === "antigravity"
                               ? <p className="usage__note">모델 그룹 quota · 각 그룹이 별도 한도를 공유해요.</p>
-                              : <p className="usage__note">계정 상한 {a.max_used_percent}% · 상한까지 여유 {a.remaining_to_limit_percent == null ? "측정 대기" : `${a.remaining_to_limit_percent}%`}</p>}
-                            {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} remaining={a.engine === "antigravity"} />)}
+                              : <p className="usage__note">계정 상한 {a.max_used_percent}% · 상한까지 여유 {a.remaining_to_limit_percent == null ? (a.engine === "muse" ? "확인 불가" : "측정 대기") : `${a.remaining_to_limit_percent}%`}</p>}
+                            {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} observedAt={a.updated_at} remaining={a.engine === "antigravity"} />)}
+                            {a.engine === "muse" && a.error && !loading ? <p className="usage__note">{a.error}</p> : null}
                           </div>
                         ) : (
                           <p className="usage__note">{a.error ?? "아직 사용량 기록이 없어요."}</p>
                         )}
-                        {(loading && a.windows.length > 0) || (a.refreshing && !failed) ? <p className="usage__note" role="status">새 값을 읽는 중이에요 · 지금은 마지막 관측값이에요</p> : null}
+                        {(loading && measured(a)) || (a.refreshing && !failed) ? <p className="usage__note" role="status">새 값을 읽는 중이에요 · 지금은 마지막 관측값이에요</p> : null}
                         {failed && (
                           <p className="usage__note usage-card__retry" role="alert">
                             {errorText(lq.error).message}
@@ -311,7 +315,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                           <p className="usage__note">AI 크레딧 잔액: {a.credits_balance == null ? (a.credits_error ?? (a.error ? "조회 실패" : "미측정")) : `${a.credits_balance} 크레딧`}</p>
                         )}
                         {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => refreshAccount(a.id)} />}
-                        {a.windows.length > 0 && (
+                        {measured(a) && (
                           <p className="usage-card__foot">
                             {a.source ? (a.source === "api" ? (a.engine === "codex" ? "ChatGPT 사용량 기준" : "Claude 구독 사용량 기준") : SOURCE[a.source]) : ""}
                             {a.updated_at ? ` · ${ago(a.updated_at, now)}` : ""}
@@ -465,11 +469,25 @@ function QwenPeriod({ title, period, now, hasHistory }: { title: string; period:
   );
 }
 
-function WindowRow({ w, now, remaining = false }: { w: UsageWindow; now: number; remaining?: boolean }) {
+function WindowRow({ w, now, observedAt = null, remaining = false }: { w: UsageWindow; now: number; observedAt?: number | null; remaining?: boolean }) {
+  if (w.state === "unavailable") {
+    // 낡은 퍼센트나 0%를 보여 주면 현재 잔여량으로 읽힌다. 값 없이 이유만 보인다.
+    const passed = w.resets_at != null && w.resets_at * 1000 <= now;
+    return (
+      <div className="usage-win" data-state="unavailable">
+        <div className="usage-win__top">
+          <span className="usage-win__label">{w.label}</span>
+          <span className="usage-win__pct usage-win__pct--none">확인 불가</span>
+        </div>
+        <span className="usage-win__reset">{passed ? "초기화 시각이 지났고 새 관측이 없어요" : "공급자가 아직 이 창의 사용량을 주지 않았어요"}</span>
+      </div>
+    );
+  }
+  const stale = w.state === "stale";
   const lv = level(w.percent);
   const reset = resetText(w.resets_at, now);
   return (
-    <div className="usage-win" data-level={lv}>
+    <div className="usage-win" data-level={lv} data-state={stale ? "stale" : undefined}>
       <div className="usage-win__top">
         <span className="usage-win__label">{w.label}</span>
         <span className="usage-win__pct">{remaining ? `${w.remaining_percent?.toFixed(1) ?? 100 - w.percent}% 남음` : `${w.percent}%`}</span>
@@ -483,6 +501,7 @@ function WindowRow({ w, now, remaining = false }: { w: UsageWindow; now: number;
         aria-valuenow={Math.round(Math.min(100, w.percent))}
         style={{ "--tk-progress": Math.min(1, Math.max(0, w.percent / 100)) } as React.CSSProperties}
       />
+      {stale && <span className="usage-win__reset usage-win__stale">오래된 값{observedAt ? ` · ${ago(observedAt, now)} 관측` : ""} · 현재 잔여량이 아니에요</span>}
       {reset && <span className="usage-win__reset">{reset}</span>}
     </div>
   );
