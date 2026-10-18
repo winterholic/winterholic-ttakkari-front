@@ -22,6 +22,7 @@
     "@fullcalendar/react": "6.1.21",
     "@fullcalendar/timegrid": "6.1.21",
     "@microsoft/fetch-event-source": "^2.0.1",
+    "@novnc/novnc": "1.7.0",
     "@tanstack/react-query": "^5.104.1",
     "date-fns": "^4.4.0",
     "kor-lunar": "1.7.0",

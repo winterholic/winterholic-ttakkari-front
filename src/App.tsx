@@ -31,6 +31,8 @@ import { ReverseDetailPage } from "./pages/ReverseDetailPage";
 import { ReversePage } from "./pages/ReversePage";
 import { OpsIssuePage } from "./pages/OpsIssuePage";
 
+const RemoteDesktopPage = lazy(() => import('./pages/RemoteDesktopPage').then(m => ({ default: m.RemoteDesktopPage })));
+
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
 const ContextLibraryItemPage = lazy(() => import("./pages/ContextLibraryItemPage").then((m) => ({ default: m.ContextLibraryItemPage })));
@@ -59,6 +61,7 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/share/:shareId" element={<PublicMeetingPage />} />
       <Route element={<AppShell />}>
+        <Route path="/remote-desktop" element={<Suspense fallback={<RouteFallback />}><RemoteDesktopPage /></Suspense>} />
         {/* /chat·/work 는 맡긴 일의 계층 캔버스(ADR 0014), /thread 는 따까리 대화 전체 화면 */}
         <Route path="/chat" element={<DeskHome pool="personal" />} />
         <Route path="/chat/thread" element={<ChatPage />} />

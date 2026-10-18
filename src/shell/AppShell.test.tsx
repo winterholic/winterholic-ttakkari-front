@@ -122,7 +122,7 @@ describe("AppShell 인증 가드", () => {
     within(nav).getByRole("button", { name: "부가 기능" }).click();
     const dialog = await screen.findByRole("dialog", { name: "부가 기능" });
     const links = within(dialog).getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/notifications", "/weather", "/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/checklists", "/meetings", "/pms", "/wbs", "/logs", "/design-systems", "/artcraft", "/github", "/reverse"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/remote-desktop", "/notifications", "/weather", "/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/checklists", "/meetings", "/pms", "/wbs", "/logs", "/design-systems", "/artcraft", "/github", "/reverse"]);
     expect(links.filter((l) => l.getAttribute("aria-current") === "page").map((l) => l.getAttribute("href"))).toEqual(["/memos"]);
   });
 
@@ -155,6 +155,7 @@ describe("AppShell 인증 가드", () => {
     const more = await screen.findByRole("navigation", { name: "더보기 메뉴" });
     const links = within(more).getAllByRole("link");
     expect(links.map((l) => [l.textContent, l.getAttribute("href")])).toEqual([
+      ["원격 데스크톱", "/remote-desktop"],
       ["알림", "/notifications"],
       ["날씨 브리핑", "/weather"],
       ["작업 공간", "/workspace"],

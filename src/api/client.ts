@@ -1247,3 +1247,15 @@ export const deleteReverseJob = (id: string): Promise<{ id: string; deleted: boo
   json(`/api/reverse/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const retryReverseJob = (id: string): Promise<ReverseSummary> =>
   json(`/api/reverse/${encodeURIComponent(id)}/retry`, { method: "POST" });
+
+// Remote desktop credentials and grants stay in component memory; never persist them.
+export interface RemoteMac { id: string; name: string; host: string; port: number }
+export interface RemotePermit { ticket: string; grant: string; path: string; expires_in: number }
+export const listRemoteMacs = (): Promise<{ devices: RemoteMac[] }> => json('/api/remote-desktop/devices');
+export const registerRemoteMac = (device: RemoteMac, password: string): Promise<RemoteMac> =>
+  json(`/api/remote-desktop/devices/${encodeURIComponent(device.id)}`, { method: 'PUT', json: { device, password } });
+export const connectRemoteMac = (id: string, authorization: { password?: string; grant?: string }): Promise<RemotePermit> =>
+  json(`/api/remote-desktop/devices/${encodeURIComponent(id)}/connect`, { method: 'POST', json: authorization });
+export const disconnectRemoteMac = async (grant: string): Promise<void> => {
+  await raw('/api/remote-desktop/disconnect', { method: 'POST', json: { grant } });
+};

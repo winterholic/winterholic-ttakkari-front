@@ -5,6 +5,7 @@
 
 /** App.tsx 의 최상위 라우트. 이 밖의 `/...` 는 파일 경로로 본다(linkTarget.test.ts 가 App.tsx 와 어긋나는지 검사한다). */
 export const APP_ROUTE_ROOTS = [
+  "remote-desktop",
   "login", "chat", "work", "tasks", "workspace", "library", "context-library", "files", "settings", "assistant",
   "more", "notifications", "weather", "resources", "meetings", "pms", "wbs", "checklists", "memos", "calendar", "share", "logs", "design-systems", "artcraft", "reverse", "github",
 ] as const;
