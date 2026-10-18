@@ -805,7 +805,7 @@ export interface UsageWindow {
   resets_at: number | null;
   /** Antigravity CLI 의 공식 remaining_fraction 을 퍼센트로 보존한다. */
   remaining_percent?: number | null;
-  /** Muse 만 보낸다. unavailable 은 자리표시자(percent 무의미), stale 은 최신 조회가 아닌 마지막 관측값. */
+  /** Muse·Antigravity 가 보낸다. unavailable 은 자리표시자(percent 무의미), stale 은 최신 조회가 아닌 마지막 관측값. */
   state?: "current" | "stale" | "unavailable";
 }
 export interface AccountUsage {

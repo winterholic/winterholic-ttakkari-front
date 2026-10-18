@@ -121,6 +121,49 @@ describe("UsageDialog Antigravity quota", () => {
   });
 });
 
+describe("UsageDialog Antigravity 창별 state", () => {
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  it("초기화가 지난 창은 100% 남음이 아니라 확인 불가로 보이고 다른 창은 그대로다", async () => {
+    renderUsage({
+      ...account, stale: true,
+      windows: [
+        { key: "agy_gemini_models_5h", label: "Gemini Models · 5시간", percent: 0, remaining_percent: null, resets_at: nowSec - 600, state: "unavailable" },
+        { key: "agy_gemini_models_weekly", label: "Gemini Models · 주간", percent: 20, remaining_percent: 80, resets_at: nowSec + 86400, state: "current" },
+      ],
+    });
+    expect(await screen.findAllByText("확인 불가")).not.toHaveLength(0);
+    expect(screen.queryByText("100.0% 남음")).toBeNull();
+    expect(screen.queryByText("100% 남음")).toBeNull();
+    expect(screen.getAllByText("80.0% 남음").length).toBeGreaterThan(0);
+  });
+
+  it("조회 실패 뒤 유지한 값은 오래된 값으로 표시한다", async () => {
+    renderUsage({
+      ...account, stale: true, error: "Antigravity quota 조회 실패(TimeoutError) · 마지막 관측값",
+      windows: [{ key: "agy_gemini_models_weekly", label: "Gemini Models · 주간", percent: 40, remaining_percent: 60, resets_at: nowSec + 86400, state: "stale" }],
+    });
+    expect(await screen.findByText(/현재 잔여량이 아니에요/)).toBeTruthy();
+    expect(screen.getByText("오래된 측정")).toBeTruthy();
+  });
+
+  it("초기화 시각이 없는 창은 숨기지 않고 이유를 알린다", async () => {
+    renderUsage({
+      ...account,
+      windows: [{ key: "agy_gemini_models_5h", label: "Gemini Models · 5시간", percent: 3, remaining_percent: 97, resets_at: null, state: "current" }],
+    });
+    expect(await screen.findByText("초기화 시각을 공급자가 주지 않았어요")).toBeTruthy();
+  });
+
+  it("모든 창을 못 읽으면 상태가 확인 불가다", async () => {
+    renderUsage({
+      ...account, stale: true,
+      windows: [{ key: "agy_gemini_models_weekly", label: "Gemini Models · 주간", percent: 0, remaining_percent: null, resets_at: nowSec - 5, state: "unavailable" }],
+    });
+    expect(await screen.findByText("확인 불가", { selector: ".tk-badge" })).toBeTruthy();
+  });
+});
+
 describe("UsageDialog 한도 화면", () => {
   const limited: AccountUsage = { ...account, engine: "codex", windows: [{ key: "5h", label: "5시간", percent: 100, remaining_percent: 0, resets_at: 1792088498 }], login: "ok" };
 

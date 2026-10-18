@@ -52,7 +52,7 @@ type Status = { tone: "success" | "warning" | "neutral" | "info"; text: string }
 /** pool 모드에서의 상태. 켜기는 개인·회사 모드가 따로라 그 모드의 값으로 본다. */
 function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status {
   if (!(pool === "work" ? a.work_enabled : a.enabled)) return { tone: "neutral", text: "꺼짐" };
-  if (a.engine === "muse" && !measured(a)) return { tone: "warning", text: "확인 불가" };
+  if ((a.engine === "muse" || a.engine === "antigravity") && a.windows.length > 0 && !measured(a)) return { tone: "warning", text: "확인 불가" };
   if (a.engine === "muse" && a.stale) return { tone: "warning", text: "오래된 값" };
   if (a.engine === "antigravity" && !a.windows.length) return { tone: a.error ? "warning" : "neutral", text: a.error ? "조회 실패" : "사용량 미관측" };
   if (a.engine === "antigravity" && a.stale) return { tone: "warning", text: "오래된 측정" };
@@ -251,7 +251,10 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                   <span className="usage-now__name">{active.name}</span>
                   <span className="usage-now__stats">
                     {usageWindows(active).slice(0, 2).map((w) => (
-                      <span key={w.key} data-level={level(w.percent)}>{w.label} {active.engine === "antigravity" ? `${w.remaining_percent?.toFixed(1) ?? 100 - w.percent}% 남음` : `${w.percent}%`}</span>
+                      // 초기화가 지났거나 못 읽은 창의 percent 는 자리표시자(0)다. 100% 남음으로 읽히지 않게 값을 빼고 이유만 둔다.
+                      w.state === "unavailable"
+                        ? <span key={w.key} data-state="unavailable">{w.label} 확인 불가</span>
+                        : <span key={w.key} data-level={level(w.percent)}>{w.label} {active.engine === "antigravity" ? `${w.remaining_percent?.toFixed(1) ?? 100 - w.percent}% 남음` : `${w.percent}%`}{w.state === "stale" ? " · 오래된 값" : ""}</span>
                     ))}
                   </span>
                 </section>
@@ -503,6 +506,7 @@ function WindowRow({ w, now, observedAt = null, remaining = false }: { w: UsageW
       />
       {stale && <span className="usage-win__reset usage-win__stale">오래된 값{observedAt ? ` · ${ago(observedAt, now)} 관측` : ""} · 현재 잔여량이 아니에요</span>}
       {reset && <span className="usage-win__reset">{reset}</span>}
+      {remaining && w.resets_at == null && <span className="usage-win__reset">초기화 시각을 공급자가 주지 않았어요</span>}
     </div>
   );
 }
