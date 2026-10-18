@@ -162,6 +162,7 @@ export function TossInvestPage() {
         </div>
         {loginWindow.data && <p className="stocks-message" role="status">{loginWindow.data.message}</p>}
         {loginWindow.isError && <p className="stocks-message" role="alert">{loginWindowErrorMessage(loginWindow.error)}</p>}
+        <p className="stocks-session-note"><strong>로그인 후 창을 닫으면 됩니다.</strong> 로그인은 약 1주일 유지되며, 만료되면 다시 로그인하면 됩니다.</p>
         {helpQuery.isPending && <p className="tk-status" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />로그인 안내를 불러오는 중</p>}
         {helpQuery.isError && <p className="stocks-note" role="alert">단계 안내를 불러오지 못했어요. 위 버튼으로 창을 먼저 열어 로그인해 주세요.</p>}
         {helpQuery.data && <>
