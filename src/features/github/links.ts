@@ -130,20 +130,27 @@ export function resolveRelative(baseFile: string, href: string): string | null {
   return out.length ? out.join("/") : null;
 }
 
-/** 백엔드 입력 해석 결과로 앱 경로를 만든다. 사용자가 넣은 원본 주소는 쓰지 않는다. */
+/**
+ * 백엔드 입력 해석 결과로 앱 경로를 만든다. 사용자가 넣은 원본 주소는 쓰지 않는다.
+ * 저장소가 필요한 종류인데 repo 가 없으면 owner 화면으로 돌려보낸다.
+ */
 export function routeForResolved(account: string, r: GhResolved): string {
-  const base = { owner: r.owner, repo: r.repo };
+  const repo = r.repo ?? undefined;
+  if (r.kind === "owner" || !repo) return ghPath(account, { owner: r.owner });
+  const base = { owner: r.owner, repo };
+  const num = r.number ?? undefined;
   switch (r.kind) {
-    case "owner": return ghPath(account, { owner: r.owner });
     case "repo": return ghPath(account, base);
-    case "tree":
-    case "blob": return ghPath(account, { ...base, section: "code", ref: r.ref, path: r.path });
-    case "pull": return ghPath(account, { ...base, section: "pulls", number: r.number });
+    case "code": return ghPath(account, { ...base, section: "code", ref: r.ref ?? undefined, path: r.path ?? undefined });
+    case "pull": return num !== undefined ? ghPath(account, { ...base, section: "pulls", number: num }) : ghPath(account, { ...base, section: "pulls" });
     case "pulls": return ghPath(account, { ...base, section: "pulls" });
-    case "issue": return ghPath(account, { ...base, section: "issues", number: r.number });
+    case "issue": return num !== undefined ? ghPath(account, { ...base, section: "issues", number: num }) : ghPath(account, { ...base, section: "issues" });
     case "issues": return ghPath(account, { ...base, section: "issues" });
     case "actions": return ghPath(account, { ...base, section: "actions" });
-    case "run": return ghPath(account, { ...base, section: "run", runId: r.run_id });
-    case "job": return ghPath(account, { ...base, section: "job", runId: r.run_id, jobId: r.job_id });
+    case "run": return r.run_id ? ghPath(account, { ...base, section: "run", runId: String(r.run_id) }) : ghPath(account, { ...base, section: "actions" });
+    case "job":
+      return r.run_id && r.job_id
+        ? ghPath(account, { ...base, section: "job", runId: String(r.run_id), jobId: String(r.job_id) })
+        : r.run_id ? ghPath(account, { ...base, section: "run", runId: String(r.run_id) }) : ghPath(account, { ...base, section: "actions" });
   }
 }

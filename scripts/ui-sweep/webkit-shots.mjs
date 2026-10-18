@@ -23,6 +23,9 @@ const stub = (await import(pathToFileURL(resolve(new URL('./stub.mjs', import.me
 const profiles = [
   { name: '390', device: devices['iPhone 14'], viewport: { width: 390, height: 844 }, inset: { top: 59, bottom: 34 } },
   { name: '320', device: devices['iPhone SE'], viewport: { width: 320, height: 568 }, inset: { top: 20, bottom: 0 } },
+  // 360(흔한 안드로이드 폭)과 데스크톱은 --widths=360,1440 으로 고를 때만 연다. 기본 실행(390·320)은 그대로 둔다.
+  { name: '360', device: devices['iPhone SE'], viewport: { width: 360, height: 740 }, inset: { top: 20, bottom: 0 }, optIn: true },
+  { name: '1440', device: devices['Desktop Safari'], viewport: { width: 1440, height: 900 }, inset: { top: 0, bottom: 0 }, optIn: true },
 ];
 const schemes = args.schemes ? String(args.schemes).split(',') : ['light', 'dark'];
 const only = args.widths ? String(args.widths).split(',') : null;
@@ -33,7 +36,7 @@ const rows = [];
 const scrollerFits = (s) => { if (!s || s === '-') return true; const [a, b] = s.split('/').map(Number); return a <= b; };
 await mkdir(out, { recursive: true });
 for (const p of profiles) {
-  if (only && !only.includes(p.name)) continue;
+  if (only ? !only.includes(p.name) : p.optIn) continue;
   for (const scheme of schemes) {
     const ctx = await browser.newContext({ ...p.device, viewport: p.viewport, colorScheme: scheme, serviceWorkers: 'block' });
     // env(safe-area-inset-*) 를 px 로 치환한다. 개발 서버는 CSS 를 JS 모듈 문자열로도 내보내므로 JS 응답도 바꾼다.

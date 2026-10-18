@@ -3,7 +3,7 @@ import { ghRun, ghRunJobs } from "../../../api/githubClient";
 import { Icon } from "../../../ui/Icon";
 import { useGhInfinite, useGhQuery } from "../data";
 import { useGh } from "../GithubContext";
-import { ago, duration, shortSha, when } from "../format";
+import { ago, duration, loginOf, shortSha, when } from "../format";
 import { ghPath, githubWebUrl, safeGithubHref } from "../links";
 import { RunResultBadge, WebLink } from "../parts";
 import { notFoundError } from "../routeErrors";
@@ -31,16 +31,18 @@ export function RunDetailPage() {
         {(r) => (
           <header className="gh-card">
             <h2 className="gh-card__title">{r.display_title ?? r.name ?? "실행 #" + r.run_number}</h2>
-            <p className="gh-badges"><RunResultBadge status={r.status} conclusion={r.conclusion} /><span className="gh-note">#{r.run_number}{r.run_attempt > 1 ? " · 시도 " + r.run_attempt : ""}</span></p>
+            <p className="gh-badges"><RunResultBadge status={r.status} conclusion={r.conclusion} /><span className="gh-note">#{r.run_number}{r.run_attempt && r.run_attempt > 1 ? " · 시도 " + r.run_attempt : ""}</span></p>
             <dl className="gh-facts">
               {r.name && <div><dt>워크플로</dt><dd>{r.name}</dd></div>}
-              <div><dt>이벤트</dt><dd>{r.event}</dd></div>
+              {r.event && <div><dt>이벤트</dt><dd>{r.event}</dd></div>}
               {r.head_branch && <div><dt>브랜치</dt><dd className="gh-branchpair">{r.head_branch}</dd></div>}
-              <div><dt>커밋</dt><dd className="gh-branchpair" title={r.head_sha}>{shortSha(r.head_sha)}</dd></div>
-              {r.actor && <div><dt>실행한 사람</dt><dd>{r.actor}</dd></div>}
-              <div><dt>시작</dt><dd title={when(r.run_started_at ?? r.created_at)}>{ago(r.run_started_at ?? r.created_at)}</dd></div>
+              {r.head_sha && <div><dt>커밋</dt><dd className="gh-branchpair" title={r.head_sha}>{shortSha(r.head_sha)}</dd></div>}
+              {r.actor && <div><dt>실행한 사람</dt><dd>{loginOf(r.actor)}</dd></div>}
+              {r.path && <div><dt>워크플로 파일</dt><dd className="gh-branchpair">{r.path.replace(/@.*$/, "")}</dd></div>}
+              {(r.run_started_at ?? r.created_at) && <div><dt>시작</dt><dd title={when(r.run_started_at ?? r.created_at)}>{ago(r.run_started_at ?? r.created_at)}</dd></div>}
               {duration(r.run_started_at, r.updated_at) && r.status === "completed" && <div><dt>걸린 시간</dt><dd>{duration(r.run_started_at, r.updated_at)}</dd></div>}
             </dl>
+            {r.head_commit_message && <p className="gh-card__text">{r.head_commit_message}</p>}
             <div className="gh-file__tools"><WebLink href={safeGithubHref(r.html_url) ?? web} /></div>
           </header>
         )}
@@ -61,9 +63,9 @@ export function RunDetailPage() {
                         {j.runner_name && <span>{j.runner_name}</span>}
                       </span>
                     </span>
-                    <span className="tk-list__end"><span className="gh-note">로그 보기</span><Icon name="chevron-right" /></span>
+                    <span className="tk-list__end"><Icon name="chevron-right" /></span>
                   </Link>
-                  <StepList steps={j.steps} />
+                  <StepList steps={j.steps} firstFailed={j.first_failed_step} />
                 </li>
               ))}
             </ul>

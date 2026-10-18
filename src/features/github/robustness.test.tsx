@@ -21,7 +21,7 @@ import { GithubPage } from "../../pages/GithubPage";
 import { scrollMemory, useScrollRestore } from "./useScrollRestore";
 
 const A = "alice";
-const page = { page: { page: 1, has_more: false } };
+const page = { page: { page: 1, per_page: 30, has_more: false, total_count: null, limit_hit: false } };
 
 function Where() {
   const l = useLocation();
@@ -41,7 +41,7 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   window.localStorage.clear();
-  h.ghAccounts.mockImplementation(async () => ({ data: ACCOUNTS }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: ACCOUNTS, gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   h.ghMe.mockImplementation(async () => envelope(PROFILE, A));
   h.ghMyOrgs.mockImplementation(async () => envelope(ORGS, A));
   h.ghMyRepos.mockImplementation(async () => envelope(REPOS, A, page));

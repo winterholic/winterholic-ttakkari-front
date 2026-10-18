@@ -6,7 +6,7 @@ import { Icon } from "../../../ui/Icon";
 import { useGhInfinite, useGhQuery } from "../data";
 import { useGh } from "../GithubContext";
 import { GhMarkdown } from "../GhMarkdown";
-import { ago, when } from "../format";
+import { ago, loginOf, when } from "../format";
 import { ghPath, githubWebUrl, parseNumber, safeGithubHref } from "../links";
 import { IssueStateBadge, LabelBadges, WebLink } from "../parts";
 import { notFoundError } from "../routeErrors";
@@ -18,11 +18,12 @@ function CommentItem({ c, owner, repo }: { c: GhComment; owner: string; repo: st
   return (
     <li className="gh-comment">
       <p className="gh-comment__head">
-        <strong>{c.user ?? "알 수 없음"}</strong>
+        <strong>{loginOf(c.user)}</strong>
         {c.author_association && c.author_association !== "NONE" && <Badge>{c.author_association.toLowerCase()}</Badge>}
-        <span className="gh-note" title={when(c.created_at)}>{ago(c.created_at)}</span>
+        {c.created_at && <span className="gh-note" title={when(c.created_at)}>{ago(c.created_at)}</span>}
       </p>
-      <GhMarkdown base={{ owner, repo, file: "" }}>{c.body}</GhMarkdown>
+      {c.body ? <GhMarkdown base={{ owner, repo, file: "" }}>{c.body}</GhMarkdown> : <p className="gh-note">내용이 없는 댓글이에요.</p>}
+      {c.body_truncated && <p className="gh-note">댓글이 길어 앞부분만 보여 줘요. 전체는 GitHub 에서 열어 보세요.</p>}
     </li>
   );
 }
@@ -61,8 +62,9 @@ export function IssueDetailPage() {
               <LabelBadges labels={i.labels} />
             </p>
             <p className="gh-card__text">
-              {i.user ?? "알 수 없음"} · {ago(i.created_at)} 열림 · 댓글 {i.comments}개
-              {i.assignees.length > 0 && " · 담당 " + i.assignees.join(", ")}
+              {loginOf(i.user)} · {ago(i.created_at)} 열림 · 댓글 {i.comments}개
+              {i.assignees.length > 0 && " · 담당 " + i.assignees.map(loginOf).join(", ")}
+              {i.milestone && " · 마일스톤 " + i.milestone}
             </p>
             {i.kind === "pull" && (
               <p className="tk-banner tk-banner--neutral" role="status">
@@ -73,8 +75,9 @@ export function IssueDetailPage() {
             )}
             <div className="gh-file__tools"><WebLink href={safeGithubHref(i.html_url) ?? web} /></div>
           </header>
-          {i.body ? <GhMarkdown base={{ owner, repo, file: "" }}>{i.body}</GhMarkdown> : <p className="gh-note">작성된 설명이 없어요.</p>}
-          <Comments owner={owner} repo={repo} number={number} />
+          {i.kind === "pull" ? null : i.body ? <GhMarkdown base={{ owner, repo, file: "" }}>{i.body}</GhMarkdown> : <p className="gh-note">작성된 설명이 없어요.</p>}
+          {i.body_truncated && <p className="gh-note">본문이 길어 앞부분만 보여 줘요. 전체는 GitHub 에서 열어 보세요.</p>}
+          {i.kind !== "pull" && <Comments owner={owner} repo={repo} number={number} />}
         </div>
       )}
     </QueryView>

@@ -47,6 +47,12 @@ describe("describeGhError", () => {
     expect(describeGhError(err("gh_unprocessable", { status: 422 })).openOnGithub).toBe(true);
     expect(describeGhError(err("gh_too_large", { status: 413 })).openOnGithub).toBe(true);
   });
+  it("새 오류 코드(ref·README·빈 저장소·로그)도 안내가 있다", () => {
+    expect(describeGhError(err("ref_not_found", { status: 404 })).title).toMatch(/브랜치·태그·커밋/);
+    expect(describeGhError(err("readme_not_found", { status: 404 })).tone).toBe("neutral");
+    expect(describeGhError(err("gh_empty_repository", { status: 409 })).title).toMatch(/비어 있는/);
+    expect(describeGhError(err("gh_logs_unavailable", { status: 502, reason: "redirect_host_not_allowed" })).openOnGithub).toBe(true);
+  });
   it("알 수 없는 오류도 문구가 있고 내부 구현을 드러내지 않는다", () => {
     const v = describeGhError(new Error("boom /Users/x/file.py"));
     expect(v.message).not.toMatch(/\/Users/);

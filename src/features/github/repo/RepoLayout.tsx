@@ -20,28 +20,33 @@ const TABS: { id: Section; label: string; icon: IconName }[] = [
   { id: "actions", label: "Actions", icon: "play" },
 ];
 
-function permissionText(r: GhRepo): string {
+function permissionText(r: GhRepo): string | null {
+  if (!r.permissions) return null;
   if (r.permissions.admin) return "관리자";
   if (r.permissions.push) return "쓰기";
   return "읽기";
 }
 
 export function RepoCard({ repo }: { repo: GhRepo }) {
-  const web = safeGithubHref(repo.html_url) ?? githubWebUrl({ kind: "repo", owner: repo.owner, repo: repo.name });
+  const owner = repo.owner?.login ?? repo.full_name.split("/")[0];
+  const web = safeGithubHref(repo.html_url) ?? githubWebUrl({ kind: "repo", owner, repo: repo.name });
+  const permission = permissionText(repo);
   return (
     <section className="gh-card" aria-label="저장소 정보">
       <div className="gh-card__head">
         <Icon name={repo.private ? "lock" : "folder"} />
         <div className="gh-card__titles">
           <p className="gh-card__title">{repo.full_name}</p>
-          <p className="gh-card__sub">기본 브랜치 {repo.default_branch}</p>
+          {repo.default_branch && <p className="gh-card__sub">기본 브랜치 {repo.default_branch}</p>}
         </div>
       </div>
       <p className="gh-badges">
         {repo.private ? <Badge tone="warning">비공개</Badge> : <Badge>공개</Badge>}
         {repo.archived && <Badge>보관됨</Badge>}
         {repo.fork && <Badge>포크</Badge>}
-        <Badge tone="info">내 권한 {permissionText(repo)}</Badge>
+        {repo.disabled && <Badge tone="danger">비활성화됨</Badge>}
+        {repo.is_template && <Badge>템플릿</Badge>}
+        {permission && <Badge tone="info">내 권한 {permission}</Badge>}
       </p>
       {repo.description && <p className="gh-card__text">{repo.description}</p>}
       {repo.topics.length > 0 && (
@@ -51,9 +56,9 @@ export function RepoCard({ repo }: { repo: GhRepo }) {
       )}
       <dl className="gh-facts">
         {repo.language && <div><dt>언어</dt><dd>{repo.language}</dd></div>}
-        <div><dt>별</dt><dd>{compact(repo.stargazers_count)}</dd></div>
-        <div><dt>포크</dt><dd>{compact(repo.forks_count)}</dd></div>
-        <div><dt>열린 이슈·PR</dt><dd>{compact(repo.open_issues_count)}</dd></div>
+        {repo.stargazers_count !== null && <div><dt>별</dt><dd>{compact(repo.stargazers_count)}</dd></div>}
+        {repo.forks_count !== null && <div><dt>포크</dt><dd>{compact(repo.forks_count)}</dd></div>}
+        {repo.open_issues_count !== null && <div><dt>열린 이슈·PR</dt><dd>{compact(repo.open_issues_count)}</dd></div>}
         {repo.license && <div><dt>라이선스</dt><dd>{repo.license}</dd></div>}
         {repo.homepage && <div><dt>홈페이지</dt><dd>{repo.homepage}</dd></div>}
       </dl>

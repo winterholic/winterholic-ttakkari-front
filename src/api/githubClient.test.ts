@@ -51,6 +51,10 @@ describe("요청 구성", () => {
     expect(lastUrl().searchParams.has("account")).toBe(false);
     fetchMock.mockImplementation(async () => json({ kind: "repo", owner: "o", repo: "r" }));
     await ghResolve("https://github.com/o/r");
+    expect(lastUrl().searchParams.has("account")).toBe(false);
+    await ghResolve("https://github.com/o/r/tree/feat/x/src", "alice");
+    expect(lastUrl().searchParams.get("account")).toBe("alice");
+    await ghResolve("https://github.com/o/r");
     expect(lastUrl().pathname).toBe("/api/github/resolve");
     expect(lastUrl().searchParams.get("q")).toBe("https://github.com/o/r");
     expect(lastUrl().searchParams.has("account")).toBe(false);
@@ -101,6 +105,15 @@ describe("401 과 오류 처리", () => {
     const e2 = (await ghMe("a").catch((e: unknown) => e)) as GhApiError;
     expect(e2.code).toBe("gh_forbidden");
     expect(e2.reason).toBe("sso_required");
+  });
+
+  it("본문의 retry_after·sso_url 도 오류에 담는다", async () => {
+    fetchMock.mockImplementation(async () => json({ code: "gh_forbidden", message: "x", reason: "sso_required", sso_url: "https://github.com/orgs/acme/sso?authorization_request=1" }, 403));
+    const e1 = (await ghMe("a").catch((e: unknown) => e)) as GhApiError;
+    expect(e1.ssoUrl).toBe("https://github.com/orgs/acme/sso?authorization_request=1");
+    fetchMock.mockImplementation(async () => json({ code: "gh_rate_limited", message: "x", retry_after: 42 }, 429));
+    const e2 = (await ghMe("a").catch((e: unknown) => e)) as GhApiError;
+    expect(e2.retryAfter).toBe(42);
   });
 
   it("네트워크 실패는 network 코드로 감싼다", async () => {

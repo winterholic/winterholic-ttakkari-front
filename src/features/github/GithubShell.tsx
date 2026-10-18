@@ -17,6 +17,7 @@ import "./github.css";
 
 const ACCOUNT_STALE = 30_000;
 const NO_ACCOUNT = new GhApiError({ status: 503, code: "no_account", message: "no account" });
+const NO_GH = new GhApiError({ status: 503, code: "gh_cli_missing", message: "gh not found" });
 
 /**
  * /github/* 의 공통 틀. 선택 계정(`?as=`)이 확정되기 전에는 아래 화면을 그리지 않는다.
@@ -31,7 +32,7 @@ export function GithubShell() {
   useScrollRestore(body);
 
   const accountsQuery = useQuery({ queryKey: GH_ACCOUNTS_KEY, queryFn: ghAccounts, staleTime: ACCOUNT_STALE });
-  const all = useMemo(() => accountsQuery.data?.data ?? [], [accountsQuery.data]);
+  const all = useMemo(() => accountsQuery.data?.accounts ?? [], [accountsQuery.data]);
   const usable = useMemo(() => all.filter((a) => a.state === "success"), [all]);
   const asParam = params.get("as");
   const active = asParam && usable.some((a) => a.login === asParam) ? asParam : null;
@@ -84,6 +85,7 @@ export function GithubShell() {
   let content;
   if (accountsQuery.isPending) content = <GhSkeleton kind="card" label="계정을 확인하는 중" />;
   else if (accountsQuery.isError) content = <GhErrorState error={accountsQuery.error} onRetry={() => void accountsQuery.refetch()} />;
+  else if (accountsQuery.data.gh_available === false) content = <GhErrorState error={NO_GH} />;
   else if (all.length === 0) content = <GhErrorState error={NO_ACCOUNT} />;
   else if (!active) {
     // 자동 채움 대상이면 이동이 끝날 때까지 선택 화면을 깜빡이지 않는다.

@@ -46,10 +46,10 @@ const where = () => screen.getByTestId("where").textContent;
 
 beforeEach(() => {
   window.localStorage.clear();
-  h.ghAccounts.mockImplementation(async () => ({ data: ACCOUNTS }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: ACCOUNTS, gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   h.ghMe.mockImplementation(async (account: string) => envelope({ ...PROFILE, login: account }, account));
   h.ghMyOrgs.mockImplementation(async (account: string) => envelope(ORGS, account));
-  h.ghMyRepos.mockImplementation(async (account: string) => envelope(REPOS, account, { page: { page: 1, has_more: false } }));
+  h.ghMyRepos.mockImplementation(async (account: string) => envelope(REPOS, account, { page: { page: 1, per_page: 30, has_more: false, total_count: null, limit_hit: false } }));
 });
 afterEach(() => {
   cleanup();
@@ -92,7 +92,7 @@ it("as 가 목록에 없는 계정이면 선택 화면과 안내를 보여 준�
 });
 
 it("만료된 계정은 고를 수 없고 이유를 말한다", async () => {
-  h.ghAccounts.mockImplementation(async () => ({ data: [ACCOUNTS[0], { ...ACCOUNTS[1], state: "error" }, { ...ACCOUNTS[1], login: "carol-oss" }] }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: [ACCOUNTS[0], { ...ACCOUNTS[1], state: "error" }, { ...ACCOUNTS[1], login: "carol-oss" }], gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   renderAt("/github");
   const bob = await screen.findByRole("button", { name: /bob-work/ });
   expect((bob as HTMLButtonElement).disabled).toBe(true);
@@ -100,13 +100,13 @@ it("만료된 계정은 고를 수 없고 이유를 말한다", async () => {
 });
 
 it("쓸 수 있는 계정이 하나뿐이면 바로 그 계정으로 연다", async () => {
-  h.ghAccounts.mockImplementation(async () => ({ data: [ACCOUNTS[0]] }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: [ACCOUNTS[0]], gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   renderAt("/github");
   await waitFor(() => expect(where()).toBe("/github?as=alice"));
 });
 
 it("계정이 하나도 없으면 gh auth login 안내", async () => {
-  h.ghAccounts.mockImplementation(async () => ({ data: [] }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: [], gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   renderAt("/github");
   expect(await screen.findByText(/gh auth login/)).toBeTruthy();
 });
@@ -159,7 +159,7 @@ it("저장소 주소를 넣으면 입력 해석 결과 필드로 이동한다(as
   fireEvent.change(input, { target: { value: "https://github.com/acme/widgets/pull/5?x=1" } });
   fireEvent.submit(input.closest("form")!);
   await waitFor(() => expect(where()).toBe("/github/acme/widgets/pulls/5?as=alice"));
-  expect(h.ghResolve).toHaveBeenCalledWith("https://github.com/acme/widgets/pull/5?x=1");
+  expect(h.ghResolve).toHaveBeenCalledWith("https://github.com/acme/widgets/pull/5?x=1", "alice");
 });
 
 it("열 수 없는 주소는 입력 아래에 이유를 보여 주고 이동하지 않는다", async () => {
@@ -191,7 +191,7 @@ it("내 저장소 로딩 중에는 스켈레톤, 오류면 재시도 버튼", as
   h.ghMyRepos.mockImplementation(async () => { throw new GhApiError({ status: 504, code: "gh_timeout", message: "x" }); });
   renderAt("/github?as=alice");
   const retry = await screen.findByRole("button", { name: "다시 시도" });
-  h.ghMyRepos.mockImplementation(async (account: string) => envelope(REPOS, account, { page: { page: 1, has_more: false } }));
+  h.ghMyRepos.mockImplementation(async (account: string) => envelope(REPOS, account, { page: { page: 1, per_page: 30, has_more: false, total_count: null, limit_hit: false } }));
   fireEvent.click(retry);
   expect(await screen.findByText("alice/demo")).toBeTruthy();
 });
@@ -206,9 +206,37 @@ it("한도 오류는 풀리는 시각까지 남은 시간을 보여 준다", asy
 
 it("사용자 owner 와 조직 owner 를 type 으로 구분해 보여 준다", async () => {
   h.ghOwner.mockImplementation(async (account: string) => envelope({ ...PROFILE, login: "acme-labs", name: "Acme Labs", type: "Organization" }, account));
-  h.ghOwnerRepos.mockImplementation(async (account: string) => envelope(REPOS, account, { page: { page: 1, has_more: false } }));
+  h.ghOwnerRepos.mockImplementation(async (account: string) => envelope(REPOS, account, { page: { page: 1, per_page: 30, has_more: false, total_count: null, limit_hit: false } }));
   renderAt("/github/acme-labs?as=alice");
   expect(await screen.findByText("조직")).toBeTruthy();
   expect(await screen.findByText("alice/demo")).toBeTruthy();
   expect(within(document.body).getAllByText("Acme Labs").length).toBeGreaterThan(0);
+});
+
+it("gh 를 찾을 수 없는 Mac Studio 는 gh 설치·로그인을 안내한다", async () => {
+  h.ghAccounts.mockImplementation(async () => ({ accounts: [], gh_available: false, fetched_at: "2026-10-18T01:00:00Z" }));
+  renderAt("/github");
+  expect(await screen.findByText(/gh 를 찾을 수 없어요/)).toBeTruthy();
+  expect(screen.getByText(/gh auth login/)).toBeTruthy();
+});
+
+it("ref 를 못 가른 해석 결과는 틀린 곳이 아니라 저장소 첫 화면으로 보낸다", async () => {
+  h.ghResolve.mockResolvedValue({ kind: "code", owner: "acme", repo: "widgets", ref: "feat", path: "x/y", needs_ref_resolution: true, ref_path: "feat/x/y" });
+  renderAt("/github?as=alice");
+  const input = await screen.findByLabelText("저장소 주소");
+  fireEvent.change(input, { target: { value: "https://github.com/acme/widgets/tree/feat/x/y" } });
+  fireEvent.submit(input.closest("form")!);
+  await waitFor(() => expect(where()).toBe("/github/acme/widgets?as=alice"));
+});
+
+it("SSO 승인 주소는 https://github.com 일 때만 링크로 연다", async () => {
+  h.ghMyRepos.mockImplementation(async () => { throw new GhApiError({ status: 403, code: "gh_forbidden", message: "x", reason: "sso_required", ssoUrl: "https://github.com/orgs/acme/sso?x=1" }); });
+  renderAt("/github?as=alice");
+  const link = await screen.findByRole("link", { name: /SSO 승인 화면 열기/ });
+  expect(link.getAttribute("href")).toBe("https://github.com/orgs/acme/sso?x=1");
+  cleanup();
+  h.ghMyRepos.mockImplementation(async () => { throw new GhApiError({ status: 403, code: "gh_forbidden", message: "x", reason: "sso_required", ssoUrl: "https://evil.example/sso" }); });
+  renderAt("/github?as=alice");
+  await screen.findByText(/조직 SSO 승인이 필요해요/);
+  expect(screen.queryByRole("link", { name: /SSO 승인 화면 열기/ })).toBeNull();
 });

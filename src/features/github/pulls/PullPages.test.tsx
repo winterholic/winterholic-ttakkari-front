@@ -34,10 +34,10 @@ function renderAt(path: string) {
 }
 const where = () => screen.getByTestId("where").textContent;
 const A = "alice";
-const page = (more = false, n = 1) => ({ page: { page: n, has_more: more } });
+const page = (more = false, n = 1) => ({ page: { page: n, per_page: 30, has_more: more, total_count: null, limit_hit: false } });
 
 beforeEach(() => {
-  h.ghAccounts.mockImplementation(async () => ({ data: ACCOUNTS }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: ACCOUNTS, gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   h.ghRepo.mockImplementation(async () => envelope(REPO, A));
   h.ghPulls.mockImplementation(async () => envelope(PULLS, A, page()));
   h.ghPull.mockImplementation(async () => envelope(PULL, A));
@@ -108,7 +108,7 @@ it("PR 상세는 브랜치·통계·병합 가능 여부·본문을 보여 준�
 });
 
 it("mergeable 이 계산 중이면 그렇게 안내한다", async () => {
-  h.ghPull.mockImplementation(async () => envelope({ ...PULL, mergeable: "computing" }, A));
+  h.ghPull.mockImplementation(async () => envelope({ ...PULL, mergeable: null, mergeable_computing: true }, A));
   renderAt("/github/alice/demo/pulls/12?as=alice");
   expect(await screen.findByText(/계산 중/)).toBeTruthy();
 });
@@ -183,7 +183,7 @@ it("큰 diff 로 상류가 거절하면 GitHub 에서 열기를 권한다", asyn
 it("불러온 파일 수가 변경 파일 수보다 적으면 부분임을 알린다", async () => {
   h.ghPull.mockImplementation(async () => envelope({ ...PULL, changed_files: 3200 }, A));
   renderAt("/github/alice/demo/pulls/12?as=alice&tab=files");
-  expect(await screen.findByText(/3,200개 중 3개/)).toBeTruthy();
+  expect(await screen.findByText(/3,200개 중 4개/)).toBeTruthy();
   expect(screen.getByText(/최대 3,000개/)).toBeTruthy();
 });
 

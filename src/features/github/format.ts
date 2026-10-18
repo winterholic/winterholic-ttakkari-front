@@ -60,3 +60,6 @@ export function duration(startIso: string | null | undefined, endIso: string | n
 
 /** 앞 7자리. SHA 는 짧게 보이고 전체는 title 로 준다. */
 export const shortSha = (sha: string | null | undefined): string => (sha ?? "").slice(0, 7);
+
+/** 사용자 참조의 표시 이름. 삭제된 계정은 값이 없다. */
+export const loginOf = (u: { login: string } | null | undefined): string => u?.login ?? "알 수 없음";

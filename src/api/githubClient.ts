@@ -1,7 +1,7 @@
 import { apiUrl, getAccessToken, refreshOrLose, toApiError } from "./client";
 import type {
-  GhAccounts, GhBranch, GhComment, GhContent, GhEnvelope, GhIssue, GhIssueItem, GhIssueState, GhJob, GhLogWindow, GhOrg, GhProfile, GhPull, GhPullFile,
-  GhPullItem, GhPullState, GhReadme, GhRepo, GhRepoItem, GhResolved, GhRun,
+  GhAccounts, GhBranch, GhComment, GhContents, GhEnvelope, GhIssue, GhIssueItem, GhIssueState, GhJob, GhLogWindow, GhOrg, GhProfile, GhPull, GhPullFile,
+  GhPullItem, GhPullState, GhRepo, GhResolved, GhRun,
 } from "./githubTypes";
 
 // GitHub 탐색 전용 호출 계층. `client.ts` 의 공통 요청은 401 이면 앱 세션을 로그아웃시키므로 쓰지 않는다.
@@ -16,8 +16,10 @@ export class GhApiError extends Error {
   readonly reset?: number;
   /** `Retry-After` 초. */
   readonly retryAfter?: number;
+  /** SSO 승인 화면 주소(gh_forbidden/sso_required). 열기 전에 https://github.com 인지 다시 검증한다. */
+  readonly ssoUrl?: string;
 
-  constructor(o: { status: number; code: string; message: string; reason?: string; reset?: number; retryAfter?: number }) {
+  constructor(o: { status: number; code: string; message: string; reason?: string; reset?: number; retryAfter?: number; ssoUrl?: string }) {
     super(o.message);
     this.name = "GhApiError";
     this.status = o.status;
@@ -25,6 +27,7 @@ export class GhApiError extends Error {
     this.reason = o.reason;
     this.reset = o.reset;
     this.retryAfter = o.retryAfter;
+    this.ssoUrl = o.ssoUrl;
   }
 }
 
@@ -48,15 +51,19 @@ async function toGhError(res: Response): Promise<GhApiError> {
   const base = await toApiError(res.clone());
   let reason: string | undefined;
   let reset: number | undefined;
+  let retryBody: number | undefined;
+  let ssoUrl: string | undefined;
   try {
     const j = (await res.json()) as Record<string, unknown>;
     const d = typeof j.detail === "object" && j.detail !== null ? (j.detail as Record<string, unknown>) : j;
     if (typeof d.reason === "string") reason = d.reason;
     if (typeof d.reset === "number") reset = d.reset;
+    if (typeof d.retry_after === "number") retryBody = d.retry_after;
+    if (typeof d.sso_url === "string") ssoUrl = d.sso_url;
   } catch {
     // 본문이 JSON 이 아니면 상태 줄만 쓴다.
   }
-  return new GhApiError({ status: res.status, code: base.code, message: base.message, reason, reset, retryAfter: base.retryAfter });
+  return new GhApiError({ status: res.status, code: base.code, message: base.message, reason, reset, retryAfter: base.retryAfter ?? retryBody, ssoUrl });
 }
 
 async function request<T>(path: string, query: Record<string, QueryValue>, signal?: AbortSignal): Promise<T> {
@@ -92,20 +99,21 @@ const get = <T>(path: string, account: string, query: Record<string, QueryValue>
 
 // ---- 계정·입력 해석(account 불필요)
 export const ghAccounts = (): Promise<GhAccounts> => request("/api/github/accounts", {});
-export const ghResolve = (q: string): Promise<GhResolved> => request("/api/github/resolve", { q });
+/** account 를 같이 보내야 tree/blob URL 의 슬래시 든 브랜치 이름을 실제 브랜치로 가를 수 있다. */
+export const ghResolve = (q: string, account?: string): Promise<GhResolved> => request("/api/github/resolve", { q, account });
 
 // ---- 내 정보·소유자
 export const ghMe = (account: string) => get<GhProfile>("/api/github/me", account);
 export const ghMyOrgs = (account: string) => get<GhOrg[]>("/api/github/me/orgs", account);
-export const ghMyRepos = (account: string, q: { sort?: string; page?: number } = {}) => get<GhRepoItem[]>("/api/github/me/repos", account, q);
+export const ghMyRepos = (account: string, q: { sort?: string; page?: number } = {}) => get<GhRepo[]>("/api/github/me/repos", account, q);
 export const ghOwner = (account: string, login: string) => get<GhProfile>(`/api/github/owners/${seg(login)}`, account);
-export const ghOwnerRepos = (account: string, login: string, q: { page?: number } = {}) => get<GhRepoItem[]>(`/api/github/owners/${seg(login)}/repos`, account, q);
+export const ghOwnerRepos = (account: string, login: string, q: { page?: number } = {}) => get<GhRepo[]>(`/api/github/owners/${seg(login)}/repos`, account, q);
 
 // ---- 저장소·코드
 export const ghRepo = (account: string, o: string, r: string) => get<GhRepo>(repoPath(o, r), account);
 export const ghBranches = (account: string, o: string, r: string, q: { page?: number } = {}) => get<GhBranch[]>(`${repoPath(o, r)}/branches`, account, q);
-export const ghContents = (account: string, o: string, r: string, q: { ref?: string; path?: string }) => get<GhContent>(`${repoPath(o, r)}/contents`, account, q);
-export const ghReadme = (account: string, o: string, r: string, q: { ref?: string }) => get<GhReadme>(`${repoPath(o, r)}/readme`, account, q);
+export const ghContents = (account: string, o: string, r: string, q: { ref?: string; path?: string }) => get<GhContents>(`${repoPath(o, r)}/contents`, account, q);
+export const ghReadme = (account: string, o: string, r: string, q: { ref?: string }) => get<GhContents>(`${repoPath(o, r)}/readme`, account, q);
 
 // ---- PR·이슈
 export const ghPulls = (account: string, o: string, r: string, q: { state?: GhPullState; page?: number }) => get<GhPullItem[]>(`${repoPath(o, r)}/pulls`, account, q);
