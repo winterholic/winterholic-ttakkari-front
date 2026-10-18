@@ -122,7 +122,7 @@ describe("AppShell 인증 가드", () => {
     within(nav).getByRole("button", { name: "부가 기능" }).click();
     const dialog = await screen.findByRole("dialog", { name: "부가 기능" });
     const links = within(dialog).getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/notifications", "/weather", "/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/checklists", "/meetings", "/pms", "/wbs", "/logs", "/design-systems", "/artcraft", "/reverse"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/notifications", "/weather", "/workspace", "/library", "/context-library", "/files", "/memos", "/calendar", "/checklists", "/meetings", "/pms", "/wbs", "/logs", "/design-systems", "/artcraft", "/github", "/reverse"]);
     expect(links.filter((l) => l.getAttribute("aria-current") === "page").map((l) => l.getAttribute("href"))).toEqual(["/memos"]);
   });
 
@@ -168,6 +168,7 @@ describe("AppShell 인증 가드", () => {
       ["로그·이슈", "/logs"],
       ["디자인시스템", "/design-systems"],
       ["ArtCraft", "/artcraft"],
+      ["GitHub", "/github"],
       ["리버스 엔지니어링", "/reverse"],
     ]);
   });
