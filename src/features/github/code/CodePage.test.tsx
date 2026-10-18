@@ -2,7 +2,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
-import { ACCOUNTS, BRANCHES, DIR_ROOT, FILE_BINARY, FILE_LARGE, FILE_TEXT, README, REPO, codeLines, envelope } from "../fixtures";
+import { ACCOUNTS, BRANCHES, DIR_ROOT, FILE_BINARY, FILE_LARGE, FILE_TEXT, README, REPO, codeLines, envelope, fileContents } from "../fixtures";
 
 const h = vi.hoisted(() => ({ ghAccounts: vi.fn(), ghRepo: vi.fn(), ghContents: vi.fn(), ghReadme: vi.fn(), ghBranches: vi.fn() }));
 vi.mock("../../../api/githubClient", async (orig) => ({
@@ -39,11 +39,11 @@ beforeEach(() => {
   // jsdom 에는 dialog 의 열기·닫기가 없다
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); this.dispatchEvent(new Event("close")); };
-  h.ghAccounts.mockImplementation(async () => ({ data: ACCOUNTS }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: ACCOUNTS, gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   h.ghRepo.mockImplementation(async () => envelope(REPO, A));
   h.ghContents.mockImplementation(async () => envelope(DIR_ROOT, A));
   h.ghReadme.mockImplementation(async () => envelope(README, A));
-  h.ghBranches.mockImplementation(async () => envelope(BRANCHES, A, { page: { page: 1, has_more: false } }));
+  h.ghBranches.mockImplementation(async () => envelope(BRANCHES, A, { page: { page: 1, per_page: 30, has_more: false, total_count: null, limit_hit: false } }));
 });
 afterEach(() => {
   cleanup();
@@ -130,13 +130,14 @@ it("너무 큰 파일은 크기와 함께 안내한다", async () => {
 });
 
 it("잘린(truncated) 파일은 일부만 보인다고 알린다", async () => {
-  h.ghContents.mockImplementation(async () => envelope({ ...FILE_TEXT, truncated: true, text: codeLines(10) }, A));
+  h.ghContents.mockImplementation(async () => envelope(fileContents({ truncated: true, too_large: true, text: codeLines(10) }), A));
   renderAt("/github/alice/demo/code?as=alice&path=src%2Findex.ts");
-  expect(await screen.findByText(/앞부분만/)).toBeTruthy();
+  expect((await screen.findAllByText(/앞부분만/)).length).toBeGreaterThan(0);
+  expect(screen.getByRole("region", { name: "코드" })).toBeTruthy();
 });
 
 it("마크다운 파일은 서식 보기와 원문을 바꿔 볼 수 있다", async () => {
-  h.ghContents.mockImplementation(async () => envelope({ ...FILE_TEXT, path: "docs/guide.md", name: "guide.md", text: "# 제목\n\n본문" }, A));
+  h.ghContents.mockImplementation(async () => envelope(fileContents({ path: "docs/guide.md", name: "guide.md", text: "# 제목\n\n본문" }), A));
   renderAt("/github/alice/demo/code?as=alice&path=docs%2Fguide.md");
   expect(await screen.findByRole("heading", { name: "제목" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "원문" }));
@@ -144,7 +145,7 @@ it("마크다운 파일은 서식 보기와 원문을 바꿔 볼 수 있다", as
 });
 
 it("심링크는 대상을 안내한다", async () => {
-  h.ghContents.mockImplementation(async () => envelope({ kind: "symlink", path: "current", ref: "main", name: "current", target: "releases/v1", html_url: "https://github.com/alice/demo/blob/main/current" }, A));
+  h.ghContents.mockImplementation(async () => envelope({ kind: "symlink", path: "current", ref: "main", entries: null, entries_limit_hit: false, file: null, symlink_target: "releases/v1", submodule: null }, A));
   renderAt("/github/alice/demo/code?as=alice&path=current");
   expect(await screen.findByText(/releases\/v1/)).toBeTruthy();
 });

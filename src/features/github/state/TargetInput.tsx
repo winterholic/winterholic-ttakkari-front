@@ -35,9 +35,11 @@ export function TargetInput() {
     setBusy(true);
     setProblem(null);
     try {
-      const r = await ghResolve(q);
-      if (r.repo) pushRecent({ account, owner: r.owner, repo: r.repo });
-      navigate(routeForResolved(account, r));
+      const r = await ghResolve(q, account);
+      // ref 를 가르지 못했다는 표시가 남아 있으면 틀린 곳으로 보내지 않고 저장소 첫 화면으로 연다.
+      const target = r.needs_ref_resolution ? { ...r, kind: "repo" as const } : r;
+      if (target.repo) pushRecent({ account, owner: target.owner, repo: target.repo });
+      navigate(routeForResolved(account, target));
     } catch (err) {
       setProblem(describeGhError(err).message);
     } finally {

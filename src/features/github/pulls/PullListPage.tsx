@@ -4,7 +4,7 @@ import type { GhPullItem, GhPullState } from "../../../api/githubTypes";
 import { Icon } from "../../../ui/Icon";
 import { useGhInfinite } from "../data";
 import { useGh } from "../GithubContext";
-import { ago, when } from "../format";
+import { ago, loginOf, when } from "../format";
 import { ghPath, githubWebUrl, withQuery } from "../links";
 import { FilterPills, LabelBadges, PullStateBadge } from "../parts";
 import { InfiniteView } from "../state/StateView";
@@ -16,6 +16,8 @@ const STATES: { id: GhPullState; label: string }[] = [
   { id: "closed", label: "닫힘" },
   { id: "all", label: "전체" },
 ];
+
+export const branchPair = (p: { head: { ref: string | null } | null; base: { ref: string | null } | null }): string => (p.head?.ref ?? "?") + " → " + (p.base?.ref ?? "?");
 
 export const parseState = (v: string | null): GhPullState => (v === "closed" || v === "all" ? v : "open");
 
@@ -29,11 +31,10 @@ function PullRow({ pull, account, owner, repo }: { pull: GhPullItem; account: st
           <span className="tk-list__meta">
             <span>#{pull.number}</span>
             <PullStateBadge state={pull.state} merged={pull.merged} draft={pull.draft} />
-            {pull.user && <span>{pull.user}</span>}
-            <span className="gh-branchpair" title={pull.head_ref + " → " + pull.base_ref}>{pull.head_ref} → {pull.base_ref}</span>
+            {pull.user && <span>{loginOf(pull.user)}</span>}
+            <span className="gh-branchpair" title={branchPair(pull)}>{branchPair(pull)}</span>
             <LabelBadges labels={pull.labels} />
-            {pull.comments > 0 && <span>댓글 {pull.comments}</span>}
-            <span title={when(pull.updated_at)}>{ago(pull.updated_at)} 갱신</span>
+            {pull.updated_at && <span title={when(pull.updated_at)}>{ago(pull.updated_at)} 갱신</span>}
           </span>
         </span>
         <span className="tk-list__end"><Icon name="chevron-right" /></span>

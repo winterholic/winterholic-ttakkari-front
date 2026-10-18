@@ -35,11 +35,11 @@ function renderAt(path: string) {
 }
 const where = () => screen.getByTestId("where").textContent;
 const A = "alice";
-const page = (more = false, n = 1) => ({ page: { page: n, has_more: more } });
+const page = (more = false, n = 1) => ({ page: { page: n, per_page: 30, has_more: more, total_count: null, limit_hit: false } });
 const JOB = "/github/alice/demo/actions/runs/9001/jobs/5001?as=alice";
 
 beforeEach(() => {
-  h.ghAccounts.mockImplementation(async () => ({ data: ACCOUNTS }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: ACCOUNTS, gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   h.ghRepo.mockImplementation(async () => envelope(REPO, A));
   h.ghRuns.mockImplementation(async () => envelope(RUNS, A, page()));
   h.ghRun.mockImplementation(async () => envelope(RUNS[0], A));

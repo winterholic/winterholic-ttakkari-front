@@ -34,10 +34,10 @@ function renderAt(path: string) {
 }
 const where = () => screen.getByTestId("where").textContent;
 const A = "alice";
-const page = (more = false, n = 1) => ({ page: { page: n, has_more: more } });
+const page = (more = false, n = 1) => ({ page: { page: n, per_page: 30, has_more: more, total_count: null, limit_hit: false } });
 
 beforeEach(() => {
-  h.ghAccounts.mockImplementation(async () => ({ data: ACCOUNTS }));
+  h.ghAccounts.mockImplementation(async () => ({ accounts: ACCOUNTS, gh_available: true, fetched_at: "2026-10-18T01:00:00Z" }));
   h.ghRepo.mockImplementation(async () => envelope(REPO, A));
   h.ghIssues.mockImplementation(async () => envelope(ISSUES, A, page()));
   h.ghIssue.mockImplementation(async () => envelope(ISSUE, A));

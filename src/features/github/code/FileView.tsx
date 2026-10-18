@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { GhFile, GhSubmodule, GhSymlink } from "../../../api/githubTypes";
+import type { GhFile, GhSubmodule } from "../../../api/githubTypes";
 import { Badge } from "../../../ui/Badge";
 import { Icon } from "../../../ui/Icon";
 import { GhMarkdown } from "../GhMarkdown";
@@ -20,22 +20,24 @@ export interface FileViewProps {
   refName?: string;
 }
 
-/** 파일 하나. 이진·대용량·잘림은 본문 대신 이유와 GitHub 링크를 보인다. */
+/** 파일 하나. 이진·대용량·잘림은 본문 대신(또는 앞부분과 함께) 이유와 GitHub 링크를 보인다. */
 export function FileView({ file, owner, repo, refName }: FileViewProps) {
   const [wrap, setWrap] = useState(false);
   const isMarkdown = MARKDOWN.test(file.name);
   const [rendered, setRendered] = useState(true);
-  const web = safeGithubHref(file.html_url) ?? githubWebUrl({ kind: "blob", owner, repo, ref: refName ?? file.ref, path: file.path });
+  const web = safeGithubHref(file.html_url) ?? githubWebUrl({ kind: "blob", owner, repo, ref: refName ?? "HEAD", path: file.path });
   const base: GhMarkdownBase = { owner, repo, ref: refName, file: file.path };
-  const hasText = !file.binary && !file.too_large && typeof file.text === "string";
+  const hasText = !file.binary && typeof file.text === "string";
+  const size = file.size !== null ? bytes(file.size) : "";
 
   return (
     <section className="gh-file" aria-label={file.name + " 파일"}>
       <header className="gh-file__head">
         <p className="gh-file__name" title={file.path}>{file.name}</p>
         <p className="gh-file__meta">
-          <span>{bytes(file.size)}</span>
-          {file.truncated && <Badge tone="warning">일부만</Badge>}
+          {size && <span>{size}</span>}
+          {file.line_count !== null && <span>{file.line_count.toLocaleString("ko-KR")}줄</span>}
+          {file.truncated && <Badge tone="warning">앞부분만</Badge>}
         </p>
         <div className="gh-file__tools">
           {hasText && isMarkdown && (
@@ -54,32 +56,33 @@ export function FileView({ file, owner, repo, refName }: FileViewProps) {
       </header>
 
       {file.binary && <GhEmpty icon="file-archive" title="이진 파일은 미리 볼 수 없어요">이미지·압축 파일 같은 이진 파일은 여기서 열지 않아요. GitHub 에서 열어 보세요.</GhEmpty>}
-      {!file.binary && file.too_large && <GhEmpty icon="file-archive" title="파일이 너무 커서 보여 줄 수 없어요">{bytes(file.size)}라 이 화면에서는 내용을 불러오지 않아요. GitHub 에서 열어 보세요.</GhEmpty>}
-      {!file.binary && !file.too_large && typeof file.text !== "string" && <GhEmpty icon="info" title="내용을 받지 못했어요">GitHub 에서 직접 열어 보세요.</GhEmpty>}
-      {hasText && file.truncated && <p className="tk-banner tk-banner--warning" role="status"><Icon name="warning" /><span className="tk-banner__text">파일이 커서 앞부분만 보여 줘요. 전체는 GitHub 에서 열어 보세요.</span></p>}
+      {!file.binary && file.too_large && !hasText && <GhEmpty icon="file-archive" title="파일이 너무 커서 보여 줄 수 없어요">{size}라 이 화면에서는 내용을 불러오지 않아요. GitHub 에서 열어 보세요.</GhEmpty>}
+      {!file.binary && !file.too_large && !hasText && <GhEmpty icon="info" title="내용을 받지 못했어요">GitHub 에서 직접 열어 보세요.</GhEmpty>}
+      {hasText && (file.truncated || file.too_large) && <p className="tk-banner tk-banner--warning" role="status"><Icon name="warning" /><span className="tk-banner__text">파일이 커서 앞부분만 보여 줘요. 전체는 GitHub 에서 열어 보세요.</span></p>}
       {hasText && isMarkdown && rendered && <GhMarkdown base={base}>{file.text ?? ""}</GhMarkdown>}
-      {hasText && (!isMarkdown || !rendered) && <CodeBlock key={file.path + ":" + file.sha} text={file.text ?? ""} wrap={wrap} />}
+      {hasText && (!isMarkdown || !rendered) && <CodeBlock key={file.path + ":" + (file.sha ?? "")} text={file.text ?? ""} wrap={wrap} />}
     </section>
   );
 }
 
 /** 심볼릭 링크: 가리키는 경로만 알려 준다(따라가지 않는다). */
-export function SymlinkView({ link, owner, repo, refName }: { link: GhSymlink; owner: string; repo: string; refName?: string }) {
-  const web = safeGithubHref(link.html_url) ?? githubWebUrl({ kind: "blob", owner, repo, ref: refName ?? link.ref, path: link.path });
+export function SymlinkView({ target, path, owner, repo, refName }: { target: string | null; path: string; owner: string; repo: string; refName?: string }) {
+  const web = githubWebUrl({ kind: "blob", owner, repo, ref: refName ?? "HEAD", path });
   return (
     <GhEmpty icon="child" title="심볼릭 링크예요">
-      {link.target ? "이 항목은 " + link.target + " 를 가리켜요." : "가리키는 경로를 알 수 없어요."}
+      {target ? "이 항목은 " + target + " 를 가리켜요." : "가리키는 경로를 알 수 없어요."}
       <span className="gh-empty-actions"><WebLink href={web} /></span>
     </GhEmpty>
   );
 }
 
-/** 서브모듈: 다른 저장소의 한 시점이라 이 화면에서 열지 않는다. */
-export function SubmoduleView({ sub }: { sub: GhSubmodule }) {
+/** 서브모듈: 다른 저장소의 한 시점이라 이 화면에서 열지 않는다. 주소가 https://github.com 이면 GitHub 링크만 준다. */
+export function SubmoduleView({ sub }: { sub: GhSubmodule | null }) {
+  const href = safeGithubHref(sub?.git_url?.replace(/\.git$/, ""));
   return (
     <GhEmpty icon="git-branch" title="서브모듈이에요">
       다른 저장소를 가리키는 항목이라 여기서 열 수 없어요.
-      <span className="gh-empty-actions"><WebLink href={safeGithubHref(sub.html_url)} /></span>
+      <span className="gh-empty-actions"><WebLink href={href} /></span>
     </GhEmpty>
   );
 }

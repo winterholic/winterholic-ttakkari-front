@@ -5,6 +5,7 @@ import { Icon } from "../../../ui/Icon";
 import { splitPath } from "../format";
 import { GhEmpty } from "../state/StateView";
 import { WebLink } from "../parts";
+import { safeGithubHref } from "../links";
 import { PATCH_COLLAPSE_BYTES, countDiffLines, parsePatch, patchBytes } from "./parsePatch";
 import type { Hunk } from "./parsePatch";
 
@@ -82,6 +83,8 @@ export function DiffFile({ file, webUrl, wrap }: DiffFileProps) {
   const [confirmed, setConfirmed] = useState(false);
   const { dir, name } = splitPath(file.filename);
   const patch = file.patch ?? null;
+  // 파일 하나의 GitHub 주소가 있으면 그걸, 없으면 PR 의 변경 파일 화면을 연다.
+  const link = safeGithubHref(file.blob_url) ?? webUrl;
   const big = patch !== null && patchBytes(patch) > PATCH_COLLAPSE_BYTES;
   const hunks = useMemo(() => (open && patch && (!big || confirmed) ? parsePatch(patch) : []), [open, patch, big, confirmed]);
   const status = STATUS_LABEL[file.status] ?? file.status;
@@ -93,7 +96,8 @@ export function DiffFile({ file, webUrl, wrap }: DiffFileProps) {
             {dir && <span className="tk-diff__dir">{dir}</span>}
             <span className="tk-diff__name">{name}</span>
           </span>
-          <span className="tk-diff__stat"><span>+{file.additions}</span><span>−{file.deletions}</span></span>
+          {/* 숫자 두 개뿐이라 길어질 수 없다. 레이아웃 검사의 긴 글자 주입에서 뺀다 */}
+          <span className="tk-diff__stat" data-stress-skip><span>+{file.additions}</span><span>−{file.deletions}</span></span>
         </button>
       </header>
       {open && (
@@ -102,10 +106,12 @@ export function DiffFile({ file, webUrl, wrap }: DiffFileProps) {
             <span>{status}</span>
             {file.previous_filename && <span className="gh-diff__rename">이전 이름 {file.previous_filename}</span>}
           </p>
-          {file.patch_missing || patch === null ? (
+          {file.patch_state === "empty" ? (
+            <p className="gh-note">내용 변경 없이 이름·권한만 바뀐 파일이에요.</p>
+          ) : file.patch_state === "unavailable" || patch === null ? (
             <GhEmpty icon="file-archive" title="변경 내용(patch)을 받지 못했어요">
               이진 파일이거나 너무 커서 GitHub 가 변경 내용을 주지 않았어요.
-              <span className="gh-empty-actions"><WebLink href={webUrl} /></span>
+              <span className="gh-empty-actions"><WebLink href={link} /></span>
             </GhEmpty>
           ) : big && !confirmed ? (
             <div className="gh-diff__confirm">
@@ -116,6 +122,7 @@ export function DiffFile({ file, webUrl, wrap }: DiffFileProps) {
             <p className="gh-note">표시할 변경 줄이 없어요.</p>
           ) : (
             <>
+              {file.patch_state === "truncated" && <p className="gh-diff__confirm"><Icon name="warning" /> 변경이 커서 앞부분만 보여 줘요(256KiB). 전체는 GitHub 에서 확인하세요. <WebLink href={link} /></p>}
               <HunkTable hunks={hunks} />
               <p className="gh-note gh-diff__count">변경 {countDiffLines(hunks).toLocaleString("ko-KR")}줄</p>
             </>

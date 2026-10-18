@@ -72,8 +72,15 @@ describe("routeForResolved", () => {
   it("해석 결과 필드로 앱 경로를 만든다(원본 URL 은 쓰지 않는다)", () => {
     expect(routeForResolved("a", { kind: "repo", owner: "o", repo: "r" })).toBe("/github/o/r?as=a");
     expect(routeForResolved("a", { kind: "pull", owner: "o", repo: "r", number: 3 })).toBe("/github/o/r/pulls/3?as=a");
-    expect(routeForResolved("a", { kind: "blob", owner: "o", repo: "r", ref: "main", path: "a.ts" })).toBe("/github/o/r/code?as=a&ref=main&path=a.ts");
+    expect(routeForResolved("a", { kind: "code", owner: "o", repo: "r", ref: "feat/x", path: "a.ts", is_file: true })).toBe("/github/o/r/code?as=a&ref=feat%2Fx&path=a.ts");
+    expect(routeForResolved("a", { kind: "code", owner: "o", repo: "r", ref: null, path: null })).toBe("/github/o/r/code?as=a");
     expect(routeForResolved("a", { kind: "owner", owner: "o" })).toBe("/github/o?as=a");
-    expect(routeForResolved("a", { kind: "run", owner: "o", repo: "r", run_id: "5" })).toBe("/github/o/r/actions/runs/5?as=a");
+    expect(routeForResolved("a", { kind: "run", owner: "o", repo: "r", run_id: 5 })).toBe("/github/o/r/actions/runs/5?as=a");
+    expect(routeForResolved("a", { kind: "job", owner: "o", repo: "r", run_id: 5, job_id: 9 })).toBe("/github/o/r/actions/runs/5/jobs/9?as=a");
+  });
+  it("필요한 필드가 비면 가장 가까운 목록 화면으로 내려간다", () => {
+    expect(routeForResolved("a", { kind: "pull", owner: "o", repo: "r" })).toBe("/github/o/r/pulls?as=a");
+    expect(routeForResolved("a", { kind: "job", owner: "o", repo: "r", run_id: 5 })).toBe("/github/o/r/actions/runs/5?as=a");
+    expect(routeForResolved("a", { kind: "repo", owner: "o" })).toBe("/github/o?as=a");
   });
 });

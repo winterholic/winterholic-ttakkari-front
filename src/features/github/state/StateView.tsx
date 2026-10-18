@@ -54,6 +54,7 @@ export function GhErrorState({ error, onRetry, githubUrl, compact }: GhErrorStat
   const left = useCountdown(view.resetAt);
   const others = ctx ? ctx.accounts.filter((a) => a.login !== ctx.account) : [];
   const web = safeGithubHref(githubUrl);
+  const sso = safeGithubHref(view.ssoUrl);
   const icon: IconName = view.tone === "danger" ? "warning" : view.resetAt ? "clock" : view.switchAccount ? "lock" : "info";
   const canRetry = view.retry || (view.resetAt !== undefined && left === 0);
   return (
@@ -70,6 +71,7 @@ export function GhErrorState({ error, onRetry, githubUrl, compact }: GhErrorStat
         <div className="gh-state__actions">
           {canRetry && onRetry && <Button size="sm" onClick={onRetry}>다시 시도</Button>}
           {view.switchAccount && others.map((a) => <Button key={a.login} size="sm" variant="ghost" onClick={() => ctx?.switchAccount(a.login)}>{a.login} 계정으로 열기</Button>)}
+          {sso && <a className="tk-button tk-button--sm" href={sso} target="_blank" rel="noopener noreferrer"><span>SSO 승인 화면 열기</span><Icon name="external-link" /></a>}
           {view.openOnGithub && web && <a className="tk-button tk-button--ghost tk-button--sm" href={web} target="_blank" rel="noopener noreferrer"><span>GitHub 에서 열기</span><Icon name="external-link" /></a>}
         </div>
       </div>
@@ -98,10 +100,10 @@ export function GhNotes({ env }: { env: GhEnvelope<unknown> | undefined }) {
           <span className="tk-banner__text">GitHub 응답이 늦거나 실패해 {ago(env.fetched_at) || "이전"}에 받아 둔 내용을 보여 줘요.</span>
         </p>
       )}
-      {env.rate.low && (
+      {env.rate?.low && (
         <p className="tk-banner tk-banner--warning" role="status">
           <Icon name="gauge" />
-          <span className="tk-banner__text">이 계정의 GitHub 호출 한도가 얼마 남지 않았어요(남은 {env.rate.remaining}회).</span>
+          <span className="tk-banner__text">이 계정의 GitHub 호출 한도가 얼마 남지 않았어요(남은 {env.rate.remaining ?? 0}회).</span>
         </p>
       )}
     </>

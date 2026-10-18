@@ -32,13 +32,13 @@ export function LabelBadges({ labels }: { labels: GhLabel[] }) {
   return <>{labels.slice(0, 4).map((l) => <Badge key={l.name}>{l.name}</Badge>)}{labels.length > 4 && <span>+{labels.length - 4}</span>}</>;
 }
 
-export function PullStateBadge({ state, merged, draft }: { state: "open" | "closed"; merged: boolean; draft: boolean }) {
+export function PullStateBadge({ state, merged, draft }: { state: string; merged: boolean; draft: boolean }) {
   if (merged) return <Badge tone="info">머지됨</Badge>;
   if (draft) return <Badge>초안</Badge>;
   return state === "open" ? <Badge tone="success">열림</Badge> : <Badge tone="danger">닫힘</Badge>;
 }
 
-export function IssueStateBadge({ state, reason }: { state: "open" | "closed"; reason?: string | null }) {
+export function IssueStateBadge({ state, reason }: { state: string; reason?: string | null }) {
   if (state === "open") return <Badge tone="success">열림</Badge>;
   return <Badge tone={reason === "not_planned" ? undefined : "info"}>{reason === "not_planned" ? "계획 없음으로 닫힘" : "해결됨"}</Badge>;
 }

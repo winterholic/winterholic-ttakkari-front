@@ -3,11 +3,12 @@ import type { FormEvent } from "react";
 import { Link, useSearchParams } from "react-router";
 import { ghIssues } from "../../../api/githubClient";
 import type { GhIssueItem, GhIssueState } from "../../../api/githubTypes";
+import { Badge } from "../../../ui/Badge";
 import { Button } from "../../../ui/Button";
 import { Icon } from "../../../ui/Icon";
 import { useGhInfinite } from "../data";
 import { useGh } from "../GithubContext";
-import { ago, when } from "../format";
+import { ago, loginOf, when } from "../format";
 import { ghPath, githubWebUrl, withQuery } from "../links";
 import { FilterPills, IssueStateBadge, LabelBadges } from "../parts";
 import { InfiniteView } from "../state/StateView";
@@ -33,10 +34,11 @@ function IssueRow({ issue, account, owner, repo }: { issue: GhIssueItem; account
           <span className="tk-list__meta">
             <span>#{issue.number}</span>
             <IssueStateBadge state={issue.state} reason={issue.state_reason} />
-            {issue.user && <span>{issue.user}</span>}
+            {issue.user && <span>{loginOf(issue.user)}</span>}
+            {issue.locked && <Badge>잠김</Badge>}
             <LabelBadges labels={issue.labels} />
             {issue.comments > 0 && <span>댓글 {issue.comments}</span>}
-            <span title={when(issue.updated_at)}>{ago(issue.updated_at)} 갱신</span>
+            {issue.updated_at && <span title={when(issue.updated_at)}>{ago(issue.updated_at)} 갱신</span>}
           </span>
         </span>
         <span className="tk-list__end"><Icon name="chevron-right" /></span>

@@ -7,7 +7,7 @@ import { Button } from "../../../ui/Button";
 import { Icon } from "../../../ui/Icon";
 import { useGhInfinite } from "../data";
 import { useGh } from "../GithubContext";
-import { ago, when } from "../format";
+import { ago, loginOf, when } from "../format";
 import { ghPath, githubWebUrl, withQuery } from "../links";
 import { FilterPills, RunResultBadge } from "../parts";
 import { InfiniteView } from "../state/StateView";
@@ -36,12 +36,12 @@ function RunRow({ run, account, owner, repo }: { run: GhRun; account: string; ow
           <span className="tk-list__title tk-list__title--wrap">{title}</span>
           <span className="tk-list__meta">
             {run.name && run.name !== title && <span>{run.name}</span>}
-            <span>#{run.run_number}{run.run_attempt > 1 ? " (시도 " + run.run_attempt + ")" : ""}</span>
+            <span>#{run.run_number}{run.run_attempt && run.run_attempt > 1 ? " (시도 " + run.run_attempt + ")" : ""}</span>
             <RunResultBadge status={run.status} conclusion={run.conclusion} />
-            <span>{run.event}</span>
+            {run.event && <span>{run.event}</span>}
             {run.head_branch && <span className="gh-branchpair" title={run.head_branch}>{run.head_branch}</span>}
-            {run.actor && <span>{run.actor}</span>}
-            <span title={when(run.created_at)}>{ago(run.created_at)}</span>
+            {run.actor && <span>{loginOf(run.actor)}</span>}
+            {run.created_at && <span title={when(run.created_at)}>{ago(run.created_at)}</span>}
           </span>
         </span>
         <span className="tk-list__end"><Icon name="chevron-right" /></span>

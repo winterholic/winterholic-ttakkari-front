@@ -21,7 +21,7 @@ import "./github-actions.css";
 export const LOG_LINES = 2000;
 const IDS = /^[1-9]\d{0,18}$/;
 // 로그가 없거나 읽을 수 없어서 생기는 오류. 일시 오류(타임아웃 등)와 달리 다시 시도해도 같다.
-const UNAVAILABLE = new Set(["gh_not_found", "gh_gone", "gh_forbidden", "gh_too_large", "gh_unprocessable"]);
+const UNAVAILABLE = new Set(["gh_not_found", "gh_gone", "gh_forbidden", "gh_too_large", "gh_unprocessable", "gh_logs_unavailable"]);
 const TIMESTAMP = /^\d{4}-\d{2}-\d{2}T[\d:.]+Z ?/;
 
 type Level = "error" | "warn" | "tool" | undefined;
@@ -38,7 +38,8 @@ function LogUnavailable({ error, webUrl }: { error: GhApiError; webUrl: string |
   const view = describeGhError(error);
   const others = ctx ? ctx.accounts.filter((a) => a.login !== ctx.account) : [];
   const reason =
-    error.code === "gh_gone" ? "보존 기간이 지나 삭제됐거나 로그가 비활성화된 job 이에요."
+    error.code === "gh_logs_unavailable" ? "GitHub 가 로그를 안전한 경로로 주지 않아 가져오지 않았어요."
+      : error.code === "gh_gone" ? "보존 기간이 지나 삭제됐거나 로그가 비활성화된 job 이에요."
       : error.code === "gh_too_large" ? "로그가 너무 커서 이 화면에서 보여 줄 수 없어요."
         : error.code === "gh_forbidden" ? "이 계정에는 로그를 읽을 권한이 없어요."
           : error.code === "gh_unprocessable" ? "GitHub 가 이 로그를 주지 않았어요."
@@ -111,7 +112,7 @@ export function JobLogPage() {
             <RunResultBadge status={info.status} conclusion={info.conclusion} />
             {duration(info.started_at, info.completed_at) && <span className="gh-note">{duration(info.started_at, info.completed_at)}</span>}
           </p>
-          <StepList steps={info.steps} />
+          <StepList steps={info.steps} firstFailed={info.first_failed_step} />
         </header>
       )}
       {info && !finished && (
@@ -131,7 +132,9 @@ export function JobLogPage() {
           if (w.lines.length === 0) return <GhEmpty icon="terminal" title="로그가 비어 있어요">아직 시작되지 않았거나 남아 있는 로그가 없어요.</GhEmpty>;
           const end = w.from_line + w.lines.length - 1;
           const prevStart = Math.max(1, w.from_line - LOG_LINES);
-          const nextCount = Math.min(LOG_LINES, w.total_lines - end);
+          // 서버가 다음 창의 시작 줄을 알려 준다(글자 수 상한으로 창이 줄었을 때도 이어서 읽을 수 있다).
+          const next = w.next_from_line;
+          const nextCount = next === null ? 0 : Math.min(LOG_LINES, w.total_lines - next + 1);
           return (
             <>
               <GhNotes env={logs.data} />
@@ -143,8 +146,8 @@ export function JobLogPage() {
               {w.from_line > 1 && <Button variant="ghost" block onClick={() => go(prevStart)}>이전 {(w.from_line - prevStart).toLocaleString("ko-KR")}줄</Button>}
               <LogBox win={w} wrap={wrap} showTime={showTime} />
               <p className="gh-note">{w.total_lines.toLocaleString("ko-KR")}줄 중 {w.from_line.toLocaleString("ko-KR")}–{end.toLocaleString("ko-KR")}줄{w.masked && " · 비밀 값은 가려져 있어요"}</p>
-              {w.truncated && nextCount > 0 && w.lines.length < LOG_LINES && <p className="gh-note">창 크기 제한으로 이 창은 중간에서 끊겼어요. 다음 줄부터 이어서 볼 수 있어요.</p>}
-              {nextCount > 0 && <Button variant="ghost" block onClick={() => go(end + 1)}>다음 {nextCount.toLocaleString("ko-KR")}줄</Button>}
+              {w.truncated && <p className="gh-note">글자 수 제한으로 이 창은 줄었거나 아주 긴 줄이 잘렸어요.{next !== null && " 다음 줄부터 이어서 볼 수 있어요."}</p>}
+              {next !== null && nextCount > 0 && <Button variant="ghost" block onClick={() => go(next)}>다음 {nextCount.toLocaleString("ko-KR")}줄</Button>}
             </>
           );
         })()}

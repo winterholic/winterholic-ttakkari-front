@@ -6,8 +6,8 @@ import type { IconName } from "../../../ui/Icon";
 import { bytes } from "../format";
 import { ghPath } from "../links";
 
-const ORDER: Record<GhEntry["type"], number> = { dir: 0, submodule: 1, file: 2, symlink: 3 };
-const ICON: Record<GhEntry["type"], IconName> = { dir: "folder", file: "file-text", symlink: "child", submodule: "git-branch" };
+const ORDER: Record<GhEntry["type"], number> = { dir: 0, submodule: 1, file: 2, symlink: 3, other: 4 };
+const ICON: Record<GhEntry["type"], IconName> = { dir: "folder", file: "file-text", symlink: "child", submodule: "git-branch", other: "file-archive" };
 
 /** 폴더가 먼저, 같은 종류는 이름순. 서버가 이미 정렬해 주지만 순서를 가정하지 않는다. */
 export function sortEntries(entries: GhEntry[]): GhEntry[] {
@@ -36,14 +36,15 @@ export function TreeList({ account, owner, repo, ref_, entries }: TreeListProps)
               <span className="tk-list__meta">
                 {e.type === "submodule" && <Badge>서브모듈 · 열 수 없어요</Badge>}
                 {e.type === "symlink" && <Badge>심볼릭 링크</Badge>}
-                {e.type === "file" && <span>{bytes(e.size)}</span>}
+                {e.type === "file" && e.size !== null && <span>{bytes(e.size)}</span>}
+                {e.type === "other" && <Badge>열 수 없는 항목</Badge>}
               </span>
             </span>
           </>
         );
         return (
           <li key={e.path}>
-            {e.type === "submodule" ? (
+            {e.type === "submodule" || e.type === "other" ? (
               <div className="tk-list__item" aria-disabled="true">{inner}</div>
             ) : (
               <Link className="tk-list__item" to={ghPath(account, { owner, repo, section: "code", ref: ref_, path: e.path })}>

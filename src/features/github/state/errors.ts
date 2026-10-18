@@ -12,6 +12,8 @@ export interface GhErrorView {
   openOnGithub: boolean;
   /** 한도가 풀리는 시각(Unix 초). */
   resetAt?: number;
+  /** 조직 SSO 승인 화면. 열기 전에 https://github.com 인지 다시 검증한다. */
+  ssoUrl?: string;
 }
 
 const base = { retry: false, switchAccount: false, openOnGithub: false } as const;
@@ -27,6 +29,8 @@ export function describeGhError(error: unknown, nowMs: number = Date.now()): GhE
   switch (error.code) {
     case "no_account":
       return { ...base, tone: "warning", title: "연결된 GitHub 계정이 없어요", message: "Mac Studio 에서 gh auth login 으로 계정을 추가한 뒤 다시 열어 주세요." };
+    case "gh_cli_missing":
+      return { ...base, tone: "warning", title: "Mac Studio 에서 gh 를 찾을 수 없어요", message: "GitHub CLI(gh)가 설치돼 있지 않거나 실행할 수 없어요. 설치하고 gh auth login 으로 로그인한 뒤 다시 열어 주세요." };
     case "account_unavailable":
       return { ...base, tone: "warning", title: "이 계정을 쓸 수 없어요", message: "계정이 목록에 없거나 만료됐어요. 다른 계정을 고르거나 Mac Studio 에서 다시 로그인해 주세요.", switchAccount: true };
     case "invalid_target":
@@ -35,11 +39,19 @@ export function describeGhError(error: unknown, nowMs: number = Date.now()): GhE
         ...base, tone: "warning", title: "열 수 없는 주소예요",
         message: error.code === "unsupported_host" ? "github.com 저장소만 열 수 있어요." : "owner/repo 또는 https://github.com/… 주소를 넣어 주세요.",
       };
+    case "ref_not_found":
+      return { ...base, tone: "warning", title: "브랜치·태그·커밋을 찾을 수 없어요", message: "이름을 확인하거나 코드 화면의 브랜치 목록에서 골라 주세요." };
+    case "readme_not_found":
+      return { ...base, tone: "neutral", title: "README 가 없어요", message: "이 저장소에는 README 파일이 없어요." };
+    case "gh_empty_repository":
+      return { ...base, tone: "neutral", title: "비어 있는 저장소예요", message: "아직 커밋이 없어서 보여 줄 파일이 없어요." };
+    case "gh_logs_unavailable":
+      return { ...base, tone: "warning", title: "로그를 안전하게 받을 수 없었어요", message: "GitHub 가 로그를 안전한 경로로 주지 않았어요. GitHub 에서 직접 열어 보세요.", openOnGithub: true };
     case "gh_not_found":
       return { ...base, tone: "warning", title: "찾을 수 없거나 권한이 없어요", message: "GitHub 는 권한이 없는 비공개 자원을 없는 것처럼 보여 줘요. 주소를 확인하거나 다른 계정으로 열어 보세요.", switchAccount: true };
     case "gh_forbidden":
       if (error.reason === "sso_required") {
-        return { ...base, tone: "warning", title: "조직 SSO 승인이 필요해요", message: "이 조직은 SSO 승인이 필요해요. GitHub 에서 이 계정 토큰을 조직에 승인하거나 다른 계정으로 열어 보세요.", switchAccount: true, openOnGithub: true };
+        return { ...base, tone: "warning", title: "조직 SSO 승인이 필요해요", message: "이 조직은 SSO 승인이 필요해요. GitHub 에서 이 계정 토큰을 조직에 승인하거나 다른 계정으로 열어 보세요.", switchAccount: true, openOnGithub: true, ssoUrl: error.ssoUrl };
       }
       if (error.reason === "scope_missing") {
         return { ...base, tone: "warning", title: "계정 권한 범위가 부족해요", message: "이 계정 토큰의 권한 범위(scope)로는 읽을 수 없어요. Mac Studio 에서 gh auth refresh 로 범위를 넓히거나 다른 계정을 써 보세요.", switchAccount: true };

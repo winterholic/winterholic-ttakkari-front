@@ -5,6 +5,7 @@ import { PINNED_STALE, useGhQuery } from "../data";
 import { useGh } from "../GithubContext";
 import { GhMarkdown } from "../GhMarkdown";
 import { ghPath, githubWebUrl } from "../links";
+import { notFoundError } from "../routeErrors";
 import { GhErrorState, GhSkeleton, QueryView } from "../state/StateView";
 import { useRepo, useRepoParams } from "../repo/useRepo";
 import { BranchPicker } from "./BranchPicker";
@@ -13,6 +14,8 @@ import { TreeList } from "./TreeList";
 import "./github-code.css";
 
 const SHA = /^[0-9a-f]{40}$/i;
+// README 가 없거나 빈 저장소인 것은 흔하다. 오류로 보이지 않고 조용히 건너뛴다.
+const SILENT_README = new Set(["readme_not_found", "gh_empty_repository"]);
 
 /** 경로를 마디별 링크로. 긴 이름은 줄바꿈해 전부 보인다. */
 function PathBar({ account, owner, repo, ref_, path }: { account: string; owner: string; repo: string; ref_?: string; path: string }) {
@@ -39,14 +42,14 @@ function RootReadme({ owner, repo, refName }: { owner: string; repo: string; ref
   const { account } = useGh();
   const query = useGhQuery(account, ["readme", owner, repo, refName ?? ""], () => ghReadme(account, owner, repo, { ref: refName }), { staleTime: refName && SHA.test(refName) ? PINNED_STALE : undefined });
   if (query.isPending) return <GhSkeleton kind="card" label="README 를 불러오는 중" />;
-  // README 가 없는 저장소는 흔하다. 오류가 아니라 조용히 건너뛴다.
-  if (query.isError) return query.error instanceof GhApiError && query.error.code === "gh_not_found" ? null : <GhErrorState compact error={query.error} onRetry={() => void query.refetch()} />;
-  const r = query.data.data;
+  if (query.isError) return query.error instanceof GhApiError && SILENT_README.has(query.error.code) ? null : <GhErrorState compact error={query.error} onRetry={() => void query.refetch()} />;
+  const f = query.data.data.file;
+  if (!f || typeof f.text !== "string") return null;
   return (
     <section className="gh-section" aria-label="README">
-      <h2 className="gh-section__title">{r.name}</h2>
-      {r.truncated && <p className="gh-note">README 가 길어 앞부분만 보여 줘요.</p>}
-      <GhMarkdown base={{ owner, repo, ref: refName, file: r.path }}>{r.text}</GhMarkdown>
+      <h2 className="gh-section__title">{f.name}</h2>
+      {(f.truncated || f.too_large) && <p className="gh-note">README 가 길어 앞부분만 보여 줘요.</p>}
+      <GhMarkdown base={{ owner, repo, ref: refName, file: f.path }}>{f.text}</GhMarkdown>
     </section>
   );
 }
@@ -66,8 +69,9 @@ export function CodePage() {
     () => ghContents(account, owner, repo, { ref: ref_, path: path || undefined }),
     { staleTime: ref_ && SHA.test(ref_) ? PINNED_STALE : undefined },
   );
-  const web = githubWebUrl({ kind: path ? "blob" : "tree", owner, repo, ref: ref_ ?? repoQuery.data?.data.default_branch ?? "HEAD", path: path || undefined });
   const defaultBranch = repoQuery.data?.data.default_branch ?? "";
+  const contentsRef = contents.data?.data.ref ?? undefined;
+  const web = githubWebUrl({ kind: path ? "blob" : "tree", owner, repo, ref: ref_ ?? contentsRef ?? (defaultBranch || "HEAD"), path: path || undefined });
 
   return (
     <div className="gh-stack">
@@ -86,24 +90,26 @@ export function CodePage() {
       <QueryView query={contents} skeleton="code" label="코드를 불러오는 중" githubUrl={web}>
         {(c) => {
           switch (c.kind) {
-            case "dir":
+            case "dir": {
+              const entries = c.entries ?? [];
               return (
                 <>
-                  {c.entries.length === 0 ? (
+                  {entries.length === 0 ? (
                     <div className="tk-empty tk-empty--boxed"><Icon name="folder-open" /><p className="tk-empty__title">비어 있는 폴더예요</p></div>
                   ) : (
-                    <TreeList account={account} owner={owner} repo={repo} ref_={ref_} entries={c.entries} />
+                    <TreeList account={account} owner={owner} repo={repo} ref_={ref_} entries={entries} />
                   )}
-                  {c.truncated && <p className="gh-note">항목이 너무 많아 일부만 보여 줘요. 전체는 GitHub 에서 열어 보세요.</p>}
+                  {c.entries_limit_hit && <p className="gh-note">항목이 너무 많아 일부만 보여 줘요. 전체는 GitHub 에서 열어 보세요.</p>}
                   {path === "" && <RootReadme owner={owner} repo={repo} refName={ref_} />}
                 </>
               );
+            }
             case "file":
-              return <FileView file={c} owner={owner} repo={repo} refName={ref_} />;
+              return c.file ? <FileView file={c.file} owner={owner} repo={repo} refName={ref_} /> : <GhErrorState error={notFoundError()} />;
             case "symlink":
-              return <SymlinkView link={c} owner={owner} repo={repo} refName={ref_} />;
+              return <SymlinkView target={c.symlink_target} path={c.path} owner={owner} repo={repo} refName={ref_} />;
             case "submodule":
-              return <SubmoduleView sub={c} />;
+              return <SubmoduleView sub={c.submodule} />;
           }
         }}
       </QueryView>
