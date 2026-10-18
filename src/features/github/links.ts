@@ -21,12 +21,19 @@ export function safeGithubHref(href: string | null | undefined): string | null {
   return u.href;
 }
 
+/** PR·이슈 번호. 서버 규칙(1~2^31 정수)과 같다. 아니면 null. */
+export function parseNumber(s: string | undefined): number | null {
+  if (!s || !/^[1-9]\d{0,9}$/.test(s)) return null;
+  const n = Number(s);
+  return n <= 2 ** 31 ? n : null;
+}
+
 const pathSegs = (p: string) => p.split("/").map(encodeURIComponent).join("/");
 
 export type WebSpec =
   | { kind: "owner"; owner: string }
   | { kind: "repo"; owner: string; repo: string }
-  | { kind: "pull" | "issue"; owner: string; repo: string; number: number }
+  | { kind: "pull" | "pull-files" | "issue"; owner: string; repo: string; number: number }
   | { kind: "pulls" | "issues" | "actions"; owner: string; repo: string }
   | { kind: "tree" | "blob"; owner: string; repo: string; ref: string; path?: string }
   | { kind: "actions-run"; owner: string; repo: string; runId: string }
@@ -42,6 +49,7 @@ export function githubWebUrl(s: WebSpec): string | null {
   switch (s.kind) {
     case "repo": return repo;
     case "pull": return repo + "/pull/" + s.number;
+    case "pull-files": return repo + "/pull/" + s.number + "/files";
     case "issue": return repo + "/issues/" + s.number;
     case "pulls": return repo + "/pulls";
     case "issues": return repo + "/issues";

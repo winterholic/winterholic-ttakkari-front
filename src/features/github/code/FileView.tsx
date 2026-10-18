@@ -6,19 +6,11 @@ import { GhMarkdown } from "../GhMarkdown";
 import type { GhMarkdownBase } from "../GhMarkdown";
 import { bytes } from "../format";
 import { githubWebUrl, safeGithubHref } from "../links";
+import { WebLink } from "../parts";
 import { GhEmpty } from "../state/StateView";
 import { CodeBlock } from "./CodeBlock";
 
 const MARKDOWN = /\.(md|markdown|mdx)$/i;
-
-function WebLink({ href, label = "GitHub 에서 열기" }: { href: string | null; label?: string }) {
-  if (!href) return null;
-  return (
-    <a className="tk-button tk-button--ghost tk-button--sm" href={href} target="_blank" rel="noopener noreferrer">
-      <span>{label}</span><Icon name="external-link" />
-    </a>
-  );
-}
 
 export interface FileViewProps {
   file: GhFile;
