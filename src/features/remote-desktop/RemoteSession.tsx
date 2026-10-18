@@ -95,26 +95,28 @@ export function RemoteSession({ device, initialPermit, credentials, onExit }: Pr
     }
     async function open() {
       setFailed(false); setStatus('Mac에 연결 중…');
+      let sawReady = false, linked = false;
       try {
         const permit = permitUsed.current ? await connectRemoteMac(device.id, { grant: grant.current }) : initialPermit;
         if (disposed) return;
         permitUsed.current = true; grant.current = permit.grant;
         const url = new URL(apiUrl(permit.path)); url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
         ws = new WebSocket(url); ws.binaryType = 'arraybuffer'; socket.current = ws;
-        deadline = setTimeout(() => { ws?.close(); lose('Mac 응답 시간이 초과됐습니다.'); }, 15000);
+        deadline = setTimeout(() => { ws?.close(); lose('Mac 응답 시간이 초과됐습니다.'); }, 30000);
         ws.onopen = () => ws?.send(JSON.stringify({ ticket: permit.ticket, grant: permit.grant }));
-        ws.onclose = e => lose(e.reason || '화면 연결이 끊겼습니다.', e.code !== 1008 && e.code !== 1013);
+        ws.onclose = e => lose(e.reason || (sawReady ? '화면 연결이 끊겼습니다.' : '서버와의 연결이 끊겼습니다. 네트워크를 확인해 주세요.'), e.code !== 1008 && e.code !== 1013);
         ws.onerror = () => { setStatus('네트워크 연결을 확인하고 있습니다.'); };
         ws.onmessage = event => {
           if (disposed || event.data !== 'ready') return;
+          sawReady = true; setStatus('Mac 화면을 여는 중…');
           client = new RFB(node, ws!, { credentials, shared: true }); rfb.current = client;
           client.scaleViewport = false; client.clipViewport = false; client.resizeSession = false; client.focusOnClick = false;
           client.qualityLevel = 6; client.compressionLevel = 2;
           client.addEventListener('connect', () => {
             if (disposed) return;
-            clearTimeout(deadline); connected.current = true; retries.current = 0; setLive(true); setStatus('연결됨'); client?.blur();
+            clearTimeout(deadline); connected.current = true; linked = true; retries.current = 0; setLive(true); setStatus('연결됨'); client?.blur();
           });
-          client.addEventListener('disconnect', () => lose('화면 연결이 끊겼습니다.'));
+          client.addEventListener('disconnect', () => lose(linked ? '화면 연결이 끊겼습니다.' : 'Mac 화면 열기에 실패했습니다. Mac 계정 이름·비밀번호와 화면 공유 설정을 확인해 주세요.'));
           client.addEventListener('securityfailure', () => { retries.current = 3; lose('Mac 인증에 실패했습니다. 계정과 화면 공유 권한을 확인해 주세요.', false); });
           client.addEventListener('credentialsrequired', () => { retries.current = 3; lose('Mac 계정 이름과 로그인 비밀번호를 다시 입력해 주세요.', false); client?.disconnect(); });
           client.addEventListener('clipboard', e => { if (!disposed) setClipboard((e as CustomEvent<{ text: string }>).detail.text); });
