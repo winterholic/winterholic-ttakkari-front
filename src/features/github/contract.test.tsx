@@ -165,3 +165,21 @@ it("로그 창이 글자 수 상한으로 줄면 서버가 준 next_from_line �
   expect(next).toBeTruthy();
   expect(screen.getByText(/글자 수 제한/)).toBeTruthy();
 });
+
+it("page.limit_hit·entries_limit_hit·body_truncated 플래그를 숨기지 않는다", async () => {
+  h.ghPullFiles.mockImplementation(async () => envelope(S.PULL_FILES, A, { page: { page: 1, per_page: 30, has_more: false, total_count: null, limit_hit: true } }));
+  renderAt("/github/acme/widget/pulls/7?as=alice&tab=files");
+  expect(await screen.findByText(/최대 3,000개 파일까지만/)).toBeTruthy();
+  cleanup();
+  h.ghContents.mockImplementation(async () => envelope({ ...S.CONTENTS_DIR, entries_limit_hit: true }, A));
+  renderAt("/github/acme/widget/code?as=alice&path=src");
+  expect(await screen.findByText(/항목이 너무 많아 일부만/)).toBeTruthy();
+  cleanup();
+  h.ghPull.mockImplementation(async () => envelope({ ...S.PULL, body_truncated: true }, A));
+  renderAt("/github/acme/widget/pulls/7?as=alice");
+  expect(await screen.findByText(/본문이 길어 앞부분만/)).toBeTruthy();
+  cleanup();
+  h.ghIssue.mockImplementation(async () => envelope({ ...S.ISSUE, body_truncated: true }, A));
+  renderAt("/github/acme/widget/issues/3?as=alice");
+  expect(await screen.findByText(/본문이 길어 앞부분만/)).toBeTruthy();
+});
