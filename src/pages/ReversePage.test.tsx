@@ -3,10 +3,12 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 
-const h = vi.hoisted(() => ({ list: vi.fn(), start: vi.fn(), get: vi.fn(), remove: vi.fn(), retry: vi.fn() }));
+const h = vi.hoisted(() => ({ list: vi.fn(), start: vi.fn(), get: vi.fn(), remove: vi.fn(), retry: vi.fn(), workspaces: vi.fn(), message: vi.fn() }));
 vi.mock("../api/client", async (orig) => ({
   ...(await orig<typeof import("../api/client")>()),
   listReverseJobs: (...a: unknown[]) => h.list(...a),
+  listWorkspaces: (...a: unknown[]) => h.workspaces(...a),
+  messageReverseJob: (...a: unknown[]) => h.message(...a),
   startReverseJob: (...a: unknown[]) => h.start(...a),
   getReverseJob: (...a: unknown[]) => h.get(...a),
   deleteReverseJob: (...a: unknown[]) => h.remove(...a),
@@ -67,6 +69,7 @@ function mountDetail(job: unknown) {
 
 beforeEach(() => {
   h.list.mockResolvedValue({ items: [] });
+  h.workspaces.mockResolvedValue([{ id: "ws-1", name: "우리 프로젝트", root_path: "/work/project" }]);
   h.start.mockResolvedValue(doneJob);
   h.remove.mockResolvedValue({ id: "job-1", deleted: true });
   h.get.mockResolvedValue(detail);
@@ -76,10 +79,10 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 it("부가 기능에 등록되고 빈 목록·분석 시작을 안내한다", async () => {
   expect(FEATURES.find((x) => x.root === "reverse")?.to).toBe("/reverse");
   mountList();
-  expect(await screen.findByText("아직 분석한 저장소가 없어요")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("분석 대상"), { target: { value: "morluto/rea" } });
-  fireEvent.click(screen.getByRole("button", { name: "분석 시작" }));
-  await waitFor(() => expect(h.start).toHaveBeenCalledWith("morluto/rea"));
+  expect(await screen.findByText("아직 시작한 작업이 없어요")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("분석할 대상과 재현 목표"), { target: { value: "이 계산기의 버튼과 계산 동작을 분석해 소스로 재현해줘." } });
+  fireEvent.click(screen.getByRole("button", { name: "분석·구현 시작" }));
+  await waitFor(() => expect(h.start).toHaveBeenCalledWith({ description: "이 계산기의 버튼과 계산 동작을 분석해 소스로 재현해줘.", workspace_id: undefined }));
 });
 
 it("목록에서 상태·요약·실패 이유를 보고 지운다", async () => {
@@ -125,4 +128,32 @@ it("부분 완료는 정적 정리 안내를 보여준다", async () => {
   mountDetail({ ...detail, status: "partial" });
   expect(await screen.findByText(/정적 정리만 됐어요/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "다시 시도" })).toBeTruthy();
+});
+
+
+it("자연어 설명은 여러 줄이고 작업공간을 선택할 수 있다", async () => {
+  mountList();
+  const input = screen.getByLabelText("분석할 대상과 재현 목표");
+  expect(input.tagName).toBe("TEXTAREA");
+  await screen.findByRole("option", { name: "우리 프로젝트" });
+  fireEvent.change(screen.getByLabelText("소스를 저장할 작업공간"), { target: { value: "ws-1" } });
+  const description = "웹앱의 검색 동작을 재현해줘.\n입력하면 결과가 바로 필터링돼야 해.";
+  fireEvent.change(input, { target: { value: description } });
+  fireEvent.click(screen.getByRole("button", { name: "분석·구현 시작" }));
+  await waitFor(() => expect(h.start).toHaveBeenCalledWith({ description, workspace_id: "ws-1" }));
+});
+
+it("재현 작업은 소스 경로·관찰·검증·후속 설명을 보여준다", async () => {
+  h.message.mockResolvedValue({ ...doneJob, status: "queued" });
+  mountDetail({ ...doneJob, kind: "reconstruction", output_path: "/work/project/reverse-engineering/job-1",
+    session_id: "session-1", result: null, stages, rounds: [], activity: [], outputs: [],
+    reconstruction: { summary: "계산 동작 재현", source_files: ["src/main.py"], verification: "passed",
+      observations: [{ finding: "12 + 3 = 15", evidence: "사용자 설명" }],
+      checks: [{ command: "pytest", exit_code: 0, log: "evidence/test.log" }], limitations: [] } });
+  expect(await screen.findByText("src/main.py")).toBeTruthy();
+  expect(screen.getByText("12 + 3 = 15")).toBeTruthy();
+  expect(screen.getByText("독립 검증 통과")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("추가 설명이나 수정 요청"), { target: { value: "소수 계산도 재현해줘." } });
+  fireEvent.click(screen.getByRole("button", { name: "이어서 지시" }));
+  await waitFor(() => expect(h.message).toHaveBeenCalledWith("job-1", "소수 계산도 재현해줘."));
 });

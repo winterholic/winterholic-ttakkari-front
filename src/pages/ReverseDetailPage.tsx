@@ -9,6 +9,7 @@ import { Icon } from "../ui/Icon";
 import { toast } from "../ui/toastStore";
 import { ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { errorText } from "../features/viewer/api";
+import { Reconstruction } from "../features/reverse/Reconstruction";
 import "./reverse.css";
 
 const STAGE_STATE: Record<ReverseStage["status"], string> = {
@@ -98,7 +99,7 @@ export function ReverseDetailPage() {
   const qc = useQueryClient();
   const job = useQuery({
     queryKey: ["reverse", "job", jobId], queryFn: () => getReverseJob(jobId),
-    refetchInterval: (q) => (q.state.data?.status === "queued" || q.state.data?.status === "running" ? 2500 : false),
+    refetchInterval: (q) => (q.state.data?.status === "queued" || q.state.data?.status === "running" || q.state.data?.status === "waiting" ? 2500 : false),
   });
   useForegroundResync(() => { void qc.invalidateQueries({ queryKey: ["reverse"] }); });
   const data = job.data ?? null;
@@ -113,7 +114,7 @@ export function ReverseDetailPage() {
   });
   return (
     <div className="tk-screen">
-      <PageHeader title="분석 결과" meta={data ? data.target : "리버스 엔지니어링"}
+      <PageHeader title={data?.kind === "reconstruction" ? "리버스 작업" : "이전 분석 기록"} meta={data ? data.target : "리버스 엔지니어링"}
         actions={<IconButton aria-label="목록으로" onClick={() => void navigate("/reverse")}><Icon name="back" /></IconButton>} />
       <div className="tk-screen__body">
         <div className="tk-container tk-container--lg">
@@ -121,17 +122,19 @@ export function ReverseDetailPage() {
             {job.isPending ? <ListSkeleton label="분석 결과를 읽는 중" rows={5} />
               : job.isError ? <ErrorState what="분석 결과" error={job.error} onRetry={() => void job.refetch()} />
               : data && <>
-                {(data.status === "failed" || data.status === "waiting") && data.error && <p className="tk-error" role="alert">{data.error}</p>}
-                {data.status === "partial" && <p className="rv-note" role="status">모델 합성 없이 정적 정리만 됐어요. 다시 시도하면 모델 합성을 붙일 수 있어요.</p>}
-                {RETRYABLE.has(data.status) && (
+                {(data.status === "failed" || data.status === "waiting" || data.status === "needs_input") && data.error && <p className="tk-error" role="alert">{data.error}</p>}
+                {data.kind !== "reconstruction" && data.status === "partial" && <p className="rv-note" role="status">모델 합성 없이 정적 정리만 됐어요. 다시 시도하면 모델 합성을 붙일 수 있어요.</p>}
+                {data.kind !== "reconstruction" && RETRYABLE.has(data.status) && (
                   <Button variant="primary" size="sm" busy={retry.isPending} onClick={() => retry.mutate()}>다시 시도</Button>
                 )}
-                <section className="rv-section" aria-label="과정 타임라인">
-                  <h2 className="tk-heading-4">과정 타임라인</h2>
-                  <Timeline stages={data.stages} />
-                </section>
-                {data.result ? <Result result={data.result} />
-                  : <p className="rv-note">{active ? "분석이 진행 중입니다. 잠시 후 결과가 나옵니다." : "결과가 없습니다."}</p>}
+                {data.kind === "reconstruction" ? <Reconstruction job={data} timeline={<Timeline stages={data.stages} />} /> : <>
+                  <section className="rv-section" aria-label="과정 타임라인">
+                    <h2 className="tk-heading-4">과정 타임라인</h2>
+                    <Timeline stages={data.stages} />
+                  </section>
+                  {data.result ? <Result result={data.result} />
+                    : <p className="rv-note">{active ? "분석이 진행 중입니다. 잠시 후 결과가 나옵니다." : "결과가 없습니다."}</p>}
+                </>}
               </>}
           </div>
         </div>

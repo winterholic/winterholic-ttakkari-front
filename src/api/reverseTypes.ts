@@ -1,7 +1,7 @@
 /** 리버스 엔지니어링 API(백엔드 docs/adr/0038-reverse-engineer.md). 디자인시스템 타입과 섞지 않는다. */
 
-export type ReverseStatus = "queued" | "running" | "waiting" | "partial" | "done" | "failed";
-export type ReverseKind = "git_url" | "local_path";
+export type ReverseStatus = "queued" | "running" | "waiting" | "partial" | "done" | "failed" | "needs_input";
+export type ReverseKind = "reconstruction" | "git_url" | "local_path";
 
 export interface ReverseStage {
   key: string;
@@ -24,6 +24,12 @@ export interface ReverseSummary {
   created_at: string;
   updated_at: string;
   overview?: string;
+  workspace_id?: string;
+  session_id?: string;
+  verifier_session_id?: string | null;
+  output_path?: string;
+  progress?: string | null;
+  waiting_reason?: string | null;
 }
 
 export interface ReverseArchitecture {
@@ -69,4 +75,15 @@ export interface ReverseResult {
 export interface ReverseDetail extends ReverseSummary {
   stages: ReverseStage[];
   result: ReverseResult | null;
+  reconstruction?: {
+    summary: string;
+    source_files: string[];
+    observations: { finding: string; evidence: string }[];
+    checks: { command: string; exit_code: number; log: string }[];
+    limitations: string[];
+    verification: string;
+  } | null;
+  rounds?: { id: string; session_id: string; status: string; role: string; result_text: string; error: string | null; engine: string; model: string | null }[];
+  activity?: { type: string; at: string; text: string }[];
+  outputs?: import("./types").ArtifactOut[];
 }

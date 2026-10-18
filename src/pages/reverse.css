@@ -41,3 +41,12 @@
 @media (min-width: 1024px) {
   .rv-result { gap: var(--tk-space-5); }
 }
+.rv-start textarea { width: 100%; min-width: 0; resize: vertical; padding: var(--tk-space-3); font: inherit; line-height: var(--tk-font-line-height-normal); color: var(--tk-color-text-primary); background: var(--tk-color-surface-default); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); }
+.rv-start select { width: 100%; min-width: 0; min-height: var(--tk-size-touch-target-min); font: inherit; }
+.rv-row--wrap { flex-wrap: wrap; gap: var(--tk-space-3); }
+.rv-start .tk-button { align-self: flex-start; }
+.rv-start textarea:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-space-1); }
+.rv-start textarea, .rv-start select { box-sizing: border-box; }
+.rv-start > h2, .rv-section > h2 { margin: 0; }
+
+.rv-phase-summary { cursor: pointer; min-height: var(--tk-size-touch-target-min); align-content: center; font-weight: var(--tk-font-weight-semibold); }
