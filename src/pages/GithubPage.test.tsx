@@ -117,6 +117,17 @@ it("계정 목록 오류는 다시 시도할 수 있다", async () => {
   expect(await screen.findByText(/연결된 GitHub 계정이 없어요/)).toBeTruthy();
 });
 
+it("gh 상태 조회 일시 실패(no_account+gh_status_failed)는 계정 없음 안내가 아니라 재시도 안내이고 다시 시도하면 복구된다", async () => {
+  h.ghAccounts.mockRejectedValueOnce(new GhApiError({ status: 503, code: "no_account", message: "x", reason: "gh_status_failed" }));
+  renderAt("/github");
+  expect(await screen.findByText(/상태를 확인하지 못했어요/)).toBeTruthy();
+  expect(screen.queryByText(/연결된 GitHub 계정이 없어요/)).toBeNull();
+  expect(screen.queryByText(/gh auth login/)).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+  expect(await screen.findByRole("heading", { name: "GitHub 계정 선택" })).toBeTruthy();
+  expect(h.ghAccounts).toHaveBeenCalledTimes(2);
+});
+
 it("홈은 선택 계정의 프로필·조직·저장소를 보여 주고 모든 호출에 그 계정을 쓴다", async () => {
   renderAt("/github?as=alice");
   expect(await screen.findByText("Alice Kim")).toBeTruthy();
@@ -169,6 +180,17 @@ it("열 수 없는 주소는 입력 아래에 이유를 보여 주고 이동하�
   fireEvent.change(input, { target: { value: "https://gitlab.com/a/b" } });
   fireEvent.submit(input.closest("form")!);
   expect(await screen.findByText(/github.com 저장소만/)).toBeTruthy();
+  expect(where()).toBe("/github?as=alice");
+});
+
+it("ref 해석 상한(gh_unprocessable+ref_resolution_limit)은 크기 안내 대신 저장소에서 ref 를 고르라고 안내하고 이동하지 않는다", async () => {
+  h.ghResolve.mockRejectedValue(new GhApiError({ status: 422, code: "gh_unprocessable", message: "x", reason: "ref_resolution_limit" }));
+  renderAt("/github?as=alice");
+  const input = await screen.findByLabelText("저장소 주소");
+  fireEvent.change(input, { target: { value: "https://github.com/acme/widgets/tree/dependabot/npm/foo" } });
+  fireEvent.submit(input.closest("form")!);
+  expect(await screen.findByText(/직접 골라/)).toBeTruthy();
+  expect(screen.queryByText(/너무 크/)).toBeNull();
   expect(where()).toBe("/github?as=alice");
 });
 

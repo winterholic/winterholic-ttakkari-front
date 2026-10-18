@@ -28,6 +28,10 @@ export function describeGhError(error: unknown, nowMs: number = Date.now()): GhE
   }
   switch (error.code) {
     case "no_account":
+      // 같은 503 이라도 gh_status_failed 는 로그인이 없는 게 아니라 gh 상태 조회가 일시 실패한 것이다. 로그인 안내를 주면 틀린 조치를 권하게 된다.
+      if (error.reason === "gh_status_failed") {
+        return { ...base, tone: "warning", title: "GitHub 계정 상태를 확인하지 못했어요", message: "Mac Studio 의 gh 가 계정 상태를 일시적으로 알려 주지 못했어요. 로그아웃된 것은 아니니 잠시 뒤 다시 시도해 주세요. 계속되면 Mac Studio 에서 gh auth status 를 확인해 주세요.", retry: true };
+      }
       return { ...base, tone: "warning", title: "연결된 GitHub 계정이 없어요", message: "Mac Studio 에서 gh auth login 으로 계정을 추가한 뒤 다시 열어 주세요." };
     case "gh_cli_missing":
       return { ...base, tone: "warning", title: "Mac Studio 에서 gh 를 찾을 수 없어요", message: "GitHub CLI(gh)가 설치돼 있지 않거나 실행할 수 없어요. 설치하고 gh auth login 으로 로그인한 뒤 다시 열어 주세요." };
@@ -68,6 +72,10 @@ export function describeGhError(error: unknown, nowMs: number = Date.now()): GhE
     case "gh_unavailable_legal":
       return { ...base, tone: "neutral", title: "법적 사유로 볼 수 없어요", message: "GitHub 가 법적 사유로 이 저장소 접근을 막았어요." };
     case "gh_unprocessable":
+      // resolve 에서만 나온다. 없다는 뜻도, 크기 문제도 아니고 같은 접두사 ref 가 너무 많아 서버가 확인을 멈춘 것이라 같은 입력은 다시 보내도 같다.
+      if (error.reason === "ref_resolution_limit") {
+        return { ...base, tone: "warning", title: "브랜치·태그 주소를 확인하지 못했어요", message: "같은 이름으로 시작하는 브랜치·태그가 너무 많고 이름이 깊어서 주소의 브랜치·태그를 찾지 못했어요. 없다는 뜻은 아니에요. owner/repo 만 넣어 저장소를 연 뒤 브랜치·태그 목록에서 직접 골라 주세요." };
+      }
       return { ...base, tone: "warning", title: "GitHub 가 이 내용을 주지 않았어요", message: "내용이 너무 크거나 처리할 수 없는 형태예요. GitHub 에서 직접 열어 보세요.", openOnGithub: true };
     case "gh_too_large":
       return { ...base, tone: "warning", title: "내용이 너무 커요", message: "여기서 보여 줄 수 있는 크기를 넘었어요. GitHub 에서 직접 열어 보세요.", openOnGithub: true };

@@ -40,6 +40,41 @@ describe("describeGhError", () => {
   it("계정 없음은 gh auth login 안내", () => {
     expect(describeGhError(err("no_account", { status: 503 })).message).toMatch(/gh auth login/);
   });
+  it("no_account 의 gh_status_failed 는 계정이 없다는 안내가 아니라 상태 조회 일시 실패로 보고 재시도를 준다", () => {
+    const v = describeGhError(err("no_account", { status: 503, reason: "gh_status_failed" }));
+    const plain = describeGhError(err("no_account", { status: 503 }));
+    expect(v.title).toMatch(/상태/);
+    expect(v.title).not.toMatch(/계정이 없/);
+    expect(v.message).not.toMatch(/gh auth login/);
+    expect(v.message).toMatch(/일시|잠시/);
+    expect(v.retry).toBe(true);
+    expect(v.switchAccount).toBe(false);
+    expect(v.title).not.toBe(plain.title);
+    expect(v.message).not.toBe(plain.message);
+  });
+  it("reason 이 없거나 모르는 값이면 no_account 는 기존 로그인 안내를 그대로 둔다", () => {
+    for (const reason of [undefined, "something_new"]) {
+      const v = describeGhError(err("no_account", { status: 503, reason }));
+      expect(v.title).toMatch(/연결된 GitHub 계정이 없어요/);
+      expect(v.message).toMatch(/gh auth login/);
+      expect(v.retry).toBe(false);
+    }
+  });
+  it("gh_unprocessable 의 ref_resolution_limit 은 크기 문제가 아니라 ref 해석 상한이고 저장소에서 직접 고르라고 한다", () => {
+    const v = describeGhError(err("gh_unprocessable", { status: 422, reason: "ref_resolution_limit" }));
+    expect(v.message).not.toMatch(/너무 크/);
+    expect(v.message).toMatch(/브랜치/);
+    expect(v.message).toMatch(/태그/);
+    expect(v.message).toMatch(/직접 (골라|선택)/);
+    expect(v.message).toMatch(/없다는 뜻은 아니|없는 것이 아니/);
+    expect(v.retry).toBe(false);
+    expect(v.openOnGithub).toBe(false);
+  });
+  it("reason 이 없는 gh_unprocessable 은 기존처럼 GitHub 에서 열기를 권한다", () => {
+    const v = describeGhError(err("gh_unprocessable", { status: 422 }));
+    expect(v.message).toMatch(/너무 크거나/);
+    expect(v.openOnGithub).toBe(true);
+  });
   it("일시 오류는 재시도를 준다", () => {
     for (const c of ["gh_timeout", "gh_upstream_error", "gh_schema_changed", "network"]) expect(describeGhError(err(c)).retry).toBe(true);
   });
