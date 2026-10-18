@@ -17,7 +17,7 @@ export function StepList({ steps, firstFailed }: { steps: GhStep[]; firstFailed?
     <ul className="gh-steps" aria-label="step 결과">
       {orderSteps(steps).map((s) => (
         <li key={s.number} className="gh-step">
-          <span className="gh-step__no">{s.number}</span>
+          <span className="gh-step__no" data-stress-skip>{s.number}</span>
           <span className="gh-step__name">{s.name}</span>
           {firstFailed === s.number && <Badge tone="danger">처음 실패</Badge>}
           {s.status === "completed" || s.conclusion ? <RunResultBadge status={s.status} conclusion={s.conclusion} /> : <Badge>{s.status ?? "대기"}</Badge>}

@@ -9,6 +9,9 @@
 
 /* 위로 올라가는 이동 줄: 긴 이름은 줄을 바꿔 전부 보인다 */
 .gh-path li { overflow-wrap: anywhere; }
+/* 디자인 시스템 경로 줄은 폰 폭에서 가운데를 "…"로 접는다. 여기서는 올라갈 수 있는 모든 단계가 보여야 해서 접지 않고 줄바꿈한다 */
+.tk-path.gh-path li:not(:nth-last-child(-n + 2), :first-child), .tk-path.gh-pathbar li:not(:nth-last-child(-n + 2), :first-child) { display: inline-flex; }
+.tk-path.gh-path li:first-child:not(:nth-last-child(-n + 2))::after, .tk-path.gh-pathbar li:first-child:not(:nth-last-child(-n + 2))::after { content: none; }
 .gh-account { max-width: 100%; }
 .gh-account > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 
