@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { checkTossInvest, getTossInvestLoginHelp, getTossInvestStatus, listTossInvestRuns, syncTossInvest, ApiError } from "../api/client";
+import { checkTossInvest, getTossInvestLoginHelp, getTossInvestStatus, listTossInvestRuns, openTossInvestLoginWindow, syncTossInvest, ApiError } from "../api/client";
 import type { TossInvestRun, TossInvestStatus } from "../api/stocksTypes";
 import { useForegroundResync } from "../hooks/useForegroundResync";
 import { PageHeader } from "../shell/PageHeader";
@@ -41,11 +41,40 @@ function runLabel(run: TossInvestRun): string {
 }
 
 function errorMessage(e: unknown): string {
-  if (e instanceof ApiError && e.code === "rate_limited") return e.message || "조금 뒤에 다시 시도해 주세요.";
+  if (e instanceof ApiError) {
+    if (e.code === "rate_limited") return e.message || "조금 뒤에 다시 시도해 주세요.";
+    if (e.status === 404) return "백엔드 배포 전이라 아직 쓸 수 없어요. 배포 뒤에 다시 시도해 주세요.";
+  }
   return "요청하지 못했어요. 잠시 후 다시 시도해 주세요.";
 }
 
+function statusErrorMessage(e: unknown): string {
+  if (e instanceof ApiError && e.status === 404) {
+    return "백엔드에 아직 토스증권 연결 기능이 없어요. 백엔드 배포 뒤에 다시 열어 주세요.";
+  }
+  return "연결 상태를 불러오지 못했어요.";
+}
+
+function loginWindowErrorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    if (e.status === 404) return "백엔드에 아직 로그인 창 열기 기능이 없어요. 백엔드 배포 뒤에 다시 시도해 주세요.";
+    if (e.message) return e.message;
+  }
+  return "로그인 창을 열지 못했어요. 잠시 후 다시 시도해 주세요.";
+}
+
+/** 사람 수준 빈도를 지키려고 다음 확인까지 기다려야 하는 초. 기다릴 필요 없으면 null. */
+function nextWaitSeconds(status: TossInvestStatus): number | null {
+  const last = status.last_run;
+  if (!last || !status.check_interval_seconds) return null;
+  const at = Math.max(Date.parse(last.created_at), Date.parse(last.updated_at));
+  if (!Number.isFinite(at)) return null;
+  const remain = status.check_interval_seconds - (Date.now() - at) / 1000;
+  return remain > 0 ? Math.ceil(remain) : null;
+}
+
 function StatusCard({ status }: { status: TossInvestStatus }) {
+  const wait = nextWaitSeconds(status);
   return <section className="tk-section" aria-labelledby="toss-status-title">
     <div className="tk-section__head">
       <h2 id="toss-status-title" className="tk-section__title">연결 상태</h2>
@@ -57,6 +86,7 @@ function StatusCard({ status }: { status: TossInvestStatus }) {
       <div><dt>마지막 확인</dt><dd>{when(status.checked_at)}</dd></div>
       <div><dt>브라우저</dt><dd>{status.browser_available ? "Chrome 있음" : "Chrome 없음"}</dd></div>
       <div><dt>전용 프로필</dt><dd>{status.profile_exists ? "있음" : "아직 없음"}</dd></div>
+      {wait !== null && <div><dt>다음 확인까지</dt><dd>약 {wait}초</dd></div>}
       {status.last_run?.page_title && <div><dt>마지막 페이지</dt><dd>{status.last_run.page_title}</dd></div>}
     </dl>
   </section>;
@@ -81,9 +111,18 @@ export function TossInvestPage() {
     onSuccess: refresh,
     onError: (e) => toast({ message: errorMessage(e), tone: "danger" }),
   });
-  const busy = check.isPending || sync.isPending;
+  const loginWindow = useMutation({
+    mutationFn: openTossInvestLoginWindow,
+    onSuccess: (res) => {
+      toast({ message: res.message || "로그인 창이 열렸습니다.", tone: "success" });
+      refresh();
+    },
+    onError: (e) => toast({ message: loginWindowErrorMessage(e), tone: "danger" }),
+  });
+  const busy = check.isPending || sync.isPending || loginWindow.isPending;
   const status = statusQuery.data;
-  const needsLogin = status?.state === "login_required" || status?.state === "never_checked";
+  const needsLogin = status?.state === "login_required" || status?.state === "never_checked" || (status ? !status.profile_exists : false);
+  const windowOpen = status?.state === "login_window";
   return <div className="tk-screen stocks-page">
     <PageHeader title="토스증권 연결" />
     <div className="tk-screen__body"><div className="tk-container tk-container--md">
@@ -105,17 +144,36 @@ export function TossInvestPage() {
       </header>
 
       {statusQuery.isPending && <p className="tk-status" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />연결 상태를 불러오는 중</p>}
-      {statusQuery.isError && <div className="stocks-state" role="alert"><strong>연결 상태를 불러오지 못했어요.</strong><Button variant="ghost" onClick={() => void statusQuery.refetch()}>다시 시도</Button></div>}
+      {statusQuery.isError && <div className="stocks-state" role="alert"><strong>{statusErrorMessage(statusQuery.error)}</strong><Button variant="ghost" onClick={() => void statusQuery.refetch()}>다시 시도</Button></div>}
       {status && <StatusCard status={status} />}
 
-      {needsLogin && helpQuery.data && <section className="tk-section" aria-labelledby="toss-login-title">
+      {windowOpen && <section className="tk-section" aria-labelledby="toss-window-title">
+        <div className="tk-section__head"><h2 id="toss-window-title" className="tk-section__title">로그인 진행 중</h2></div>
+        <p className="stocks-message" role="status">로그인 창이 열려 있습니다. 로그인 후 창을 닫아 주세요.</p>
+        <p className="stocks-note">창을 닫은 뒤 위의 '연결 확인'을 누르면 로그인 상태를 확인합니다.</p>
+      </section>}
+
+      {needsLogin && !windowOpen && <section className="tk-section" aria-labelledby="toss-login-title">
         <div className="tk-section__head"><h2 id="toss-login-title" className="tk-section__title">최초 1회 로그인</h2></div>
-        <ol className="stocks-steps">
-          {helpQuery.data.steps.map((step, i) => <li key={i}>{step}</li>)}
-        </ol>
-        <p className="stocks-command-label">터미널에 그대로 붙여 넣으세요</p>
-        <pre className="stocks-command"><code>{helpQuery.data.open_command.join(" ")}</code></pre>
-        <p className="stocks-note">{helpQuery.data.note}</p>
+        <div className="stocks-actions">
+          <Button busy={loginWindow.isPending} disabled={loginWindow.isPending} onClick={() => loginWindow.mutate()}>
+            {loginWindow.isPending ? "로그인 창 여는 중" : "토스증권 로그인 창 열기"}
+          </Button>
+        </div>
+        {loginWindow.data && <p className="stocks-message" role="status">{loginWindow.data.message}</p>}
+        {loginWindow.isError && <p className="stocks-message" role="alert">{loginWindowErrorMessage(loginWindow.error)}</p>}
+        <p className="stocks-keep"><strong>'로그인 상태 유지'를 꼭 체크하세요.</strong> 체크하지 않으면 창을 닫은 뒤 로그인이 풀립니다.</p>
+        {helpQuery.isPending && <p className="tk-status" role="status" aria-busy="true"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />로그인 안내를 불러오는 중</p>}
+        {helpQuery.isError && <p className="stocks-note" role="alert">단계 안내를 불러오지 못했어요. 위 버튼으로 창을 먼저 열어 로그인해 주세요.</p>}
+        {helpQuery.data && <>
+          <ol className="stocks-steps">
+            {helpQuery.data.steps.map((step, i) => <li key={i}>{step}</li>)}
+          </ol>
+          <p className="stocks-command-label">터미널에 그대로 붙여 넣으세요</p>
+          <pre className="stocks-command"><code>{helpQuery.data.open_command.join(" ")}</code></pre>
+          <p className="stocks-note">{helpQuery.data.note}</p>
+        </>}
+        <p className="stocks-note">창에서 로그인한 뒤 창을 닫고, 위의 '연결 확인'을 눌러 주세요.</p>
       </section>}
 
       <section className="tk-section" aria-labelledby="toss-runs-title">

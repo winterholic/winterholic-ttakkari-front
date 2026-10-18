@@ -39,3 +39,8 @@ export interface TossInvestLoginHelp {
   open_command: string[];
   note: string;
 }
+
+export interface TossInvestLoginWindow {
+  state: string;
+  message: string;
+}

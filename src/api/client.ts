@@ -51,7 +51,7 @@ import type {
   WorkspacePatch,
 } from "./types";
 import type { WeatherBriefing } from "./weatherTypes";
-import type { StocksProvider, TossInvestLoginHelp, TossInvestRun, TossInvestStatus } from "./stocksTypes";
+import type { StocksProvider, TossInvestLoginHelp, TossInvestLoginWindow, TossInvestRun, TossInvestStatus } from "./stocksTypes";
 
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://127.0.0.1:8787";
 
@@ -258,6 +258,8 @@ export const getTossInvestLoginHelp = (): Promise<TossInvestLoginHelp> =>
   json("/api/stocks/tossinvest/login-help");
 export const checkTossInvest = (): Promise<TossInvestRun> =>
   json("/api/stocks/tossinvest/check", { method: "POST", json: {} });
+export const openTossInvestLoginWindow = (): Promise<TossInvestLoginWindow> =>
+  json("/api/stocks/tossinvest/login-window", { method: "POST", json: {} });
 export const syncTossInvest = (): Promise<TossInvestRun> =>
   json("/api/stocks/tossinvest/sync", { method: "POST", json: {} });
 

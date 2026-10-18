@@ -3,9 +3,10 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { TossInvestPage } from "./TossInvestPage";
+import { ApiError } from "../api/client";
 
 const h = vi.hoisted(() => ({
-  status: vi.fn(), runs: vi.fn(), help: vi.fn(), check: vi.fn(), sync: vi.fn(),
+  status: vi.fn(), runs: vi.fn(), help: vi.fn(), check: vi.fn(), sync: vi.fn(), openWindow: vi.fn(),
 }));
 vi.mock("../api/client", () => ({
   getTossInvestStatus: h.status,
@@ -13,7 +14,16 @@ vi.mock("../api/client", () => ({
   getTossInvestLoginHelp: h.help,
   checkTossInvest: h.check,
   syncTossInvest: h.sync,
-  ApiError: class extends Error { status = 500; code = "error"; },
+  openTossInvestLoginWindow: h.openWindow,
+  ApiError: class extends Error {
+    status = 500;
+    code = "error";
+    constructor(status?: number, body?: { code?: string; message?: string }) {
+      super(body?.message);
+      if (status !== undefined) this.status = status;
+      if (body?.code !== undefined) this.code = body.code;
+    }
+  },
 }));
 vi.mock("../shell/PageHeader", () => ({ PageHeader: ({ title }: { title: string }) => <h1>{title}</h1> }));
 vi.mock("../hooks/useForegroundResync", () => ({ useForegroundResync: () => {} }));
@@ -38,6 +48,7 @@ beforeEach(() => {
   h.help.mockResolvedValue(HELP);
   h.check.mockResolvedValue({ id: "r1", kind: "check", status: "login_required" });
   h.sync.mockResolvedValue({ id: "r2", kind: "sync", status: "ready" });
+  h.openWindow.mockResolvedValue({ state: "waiting", message: "로그인 창이 열렸습니다." });
 });
 afterEach(cleanup);
 
@@ -80,4 +91,47 @@ it("작업 기록 목록을 보여준다", async () => {
   mount();
   expect(await screen.findByText("동기화 · 연결됨")).toBeTruthy();
   expect(screen.getByText("저장된 로그인으로 토스증권을 열었습니다.")).toBeTruthy();
+});
+
+it("로그인 창 열기 버튼이 API를 부르고 결과를 보여준다", async () => {
+  mount();
+  fireEvent.click(await screen.findByRole("button", { name: "토스증권 로그인 창 열기" }));
+  await waitFor(() => expect(h.openWindow).toHaveBeenCalledTimes(1));
+  expect(await screen.findByText("로그인 창이 열렸습니다.")).toBeTruthy();
+  expect(screen.getByText(/'로그인 상태 유지'를 꼭 체크하세요/)).toBeTruthy();
+});
+
+it("로그인 창 열기가 거절되면 서버 문구를 보여준다", async () => {
+  h.openWindow.mockRejectedValueOnce(new ApiError(409, { code: "login_window_open", message: "로그인 창이 이미 열려 있습니다." }));
+  mount();
+  fireEvent.click(await screen.findByRole("button", { name: "토스증권 로그인 창 열기" }));
+  expect(await screen.findByText("로그인 창이 이미 열려 있습니다.")).toBeTruthy();
+});
+
+it("로그인 창이 열려 있으면 안내만 보여준다", async () => {
+  h.status.mockResolvedValue({ ...STATUS, state: "login_window", message: "로그인 창이 열려 있습니다." });
+  mount();
+  expect(await screen.findByText("로그인 창이 열려 있습니다. 로그인 후 창을 닫아 주세요.")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "토스증권 로그인 창 열기" })).toBeNull();
+});
+
+it("상태 조회 404면 배포 전 안내를 보여준다", async () => {
+  h.status.mockRejectedValueOnce(new ApiError(404, { code: "http_404", message: "Not Found" }));
+  mount();
+  expect(await screen.findByText("백엔드에 아직 토스증권 연결 기능이 없어요. 백엔드 배포 뒤에 다시 열어 주세요.")).toBeTruthy();
+});
+
+it("다음 확인까지 남은 시간을 보여준다", async () => {
+  const recent = new Date(Date.now() - 60_000).toISOString();
+  h.status.mockResolvedValue({
+    ...STATUS, state: "ready", message: "저장된 로그인으로 토스증권을 열었습니다.", logged_in: true,
+    last_run: {
+      id: "r9", kind: "check", status: "ready", message: "ok", logged_in: true,
+      page_title: "토스증권", api_paths: [], duration_ms: 3200, request_source: "manual",
+      created_at: recent, updated_at: recent,
+    },
+  });
+  mount();
+  expect(await screen.findByText("다음 확인까지")).toBeTruthy();
+  expect(screen.getByText(/약 \d+초/)).toBeTruthy();
 });
