@@ -157,3 +157,9 @@ it("재현 작업은 소스 경로·관찰·검증·후속 설명을 보여준�
   fireEvent.click(screen.getByRole("button", { name: "이어서 지시" }));
   await waitFor(() => expect(h.message).toHaveBeenCalledWith("job-1", "소수 계산도 재현해줘."));
 });
+
+it("재현 작업의 부분 완료에는 막힌 검사의 이유를 표시한다", async () => {
+  mountDetail({ ...doneJob, kind: "reconstruction", status: "partial", error: "필수 회귀 검사가 실패했습니다.",
+    result: null, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+  expect(await screen.findByRole("alert")).toHaveProperty("textContent", "필수 회귀 검사가 실패했습니다.");
+});

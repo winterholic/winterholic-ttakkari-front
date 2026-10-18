@@ -122,7 +122,7 @@ export function ReverseDetailPage() {
             {job.isPending ? <ListSkeleton label="분석 결과를 읽는 중" rows={5} />
               : job.isError ? <ErrorState what="분석 결과" error={job.error} onRetry={() => void job.refetch()} />
               : data && <>
-                {(data.status === "failed" || data.status === "waiting" || data.status === "needs_input") && data.error && <p className="tk-error" role="alert">{data.error}</p>}
+                {(data.status === "failed" || data.status === "waiting" || data.status === "needs_input" || (data.kind === "reconstruction" && data.status === "partial")) && data.error && <p className="tk-error" role="alert">{data.error}</p>}
                 {data.kind !== "reconstruction" && data.status === "partial" && <p className="rv-note" role="status">모델 합성 없이 정적 정리만 됐어요. 다시 시도하면 모델 합성을 붙일 수 있어요.</p>}
                 {data.kind !== "reconstruction" && RETRYABLE.has(data.status) && (
                   <Button variant="primary" size="sm" busy={retry.isPending} onClick={() => retry.mutate()}>다시 시도</Button>
