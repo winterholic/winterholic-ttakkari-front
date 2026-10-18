@@ -1,0 +1,28 @@
+/* PR·이슈 공통 표시: 분기 쌍, 병합 상태, diff 파일 묶음 */
+.gh-branchpair { font-family: var(--tk-font-family-mono); overflow-wrap: anywhere; }
+.gh-branches { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1); margin: 0; }
+.gh-branches code { padding: var(--tk-space-0-5) var(--tk-space-1-5); border-radius: var(--tk-radius-sm); background: var(--tk-color-surface-subtle); font-family: var(--tk-font-family-mono); font-size: var(--tk-font-size-xs); overflow-wrap: anywhere; }
+.gh-add { color: var(--tk-color-status-success-text); }
+.gh-del { color: var(--tk-color-status-danger-text); }
+.gh-merge { display: flex; align-items: flex-start; gap: var(--tk-space-2); margin: 0; font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); }
+.gh-merge > .tk-icon { flex: none; }
+.gh-merge[data-tone="ok"] { color: var(--tk-color-status-success-text); }
+.gh-merge[data-tone="warn"] { color: var(--tk-color-status-warning-text); }
+
+.gh-diffs { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.gh-diff__panel { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; padding-block: var(--tk-space-2); }
+.gh-diff__panel > .gh-note, .gh-diff__meta { padding-inline: var(--tk-space-3); color: var(--tk-color-ink-text-muted); }
+.gh-diff__meta { display: flex; flex-wrap: wrap; gap: var(--tk-space-1) var(--tk-space-3); margin: 0; font-size: var(--tk-font-size-xs); }
+.gh-diff__rename { font-family: var(--tk-font-family-mono); overflow-wrap: anywhere; }
+.gh-diff__confirm { display: flex; flex-direction: column; align-items: flex-start; gap: var(--tk-space-2); padding-inline: var(--tk-space-3); color: var(--tk-color-ink-text); }
+.gh-diff__confirm > p { margin: 0; font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); }
+.gh-diff__more { padding-inline: var(--tk-space-3); }
+.gh-diff .tk-empty { border: 0; color: var(--tk-color-ink-text); }
+.gh-diff .tk-empty__title { color: var(--tk-color-ink-text); }
+.gh-diff .gh-empty-actions { display: flex; justify-content: center; }
+.gh-diff .tk-diff__body { max-height: 70dvh; overflow-y: auto; }
+
+/* 이슈 댓글 */
+.gh-comments { display: flex; flex-direction: column; gap: var(--tk-space-3); margin: 0; padding: 0; list-style: none; }
+.gh-comment { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; padding: var(--tk-space-3) var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.gh-comment__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1) var(--tk-space-2); margin: 0; font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }

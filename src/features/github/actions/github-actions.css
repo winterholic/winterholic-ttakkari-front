@@ -1,0 +1,15 @@
+/* Actions: job·step 목록과 로그 창. 로그 색은 디자인 시스템 잉크 토큰. */
+.gh-jobs { display: flex; flex-direction: column; gap: var(--tk-space-3); margin: 0; padding: 0; list-style: none; }
+.gh-job { display: flex; flex-direction: column; min-width: 0; overflow: hidden; border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+
+.gh-steps { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+.gh-job > .gh-steps { padding: var(--tk-space-1) var(--tk-space-4) var(--tk-space-3); border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); }
+.gh-step { display: flex; align-items: center; gap: var(--tk-space-2); min-width: 0; padding-block: var(--tk-space-1-5); font-size: var(--tk-font-size-sm); }
+.gh-step__no { flex: none; min-width: var(--tk-space-5); color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono); text-align: right; }
+.gh-step__name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+
+/* 로그: 줄 단위 pre(가로 스크롤 기본), 줄바꿈은 토글 */
+.gh-logbox .tk-diff__body { max-height: 70dvh; overflow-y: auto; }
+.gh-logbox tr[data-level="error"] .tk-diff__code { color: var(--tk-color-ink-log-error); }
+.gh-logbox tr[data-level="warn"] .tk-diff__code { color: var(--tk-color-ink-log-warn); }
+.gh-logbox tr[data-level="tool"] .tk-diff__code { color: var(--tk-color-ink-log-tool); }

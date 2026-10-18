@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ghPath, githubWebUrl, resolveRelative, safeGithubHref, withQuery, preserveQuery, routeForResolved } from "./links";
+import { ghPath, githubWebUrl, parseNumber, resolveRelative, safeGithubHref, withQuery, preserveQuery, routeForResolved } from "./links";
 
 describe("safeGithubHref", () => {
   it.each([
@@ -23,6 +23,16 @@ describe("githubWebUrl", () => {
   it("규칙에 어긋난 owner 는 null", () => {
     expect(githubWebUrl({ owner: "../x", repo: "r", kind: "repo" })).toBeNull();
     expect(githubWebUrl({ owner: "o", repo: "..", kind: "repo" })).toBeNull();
+  });
+});
+
+describe("parseNumber", () => {
+  it("1 이상 정수만 받는다", () => {
+    expect(parseNumber("12")).toBe(12);
+    for (const bad of ["0", "-1", "01", "1.5", "abc", "", undefined, "99999999999", "2147483649"]) expect(parseNumber(bad as string | undefined)).toBeNull();
+  });
+  it("pull-files 주소", () => {
+    expect(githubWebUrl({ owner: "o", repo: "r", kind: "pull-files", number: 4 })).toBe("https://github.com/o/r/pull/4/files");
   });
 });
 

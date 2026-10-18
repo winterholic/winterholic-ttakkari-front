@@ -50,3 +50,13 @@ export function splitPath(path: string): { dir: string; name: string } {
   const i = path.lastIndexOf("/");
   return i < 0 ? { dir: "", name: path } : { dir: path.slice(0, i + 1), name: path.slice(i + 1) };
 }
+
+/** 두 시각 사이를 "2분 05초"로. 끝이 없으면 진행 중이라 빈 문자열. */
+export function duration(startIso: string | null | undefined, endIso: string | null | undefined): string {
+  if (!startIso || !endIso) return "";
+  const ms = Date.parse(endIso) - Date.parse(startIso);
+  return Number.isNaN(ms) || ms < 0 ? "" : remaining(ms / 1000);
+}
+
+/** 앞 7자리. SHA 는 짧게 보이고 전체는 title 로 준다. */
+export const shortSha = (sha: string | null | undefined): string => (sha ?? "").slice(0, 7);
