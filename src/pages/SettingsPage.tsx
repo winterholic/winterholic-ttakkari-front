@@ -7,6 +7,7 @@ import { errorText } from "../features/viewer/api";
 import { ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { DEFAULT_WORKSPACE_KEY, useDefaultWorkspace } from "../features/workspace/useDefaultWorkspace";
 import { AccountsSection } from "../features/accounts/AccountsSection";
+import { QwenWorkerSection } from "../features/accounts/QwenWorkerSection";
 import { ShortcutSection } from "../features/transfer/ShortcutSection";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
@@ -35,6 +36,7 @@ export function SettingsPage() {
           {ws.isPending && <ListSkeleton rows={3} label="설정을 불러오는 중" />}
           {ws.isError && <ErrorState error={ws.error} what="작업 공간" onRetry={() => void ws.refetch()} />}
           <AccountsSection />
+          <QwenWorkerSection />
           <ShortcutSection />
           {ws.data && <WritableRoots ws={ws.data} />}
         </div>

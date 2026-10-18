@@ -348,6 +348,15 @@ export function uploadFile(file: File, workspaceId: UUID, sessionId?: UUID | nul
 
 // ---- system
 export const systemInfo = (): Promise<SystemInfo> => json("/api/system/info");
+export interface QwenWorkerStatus {
+  enabled: boolean;
+  config_locked: boolean;
+  ready: boolean;
+  reason: string;
+}
+export const qwenWorkerStatus = (): Promise<QwenWorkerStatus> => json("/api/system/qwen-worker");
+export const setQwenWorker = (enabled: boolean): Promise<QwenWorkerStatus> =>
+  json("/api/system/qwen-worker", { method: "PUT", json: { enabled } });
 export const stopAll = (): Promise<StopAllOut> => json("/api/system/stop-all", { method: "POST" });
 
 // ---- engine accounts
