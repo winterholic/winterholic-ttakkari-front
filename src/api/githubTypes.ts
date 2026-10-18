@@ -353,6 +353,10 @@ export interface GhLogWindow {
 }
 
 export type GhForbiddenReason = "sso_required" | "scope_missing" | "policy";
+/** `no_account` 의 reason. 없으면 로그인한 계정이 없는 것이고, 있으면 gh 상태 조회의 일시 실패다(ADR 0042 §13). */
+export type GhNoAccountReason = "gh_status_failed";
+/** `gh_unprocessable` 의 reason. `/resolve` 에서만 나오며 같은 접두사 ref 가 너무 많아 확인하지 못한 것이다(ADR 0042 §13). */
+export type GhUnprocessableReason = "ref_resolution_limit";
 
 /** 백엔드 오류 코드(ADR 0042 §8, §12). 앱 오류 형식 `{code,message,reason?,reset?,retry_after?,sso_url?}` 와 같다. */
 export type GhErrorCode =

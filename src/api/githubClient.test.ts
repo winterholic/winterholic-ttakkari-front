@@ -107,6 +107,16 @@ describe("401 과 오류 처리", () => {
     expect(e2.reason).toBe("sso_required");
   });
 
+  it("신규 reason(gh_status_failed·ref_resolution_limit)을 오류에 그대로 담는다", async () => {
+    fetchMock.mockImplementation(async () => json({ detail: { code: "no_account", message: "gh 계정 상태를 확인하지 못했습니다", reason: "gh_status_failed" } }, 503));
+    const e1 = (await ghMe("a").catch((e: unknown) => e)) as GhApiError;
+    expect([e1.status, e1.code, e1.reason]).toEqual([503, "no_account", "gh_status_failed"]);
+    fetchMock.mockImplementation(async () => json({ code: "gh_unprocessable", message: "ref", reason: "ref_resolution_limit" }, 422));
+    const e2 = (await ghResolve("acme/widgets/tree/a/b/c", "alice").catch((e: unknown) => e)) as GhApiError;
+    expect([e2.status, e2.code, e2.reason]).toEqual([422, "gh_unprocessable", "ref_resolution_limit"]);
+    expect(authLost).not.toHaveBeenCalled();
+  });
+
   it("본문의 retry_after·sso_url 도 오류에 담는다", async () => {
     fetchMock.mockImplementation(async () => json({ code: "gh_forbidden", message: "x", reason: "sso_required", sso_url: "https://github.com/orgs/acme/sso?authorization_request=1" }, 403));
     const e1 = (await ghMe("a").catch((e: unknown) => e)) as GhApiError;
