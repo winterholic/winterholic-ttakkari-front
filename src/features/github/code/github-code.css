@@ -18,6 +18,8 @@
 .gh-codewrap { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
 /* 줄번호 칸과 코드 사이 여백(diff 와 달리 기호 칸이 없다) */
 .gh-codebox .tk-diff__code, .gh-logbox .tk-diff__code { padding-left: var(--tk-space-3); }
+/* 디자인 시스템의 .tk-diff__table td { padding: 0 } 이 .tk-diff__code 의 padding-right 를 덮어 글자가 상자 오른쪽 끝에 붙는다. 줄바꿈을 켜면 특히 눈에 띈다 */
+.gh .tk-diff__code { padding-right: var(--tk-space-3); }
 .gh-codebox .tk-diff__body { max-height: 70dvh; overflow-y: auto; }
 
 .gh-branchlist { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }

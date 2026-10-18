@@ -21,6 +21,10 @@
 .gh-diff .tk-empty__title { color: var(--tk-color-ink-text); }
 .gh-diff .gh-empty-actions { display: flex; justify-content: center; }
 .gh-diff .tk-diff__body { max-height: 70dvh; overflow-y: auto; }
+/* diff 파일 머리 버튼은 높이 40px 이라 터치 기준 44px 에 못 미친다. 터치 기기에서만 44px 로 키운다 */
+@media (pointer: coarse) { .gh-diff .tk-diff__file > button { min-height: var(--tk-size-touch-target-min); } }
+/* 줄바꿈을 켜도 hunk 머리글(@@ … 함수명)은 white-space: pre 라 가로로 잘린다. 같이 줄바꿈한다 */
+.gh-diff[data-wrap] .tk-diff__hunk > td { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* 이슈 댓글 */
 .gh-comments { display: flex; flex-direction: column; gap: var(--tk-space-3); margin: 0; padding: 0; list-style: none; }

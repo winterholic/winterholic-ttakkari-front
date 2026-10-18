@@ -62,7 +62,7 @@ const meeting = (i) => ({
   counts: { discussion: 1, decision: 2, action: 3, open_issue: 1, pending_proposals: 1 },
 });
 
-function body(path, method, search) {
+export function body(path, method, search) {
   const q = new URLSearchParams(search ?? '');
   const d = detail(path, method);
   if (d !== undefined) return d;

@@ -11,7 +11,7 @@
 .gh-tabs > a:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(var(--tk-focus-ring-width) * -1); border-radius: var(--tk-radius-sm); }
 
 .gh-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--tk-space-3); margin: 0; padding: 0; list-style: none; }
-.gh-tile { display: flex; flex-direction: column; gap: var(--tk-space-1); height: 100%; min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); text-decoration: none; }
+.gh-tile { box-sizing: border-box; display: flex; flex-direction: column; gap: var(--tk-space-1); height: 100%; min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); text-decoration: none; }
 .gh-tile > .tk-icon { color: var(--tk-color-text-tertiary); }
 .gh-tile__label { font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); overflow-wrap: anywhere; }
 .gh-tile__hint { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }

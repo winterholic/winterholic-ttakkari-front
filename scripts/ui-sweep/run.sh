@@ -2,7 +2,7 @@
 # 모든 주요 경로를 320/390/768/1024/1440 폭에서 연다. 평소 + 긴 글자 주입, 가로 넘침·잘림·이중 간격·터치 타깃·입력 글자 크기·safe-area 를 검사한다.
 # 규칙과 고치는 법: winterholic-design-system/ttakkari/docs/22-ui-error-prevention.md
 # 사용: scripts/ui-sweep/run.sh [추가 옵션: --widths=320,390 --routes=/memos,/settings --stress-raw --no-fail]
-# 마지막에 modals.mjs(모달·메뉴를 실제로 열어 검사)도 돈다. 모달만: node scripts/ui-sweep/modals.mjs --url=http://127.0.0.1:5399 [--shots=/tmp/m]
+# 마지막에 modals.mjs(모달·메뉴를 실제로 열어 검사)와 github-layout.mjs(GitHub 탐색 회귀 검사)도 돈다. 모달만: node scripts/ui-sweep/modals.mjs --url=http://127.0.0.1:5399 [--shots=/tmp/m]
 # Chrome 한 번 + WebKit(iOS Safari 와 같은 엔진, iPhone 프리셋 320/390) 한 번 돈다. 실기기 결함은 Chrome 에뮬레이션만으로는 안 보였다.
 # WebKit 만: --browser=webkit, Chrome 만: --browser=chrome. WebKit 스크린샷·수치: node scripts/ui-sweep/webkit-shots.mjs --url=... --out=... --tag=...
 # 필요: Chrome, `npx playwright install webkit`, playwright-core(PLAYWRIGHT_CORE=<경로>/index.mjs). 실제 서버·계정은 쓰지 않는다(API 는 stub.mjs 의 합성 데이터).
@@ -43,5 +43,9 @@ fi
 # 조건부로 그려지는 모달·메뉴는 위 검사가 열지 못한다. 대표 모달을 직접 열어 이중 간격·폭·라벨·체크박스·메뉴 잘림을 본다(Chrome 만).
 if [[ $RUN_CHROME == 1 && ! " $* " =~ " --routes" ]]; then
   node "$HERE/modals.mjs" --url="http://127.0.0.1:$PORT" || status=$?
+fi
+# GitHub 탐색은 겹침·알림 띠 모양·코드 칸 여백·줄바꿈 hunk 머리글을 따로 본다(디자인 시스템 검사가 보지 못한 항목). Chrome 만.
+if [[ $RUN_CHROME == 1 && ! " $* " =~ " --routes" ]]; then
+  node "$HERE/github-layout.mjs" --url="http://127.0.0.1:$PORT" || status=$?
 fi
 exit $status
