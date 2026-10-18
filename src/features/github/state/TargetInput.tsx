@@ -58,7 +58,7 @@ export function TargetInput() {
             className="tk-input tk-input--mono"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="owner/repo 또는 https://github.com/…"
+            placeholder="owner/repo 또는 GitHub 주소"
             inputMode="url"
             autoCapitalize="none"
             autoCorrect="off"
