@@ -24,8 +24,6 @@
 .stocks-command { padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); overflow-x: auto; }
 .stocks-command code { font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
 .stocks-note { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
-.stocks-keep { margin: 0; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); font-size: var(--tk-font-size-sm); }
-.stocks-keep strong { display: block; }
 .stocks-runs { display: grid; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
 .stocks-runs li { display: grid; gap: var(--tk-space-1); padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); }
 .stocks-runs li > span { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }

@@ -98,7 +98,7 @@ it("로그인 창 열기 버튼이 API를 부르고 결과를 보여준다", asy
   fireEvent.click(await screen.findByRole("button", { name: "토스증권 로그인 창 열기" }));
   await waitFor(() => expect(h.openWindow).toHaveBeenCalledTimes(1));
   expect(await screen.findByText("로그인 창이 열렸습니다.")).toBeTruthy();
-  expect(screen.getByText(/'로그인 상태 유지'를 꼭 체크하세요/)).toBeTruthy();
+  expect(screen.queryByText(/로그인 상태 유지/)).toBeNull();
 });
 
 it("로그인 창 열기가 거절되면 서버 문구를 보여준다", async () => {
