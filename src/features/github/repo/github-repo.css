@@ -1,0 +1,19 @@
+/* 저장소 틀: 이동 탭·바로가기 타일. 토큰만 쓴다. */
+.gh-badges { display: flex; flex-wrap: wrap; gap: var(--tk-space-1) var(--tk-space-2); margin: 0; }
+
+.gh-tabs { display: flex; gap: var(--tk-space-1); overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); }
+.gh-tabs::-webkit-scrollbar { display: none; }
+.gh-tabs > a { position: relative; display: inline-flex; flex: none; align-items: center; gap: var(--tk-space-2); min-height: var(--tk-size-touch-target-min); padding-inline: var(--tk-space-3); color: var(--tk-color-text-secondary); text-decoration: none; font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / 1 var(--tk-font-family-sans); }
+.gh-tabs > a > .tk-icon { --tk-_icon: var(--tk-size-icon-sm); }
+.gh-tabs > a[aria-current="page"] { color: var(--tk-color-text-primary); }
+.gh-tabs > a[aria-current="page"]::after { content: ""; position: absolute; inset: auto var(--tk-space-2) 0; height: var(--tk-border-width-accent); background: var(--tk-color-action-primary-bg); border-radius: var(--tk-radius-full); }
+@media (hover: hover) { .gh-tabs > a:hover { color: var(--tk-color-text-primary); } }
+.gh-tabs > a:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(var(--tk-focus-ring-width) * -1); border-radius: var(--tk-radius-sm); }
+
+.gh-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--tk-space-3); margin: 0; padding: 0; list-style: none; }
+.gh-tile { display: flex; flex-direction: column; gap: var(--tk-space-1); height: 100%; min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); text-decoration: none; }
+.gh-tile > .tk-icon { color: var(--tk-color-text-tertiary); }
+.gh-tile__label { font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); overflow-wrap: anywhere; }
+.gh-tile__hint { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+@media (hover: hover) { .gh-tile:hover { background: var(--tk-color-interactive-hover-overlay); } }
+.gh-tile:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }

@@ -1,0 +1,53 @@
+/* GitHub 탐색 공통. 디자인 시스템 토큰만 쓴다(새 색·px·vh 없음). 화면별 CSS 는 github-code.css 등에 둔다. */
+.gh { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; padding-block: var(--tk-space-4) var(--tk-space-8); }
+.gh-stack { display: flex; flex-direction: column; gap: var(--tk-space-6); min-width: 0; }
+.gh-section { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.gh-section__head { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-3); flex-wrap: wrap; }
+.gh-section__title { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.gh-note { margin: 0; color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-sans); overflow-wrap: anywhere; }
+.gh-inline-link { align-self: flex-start; }
+
+/* 위로 올라가는 이동 줄: 긴 이름은 줄을 바꿔 전부 보인다 */
+.gh-path li { overflow-wrap: anywhere; }
+.gh-account { max-width: 100%; }
+.gh-account > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+.gh-card { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.gh-card__head { display: flex; align-items: center; gap: var(--tk-space-3); min-width: 0; }
+.gh-card__head > .tk-icon { flex: none; color: var(--tk-color-text-tertiary); }
+.gh-card__titles { flex: 1 1 auto; min-width: 0; }
+.gh-card__title { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-lg) / var(--tk-font-line-height-snug) var(--tk-font-family-sans); overflow-wrap: anywhere; }
+.gh-card__sub { margin: 0; color: var(--tk-color-text-tertiary); font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-mono); overflow-wrap: anywhere; }
+.gh-card__text { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.gh-facts { display: flex; flex-wrap: wrap; gap: var(--tk-space-2) var(--tk-space-5); margin: 0; }
+.gh-facts > div { display: flex; flex-direction: column; min-width: 0; }
+.gh-facts dt { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.gh-facts dd { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+
+.gh-pills { box-sizing: border-box; display: inline-flex; flex: none; flex-wrap: wrap; min-width: 0; max-width: 100%; gap: var(--tk-space-1); padding: var(--tk-space-1); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.gh-pills button { position: relative; min-height: var(--tk-size-control-sm); padding: 0 var(--tk-space-2); border: 0; border-radius: var(--tk-radius-sm); background: transparent; color: var(--tk-color-text-secondary); font: var(--tk-font-weight-medium) var(--tk-font-size-xs) / 1 var(--tk-font-family-sans); cursor: pointer; }
+.gh-pills button[aria-pressed="true"] { background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); box-shadow: var(--tk-shadow-sm); }
+.gh-pills button:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }
+@media (pointer: coarse) { .gh-pills button { min-width: var(--tk-size-touch-target-min); min-height: var(--tk-size-touch-target-min); } }
+
+.gh-target { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.gh-target__row { display: flex; gap: var(--tk-space-2); align-items: stretch; }
+.gh-target__row > .tk-input { flex: 1 1 auto; min-width: 0; }
+.gh-recent { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.gh-chips { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+.gh-chips .tk-chip { max-width: 100%; text-decoration: none; }
+
+/* 상태 표시: 오류·권한·만료·한도. 색만으로 구분하지 않고 아이콘과 제목을 함께 둔다 */
+.gh-state { display: flex; gap: var(--tk-space-3); padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-status-neutral-border); border-radius: var(--tk-radius-lg); background: var(--tk-color-status-neutral-bg); color: var(--tk-color-status-neutral-text); min-width: 0; }
+.gh-state[data-tone="warning"] { border-color: var(--tk-color-status-warning-border); background: var(--tk-color-status-warning-bg); color: var(--tk-color-status-warning-text); }
+.gh-state[data-tone="danger"] { border-color: var(--tk-color-status-danger-border); background: var(--tk-color-status-danger-bg); color: var(--tk-color-status-danger-text); }
+.gh-state > .tk-icon { flex: none; }
+.gh-state__body { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; }
+.gh-state__title { margin: 0; font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); overflow-wrap: anywhere; }
+.gh-state__text { margin: 0; font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.gh-state__actions { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); padding-top: var(--tk-space-2); }
+.gh-state--compact { padding: var(--tk-space-3); }
+
+.gh-skeleton { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.gh-skeleton[data-kind="code"] { padding: var(--tk-space-3); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-subtle); }
+.gh-row { text-decoration: none; }

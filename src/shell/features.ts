@@ -37,6 +37,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "logs", to: "/logs", icon: "terminal", label: "로그·이슈", description: "운영 오류를 이슈로 묶어 보고 배포 실패 원인 확인" },
   { root: "design-systems", to: "/design-systems", icon: "library", label: "디자인시스템", description: "프로젝트별 토큰·컴포넌트·사용 지침과 원본 조회" },
   { root: "artcraft", to: "/artcraft", icon: "palette", label: "ArtCraft", description: "사진·PDF·문서·영상 같은 창작 작업을 에이전트에게 시키기" },
+  { root: "github", to: "/github", icon: "git-branch", label: "GitHub", description: "내 프로필·조직·저장소와 코드·PR·이슈·Actions를 폰에서 읽기" },
   { root: "reverse", to: "/reverse", icon: "search", label: "리버스 엔지니어링", description: "대상을 자연어로 설명하고 관찰·검증을 거쳐 작업공간에 소스코드로 재현" },
 ];
 

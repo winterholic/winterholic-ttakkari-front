@@ -1,0 +1,27 @@
+/* 코드 브라우저: 브랜치 바·경로·파일 머리·코드 상자·README. 코드 면 색은 디자인 시스템 잉크 토큰(tk-diff)이 맡는다. */
+.gh-codebar { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
+.gh-refbutton { align-self: flex-start; max-width: 100%; }
+.gh-refbutton > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--tk-font-family-mono); }
+.gh-pathbar { min-width: 0; }
+.gh-pathbar li { overflow-wrap: anywhere; }
+
+.gh-filename { font-family: var(--tk-font-family-mono); font-size: var(--tk-font-size-sm); }
+
+.gh-file { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.gh-file__head { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
+.gh-file__name { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-snug) var(--tk-font-family-mono); overflow-wrap: anywhere; }
+.gh-file__meta { display: flex; align-items: center; gap: var(--tk-space-2); margin: 0; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.gh-file__tools { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
+.gh-file__tools [aria-pressed="true"].tk-button { background: var(--tk-color-interactive-selected-bg); color: var(--tk-color-interactive-selected-text); }
+.gh-empty-actions { display: flex; justify-content: center; padding-top: var(--tk-space-2); }
+
+.gh-codewrap { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
+.gh-codebox .tk-diff__body { max-height: 70dvh; overflow-y: auto; }
+
+.gh-branchlist { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+
+/* 마크다운(README·이슈·댓글): 차단된 링크와 이미지는 눌리지 않는 글자 */
+.gh-md { min-width: 0; }
+.gh-md__blocked { text-decoration: underline dotted; text-underline-offset: 0.2em; cursor: help; }
+.gh-md__image { display: inline-block; max-width: 100%; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
+.gh-md pre { overflow-x: auto; }
