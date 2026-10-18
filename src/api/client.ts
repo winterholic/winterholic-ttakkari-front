@@ -51,6 +51,7 @@ import type {
   WorkspacePatch,
 } from "./types";
 import type { WeatherBriefing } from "./weatherTypes";
+import type { StocksProvider, TossInvestLoginHelp, TossInvestRun, TossInvestStatus } from "./stocksTypes";
 
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://127.0.0.1:8787";
 
@@ -245,6 +246,20 @@ export const getWeatherBriefing = (day: string): Promise<WeatherBriefing> =>
   json(`/api/weather/briefings/${encodeURIComponent(day)}`);
 export const generateWeatherBriefing = (): Promise<WeatherBriefing> =>
   json("/api/weather/generate", { method: "POST", json: {} });
+
+// ---- 주식 투자·토스증권 연결(읽기 전용 모니터링)
+export const listStocksProviders = (): Promise<StocksProvider[]> =>
+  json("/api/stocks/overview");
+export const getTossInvestStatus = (): Promise<TossInvestStatus> =>
+  json("/api/stocks/tossinvest/status");
+export const listTossInvestRuns = (limit = 20): Promise<TossInvestRun[]> =>
+  json("/api/stocks/tossinvest/runs", { query: { limit } });
+export const getTossInvestLoginHelp = (): Promise<TossInvestLoginHelp> =>
+  json("/api/stocks/tossinvest/login-help");
+export const checkTossInvest = (): Promise<TossInvestRun> =>
+  json("/api/stocks/tossinvest/check", { method: "POST", json: {} });
+export const syncTossInvest = (): Promise<TossInvestRun> =>
+  json("/api/stocks/tossinvest/sync", { method: "POST", json: {} });
 
 // ---- workspaces
 export const listWorkspaces = (includeArchived = false): Promise<WorkspaceOut[]> =>

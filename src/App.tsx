@@ -21,6 +21,8 @@ import { DeskHome } from "./pages/DeskHome";
 import { AppShell } from "./shell/AppShell";
 import { PublicMeetingPage } from "./pages/PublicMeetingPage";
 import { WeatherPage } from "./pages/WeatherPage";
+import { StocksPage } from "./pages/StocksPage";
+import { TossInvestPage } from "./pages/TossInvestPage";
 import { OpsLogsPage } from "./pages/OpsLogsPage";
 import { ArtcraftPage } from "./pages/ArtcraftPage";
 import { ArtcraftManagePage } from "./pages/ArtcraftManagePage";
@@ -89,6 +91,8 @@ export function App() {
         <Route path="/more" element={<MorePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/weather" element={<WeatherPage />} />
+        <Route path="/stocks" element={<StocksPage />} />
+        <Route path="/stocks/tossinvest" element={<TossInvestPage />} />
         <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/logs" element={<OpsLogsPage />} />
         <Route path="/design-systems" element={<DesignSystemPage />} />

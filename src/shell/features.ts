@@ -40,6 +40,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "artcraft", to: "/artcraft", icon: "palette", label: "ArtCraft", description: "사진·PDF·문서·영상 같은 창작 작업을 에이전트에게 시키기" },
   { root: "github", to: "/github", icon: "git-branch", label: "GitHub", description: "내 프로필·조직·저장소와 코드·PR·이슈·Actions를 폰에서 읽기" },
   { root: "reverse", to: "/reverse", icon: "search", label: "리버스 엔지니어링", description: "대상을 자연어로 설명하고 관찰·검증을 거쳐 작업공간에 소스코드로 재현" },
+  { root: "stocks", to: "/stocks", icon: "chart", label: "주식 투자", description: "토스증권 연결 상태를 확인하는 읽기 전용 기초 틀" },
 ];
 
 /** 지금 경로가 어느 부가 기능 안인가. 채팅·설정처럼 목록에 없는 화면이면 undefined. */
