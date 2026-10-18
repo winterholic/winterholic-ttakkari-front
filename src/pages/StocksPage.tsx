@@ -51,6 +51,7 @@ export function StocksPage() {
 
 function providerHint(state: string): string {
   switch (state) {
+    case "running": return "확인 중";
     case "ready": return "연결됨 · 자세히 보기";
     case "login_required": return "로그인이 필요해요 · 자세히 보기";
     case "never_checked": return "아직 확인하지 않았어요 · 자세히 보기";

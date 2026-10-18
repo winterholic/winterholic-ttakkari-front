@@ -17,6 +17,7 @@ const when = (iso: string | null) => iso ? KST.format(new Date(iso)) : "아직 �
 
 function stateLabel(state: string): string {
   switch (state) {
+    case "running": return "확인 중";
     case "ready": return "연결됨";
     case "login_required": return "로그인 필요";
     case "login_window": return "로그인 창 열림";
