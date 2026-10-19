@@ -32,6 +32,17 @@
   position: absolute; inline-size: var(--tk-space-2); block-size: var(--tk-space-2); border-radius: var(--tk-radius-full); pointer-events: none;
   background: var(--tk-color-border-brand); transform: translate(-50%, -50%);
 }
+/* 플레이 녹화(ADR 0060) */
+.game-record { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.game-record__review { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.game-record__preview { width: 100%; max-height: 40vh; object-fit: contain; background: var(--tk-color-bg-inset, #0b0e14); border-radius: var(--tk-radius-md); }
+.game-record__note { margin: 0; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
+.game-record__field { display: flex; flex-direction: column; gap: var(--tk-space-1); font-size: var(--tk-font-size-sm); }
+.game-record__field input[type="range"] { width: 100%; min-height: 44px; }
+.game-record__range { display: flex; flex-direction: column; gap: var(--tk-space-1); }
+.game-record__thumbs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--tk-space-1); }
+.game-record__thumbs li { display: flex; flex-direction: column; align-items: center; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
+.game-record__thumbs img { border-radius: var(--tk-radius-sm); border: 1px solid var(--tk-color-border); }
 .game-pick-panel { margin: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); }
 .game-pick-panel__title { margin: 0; font-weight: var(--tk-font-weight-semibold); font-size: var(--tk-font-size-sm); }
 .game-pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-1); }

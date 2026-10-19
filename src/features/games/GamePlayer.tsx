@@ -6,6 +6,7 @@ import { Icon } from "../../ui/Icon";
 import { requestCapture, requestPause, pngBlobFromDataUrl } from "./captureBridge";
 import type { Screenshot } from "./feedback";
 import { ObjectPickLayer, ObjectPickPanel, useObjectPick } from "./ObjectPick";
+import { PlayRecorderPanel, usePlayRecorder } from "./PlayRecorder";
 import type { PickSelection } from "./pickBridge";
 import { useGameSave } from "./useGameSave";
 
@@ -68,6 +69,9 @@ export function GamePlayer({
   const [pickSelected, setPickSelected] = useState(0);
   const objectPick = useObjectPick(frameRef, play);
   const pickPanelRef = useRef<HTMLDivElement>(null);
+  // 플레이 녹화(back ADR 0060): 프레임으로 모아 구간을 고른다. 서버 전송은 아직 없다.
+  const [recordOpen, setRecordOpen] = useState(false);
+  const recorder = usePlayRecorder(frameRef, play);
   const pickStatus = objectPick.state.status;
   // 모바일에서는 결과 목록이 접힌 화면 아래에 있어서, 결과가 나오면 보이는 만큼만 스크롤한다(게임 화면을 멀리 밀지 않는다).
   useEffect(() => {
@@ -208,6 +212,10 @@ export function GamePlayer({
             <Icon name="search" />
             <span>{picking ? "선택 끝" : "오브젝트"}</span>
           </Button>
+          <Button size="sm" onClick={() => { if (recordOpen) recorder.reset(); setRecordOpen(!recordOpen); }} disabled={!play || !!problem} aria-pressed={recordOpen} aria-label={recordOpen ? "녹화 닫기" : "플레이 녹화"}>
+            <Icon name="film" />
+            <span>{recordOpen ? "녹화 닫기" : "녹화"}</span>
+          </Button>
           <Button size="sm" onClick={toggleFullscreen} disabled={!play || !!problem} aria-label={fullscreen ? "전체화면 닫기" : "전체화면"}>
             <Icon name="expand" />
             <span>전체화면</span>
@@ -226,6 +234,7 @@ export function GamePlayer({
           />
         </div>
       )}
+      {recordOpen && play && !problem && <PlayRecorderPanel recorder={recorder} />}
       {gameId && save.saved && (
         <p className="game-save" role="status">
           <Icon name="check" />
