@@ -44,6 +44,8 @@ const PmsListPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default:
 const PmsProjectPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default: m.PmsProjectPage })));
 // GitHub 탐색은 코드·diff·로그 뷰어가 모여 있어 열 때만 받는다.
 const GithubPage = lazy(() => import("./pages/GithubPage").then((m) => ({ default: m.GithubPage })));
+const NotebookLMPage = lazy(() => import("./pages/NotebookLMPage").then((m) => ({ default: m.NotebookLMPage })));
+const NotebookLMDetailPage = lazy(() => import("./pages/NotebookLMDetailPage").then((m) => ({ default: m.NotebookLMDetailPage })));
 const WbsListPage = lazy(() => import("./pages/WbsPage").then((m) => ({ default: m.WbsListPage })));
 const WbsProjectPage = lazy(() => import("./pages/WbsPage").then((m) => ({ default: m.WbsProjectPage })));
 
@@ -93,6 +95,8 @@ export function App() {
         <Route path="/weather" element={<WeatherPage />} />
         <Route path="/stocks" element={<StocksPage />} />
         <Route path="/stocks/tossinvest" element={<TossInvestPage />} />
+        <Route path="/notebooklm" element={<Suspense fallback={<RouteFallback />}><NotebookLMPage /></Suspense>} />
+        <Route path="/notebooklm/:notebookId" element={<Suspense fallback={<RouteFallback />}><NotebookLMDetailPage /></Suspense>} />
         <Route path="/resources" element={<ResourcesPage />} />
         <Route path="/logs" element={<OpsLogsPage />} />
         <Route path="/design-systems" element={<DesignSystemPage />} />

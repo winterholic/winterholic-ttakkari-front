@@ -7,7 +7,7 @@
 export const APP_ROUTE_ROOTS = [
   "remote-desktop",
   "login", "chat", "work", "tasks", "workspace", "library", "context-library", "files", "settings", "assistant",
-  "more", "notifications", "weather", "resources", "meetings", "pms", "wbs", "checklists", "memos", "calendar", "share", "logs", "design-systems", "artcraft", "reverse", "github", "stocks",
+  "more", "notifications", "weather", "resources", "meetings", "pms", "wbs", "checklists", "memos", "calendar", "share", "logs", "design-systems", "artcraft", "reverse", "github", "notebooklm", "stocks",
 ] as const;
 
 export type LinkTarget =

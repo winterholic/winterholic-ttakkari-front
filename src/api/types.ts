@@ -12,6 +12,8 @@ export interface ApiErrorBody {
   code: string;
   message: string;
   errors?: { loc: (string | number)[]; msg: string }[];
+  /** NotebookLM 쓰기가 Google 에 닿았는지 모를 때 true */
+  outcome_unknown?: boolean;
 }
 
 // ---- auth

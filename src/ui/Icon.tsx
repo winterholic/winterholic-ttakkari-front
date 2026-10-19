@@ -1,5 +1,5 @@
 import {
-  Briefcase, CalendarDays, Camera, ChevronDown, ChevronLeft, NotebookPen, Tag, GripVertical, Gauge, ChevronRight, ChevronUp, Plus, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
+  BookOpen, Briefcase, CalendarDays, Camera, ChevronDown, ChevronLeft, NotebookPen, Tag, GripVertical, Gauge, ChevronRight, ChevronUp, Plus, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
   Download, Ellipsis, EllipsisVertical, ExternalLink, Eye, FileArchive, FileCode, FileSpreadsheet, FileText, Folder,
   FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Lock, LogOut, Mail, Maximize,
   Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, Palette, PanelRight, Paperclip, Pin, Play, Presentation, RefreshCw,
@@ -33,6 +33,8 @@ const ICONS = {
   // GitHub 탐색: lucide 1.x 에는 브랜드 아이콘이 없어 일반 아이콘으로 대신한다
   "git-branch": GitBranch, "git-pull-request": GitPullRequest, "git-merge": GitMerge, "git-pr-draft": GitPullRequestDraft, "git-fork": GitFork,
   issue: CircleDot, star: Star, code: Code, diff: FileDiff, user: User, org: Building2,
+  // NotebookLM 플랫폼
+  notebook: BookOpen,
   // ArtCraft 관제
   palette: Palette, play: Play,
   // ArtCraft 작업 범주

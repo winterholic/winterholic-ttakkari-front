@@ -51,6 +51,9 @@ import type {
   WorkspacePatch,
 } from "./types";
 import type { WeatherBriefing } from "./weatherTypes";
+import type {
+  NlmAddSourceResult, NlmAuthStatus, NlmJob, NlmLogin, NlmNotebook, NlmNotebookDetail, NlmQueryIn, NlmQueryResult, NlmSource,
+} from "./notebooklmTypes";
 import type { StocksProvider, TossInvestLoginHelp, TossInvestLoginWindow, TossInvestRun, TossInvestStatus } from "./stocksTypes";
 
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://127.0.0.1:8787";
@@ -60,6 +63,8 @@ export class ApiError extends Error {
   readonly code: string;
   readonly errors?: ApiErrorBody["errors"];
   readonly retryAfter?: number;
+  /** 쓰기가 Google 에 닿았는지 모른다는 표시(NotebookLM). 같은 쓰기를 다시 보내지 말고 목록부터 확인한다. */
+  readonly outcomeUnknown: boolean;
 
   constructor(status: number, body: ApiErrorBody, retryAfter?: number) {
     super(body.message);
@@ -68,6 +73,7 @@ export class ApiError extends Error {
     this.code = body.code;
     this.errors = body.errors;
     this.retryAfter = retryAfter;
+    this.outcomeUnknown = body.outcome_unknown === true;
   }
 }
 
@@ -97,6 +103,7 @@ export async function toApiError(res: Response): Promise<ApiError> {
         code: src.code ?? body.code,
         message: src.message ?? body.message,
         errors: j.errors,
+        outcome_unknown: (src as Partial<ApiErrorBody>).outcome_unknown,
       };
     } else if (typeof d === "string") {
       body = { ...body, message: d };
@@ -1285,3 +1292,33 @@ export const connectRemoteMac = (id: string, authorization: { password?: string;
 export const disconnectRemoteMac = async (grant: string): Promise<void> => {
   await raw('/api/remote-desktop/disconnect', { method: 'POST', json: { grant } });
 };
+
+// ---- NotebookLM 플랫폼(소유자 전용). 쓰기 요청의 중복·재시도 규칙은 백엔드가 지키므로 여기서는 한 번만 보낸다.
+const nlm = (id: string, rest = ""): string => `/api/notebooklm/notebooks/${encodeURIComponent(id)}${rest}`;
+export const getNotebookLMStatus = (): Promise<NlmAuthStatus> => json("/api/notebooklm/auth/status");
+export const startNotebookLMLogin = (): Promise<NlmLogin> => json("/api/notebooklm/auth/login-window", { method: "POST" });
+export const cancelNotebookLMLogin = (): Promise<NlmLogin> => json("/api/notebooklm/auth/login-window/cancel", { method: "POST" });
+export const verifyNotebookLM = (): Promise<NlmAuthStatus> => json("/api/notebooklm/auth/verify", { method: "POST" });
+export const resumeNotebookLM = (): Promise<NlmAuthStatus> => json("/api/notebooklm/auth/resume", { method: "POST" });
+export const listNotebooks = (): Promise<NlmNotebook[]> => json("/api/notebooklm/notebooks");
+export const createNotebook = (title: string): Promise<NlmNotebook> => json("/api/notebooklm/notebooks", { method: "POST", json: { title } });
+export const getNotebook = (id: string): Promise<NlmNotebookDetail> => json(nlm(id));
+export const renameNotebook = (id: string, title: string): Promise<NlmNotebook> => json(nlm(id), { method: "PATCH", json: { title } });
+export const deleteNotebook = (id: string): Promise<void> => json(nlm(id), { method: "DELETE" });
+export const listNotebookSources = (id: string): Promise<NlmSource[]> => json(nlm(id, "/sources"));
+export const addNotebookUrlSource = (id: string, body: { url: string; title?: string; force?: boolean }): Promise<NlmAddSourceResult> =>
+  json(nlm(id, "/sources/url"), { method: "POST", json: body });
+export const addNotebookTextSource = (id: string, body: { title: string; text: string; force?: boolean }): Promise<NlmAddSourceResult> =>
+  json(nlm(id, "/sources/text"), { method: "POST", json: body });
+export const uploadNotebookSource = (id: string, file: File, opts: { title?: string; force?: boolean } = {}): Promise<NlmAddSourceResult> => {
+  const form = new FormData();
+  form.append("file", file);
+  if (opts.title) form.append("title", opts.title);
+  if (opts.force) form.append("force", "true");
+  return json(nlm(id, "/sources/upload"), { method: "POST", form });
+};
+export const deleteNotebookSource = (id: string, sourceId: string): Promise<void> =>
+  json(nlm(id, `/sources/${encodeURIComponent(sourceId)}`), { method: "DELETE" });
+export const queryNotebook = (id: string, body: NlmQueryIn): Promise<NlmQueryResult> => json(nlm(id, "/query"), { method: "POST", json: body });
+export const listNotebookJobs = (limit = 20): Promise<NlmJob[]> => json("/api/notebooklm/jobs", { query: { limit } });
+export const cancelNotebookJob = (id: string): Promise<NlmJob> => json(`/api/notebooklm/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST" });
