@@ -35,6 +35,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "meetings", to: "/meetings", icon: "mic", label: "회의록", description: "녹음·전사에서 결정과 할 일을 정리" },
   { root: "pms", to: "/pms", icon: "kanban", label: "PMS", description: "프로젝트 현황·칸반·이슈를 한눈에" },
   { root: "wbs", to: "/wbs", icon: "wbs", label: "WBS", description: "작업 분해 트리와 간트 일정" },
+  { root: "games", to: "/games", icon: "gamepad", label: "게임 스튜디오", description: "게임 화면을 보며 AI에게 고쳐 달라고 맡기기" },
   { root: "logs", to: "/logs", icon: "terminal", label: "로그·이슈", description: "운영 오류를 이슈로 묶어 보고 배포 실패 원인 확인" },
   { root: "design-systems", to: "/design-systems", icon: "library", label: "디자인시스템", description: "프로젝트별 토큰·컴포넌트·사용 지침과 원본 조회" },
   { root: "artcraft", to: "/artcraft", icon: "palette", label: "ArtCraft", description: "사진·PDF·문서·영상 같은 창작 작업을 에이전트에게 시키기" },

@@ -32,6 +32,8 @@ import { DesignSystemPage } from "./pages/DesignSystemPage";
 import { ReverseDetailPage } from "./pages/ReverseDetailPage";
 import { ReversePage } from "./pages/ReversePage";
 import { OpsIssuePage } from "./pages/OpsIssuePage";
+import { GamesPage } from "./pages/GamesPage";
+import { GamePage } from "./pages/GamePage";
 
 const RemoteDesktopPage = lazy(() => import('./pages/RemoteDesktopPage').then(m => ({ default: m.RemoteDesktopPage })));
 
@@ -117,6 +119,8 @@ export function App() {
         <Route path="/wbs/:projectId" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/wbs/:projectId/:view" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/github/*" element={<Suspense fallback={<RouteFallback />}><GithubPage /></Suspense>} />
+        <Route path="/games" element={<GamesPage />} />
+        <Route path="/games/:id" element={<GamePage />} />
         <Route path="/checklists" element={<ChecklistsPage />} />
         <Route path="/memos" element={<MemosPage />} />
         <Route path="/memos/:memoId" element={<MemosPage />} />

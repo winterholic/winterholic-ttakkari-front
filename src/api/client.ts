@@ -1333,3 +1333,20 @@ export const deleteNotebookSource = (id: string, sourceId: string): Promise<void
 export const queryNotebook = (id: string, body: NlmQueryIn): Promise<NlmQueryResult> => json(nlm(id, "/query"), { method: "POST", json: body });
 export const listNotebookJobs = (limit = 20): Promise<NlmJob[]> => json("/api/notebooklm/jobs", { query: { limit } });
 export const cancelNotebookJob = (id: string): Promise<NlmJob> => json(`/api/notebooklm/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+
+// ---- 게임 스튜디오(back ADR 0046~0050). 게임 화면은 별도 origin 의 sandbox iframe 이라 여기서는 주소만 받는다.
+import type { Game, GameBuild, GameBuildDetail, GamePlay, GameRequest, GameRequestIn, GameRollbackIn, GameRollbackOut } from "./gameTypes";
+export const listGames = (): Promise<Game[]> => json("/api/games");
+export const getGame = (id: UUID): Promise<Game> => json(`/api/games/${id}`);
+export const registerGame = (slug: string): Promise<Game> => json("/api/games", { method: "POST", json: { slug } });
+export const approveGameLock = (id: UUID): Promise<Game> => json(`/api/games/${id}/lock/approve`, { method: "POST" });
+export const listGameBuilds = (id: UUID, limit = 50): Promise<GameBuild[]> => json(`/api/games/${id}/builds`, { query: { limit } });
+export const getGameBuild = (id: UUID, buildId: UUID): Promise<GameBuildDetail> => json(`/api/games/${id}/builds/${buildId}`);
+export const startGameBuild = (id: UUID): Promise<GameBuild> => json(`/api/games/${id}/builds`, { method: "POST", json: {} });
+export const playGame = (id: UUID, buildId?: UUID | null): Promise<GamePlay> =>
+  json(`/api/games/${id}/play`, { method: "POST", json: buildId ? { build_id: buildId } : {} });
+export const requestGameWork = (id: UUID, body: GameRequestIn): Promise<GameRequest> =>
+  json(`/api/games/${id}/requests`, { method: "POST", json: body });
+export const listGameRequests = (id: UUID, limit = 30): Promise<GameRequest[]> => json(`/api/games/${id}/requests`, { query: { limit } });
+export const rollbackGame = (id: UUID, body: GameRollbackIn): Promise<GameRollbackOut> =>
+  json(`/api/games/${id}/rollback`, { method: "POST", json: body });
