@@ -22,6 +22,27 @@
 .game-stage__empty-detail { font-size: var(--tk-font-size-sm); opacity: 0.85; max-inline-size: 28ch; }
 .game-toolbar { flex-wrap: wrap; }
 
+/* 오브젝트 선택 모드: 게임 위를 덮는 레이어, 선택한 오브젝트의 경계 박스, 결과 목록 */
+.game-pick { position: absolute; inset: 0; cursor: crosshair; touch-action: none; outline-offset: calc(-1 * var(--tk-space-1)); }
+.game-pick__box {
+  position: absolute; box-sizing: border-box; pointer-events: none; border: var(--tk-border-width-strong) solid var(--tk-color-border-brand);
+  background: var(--tk-color-surface-brand-subtle); opacity: 0.75; border-radius: var(--tk-radius-sm);
+}
+.game-pick__dot {
+  position: absolute; inline-size: var(--tk-space-2); block-size: var(--tk-space-2); border-radius: var(--tk-radius-full); pointer-events: none;
+  background: var(--tk-color-border-brand); transform: translate(-50%, -50%);
+}
+.game-pick-panel { margin: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.game-pick-panel__title { margin: 0; font-weight: var(--tk-font-weight-semibold); font-size: var(--tk-font-size-sm); }
+.game-pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-1); }
+.game-pick-item {
+  inline-size: 100%; text-align: start; display: flex; flex-direction: column; gap: var(--tk-space-1); padding: var(--tk-space-2) var(--tk-space-3);
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-default); color: inherit; font: inherit;
+}
+.game-pick-item[aria-pressed="true"] { border-color: var(--tk-color-border-brand); }
+.game-pick-item__name { font-weight: var(--tk-font-weight-semibold); overflow-wrap: anywhere; }
+.game-pick-item__meta { font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
+
 .game-tabs { overflow-x: auto; scrollbar-width: none; }
 .game-tabs .tk-tab { flex: none; display: inline-flex; align-items: center; gap: var(--tk-space-1); }
 .game-panel { scroll-margin-top: var(--tk-space-16, 4rem); display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }

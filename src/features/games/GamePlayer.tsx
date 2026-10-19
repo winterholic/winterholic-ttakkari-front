@@ -5,6 +5,7 @@ import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
 import { requestCapture, requestPause, pngBlobFromDataUrl } from "./captureBridge";
 import type { Screenshot } from "./feedback";
+import { ObjectPickLayer, ObjectPickPanel, useObjectPick } from "./ObjectPick";
 import { useGameSave } from "./useGameSave";
 
 /** 사람이 읽는 플레이 불가 사유. 코드는 back api/games.py 의 CODE_STATUS 와 같다. */
@@ -58,6 +59,21 @@ export function GamePlayer({
   const [pauseError, setPauseError] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const save = useGameSave(gameId ?? "", frameRef, play, !!gameId && !!play);
+  // 오브젝트 선택 모드(back ADR 0059). 켜면 게임 화면 위에 선택 레이어가 덮여 탭이 게임 입력이 아니라 선택 질의가 된다.
+  const [picking, setPicking] = useState(false);
+  const [pickSelected, setPickSelected] = useState(0);
+  const objectPick = useObjectPick(frameRef, play);
+  const pickPanelRef = useRef<HTMLDivElement>(null);
+  const pickStatus = objectPick.state.status;
+  // 모바일에서는 결과 목록이 접힌 화면 아래에 있어서, 결과가 나오면 보이는 만큼만 스크롤한다(게임 화면을 멀리 밀지 않는다).
+  useEffect(() => {
+    if (pickStatus === "done" || pickStatus === "error") pickPanelRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  }, [pickStatus]);
+  const stopPicking = useCallback(() => {
+    setPicking(false);
+    setPickSelected(0);
+    objectPick.reset();
+  }, [objectPick]);
 
   useEffect(() => {
     const onChange = () => setFullscreen(document.fullscreenElement === stageRef.current);
@@ -153,6 +169,13 @@ export function GamePlayer({
             )}
           </div>
         )}
+        {picking && play && !problem && (
+          <ObjectPickLayer
+            onPick={(fx, fy) => { setPickSelected(0); void objectPick.pickAt(fx, fy); }}
+            hit={objectPick.state.outcome?.supported ? (objectPick.state.outcome.hits[pickSelected] ?? null) : null}
+            at={objectPick.state.at}
+          />
+        )}
         {fullscreen && (
           <button className="tk-icon-button game-stage__exit" type="button" aria-label="전체화면 닫기" onClick={toggleFullscreen}>
             <Icon name="x" />
@@ -161,7 +184,7 @@ export function GamePlayer({
       </div>
       <div className="tk-toolbar game-toolbar" role="toolbar" aria-label="게임 조작">
         <div className="tk-toolbar__group">
-          <Button size="sm" onClick={() => { onRestart(); setFrameKey((k) => k + 1); setPausedUrl(null); setPauseError(null); }} disabled={loading} aria-label="처음부터 다시 재생">
+          <Button size="sm" onClick={() => { onRestart(); setFrameKey((k) => k + 1); setPausedUrl(null); setPauseError(null); stopPicking(); }} disabled={loading} aria-label="처음부터 다시 재생">
             <Icon name="retry" />
             <span>재생</span>
           </Button>
@@ -177,12 +200,21 @@ export function GamePlayer({
             <Icon name="camera" />
             <span>캡처</span>
           </Button>
+          <Button size="sm" onClick={() => (picking ? stopPicking() : setPicking(true))} disabled={!play || !!problem} aria-pressed={picking} aria-label={picking ? "오브젝트 선택 끝내기" : "오브젝트 선택"}>
+            <Icon name="search" />
+            <span>{picking ? "선택 끝" : "오브젝트"}</span>
+          </Button>
           <Button size="sm" onClick={toggleFullscreen} disabled={!play || !!problem} aria-label={fullscreen ? "전체화면 닫기" : "전체화면"}>
             <Icon name="expand" />
             <span>전체화면</span>
           </Button>
         </div>
       </div>
+      {picking && (
+        <div ref={pickPanelRef}>
+          <ObjectPickPanel state={objectPick.state} selected={pickSelected} onSelect={setPickSelected} />
+        </div>
+      )}
       {gameId && save.saved && (
         <p className="game-save" role="status">
           <Icon name="check" />
