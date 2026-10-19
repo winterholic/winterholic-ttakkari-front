@@ -14,31 +14,3 @@
 .remote-help summary { cursor: pointer; min-height: var(--tk-size-touch-target-min); display: flex; align-items: center; }
 .remote-help li { padding-block: var(--tk-space-2); }
 .remote-help a { color: var(--tk-color-text-link); text-decoration: underline; }
-.remote-session { position: fixed; inset: 0; z-index: var(--tk-z-index-modal); height: 100dvh; overflow: hidden; background: var(--tk-graphite-975); color: var(--tk-color-text-primary); padding-bottom: env(safe-area-inset-bottom); box-sizing: border-box; }
-.remote-viewport { position: absolute; inset: 0; overflow: hidden; touch-action: none; overscroll-behavior: none; }
-.remote-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; pointer-events: none; }
-.remote-canvas > div { overflow: hidden; }
-.remote-input { position: absolute; inset: 0; touch-action: none; overscroll-behavior: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
-.remote-input:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-border-focus); outline-offset: calc(-1 * var(--tk-space-1)); }
-.remote-cursor { position: absolute; width: var(--tk-space-5); height: var(--tk-space-5); left: calc(-.5 * var(--tk-space-5)); top: calc(-.5 * var(--tk-space-5)); border: var(--tk-space-0-5) solid var(--tk-blue-400); border-radius: 50%; box-shadow: 0 0 0 var(--tk-space-px) var(--tk-graphite-975); pointer-events: none; }
-.remote-status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--tk-space-4); padding: var(--tk-space-6); text-align: center; color: var(--tk-graphite-50); background: var(--tk-graphite-975); }
-.remote-status p { max-width: 32rem; }
-.remote-chrome { position: absolute; inset-inline: 0; top: 0; display: flex; flex-direction: column; max-height: calc(100% - var(--tk-space-16)); overflow-y: auto; background: var(--tk-color-surface-raised); border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-default); padding-top: env(safe-area-inset-top); }
-.remote-topbar { display: flex; align-items: center; gap: var(--tk-space-3); padding: var(--tk-space-1) max(var(--tk-space-3), env(safe-area-inset-left)); }
-.remote-topbar strong { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.remote-topbar span { font-size: var(--tk-font-size-xs); color: var(--tk-color-text-secondary); }
-.remote-toolbar, .remote-keys { display: flex; align-items: center; flex-wrap: wrap; gap: var(--tk-space-1); padding: var(--tk-space-2); }
-.remote-session .tk-button, .remote-session .tk-icon-button { min-height: var(--tk-size-touch-target-min); min-width: var(--tk-size-touch-target-min); flex: none; }
-.remote-session [aria-pressed="true"] { background: var(--tk-color-surface-brand); color: var(--tk-color-text-on-brand); }
-.remote-keyboard { display: flex; flex-direction: column; gap: var(--tk-space-3); padding: 0 var(--tk-space-3) var(--tk-space-3); }
-.remote-keyboard textarea { resize: vertical; max-height: 25dvh; }
-.remote-keyboard summary { min-height: var(--tk-size-touch-target-min); cursor: pointer; padding-block: var(--tk-space-2); }
-.remote-session--keyboard .remote-toolbar { display: none; }
-.remote-guidance { padding: var(--tk-space-3); margin: 0; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
-.remote-session > .remote-tools-toggle { position: absolute; bottom: max(var(--tk-space-3), env(safe-area-inset-bottom)); right: max(var(--tk-space-3), env(safe-area-inset-right)); background: var(--tk-color-surface-raised); color: var(--tk-color-text-primary); border: var(--tk-border-width-hairline) solid var(--tk-color-border-strong); border-radius: var(--tk-radius-full); }
-@media (orientation: landscape) and (max-height: 500px) {
-  .remote-topbar { padding-block: 0; }
-  .remote-keyboard { flex-direction: row; flex-wrap: wrap; }
-  .remote-text-label { flex: 1; min-width: 12rem; }
-  .remote-keys { padding: 0; }
-}

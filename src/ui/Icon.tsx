@@ -4,7 +4,7 @@ import {
   FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Lock, LogOut, Mail, Maximize,
   Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, Palette, PanelRight, Paperclip, Pin, Play, Presentation, RefreshCw,
   Search, Send, Server, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, Square, SquarePen, Sun, Terminal, Trash2,
-  TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, Film, LayoutTemplate, Music, PenTool, Ruler, Sparkles, ChartGantt, ChartCandlestick, Building2, CircleDot, Code, FileDiff, GitBranch, GitFork, GitMerge, GitPullRequest, GitPullRequestDraft, Star, User, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users, Workflow,
+  TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, Keyboard, Gamepad2, MousePointer2, Pointer, Film, LayoutTemplate, Music, PenTool, Ruler, Sparkles, ChartGantt, ChartCandlestick, Building2, CircleDot, Code, FileDiff, GitBranch, GitFork, GitMerge, GitPullRequest, GitPullRequestDraft, Star, User, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users, Workflow,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -37,6 +37,8 @@ const ICONS = {
   notebook: BookOpen,
   // ArtCraft 관제
   palette: Palette, play: Play,
+  // 원격 데스크톱 조작 도구
+  keyboard: Keyboard, gamepad: Gamepad2, "mouse-pointer": MousePointer2, pointer: Pointer,
   // ArtCraft 작업 범주
   film: Film, layout: LayoutTemplate, music: Music, "pen-tool": PenTool, ruler: Ruler, sparkles: Sparkles,
 } satisfies Record<string, LucideIcon>;

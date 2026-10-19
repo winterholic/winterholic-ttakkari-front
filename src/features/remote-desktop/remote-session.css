@@ -1,0 +1,107 @@
+/* The remote screen is always dark chrome over the Mac's picture, whatever the app theme is. */
+html.remote-session-open, html.remote-session-open body { overflow: hidden; overscroll-behavior: none; }
+.remote-session { /* lint-ok: 아래 safe-area 는 키보드 줄과 패드가 각자 처리한다. 원격 화면 자체는 화면 끝까지 쓴다 */ position: fixed; inset: 0; z-index: var(--tk-z-index-modal); height: 100dvh; overflow: hidden; background: var(--tk-graphite-975); color: var(--tk-graphite-50); color-scheme: dark; box-sizing: border-box; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: none; overscroll-behavior: none; }
+.remote-session button { touch-action: manipulation; }
+.remote-session .tk-button, .remote-session .tk-icon-button {
+  --tk-_fg: var(--tk-graphite-50); --tk-_bg: transparent; --tk-_bg-hover: var(--tk-graphite-800); --tk-_bg-active: var(--tk-graphite-700); --tk-_border: transparent;
+  min-height: var(--tk-size-touch-target-min); min-width: var(--tk-size-touch-target-min); flex: none;
+}
+.remote-session [aria-pressed="true"]:not(.remote-key):not(.remote-pad__button):not(.remote-pad__lock):not(.remote-segmented button) { --tk-_bg: var(--tk-color-surface-brand); --tk-_fg: var(--tk-color-text-on-brand); --tk-_bg-hover: var(--tk-color-surface-brand); }
+
+.remote-viewport { position: absolute; inset: 0; overflow: hidden; z-index: var(--tk-z-index-base); }
+.remote-canvas { position: absolute; top: 0; left: 0; transform-origin: 0 0; pointer-events: none; }
+.remote-canvas > div { overflow: hidden; }
+.remote-canvas canvas { cursor: none; }
+.remote-input { position: absolute; inset: 0; }
+.remote-input:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-border-focus); outline-offset: calc(-1 * var(--tk-space-1)); }
+.remote-status { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--tk-space-4); padding: var(--tk-space-6); text-align: center; color: var(--tk-graphite-50); background: var(--tk-graphite-975); }
+.remote-status p { max-width: 32rem; }
+
+/* One pointer, fixed on screen size however far the desktop is zoomed. The tip of the arrow is the hotspot. */
+.remote-cursor { position: absolute; left: 0; top: 0; width: calc(var(--rd-cursor-size, 1.25rem) * .667); height: var(--rd-cursor-size, 1.25rem); pointer-events: none; will-change: transform; z-index: var(--tk-z-index-raised); }
+.remote-cursor__arrow { display: block; width: 100%; height: 100%; overflow: visible; fill: var(--tk-graphite-50); stroke: var(--tk-graphite-975); stroke-width: 1.4; stroke-linejoin: round; filter: drop-shadow(0 var(--tk-space-px) var(--tk-space-px) var(--tk-graphite-975)); }
+.remote-cursor[data-down="1"] .remote-cursor__arrow { fill: var(--tk-blue-400); }
+.remote-cursor__pulse { position: absolute; left: -1rem; top: -1rem; width: 2rem; height: 2rem; border-radius: var(--tk-radius-full); border: var(--tk-border-width-strong) solid var(--tk-blue-400); opacity: 0; }
+
+/* Top tool row */
+.remote-chrome { position: absolute; inset-inline: 0; top: 0; z-index: var(--tk-z-index-sticky); display: flex; flex-direction: column; background: color-mix(in srgb, var(--tk-graphite-950) 88%, transparent); border-bottom: var(--tk-border-width-hairline) solid var(--tk-graphite-800); padding-top: env(safe-area-inset-top); padding-inline: max(var(--tk-space-1), env(safe-area-inset-left)) max(var(--tk-space-1), env(safe-area-inset-right)); }
+.remote-topbar { display: flex; align-items: center; gap: var(--tk-space-1); }
+.remote-chrome .tk-button { padding-inline: var(--tk-space-1); }
+.remote-status-pill { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--tk-font-size-xs); color: var(--tk-graphite-300); padding-inline: var(--tk-space-1); }
+.remote-status-pill::before { content: ''; display: inline-block; width: .5rem; height: .5rem; margin-inline-end: var(--tk-space-1); border-radius: var(--tk-radius-full); background: var(--tk-graphite-500); }
+.remote-status-pill[data-quality="good"]::before { background: var(--tk-color-border-agent); }
+.remote-status-pill[data-quality="ok"]::before { background: var(--tk-blue-400); }
+.remote-status-pill[data-quality="slow"]::before { background: var(--tk-color-border-danger); }
+.remote-guidance { display: flex; align-items: center; gap: var(--tk-space-2); padding: var(--tk-space-2) var(--tk-space-3); margin: 0; font-size: var(--tk-font-size-sm); color: var(--tk-graphite-100); }
+.remote-guidance p, .remote-guidance { overflow-wrap: anywhere; }
+.remote-guidance--floating { position: absolute; z-index: var(--tk-z-index-toast); inset-inline: var(--tk-space-3); top: max(var(--tk-space-3), env(safe-area-inset-top)); border-radius: var(--tk-radius-lg); background: color-mix(in srgb, var(--tk-graphite-950) 92%, transparent); }
+.remote-session > .remote-tools-toggle { position: absolute; z-index: var(--tk-z-index-sticky); top: max(var(--tk-space-2), env(safe-area-inset-top)); right: max(var(--tk-space-2), env(safe-area-inset-right)); background: color-mix(in srgb, var(--tk-graphite-950) 70%, transparent); border-radius: var(--tk-radius-full); opacity: .6; }
+
+/* Keyboard bar sits on the bottom edge of the visual viewport, so it rides just above the iOS keyboard. */
+.remote-keybar-wrap { position: absolute; inset-inline: 0; bottom: 0; z-index: var(--tk-z-index-dropdown); background: var(--tk-graphite-950); border-top: var(--tk-border-width-hairline) solid var(--tk-graphite-800); padding-bottom: env(safe-area-inset-bottom); padding-inline: max(var(--tk-space-1), env(safe-area-inset-left)) max(var(--tk-space-1), env(safe-area-inset-right)); }
+.remote-session[data-soft-keyboard] .remote-keybar-wrap { padding-bottom: 0; }
+.remote-keybar { display: flex; flex-direction: column; gap: var(--tk-space-1); padding-block: var(--tk-space-1); }
+.remote-keybar__input { display: flex; align-items: center; gap: var(--tk-space-1); }
+.remote-keybar textarea { flex: 1; min-width: 0; box-sizing: border-box; height: var(--tk-size-touch-target-min); max-height: var(--tk-size-touch-target-min); resize: none; padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-graphite-700); border-radius: var(--tk-radius-md); background: var(--tk-graphite-900); color: var(--tk-graphite-50); font: inherit; font-size: max(1rem, var(--tk-font-size-md)); line-height: 1.2; user-select: text; -webkit-user-select: text; touch-action: manipulation; }
+.remote-keybar textarea::placeholder { color: var(--tk-graphite-400); }
+.remote-keys { display: flex; align-items: center; gap: var(--tk-space-1); overflow-x: auto; overscroll-behavior: contain; scrollbar-width: none; touch-action: pan-x; padding-bottom: var(--tk-space-px); }
+.remote-keys::-webkit-scrollbar { display: none; }
+.remote-key { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: var(--tk-size-touch-target-min); min-height: var(--tk-size-touch-target-min); padding-inline: var(--tk-space-3); border: 0; border-radius: var(--tk-radius-md); background: var(--tk-graphite-800); color: var(--tk-graphite-50); font: inherit; font-size: var(--tk-font-size-sm); font-variant-numeric: tabular-nums; white-space: nowrap; cursor: pointer; }
+.remote-key:active { background: var(--tk-graphite-600); }
+.remote-key:disabled { opacity: .4; }
+.remote-key--icon { background: transparent; padding-inline: 0; }
+.remote-key[aria-pressed="true"] { background: var(--tk-color-surface-brand); color: var(--tk-color-text-on-brand); }
+.remote-key[data-lock] { outline: var(--tk-border-width-strong) solid var(--tk-blue-300); outline-offset: calc(-1 * var(--tk-border-width-strong)); }
+.remote-keys__divider { flex: none; width: var(--tk-border-width-hairline); align-self: stretch; margin-block: var(--tk-space-2); background: var(--tk-graphite-700); }
+
+/* Gamepad overlay: pointer-events only on the controls, so gaps still reach the touch surface underneath. */
+.remote-pad { position: absolute; inset-inline: 0; bottom: 0; z-index: var(--tk-z-index-raised); display: flex; align-items: flex-end; justify-content: space-between; font-size: calc(1rem * var(--rd-pad-scale, 1)); padding: var(--tk-space-4) max(var(--tk-space-4), env(safe-area-inset-right)) max(var(--tk-space-4), env(safe-area-inset-bottom)) max(var(--tk-space-4), env(safe-area-inset-left)); pointer-events: none; }
+.remote-pad--left-handed { flex-direction: row-reverse; }
+.remote-pad > *, .remote-pad button, .remote-pad__stick { pointer-events: auto; }
+.remote-pad__stick { position: relative; flex: none; width: 7em; height: 7em; border-radius: var(--tk-radius-full); background: color-mix(in srgb, var(--tk-graphite-900) 70%, transparent); border: var(--tk-border-width-strong) solid var(--tk-graphite-500); opacity: var(--rd-pad-opacity, .6); touch-action: none; transition: opacity 120ms; }
+.remote-pad__stick[data-active] { opacity: 1; }
+.remote-pad__knob { position: absolute; left: 50%; top: 50%; width: 3.2em; height: 3.2em; margin: -1.6em 0 0 -1.6em; border-radius: var(--tk-radius-full); background: var(--tk-graphite-200); box-shadow: var(--tk-shadow-md); pointer-events: none; }
+.remote-pad__buttons { display: flex; flex-direction: column; align-items: flex-end; gap: var(--tk-space-2); pointer-events: none; }
+.remote-pad--left-handed .remote-pad__buttons { align-items: flex-start; }
+.remote-pad__cluster { display: flex; align-items: flex-end; gap: var(--tk-space-3); pointer-events: none; }
+.remote-pad--left-handed .remote-pad__cluster { flex-direction: row-reverse; }
+.remote-pad__scroll { display: flex; flex-direction: column; gap: var(--tk-space-2); pointer-events: none; }
+.remote-pad__clicks { display: flex; flex-direction: column; align-items: center; gap: var(--tk-space-2); pointer-events: none; }
+.remote-pad__button, .remote-pad__lock { display: inline-flex; align-items: center; justify-content: center; border: var(--tk-border-width-strong) solid var(--tk-graphite-500); background: color-mix(in srgb, var(--tk-graphite-900) 70%, transparent); color: var(--tk-graphite-50); font: inherit; font-weight: 600; opacity: var(--rd-pad-opacity, .6); touch-action: none; transition: opacity 120ms; cursor: pointer; }
+.remote-pad__button[data-active], .remote-pad__lock[aria-pressed="true"] { opacity: 1; background: var(--tk-color-surface-brand); border-color: var(--tk-blue-300); }
+.remote-pad__left { width: 4.5em; height: 4.5em; border-radius: var(--tk-radius-full); font-size: 1.25em; }
+.remote-pad__right { width: 3.2em; height: 3.2em; border-radius: var(--tk-radius-full); }
+.remote-pad__step { width: 3.2em; height: 3em; border-radius: var(--tk-radius-lg); }
+.remote-pad__lock { gap: var(--tk-space-1); padding: var(--tk-space-2) var(--tk-space-3); border-radius: var(--tk-radius-full); font-size: var(--tk-font-size-xs); min-height: var(--tk-size-touch-target-min); touch-action: manipulation; }
+.remote-pad__lock .tk-icon { width: 1em; height: 1em; }
+
+/* Settings sheet */
+.remote-sheet { position: absolute; inset-inline: 0; bottom: 0; z-index: var(--tk-z-index-overlay); display: flex; flex-direction: column; max-height: 78%; margin-inline: auto; max-width: 36rem; background: var(--tk-graphite-950); border: var(--tk-border-width-hairline) solid var(--tk-graphite-700); border-radius: var(--tk-radius-lg) var(--tk-radius-lg) 0 0; box-shadow: var(--tk-shadow-lg); padding-bottom: env(safe-area-inset-bottom); touch-action: pan-y; }
+.remote-sheet__header { display: flex; align-items: center; justify-content: space-between; padding: var(--tk-space-1) var(--tk-space-2) var(--tk-space-1) var(--tk-space-4); border-bottom: var(--tk-border-width-hairline) solid var(--tk-graphite-800); }
+.remote-sheet__body { display: flex; flex-direction: column; gap: var(--tk-space-3); padding: var(--tk-space-4); overflow-y: auto; overscroll-behavior: contain; }
+.remote-sheet__body h3 { margin: 0; font-size: var(--tk-font-size-sm); color: var(--tk-graphite-300); }
+.remote-sheet__hint { margin: 0; font-size: var(--tk-font-size-sm); color: var(--tk-graphite-300); }
+.remote-sheet__howto { margin: 0; padding-inline-start: var(--tk-space-5); font-size: var(--tk-font-size-sm); color: var(--tk-graphite-200); }
+.remote-sheet__howto li { padding-block: var(--tk-space-1); }
+.remote-sheet summary { min-height: var(--tk-size-touch-target-min); display: flex; align-items: center; cursor: pointer; }
+.remote-sheet textarea { width: 100%; box-sizing: border-box; min-height: 5rem; background: var(--tk-graphite-900); color: var(--tk-graphite-50); border: var(--tk-border-width-hairline) solid var(--tk-graphite-700); border-radius: var(--tk-radius-md); font: inherit; font-size: max(1rem, var(--tk-font-size-md)); user-select: text; -webkit-user-select: text; }
+.remote-setting { display: flex; flex-direction: column; gap: var(--tk-space-2); font-size: var(--tk-font-size-sm); }
+.remote-setting--toggle { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--tk-space-4); min-height: var(--tk-size-touch-target-min); }
+.remote-setting__label { display: flex; flex-direction: column; gap: var(--tk-space-1); }
+.remote-setting__label small { color: var(--tk-graphite-400); font-size: var(--tk-font-size-xs); }
+.remote-setting__label output { color: var(--tk-graphite-300); font-variant-numeric: tabular-nums; }
+.remote-setting input[type="range"] { width: 100%; min-height: var(--tk-size-touch-target-min); touch-action: pan-y; }
+.remote-setting input[type="checkbox"] { flex: none; width: 2.75rem; height: 1.75rem; accent-color: var(--tk-color-surface-brand); }
+.remote-setting select { min-height: var(--tk-size-touch-target-min); padding-inline: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-graphite-900); color: var(--tk-graphite-50); border: var(--tk-border-width-hairline) solid var(--tk-graphite-700); font: inherit; font-size: max(1rem, var(--tk-font-size-md)); }
+.remote-segmented { display: flex; gap: var(--tk-space-1); padding: var(--tk-space-1); border-radius: var(--tk-radius-md); background: var(--tk-graphite-900); }
+.remote-segmented button { flex: 1; min-height: var(--tk-size-touch-target-min); border: 0; border-radius: var(--tk-radius-sm); background: transparent; color: var(--tk-graphite-200); font: inherit; font-size: var(--tk-font-size-sm); cursor: pointer; }
+.remote-segmented button[aria-pressed="true"] { background: var(--tk-color-surface-brand); color: var(--tk-color-text-on-brand); }
+
+/* Short landscape screens: the soft keyboard leaves little height, so keys and field share one row and the tool row steps aside. */
+@media (orientation: landscape) and (max-height: 32rem) {
+  .remote-keybar { flex-direction: row; align-items: center; }
+  .remote-keybar__input { flex: 0 0 42%; min-width: 0; }
+  .remote-keys { flex: 1; min-width: 0; }
+  .remote-session--keyboard .remote-chrome { display: none; }
+  .remote-sheet { max-height: 92%; }
+}
