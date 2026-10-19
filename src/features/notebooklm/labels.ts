@@ -87,12 +87,15 @@ export function jobStatusText(j: NlmJob): { text: string; tone?: Tone } {
   }
 }
 
-export type ErrorKind = "network" | "cooldown" | "auth" | "blocked" | "disabled" | "unknown_outcome" | "too_large" | "other";
+export type ErrorKind =
+  | "network" | "cooldown" | "too_soon" | "auth" | "blocked" | "disabled" | "unknown_outcome" | "too_large" | "upstream" | "integration" | "other";
 export interface DescribedError {
   kind: ErrorKind;
   title: string;
   detail: string;
   retryAfter?: number;
+  /** 백엔드가 준 원인 요약(예외 종류 + 마스킹된 메시지). */
+  cause?: string;
 }
 
 /** 오류를 화면이 분기하는 종류와 사람 문장으로. 백엔드 메시지는 쿠키·토큰이 마스킹된 문장이라 그대로 보여 줄 수 있다. */
@@ -101,7 +104,11 @@ export function describeError(e: unknown): DescribedError {
     return { kind: "network", title: "서버에 연결하지 못했어요", detail: "네트워크 상태를 확인하고 다시 시도해 주세요. 요청이 서버에 닿지 않았을 수 있어요." };
   }
   const detail = e.message || "";
-  if (e.status === 429) {
+  // 429 라고 모두 Google 사용 제한은 아니다. 우리 쪽 최소 간격 제한(too_soon)은 Google 에 요청하지 않은 것이라 구분한다.
+  if (e.code === "too_soon") {
+    return { kind: "too_soon", title: "방금 확인했어요", detail: "접속 확인은 잠시 간격을 두고 다시 할 수 있어요. 이 제한은 Google 사용 제한이 아니에요.", retryAfter: e.retryAfter };
+  }
+  if (e.code === "rate_limited" || e.code === "cooldown" || (e.status === 429 && e.code.startsWith("http_"))) {
     return { kind: "cooldown", title: "Google 사용 제한 중이에요", detail: "잠시 쉬었다가 다시 시도해 주세요. 그동안은 Google에 요청하지 않아요.", retryAfter: e.retryAfter };
   }
   if (e.code === "auth_required") {
@@ -113,13 +120,19 @@ export function describeError(e: unknown): DescribedError {
   if (e.code === "disabled") {
     return { kind: "disabled", title: "NotebookLM 연결이 꺼져 있어요", detail: "백엔드 설정에서 꺼 둔 상태예요." };
   }
+  if (e.code === "integration_error") {
+    return { kind: "integration", title: "따까리의 NotebookLM 연동 오류예요", detail: "Google 문제가 아니라 따까리 쪽 결함이에요. 아래 원인을 개발 쪽에 알려 주세요.", cause: e.detail };
+  }
   if (e.outcomeUnknown) {
     return { kind: "unknown_outcome", title: "요청이 Google에 닿았는지 알 수 없어요", detail: "같은 요청을 바로 다시 보내지 말고 목록부터 확인해 주세요." };
   }
   if (e.status === 413 || e.code === "too_large") {
     return { kind: "too_large", title: "파일이 너무 커요", detail: detail || "더 작은 파일을 골라 주세요." };
   }
-  return { kind: "other", title: detail || "요청하지 못했어요", detail: e.status >= 500 ? "잠시 후 다시 시도해 주세요." : "" };
+  if (e.code === "upstream_error" || e.code === "upstream_rejected") {
+    return { kind: "upstream", title: "NotebookLM이 요청을 처리하지 못했어요", detail: detail || "잠시 후 다시 시도해 주세요.", cause: e.detail };
+  }
+  return { kind: "other", title: detail || "요청하지 못했어요", detail: e.status >= 500 ? "잠시 후 다시 시도해 주세요." : "", cause: e.detail };
 }
 
 export function formatRemaining(seconds: number): string {

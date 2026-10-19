@@ -66,6 +66,8 @@ export class ApiError extends Error {
   readonly retryAfter?: number;
   /** 쓰기가 Google 에 닿았는지 모른다는 표시(NotebookLM). 같은 쓰기를 다시 보내지 말고 목록부터 확인한다. */
   readonly outcomeUnknown: boolean;
+  /** 백엔드가 알려 준 원인 요약. 없을 수 있다. */
+  readonly detail?: string;
 
   constructor(status: number, body: ApiErrorBody, retryAfter?: number) {
     super(body.message);
@@ -75,6 +77,7 @@ export class ApiError extends Error {
     this.errors = body.errors;
     this.retryAfter = retryAfter;
     this.outcomeUnknown = body.outcome_unknown === true;
+    this.detail = body.detail;
   }
 }
 

@@ -81,7 +81,10 @@ export function AuthStatusCard({ status }: { status: NlmAuthStatus }) {
   const qc = useQueryClient();
   const [confirmResume, setConfirmResume] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: nlmKeys.status });
-  const fail = (e: unknown) => toast({ message: describeError(e).title, tone: "danger" });
+  const fail = (e: unknown) => {
+    const d = describeError(e);
+    toast({ message: d.cause ? d.title + " (" + d.cause + ")" : d.title, tone: d.kind === "too_soon" ? "neutral" : "danger" });
+  };
   const setStatus = (s: NlmAuthStatus) => {
     qc.setQueryData(nlmKeys.status, s);
     void qc.invalidateQueries({ queryKey: nlmKeys.notebooks });
@@ -143,6 +146,18 @@ export function AuthStatusCard({ status }: { status: NlmAuthStatus }) {
         }
       />
       <p className="nlm-note">이 로그인은 Google 계정 단위라 다른 기능과 함께 써요. <Link to="/settings#google-accounts">Google 계정 설정</Link>에서 같은 상태를 볼 수 있어요.</p>
+
+      {status.last_error && (
+        <aside className="tk-callout tk-callout--caution nlm-notice" role="status" data-testid="nlm-last-error">
+          <Icon name="caution" className="tk-callout__icon" />
+          <div className="tk-callout__body">
+            <strong className="tk-callout__title">마지막 요청이 실패했어요</strong>
+            <p>{status.last_error.message}</p>
+            {status.last_error.detail && <p className="tk-mono">원인: {status.last_error.detail}</p>}
+            <p className="nlm-note">{when(status.last_error.at)} · 코드 {status.last_error.code}</p>
+          </div>
+        </aside>
+      )}
 
       <dl className="nlm-facts">
         <div className="nlm-fact"><dt>마지막 성공</dt><dd>{when(status.last_ok_at)}</dd></div>

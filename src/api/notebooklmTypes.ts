@@ -34,6 +34,8 @@ export interface NlmAuthStatus {
   last_ok_at: string | null;
   last_checked_at: string | null;
   last_error_code: string | null;
+  /** 이 프로세스가 본 마지막 실패의 사람용 요약. 성공하면 비워진다. */
+  last_error?: { code: string; message: string; detail: string | null; at: string } | null;
   session: {
     stored: boolean;
     cookie_names: string[];

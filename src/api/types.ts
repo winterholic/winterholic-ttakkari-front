@@ -14,6 +14,8 @@ export interface ApiErrorBody {
   errors?: { loc: (string | number)[]; msg: string }[];
   /** NotebookLM 쓰기가 Google 에 닿았는지 모를 때 true */
   outcome_unknown?: boolean;
+  /** 원인 요약 한 줄(예외 종류와 마스킹된 메시지). 쿠키·토큰은 담기지 않는다. */
+  detail?: string;
 }
 
 // ---- auth

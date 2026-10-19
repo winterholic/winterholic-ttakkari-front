@@ -143,6 +143,28 @@ it("오류를 종류별로 나눈다", () => {
   expect(describeError(apiError(413, "too_large", "파일이 너무 큽니다.")).kind).toBe("too_large");
 });
 
+it("429 라도 우리 쪽 최소 간격(too_soon)은 Google 사용 제한으로 표시하지 않는다", () => {
+  const d = describeError(apiError(429, "too_soon", "확인은 30초에 한 번만 할 수 있습니다.", { retryAfter: 12 }));
+  expect(d).toMatchObject({ kind: "too_soon", retryAfter: 12 });
+  expect(d.title).not.toMatch(/Google 사용 제한/);
+});
+
+it("upstream_error·integration_error 는 원인 요약을 함께 낸다", () => {
+  const up = new ApiError(502, { code: "upstream_error", message: "NotebookLM 처리 중 오류", detail: "NotebookLMError: boom" });
+  expect(describeError(up)).toMatchObject({ kind: "upstream", cause: "NotebookLMError: boom" });
+  const it2 = new ApiError(500, { code: "integration_error", message: "연동 코드 오류", detail: "TypeError: cannot be combined" });
+  expect(describeError(it2)).toMatchObject({ kind: "integration", cause: "TypeError: cannot be combined" });
+});
+
+it("상태 카드는 마지막 실패의 원인 요약을 보여 준다", () => {
+  wrap(<AuthStatusCard status={authStatus({
+    state: "session_saved",
+    last_error_code: "integration_error",
+    last_error: { code: "integration_error", message: "연동 코드 오류", detail: "TypeError: x", at: "2026-10-19T13:00:00+00:00" },
+  })} />);
+  expect(screen.getByTestId("nlm-last-error").textContent).toMatch(/TypeError: x/);
+});
+
 it("ErrorNotice: 쿨다운은 남은 시간과 막힌 재시도, 네트워크는 연결 문구", () => {
   const onRetry = vi.fn();
   const { rerender } = wrap(<ErrorNotice error={apiError(429, "cooldown", "x", { retryAfter: 90 })} onRetry={onRetry} />);
