@@ -61,11 +61,10 @@ export function LockedDecisions({ game }: { game: Game }) {
       <Dialog
         open={confirm}
         onClose={() => { approve.reset(); setConfirm(false); }}
-        size="sm"
-        title="잠긴 결정 승인"
+          title="잠긴 결정 승인"
         modal
         footer={
-          <div className="tk-button-group tk-button-group--end">
+          <div className="tk-button-group tk-button-group--end game-dialog-actions">
             <Button onClick={() => setConfirm(false)}>취소</Button>
             <Button variant="primary" busy={approve.isPending} onClick={() => approve.mutate()}>승인</Button>
           </div>

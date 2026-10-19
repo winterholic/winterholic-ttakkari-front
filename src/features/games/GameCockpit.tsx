@@ -44,6 +44,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [shots, setShots] = useState<Record<string, Screenshot>>({});
   const urls = useRef(new Set<string>());
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const active = game.data ? activeBuildOf(game.data, builds.data ?? []) : null;
   const play = useQuery({
@@ -59,6 +60,19 @@ export function GameCockpit({ gameId }: { gameId: string }) {
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["games", gameId] }); toast({ message: "빌드를 시작했어요", tone: "success" }); },
     onError: (e) => toast({ message: errorText(e).message, tone: "danger" }),
   });
+
+  // 빌드가 끝나면 서버가 활성 빌드를 옮겼을 수 있다(복구 빌드 등). 게임 정보와 플레이 주소를 다시 읽는다(실측: 복구 빌드 성공 뒤 목록은 v3 인데 지금 보는 버전이 v1 로 남았다).
+  const hasBuilding = (builds.data ?? []).some((b) => b.status === "building");
+  const wasBuilding = useRef(false);
+  useEffect(() => {
+    if (wasBuilding.current && !hasBuilding) void qc.invalidateQueries({ queryKey: ["games", gameId] });
+    wasBuilding.current = hasBuilding;
+  }, [hasBuilding, qc, gameId]);
+
+  // 캡처하면 게임 화면 아래의 표시 영역으로 내려가 바로 그릴 수 있게 한다(모바일에서는 화면 밖에 놓인다).
+  useEffect(() => {
+    if (screenshot) panelRef.current?.scrollIntoView?.({ block: "start", behavior: "smooth" });
+  }, [screenshot]);
 
   useEffect(() => {
     const set = urls.current;
@@ -121,7 +135,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
         ))}
       </div>
 
-      <div role="tabpanel" id={`game-panel-${tab}`} aria-labelledby={`game-tab-${tab}`} className="game-panel">
+      <div role="tabpanel" id={`game-panel-${tab}`} aria-labelledby={`game-tab-${tab}`} className="game-panel" ref={panelRef}>
         {tab === "feedback" && (
           <>
             {screenshot ? (

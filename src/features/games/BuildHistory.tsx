@@ -33,7 +33,7 @@ export function rollbackProblem(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-const kb = (n: number | null) => (n === null ? "?" : n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.round(n / 1024)}KB`);
+const kb = (n: number | null) => (n === null ? "?" : n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : n >= 1024 ? `${Math.round(n / 1024)}KB` : `${n}B`);
 
 /** 두 빌드의 변경 요약. 서버에 변경 설명이 없어 빌드 기록(커밋·번들 크기·파일 수·잠금 검증)에서만 만든다. */
 export function summarizeChange(prev: GameBuild, next: GameBuild): string[] {
@@ -80,11 +80,10 @@ export function RollbackDialog({ game, target, onClose }: { game: Game; target: 
     <Dialog
       open={!!target}
       onClose={close}
-      size="sm"
       title="이 버전으로 되돌리기"
       modal
       footer={
-        <div className="tk-button-group tk-button-group--end">
+        <div className="tk-button-group tk-button-group--end game-dialog-actions">
           <Button onClick={close}>취소</Button>
           <Button variant="danger" busy={rollback.isPending} onClick={() => target && rollback.mutate(target)}>되돌리기</Button>
         </div>
