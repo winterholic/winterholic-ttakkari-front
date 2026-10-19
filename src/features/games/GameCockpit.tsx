@@ -21,6 +21,9 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "locks", label: "잠긴 결정" },
 ];
 
+const SETTLE_MS = 90_000;
+const SETTLE_POLL_MS = 3_000;
+
 const ENGINE_LABEL: Record<string, string> = { "web-phaser": "Phaser", phaser: "Phaser" };
 export const engineLabel = (id: string): string => ENGINE_LABEL[id] ?? id;
 
@@ -47,6 +50,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
   const panelRef = useRef<HTMLDivElement>(null);
 
   const active = game.data ? activeBuildOf(game.data, builds.data ?? []) : null;
+  const requestsActive = (requests.data ?? []).some((r) => ["queued", "running", "waiting"].includes(r.status));
   const play = useQuery({
     enabled: !!game.data,
     queryKey: ["games", gameId, "play", game.data?.active_build_id ?? null, active?.id ?? null],
@@ -68,6 +72,28 @@ export function GameCockpit({ gameId }: { gameId: string }) {
     if (wasBuilding.current && !hasBuilding) void qc.invalidateQueries({ queryKey: ["games", gameId] });
     wasBuilding.current = hasBuilding;
   }, [hasBuilding, qc, gameId]);
+
+  // 개발·수정 요청이 끝나면 서버가 같은 게임을 자동 빌드한다(back ADR 0054). 빌드 행이 생기고 끝날 때까지 잠시 목록을 다시 읽는다.
+  const wasActive = useRef(false);
+  const [settleUntil, setSettleUntil] = useState(0);
+  useEffect(() => {
+    if (wasActive.current && !requestsActive) setSettleUntil(Date.now() + SETTLE_MS);
+    wasActive.current = requestsActive;
+  }, [requestsActive]);
+  useEffect(() => {
+    if (!settleUntil) return;
+    const id = setInterval(() => {
+      if (Date.now() > settleUntil) { clearInterval(id); setSettleUntil(0); return; }
+      void qc.invalidateQueries({ queryKey: ["games", gameId, "builds"] });
+    }, SETTLE_POLL_MS);
+    return () => clearInterval(id);
+  }, [settleUntil, qc, gameId]);
+
+  // 방금 만든 게임처럼 빌드가 아직 없고 AI 가 일하는 중이면 진행 상황 탭을 먼저 보여 준다(처음 한 번만).
+  const autoTabbed = useRef(false);
+  useEffect(() => {
+    if (!autoTabbed.current && requestsActive && builds.data?.length === 0) { autoTabbed.current = true; setTab("work"); }
+  }, [requestsActive, builds.data?.length]);
 
   // 캡처하면 게임 화면 아래의 표시 영역으로 내려가 바로 그릴 수 있게 한다(모바일에서는 화면 밖에 놓인다).
   useEffect(() => {
@@ -99,7 +125,6 @@ export function GameCockpit({ gameId }: { gameId: string }) {
   if (game.isError) return <p className="tk-error" role="alert">{errorText(game.error).message}</p>;
 
   const g = game.data;
-  const requestsActive = (requests.data ?? []).some((r) => ["queued", "running", "waiting"].includes(r.status));
   const status = gameStatus(builds.data, requestsActive, g.last_build);
   const playedBuild = play.data ? { id: play.data.build_id, seq: play.data.build_seq } : null;
   const target = screenshot ? { id: screenshot.buildId, seq: screenshot.buildSeq } : playedBuild;
@@ -123,6 +148,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
         onRestart={() => void play.refetch()}
         onCaptured={onCaptured}
         onStartBuild={() => start.mutate()}
+        working={requestsActive}
         buildTitle={playedBuild ? `v${playedBuild.seq}` : ""}
       />
 

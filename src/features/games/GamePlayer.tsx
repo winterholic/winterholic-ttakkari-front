@@ -28,6 +28,7 @@ export function GamePlayer({
   onCaptured,
   onStartBuild,
   buildTitle,
+  working = false,
 }: {
   play: GamePlay | undefined;
   loading: boolean;
@@ -37,6 +38,8 @@ export function GamePlayer({
   onCaptured: (shot: Screenshot) => void;
   onStartBuild?: () => void;
   buildTitle: string;
+  /** AI 가 이 게임을 만들거나 고치는 중이면 빌드 시작 버튼 대신 기다리라는 안내를 보인다(끝나면 서버가 자동 빌드한다). */
+  working?: boolean;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -105,7 +108,11 @@ export function GamePlayer({
     }
   };
 
-  const problem = error ? playProblem(error) : null;
+  const rawProblem = error ? playProblem(error) : null;
+  // 플레이할 빌드가 아직 없는 이유가 AI 작업 중이면 오류가 아니라 진행 안내다
+  const problem = rawProblem?.needsBuild && working
+    ? { title: "AI가 게임을 만드는 중이에요", detail: "끝나면 자동으로 빌드되어 이 자리에 게임이 열려요. 이 화면을 닫아도 작업은 계속돼요.", needsBuild: false, busy: true }
+    : rawProblem;
 
   return (
     <section className="game-player" aria-label="게임 화면">
@@ -123,7 +130,7 @@ export function GamePlayer({
             loading="eager"
           />
         ) : (
-          <div className="game-stage__empty" role={problem ? "alert" : "status"}>
+          <div className="game-stage__empty" role={problem && !("busy" in problem) ? "alert" : "status"}>
             {loading && !problem && (
               <>
                 <span className="tk-spinner" aria-hidden="true" />
@@ -132,7 +139,7 @@ export function GamePlayer({
             )}
             {problem && (
               <>
-                <Icon name={problem.needsBuild ? "info" : "warning"} />
+                {"busy" in problem ? <span className="tk-spinner" aria-hidden="true" /> : <Icon name={problem.needsBuild ? "info" : "warning"} />}
                 <p className="game-stage__empty-title">{problem.title}</p>
                 <p className="game-stage__empty-detail">{problem.detail}</p>
                 {problem.needsBuild && onStartBuild && <Button size="sm" variant="primary" onClick={onStartBuild}>빌드 시작</Button>}

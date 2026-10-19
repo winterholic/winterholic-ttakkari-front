@@ -148,6 +148,50 @@ describe("GameCockpit", () => {
   });
 });
 
+describe("방금 만든 게임: AI 작업 중 → 자동 빌드", () => {
+  const running = { session_id: "s1", run_id: "r1", status: "running", kind: "develop", build_id: null, lock: "verified", created_at: "2026-10-19T01:00:00Z" };
+  const noBuildGame = () => game({ active_build_id: null, last_build: null });
+  beforeEach(() => {
+    api.getGame.mockResolvedValue(noBuildGame());
+    api.listGameBuilds.mockResolvedValue([]);
+    api.playGame.mockRejectedValue(new ApiError(409, { code: "not_playable", message: "x" }));
+  });
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("빌드가 없고 AI 가 일하는 중이면 빌드 시작 대신 진행 안내를 보이고 AI 작업 탭을 먼저 연다", async () => {
+    api.listGameRequests.mockResolvedValue([running]);
+    renderCockpit();
+    expect(await screen.findByText("AI가 게임을 만드는 중이에요")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "빌드 시작" })).toBeNull();
+    expect(screen.queryByText("아직 플레이할 수 있는 빌드가 없어요")).toBeNull();
+    const empty = screen.getByText("AI가 게임을 만드는 중이에요").closest(".game-stage__empty");
+    expect(empty?.getAttribute("role")).toBe("status"); // 오류(alert)가 아니라 진행 안내다
+    await waitFor(() => expect(screen.getByRole("tab", { name: /AI 작업/ }).getAttribute("aria-selected")).toBe("true"));
+    expect(screen.getByText("AI 작업 중")).toBeTruthy();
+  });
+
+  it("AI 작업이 끝나면 서버의 자동 빌드가 생길 때까지 빌드 목록을 다시 읽고, 끝나면 게임을 연다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    api.listGameRequests.mockResolvedValue([running]);
+    renderCockpit();
+    await screen.findByText("AI가 게임을 만드는 중이에요");
+    const callsBefore = api.listGameBuilds.mock.calls.length;
+    // 요청이 끝났고 서버가 막 빌드를 시작했다
+    api.listGameRequests.mockResolvedValue([{ ...running, status: "succeeded" }]);
+    api.listGameBuilds.mockResolvedValue([build(1, { status: "building", finished_at: null, bundle_sha256: null })]);
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_100); }); // 요청 목록 폴링(활성일 때 4초)
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_100); }); // 완료 후 빌드 목록 재조회
+    expect(api.listGameBuilds.mock.calls.length).toBeGreaterThan(callsBefore);
+    expect(await screen.findByText("빌드 중")).toBeTruthy();
+    // 빌드가 끝나면 활성 빌드·플레이 주소를 다시 읽어 게임이 열린다
+    api.listGameBuilds.mockResolvedValue([build(1)]);
+    api.getGame.mockResolvedValue(game({ active_build_id: "b1", last_build: build(1) }));
+    api.playGame.mockResolvedValue({ ...play, build_id: "b1", build_seq: 1 });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3_100); });
+    expect(await screen.findByTitle("게임 화면 v1")).toBeTruthy();
+  });
+});
+
 describe("gameStatus", () => {
   it("요청 중이면 AI 작업 중, 아니면 최신 빌드 상태를 따른다", () => {
     expect(gameStatus([build(2, { status: "building" })], false, null).text).toBe("빌드 중");

@@ -106,3 +106,20 @@ export interface GameRollbackOut {
   restore_commit: string | null;
   restore_build: GameBuild | null;
 }
+
+/** POST /api/games/create (back ADR 0053). 비운 필드는 서버가 정한다(이름=아이디어 첫 줄, slug=이름에서 생성). */
+export interface GameCreateIn {
+  idea: string;
+  name?: string | null;
+  genre?: string;
+  locked_decisions?: string[];
+  start_development?: boolean;
+}
+
+export interface GameCreateOut {
+  game: Game;
+  /** 첫 개발 요청. start_development=false 거나 접수에 실패하면 null. */
+  request: GameRequest | null;
+  /** 게임은 만들어졌지만 첫 요청 접수가 실패했을 때. */
+  request_error: { code: string; message: string } | null;
+}
