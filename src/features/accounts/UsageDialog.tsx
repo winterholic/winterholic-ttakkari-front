@@ -68,8 +68,8 @@ function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status
 /** 목록(캐시 값) 위에 계정별 조회 결과를 덮는다. 둘 중 더 최근에 관측한 사용량 쪽을 쓰고, 순서·켜기는 목록이 늘 기준이다. */
 function mergeUsage(base: AccountUsage, live: AccountUsage | undefined): AccountUsage {
   if (!live || (live.updated_at ?? 0) < (base.updated_at ?? 0)) return base;
-  const { windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing } = live;
-  return { ...base, windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing };
+  const { windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing, cooldown_seconds } = live;
+  return { ...base, windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing, cooldown_seconds };
 }
 
 type UsageTab = "accounts" | "flash" | "intake";
@@ -285,7 +285,20 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                             <span className="usage-card__name">{a.name}</span>
                             <span className="usage-card__sub"><EngineBadge engine={a.engine} />{a.plan ? <span>{a.plan}</span> : null}</span>
                           </span>
-                          <span className={st.tone === "neutral" || loading ? "tk-badge" : `tk-badge tk-badge--${st.tone}`}>{loading && !measured(a) ? "확인 중" : st.text}</span>
+                          <div className="usage-card__actions">
+                            <button
+                              type="button"
+                              className="tk-icon-button tk-icon-button--sm usage-card__refresh"
+                              aria-label={`${a.name} 사용량 새로고침`}
+                              title={`${a.name} 사용량 다시 측정`}
+                              aria-busy={lq?.isFetching || undefined}
+                              disabled={lq?.isFetching}
+                              onClick={() => refreshAccount(a.id)}
+                            >
+                              <Icon name="retry" />
+                            </button>
+                            <span className={st.tone === "neutral" || loading ? "tk-badge" : `tk-badge tk-badge--${st.tone}`}>{loading && !measured(a) ? "확인 중" : st.text}</span>
+                          </div>
                         </div>
                         {a.engine === "muse" && <div className="usage-card__status">
                           {a.execution_enabled === false && <span className="tk-badge">실행 검증 전</span>}

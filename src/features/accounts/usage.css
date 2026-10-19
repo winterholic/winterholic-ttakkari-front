@@ -43,6 +43,11 @@
 .usage-card__name { overflow-wrap: anywhere; color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
 .usage-card__sub { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .usage-card__head > .tk-badge { flex: none; }
+.usage-card__actions { display: flex; flex: none; align-items: center; gap: var(--tk-space-2); }
+.usage-card__refresh { min-width: var(--tk-size-control-md); min-height: var(--tk-size-control-md); }
+.usage-card__refresh[aria-busy="true"] .tk-icon { animation: usage-refresh-spin 1s linear infinite; }
+@keyframes usage-refresh-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .usage-card__refresh[aria-busy="true"] .tk-icon { animation: none; } }
 .usage-card__windows { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: var(--tk-space-3) var(--tk-space-4); }
 .usage-card__loading { display: flex; flex-direction: column; gap: var(--tk-space-2); }
 .usage-card__retry { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); color: var(--tk-color-text-danger); }

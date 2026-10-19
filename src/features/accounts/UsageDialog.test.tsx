@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import type { AccountUsage } from "../../api/client";
@@ -38,7 +38,7 @@ beforeEach(() => {
     week: { starts_at: "2026-10-11T15:00:00+00:00", ends_at: "2026-10-16T00:30:00+00:00", calls: 9, metered_calls: 8, usage_missing_calls: 1, failed_calls: 0, unmetered_calls: 1, input_tokens: 2000, output_tokens: 500, total_tokens: 2500, last_used_at: "2026-10-16T00:25:00+00:00" },
   });
 });
-afterEach(() => { cleanup(); vi.resetAllMocks(); });
+afterEach(() => { cleanup(); vi.resetAllMocks(); localStorage.clear(); });
 
 function renderUsage(value: AccountUsage = account) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -384,5 +384,47 @@ describe("카드별 독립 로딩", () => {
     renderRows();
     expect(await screen.findByText("24%")).toBeTruthy();
     expect(screen.getByText("61%")).toBeTruthy();
+  });
+});
+
+
+describe("계정별 사용량 새로고침", () => {
+  it("갱신으로 해제된 쿨다운을 카드에 반영한다", async () => {
+    renderUsage({ ...account, cooldown_seconds: 300 });
+    await screen.findByText("한도 대기 5분");
+    api.accountUsageOne.mockResolvedValueOnce({ ...account, cooldown_seconds: 0, updated_at: Date.now()/1000 });
+    fireEvent.click(screen.getByRole("button", {name:`${account.name} 사용량 새로고침`}));
+    await waitFor(() => expect(screen.queryByText("한도 대기 5분")).toBeNull());
+  });
+
+  it("선택한 계정만 강제 조회하고 카드 값을 갱신한다", async () => {
+    renderUsage();
+    await screen.findByText("Gemini Models · 주간 99.3% 남음");
+    api.accountUsageOne.mockClear();
+    api.accountUsageCached.mockClear();
+    api.accountUsageOne.mockResolvedValueOnce({ ...account, windows: [{key:"agy_gemini_models_5h",label:"Gemini Models · 5시간",percent:22,remaining_percent:78,resets_at:Date.now()/1000+3600}], updated_at:Date.now()/1000 });
+    fireEvent.click(screen.getByRole("button", {name:`${account.name} 사용량 새로고침`}));
+    await waitFor(() => expect(within(screen.getByRole("listitem", {name:`${account.name} 사용량`})).getByRole("progressbar", {name:"Gemini Models · 5시간 사용량"}).getAttribute("aria-valuenow")).toBe("22"));
+    expect(api.accountUsageOne).toHaveBeenCalledExactlyOnceWith(account.id, true);
+    expect(api.accountUsageCached).not.toHaveBeenCalled();
+  });
+
+  it("동시 조회 중에는 각 계정의 버튼이 따로 비활성화된다", async () => {
+    const other = {...account,id:"other",name:"다른 계정",rank:2};
+    mockAccounts([account,other]);
+    const qc=new QueryClient({defaultOptions:{queries:{retry:false}}});
+    render(<MemoryRouter><QueryClientProvider client={qc}><UsageDialog open onClose={vi.fn()} /></QueryClientProvider></MemoryRouter>);
+    await waitFor(()=>expect(api.accountUsageOne).toHaveBeenCalledTimes(2));
+    await waitFor(()=>expect(qc.isFetching()).toBe(0));
+    const pending=new Map<string,(value:AccountUsage)=>void>();
+    api.accountUsageOne.mockImplementation((id:string)=>new Promise<AccountUsage>(resolve=>pending.set(id,resolve)));
+    const first=screen.getByRole<HTMLButtonElement>("button",{name:`${account.name} 사용량 새로고침`});
+    const second=screen.getByRole<HTMLButtonElement>("button",{name:`${other.name} 사용량 새로고침`});
+    fireEvent.click(first);fireEvent.click(second);
+    await waitFor(()=>{expect(first.disabled).toBe(true);expect(second.disabled).toBe(true);});
+    await act(async()=>{pending.get(account.id)!(account);});
+    await waitFor(()=>{expect(first.disabled).toBe(false);expect(second.disabled).toBe(true);});
+    await act(async()=>{pending.get(other.id)!(other);});
+    await waitFor(()=>expect(second.disabled).toBe(false));
   });
 });
