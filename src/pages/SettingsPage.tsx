@@ -8,6 +8,7 @@ import { ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { DEFAULT_WORKSPACE_KEY, useDefaultWorkspace } from "../features/workspace/useDefaultWorkspace";
 import { AccountsSection } from "../features/accounts/AccountsSection";
 import { QwenWorkerSection } from "../features/accounts/QwenWorkerSection";
+import { GoogleAccountSection } from "../features/google-account/GoogleAccountSection";
 import { ShortcutSection } from "../features/transfer/ShortcutSection";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
@@ -37,6 +38,7 @@ export function SettingsPage() {
           {ws.isError && <ErrorState error={ws.error} what="작업 공간" onRetry={() => void ws.refetch()} />}
           <AccountsSection />
           <QwenWorkerSection />
+          <GoogleAccountSection />
           <ShortcutSection />
           {ws.data && <WritableRoots ws={ws.data} />}
         </div>
