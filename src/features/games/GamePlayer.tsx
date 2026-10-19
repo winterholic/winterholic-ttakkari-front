@@ -5,6 +5,7 @@ import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
 import { requestCapture, requestPause, pngBlobFromDataUrl } from "./captureBridge";
 import type { Screenshot } from "./feedback";
+import { useGameSave } from "./useGameSave";
 
 /** 사람이 읽는 플레이 불가 사유. 코드는 back api/games.py 의 CODE_STATUS 와 같다. */
 export function playProblem(error: unknown): { title: string; detail: string; needsBuild?: boolean } {
@@ -29,6 +30,7 @@ export function GamePlayer({
   onStartBuild,
   buildTitle,
   working = false,
+  gameId,
 }: {
   play: GamePlay | undefined;
   loading: boolean;
@@ -40,6 +42,8 @@ export function GamePlayer({
   buildTitle: string;
   /** AI 가 이 게임을 만들거나 고치는 중이면 빌드 시작 버튼 대신 기다리라는 안내를 보인다(끝나면 서버가 자동 빌드한다). */
   working?: boolean;
+  /** 게임별 세이브 슬롯의 키. 없으면 세이브를 보관하지 않는다. */
+  gameId?: string;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
@@ -52,6 +56,8 @@ export function GamePlayer({
   const paused = pausedUrl !== null && pausedUrl === play?.url;
   const [pausing, setPausing] = useState(false);
   const [pauseError, setPauseError] = useState<string | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
+  const save = useGameSave(gameId ?? "", frameRef, play, !!gameId && !!play);
 
   useEffect(() => {
     const onChange = () => setFullscreen(document.fullscreenElement === stageRef.current);
@@ -177,6 +183,20 @@ export function GamePlayer({
           </Button>
         </div>
       </div>
+      {gameId && save.saved && (
+        <p className="game-save" role="status">
+          <Icon name="check" />
+          <span>진행이 이 기기에 저장돼 있어요{save.saved.savedAt ? " · " + new Date(save.saved.savedAt).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</span>
+          {confirmClear ? (
+            <>
+              <Button size="xs" variant="danger" onClick={() => { setConfirmClear(false); void save.clear(); }}>지우기</Button>
+              <Button size="xs" onClick={() => setConfirmClear(false)}>취소</Button>
+            </>
+          ) : (
+            <Button size="xs" onClick={() => setConfirmClear(true)} aria-label="저장된 진행 지우기">저장 지우기</Button>
+          )}
+        </p>
+      )}
       {captureError && <p className="tk-error" role="alert">{captureError}</p>}
       {pauseError && <p className="tk-error" role="alert">{pauseError}</p>}
     </section>

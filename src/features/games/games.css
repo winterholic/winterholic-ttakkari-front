@@ -120,3 +120,8 @@
   border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-md);
 }
 .game-create__decisions li > span { flex: 1 1 auto; min-width: 0; }
+
+/* 이 기기에 저장된 진행 */
+.game-save { display: flex; align-items: center; flex-wrap: wrap; gap: var(--tk-space-2); margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.game-save > span { flex: 1 1 12rem; min-width: 0; }
+.game-save .tk-button { flex: none; }

@@ -149,6 +149,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
         onCaptured={onCaptured}
         onStartBuild={() => start.mutate()}
         working={requestsActive}
+        gameId={gameId}
         buildTitle={playedBuild ? `v${playedBuild.seq}` : ""}
       />
 
