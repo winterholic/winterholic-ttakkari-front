@@ -65,11 +65,11 @@ describe("GameCockpit", () => {
     expect(api.playGame).toHaveBeenCalledWith("g1");
   });
 
-  it("재생·일시정지·캡처·전체화면 버튼이 있고 일시정지는 지원 전까지 꺼져 있다", async () => {
+  it("재생·일시정지·캡처·전체화면 버튼이 모두 켜져 있다", async () => {
     renderCockpit();
     await screen.findByTitle("게임 화면 v2");
     expect(screen.getByRole("button", { name: "처음부터 다시 재생" })).toBeTruthy();
-    expect((screen.getByRole("button", { name: /일시정지/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "일시정지" }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole("button", { name: "현재 화면 캡처" }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByRole("button", { name: "전체화면" })).toBeTruthy();
   });
@@ -111,6 +111,40 @@ describe("GameCockpit", () => {
     act(() => { window.dispatchEvent(new MessageEvent("message", { data: { type: "ttakkari:capture:result", id: sent.id, width: 390, height: 844, dataUrl: png }, origin: "null", source: frame.contentWindow })); });
     expect(await screen.findByAltText("캡처한 게임 화면")).toBeTruthy();
     expect(screen.getByRole("radio", { name: "영역 박스" })).toBeTruthy();
+  });
+
+  it("일시정지 버튼은 iframe 에 pause 를 보내고, 그 iframe 이 확인해 준 상태로만 계속 버튼으로 바뀐다", async () => {
+    renderCockpit();
+    const frame = (await screen.findByTitle("게임 화면 v2")) as HTMLIFrameElement;
+    const post = vi.spyOn(frame.contentWindow!, "postMessage");
+    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const sent = post.mock.calls[0][0] as { type: string; id: string };
+    expect(sent.type).toBe("ttakkari:pause");
+
+    // 다른 창이 보낸 응답과 id 가 다른 응답은 무시한다.
+    act(() => { window.dispatchEvent(new MessageEvent("message", { data: { type: "ttakkari:paused", id: sent.id, paused: true, supported: true }, origin: play.origin, source: window })); });
+    act(() => { window.dispatchEvent(new MessageEvent("message", { data: { type: "ttakkari:paused", id: "other", paused: true, supported: true }, origin: "null", source: frame.contentWindow })); });
+    expect(screen.queryByRole("button", { name: "계속하기" })).toBeNull();
+
+    act(() => { window.dispatchEvent(new MessageEvent("message", { data: { type: "ttakkari:paused", id: sent.id, paused: true, supported: true }, origin: "null", source: frame.contentWindow })); });
+    const resume = await screen.findByRole("button", { name: "계속하기" });
+    post.mockClear();
+    fireEvent.click(resume);
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    expect((post.mock.calls[0][0] as { type: string }).type).toBe("ttakkari:resume");
+  });
+
+  it("게임이 pause 를 지원하지 않는다고 답하면 안내하고 상태를 바꾸지 않는다", async () => {
+    renderCockpit();
+    const frame = (await screen.findByTitle("게임 화면 v2")) as HTMLIFrameElement;
+    const post = vi.spyOn(frame.contentWindow!, "postMessage");
+    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const sent = post.mock.calls[0][0] as { id: string };
+    act(() => { window.dispatchEvent(new MessageEvent("message", { data: { type: "ttakkari:paused", id: sent.id, paused: false, supported: false }, origin: "null", source: frame.contentWindow })); });
+    expect(await screen.findByText("이 게임은 일시정지를 지원하지 않아요.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeTruthy();
   });
 });
 

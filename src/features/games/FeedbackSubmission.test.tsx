@@ -57,17 +57,12 @@ describe("FeedbackForm", () => {
     const [gameId, body] = api.requestGameWork.mock.calls[0];
     expect(gameId).toBe("g1");
     expect(body).toMatchObject({ kind: "modify", build_id: "b2" });
-    const text = body.instruction as string;
-    expect(text).toContain("점프가 너무 무거워요");
-    expect(text).toContain("build_id=b2");
-    expect(text).toContain("art-1");
-    const json = JSON.parse(text.slice(text.indexOf("```json\n") + 8, text.lastIndexOf("\n```")));
-    expect(json).toMatchObject({
-      kind: "visual_feedback", game_id: "g1", build_id: "b2", build_seq: 2, coordinate_space: "normalized-0-1-top-left",
-      capture: { source: "bridge-postmessage", width: 390, height: 844, artifact_id: "art-1" }, comment: "점프가 너무 무거워요",
+    expect(body.instruction).toBe("점프가 너무 무거워요");
+    // 스크린샷·영역·캡처 빌드는 문장이 아니라 구조화 필드로 간다. 서버가 이를 worker 가 열 수 있는 파일 경로로 바꾼다.
+    expect(body.feedback).toEqual({
+      build_id: "b2", artifact_id: "art-1", annotated_artifact_id: null, width: 390, height: 844,
+      coordinate_space: "normalized-0-1-top-left", annotations,
     });
-    expect(json.annotations).toEqual(annotations);
-    expect(text.length).toBeLessThanOrEqual(20_000);
   });
 
   it("캡처 없이 글만으로도 요청할 수 있고 이때는 업로드하지 않는다", async () => {
@@ -77,7 +72,7 @@ describe("FeedbackForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "AI 수정 요청" }));
     await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
     expect(api.uploadFile).not.toHaveBeenCalled();
-    expect(api.requestGameWork.mock.calls[0][1].instruction).toContain("캡처 없음");
+    expect(api.requestGameWork.mock.calls[0][1]).toMatchObject({ instruction: "배경을 밝게", feedback: null });
   });
 
   it("빌드가 없으면 보낼 수 없다고 알려 주고 단추를 끈다", () => {

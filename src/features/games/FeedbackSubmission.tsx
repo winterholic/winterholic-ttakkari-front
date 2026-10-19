@@ -9,7 +9,7 @@ import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 import { TaskTreeCard } from "../tasks/TaskTreeCard";
-import { buildPayload, composeInstruction, renderAnnotatedPng } from "./feedback";
+import { buildPayload, renderAnnotatedPng, toFeedbackIn } from "./feedback";
 import type { Annotation, Screenshot } from "./feedback";
 
 const ACTIVE = new Set(["queued", "running", "waiting"]);
@@ -44,7 +44,7 @@ export function useSubmitFeedback(game: Game) {
       }
       const payload = buildPayload({ gameId: game.id, build: input.build, screenshot: input.screenshot, annotations: input.annotations, comment: input.comment, artifact: original, annotatedArtifact: annotated });
       const request = await requestGameWork(game.id, {
-        kind: "modify", build_id: input.build.id, instruction: composeInstruction(payload, { original, annotated }),
+        kind: "modify", build_id: input.build.id, instruction: payload.comment, feedback: toFeedbackIn(payload),
       });
       return { request, payload, original, annotated };
     },

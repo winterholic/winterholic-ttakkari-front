@@ -1,11 +1,8 @@
 // 시각적 피드백의 데이터 모델. 좌표는 캡처 이미지 기준 0~1 정규화(왼쪽 위가 0,0)라 화면 크기와 무관하게 같은 위치를 가리킨다.
 import type { ArtifactOut } from "../../api/types";
-import type { GameBuild } from "../../api/gameTypes";
+import type { GameAnnotation, GameBuild, GameFeedbackIn } from "../../api/gameTypes";
 
-export type Annotation =
-  | { type: "box"; x: number; y: number; w: number; h: number }
-  | { type: "arrow"; x1: number; y1: number; x2: number; y2: number }
-  | { type: "freehand"; points: [number, number][] };
+export type Annotation = GameAnnotation;
 
 export type AnnotationTool = "box" | "arrow" | "freehand";
 export type CaptureSource = "bridge-postmessage";
@@ -114,21 +111,20 @@ export function buildPayload(input: {
 }
 
 /**
- * worker 에게 갈 요청 문장. back 의 요청 계약에는 구조화 필드가 없어(RequestIn: kind·instruction·build_id) 사람이 읽는 문장과
- * 같은 내용의 JSON 을 함께 싣는다. 스크린샷은 Artifact ID 로만 가리킨다.
+ * 요청의 구조화 feedback 필드. 스크린샷은 Artifact ID 로만 가리키고, 서버가 파일로 내놓아 worker prompt 에 열 수 있는 경로를 싣는다.
+ * 캡처도 표시도 없으면 null(글만 보내는 요청).
  */
-export function composeInstruction(payload: FeedbackPayload, artifacts: { original?: ArtifactOut | null; annotated?: ArtifactOut | null }): string {
-  const lines = ["[시각적 피드백] 게임 화면을 보고 사용자가 남긴 수정 요청입니다.", `- 대상 빌드: v${payload.build_seq} (build_id=${payload.build_id})`];
-  if (payload.capture) {
-    lines.push(`- 캡처: 게임 bridge(postMessage)가 만든 ${payload.capture.width}×${payload.capture.height} PNG, 번들 sha256 ${payload.capture.bundle_sha256.slice(0, 16)}`);
-    if (artifacts.original) lines.push(`- 스크린샷 Artifact: ${artifacts.original.id} (${artifacts.original.filename}, sha256 ${artifacts.original.sha256.slice(0, 16)})`);
-    if (artifacts.annotated) lines.push(`- 주석을 그린 스크린샷 Artifact: ${artifacts.annotated.id} (${artifacts.annotated.filename})`);
-    lines.push(`- 주석 ${payload.annotations.length}개. 좌표는 이미지 왼쪽 위가 (0,0), 오른쪽 아래가 (1,1)인 0~1 비율입니다.`);
-  } else {
-    lines.push("- 캡처 없음: 글로만 남긴 요청입니다.");
-  }
-  lines.push("", "[사용자 지시]", payload.comment, "", "[구조화 payload]", "```json", JSON.stringify(payload), "```");
-  return lines.join("\n");
+export function toFeedbackIn(payload: FeedbackPayload): GameFeedbackIn | null {
+  if (!payload.capture?.artifact_id && !payload.capture?.annotated_artifact_id && payload.annotations.length === 0) return null;
+  return {
+    build_id: payload.build_id,
+    artifact_id: payload.capture?.artifact_id ?? null,
+    annotated_artifact_id: payload.capture?.annotated_artifact_id ?? null,
+    width: payload.capture?.width ?? null,
+    height: payload.capture?.height ?? null,
+    coordinate_space: payload.coordinate_space,
+    annotations: payload.annotations,
+  };
 }
 
 /** 주석을 그린 PNG. 브라우저 canvas 가 있을 때만 만든다(테스트 환경에는 없다). */

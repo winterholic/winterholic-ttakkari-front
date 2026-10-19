@@ -3,7 +3,7 @@ import { ApiError } from "../../api/client";
 import type { GamePlay } from "../../api/gameTypes";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
-import { requestCapture, pngBlobFromDataUrl } from "./captureBridge";
+import { requestCapture, requestPause, pngBlobFromDataUrl } from "./captureBridge";
 import type { Screenshot } from "./feedback";
 
 /** 사람이 읽는 플레이 불가 사유. 코드는 back api/games.py 의 CODE_STATUS 와 같다. */
@@ -44,6 +44,11 @@ export function GamePlayer({
   const [captureError, setCaptureError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [frameKey, setFrameKey] = useState(0);
+  // 어느 play URL 에서 멈췄는지로 기록해, 다른 빌드를 열면 자연스럽게 '재생 중'으로 돌아간다.
+  const [pausedUrl, setPausedUrl] = useState<string | null>(null);
+  const paused = pausedUrl !== null && pausedUrl === play?.url;
+  const [pausing, setPausing] = useState(false);
+  const [pauseError, setPauseError] = useState<string | null>(null);
 
   useEffect(() => {
     const onChange = () => setFullscreen(document.fullscreenElement === stageRef.current);
@@ -69,6 +74,22 @@ export function GamePlayer({
       setCapturing(false);
     }
   }, [play, onCaptured]);
+
+  const togglePause = useCallback(async () => {
+    const frame = frameRef.current;
+    if (!frame || !play) return;
+    setPausing(true);
+    setPauseError(null);
+    try {
+      const r = await requestPause(frame, play.origin, !paused);
+      if (!r.supported) setPauseError("이 게임은 일시정지를 지원하지 않아요.");
+      else setPausedUrl(r.paused ? play.url : null);
+    } catch (e) {
+      setPauseError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPausing(false);
+    }
+  }, [play, paused]);
 
   const toggleFullscreen = () => {
     const el = stageRef.current;
@@ -127,14 +148,14 @@ export function GamePlayer({
       </div>
       <div className="tk-toolbar game-toolbar" role="toolbar" aria-label="게임 조작">
         <div className="tk-toolbar__group">
-          <Button size="sm" onClick={() => { onRestart(); setFrameKey((k) => k + 1); }} disabled={loading} aria-label="처음부터 다시 재생">
+          <Button size="sm" onClick={() => { onRestart(); setFrameKey((k) => k + 1); setPausedUrl(null); setPauseError(null); }} disabled={loading} aria-label="처음부터 다시 재생">
             <Icon name="retry" />
             <span>재생</span>
           </Button>
-          {/* 템플릿 bridge 에 일시정지 메시지가 없어(ADR 0049 §6 은 캡처만 정의) 지원 전까지 끈다 */}
-          <Button size="sm" disabled title="이 게임은 아직 일시정지를 지원하지 않아요" aria-label="일시정지(지원 안 함)">
-            <Icon name="hand" />
-            <span>일시정지</span>
+          {/* 일시정지는 bridge 의 ttakkari:pause/resume 메시지로 게임이 직접 멈춘다(ADR 0051). 이전 템플릿 빌드는 응답이 없어 안내만 보인다. */}
+          <Button size="sm" onClick={() => void togglePause()} busy={pausing} disabled={!play || !!problem} aria-pressed={paused} aria-label={paused ? "계속하기" : "일시정지"}>
+            <Icon name={paused ? "play" : "hand"} />
+            <span>{paused ? "계속" : "일시정지"}</span>
           </Button>
         </div>
         <span className="tk-toolbar__spacer" />
@@ -150,6 +171,7 @@ export function GamePlayer({
         </div>
       </div>
       {captureError && <p className="tk-error" role="alert">{captureError}</p>}
+      {pauseError && <p className="tk-error" role="alert">{pauseError}</p>}
     </section>
   );
 }

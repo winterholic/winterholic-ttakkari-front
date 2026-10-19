@@ -87,3 +87,51 @@ export function requestCapture(
     }, timeoutMs);
   });
 }
+
+export interface PauseResult {
+  paused: boolean;
+  /** 게임 템플릿이 pause 를 구현했는지. 이전 템플릿은 응답 자체가 없다(시간 초과). */
+  supported: boolean;
+}
+
+/** 일시정지·재개 응답 검증. 캡처 응답과 같은 source·origin·id 조건에 객체 모양을 더한다. */
+export function acceptPausedMessage(event: { origin: string; source: unknown; data: unknown }, ctx: CaptureContext): PauseResult | null {
+  if (ctx.frameWindow === null || event.source !== ctx.frameWindow) return null;
+  if (event.origin !== ctx.gameOrigin && event.origin !== "null") return null;
+  const data = event.data as Record<string, unknown> | null;
+  if (typeof data !== "object" || data === null || Array.isArray(data)) return null;
+  if (data.type !== "ttakkari:paused" || data.id !== ctx.expectedId) return null;
+  if (typeof data.paused !== "boolean" || typeof data.supported !== "boolean") return null;
+  return { paused: data.paused, supported: data.supported };
+}
+
+/** 게임에 일시정지/재개를 요청하고 실제 상태를 돌려받는다. 부팅 중이면 bridge 가 없어 재시도하고, 끝내 응답이 없으면 거절한다. */
+export function requestPause(
+  frame: HTMLIFrameElement,
+  gameOrigin: string,
+  paused: boolean,
+  { timeoutMs = 4000, retryMs = 500, win = window }: { timeoutMs?: number; retryMs?: number; win?: Window } = {},
+): Promise<PauseResult> {
+  const id = newCaptureId();
+  return new Promise((resolve, reject) => {
+    const cleanup = () => {
+      win.removeEventListener("message", onMessage);
+      clearInterval(timer);
+      clearTimeout(timeout);
+    };
+    const onMessage = (event: MessageEvent) => {
+      const ok = acceptPausedMessage(event, { frameWindow: frame.contentWindow, gameOrigin, expectedId: id });
+      if (!ok) return;
+      cleanup();
+      resolve(ok);
+    };
+    const send = () => frame.contentWindow?.postMessage({ type: paused ? "ttakkari:pause" : "ttakkari:resume", id }, "*");
+    win.addEventListener("message", onMessage);
+    send();
+    const timer = setInterval(send, retryMs);
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("이 빌드는 일시정지를 지원하지 않아요. 새로 빌드하면 쓸 수 있어요."));
+    }, timeoutMs);
+  });
+}

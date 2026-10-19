@@ -42,7 +42,7 @@ export interface Game {
   locked_decisions: string[];
   created_at: ISODateTime;
   last_build: GameBuild | null;
-  /** 서버가 아직 내려주지 않는다(매니페스트에만 있음). 오면 장르 칩으로 보인다. */
+  /** 저장소 매니페스트의 장르(back GameOut.genre). 비어 있으면 칩을 숨긴다. */
   genre?: string | null;
 }
 
@@ -59,10 +59,28 @@ export interface GamePlay {
 
 export type GameRequestKind = "develop" | "modify" | "verify";
 
+/** 좌표는 이미지 왼쪽 위가 (0,0)인 0~1 비율. back games/feedback.py 의 AnnotationIn 과 같다. */
+export type GameAnnotation =
+  | { type: "box"; x: number; y: number; w: number; h: number }
+  | { type: "arrow"; x1: number; y1: number; x2: number; y2: number }
+  | { type: "freehand"; points: [number, number][] };
+
+/** 요청에 붙는 시각 피드백(back RequestIn.feedback). 스크린샷은 Artifact 참조이고 서버가 worker 가 열 수 있는 파일로 내놓는다. */
+export interface GameFeedbackIn {
+  build_id: UUID;
+  artifact_id?: UUID | null;
+  annotated_artifact_id?: UUID | null;
+  width?: number | null;
+  height?: number | null;
+  coordinate_space: "normalized-0-1-top-left";
+  annotations: GameAnnotation[];
+}
+
 export interface GameRequestIn {
   kind: GameRequestKind;
   instruction: string;
   build_id?: UUID | null;
+  feedback?: GameFeedbackIn | null;
 }
 
 export interface GameRequest {
