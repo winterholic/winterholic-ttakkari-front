@@ -74,6 +74,7 @@
 .usage-win__pct--none { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-sm); }
 .usage-win[data-state="stale"] .usage-win__pct { opacity: .6; }
 .usage-win[data-state="stale"] .tk-progress { opacity: .45; }
+.usage__note--error { color: var(--tk-color-text-warning); overflow-wrap: anywhere; }
 .usage-win__reset { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
 .usage-win__reset.usage-win__stale { color: var(--tk-color-text-warning); }
 .usage__group { display: flex; flex-direction: column; gap: var(--tk-space-2); }

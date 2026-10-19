@@ -428,3 +428,39 @@ describe("계정별 사용량 새로고침", () => {
     await waitFor(()=>expect(second.disabled).toBe(false));
   });
 });
+
+describe("측정 실패·오래된 값 (2026-10-19 x3: 20시간 전 값이 0% 로 보였다)", () => {
+  const nowSec = () => Math.round(Date.now() / 1000);
+  const claude: AccountUsage = {
+    ...account, id: "x3", name: "회사 클로드 x3", engine: "claude", login: "ok", source: "api", stale: false, remaining_to_limit_percent: 100, credits_balance: null,
+    windows: [{ key: "five_hour", label: "5시간", percent: 0, resets_at: null }, { key: "seven_day", label: "주간", percent: 0, resets_at: 1792933199 }],
+    updated_at: nowSec() - 20 * 3600,
+  };
+  const failure = "사용량 API 401: OAuth token has expired. · 로그인 토큰이 20시간 전 만료됐고 갱신하지 못했어요";
+
+  it("목록의 낡은 값 위에 계정별 조회 실패가 오면 실패 사유와 오래된 값 표시가 보인다", async () => {
+    api.accountUsageCached.mockResolvedValue([claude]);
+    api.accountUsageOne.mockResolvedValue({ ...claude, windows: [], error: failure, updated_at: null, stale: true, source: null });
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<MemoryRouter><QueryClientProvider client={qc}><UsageDialog open onClose={vi.fn()} /></QueryClientProvider></MemoryRouter>);
+    expect(await screen.findByText("측정 실패")).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toContain("사용량 API 401: OAuth token has expired.");
+    expect(screen.getAllByText(/오래된 값 · 20시간 전 관측/).length).toBe(2);
+    expect(screen.getByText(/마지막 측정 20시간 전 · 현재 값이 아니에요/)).toBeTruthy();
+    expect(screen.queryByText("지금 사용")).toBeNull();
+    expect(screen.queryByText("대기")).toBeNull();
+  });
+
+  it("조회가 실패해 창이 없으면 오류 원문을 그대로 보인다", async () => {
+    renderUsage({ ...claude, windows: [], error: failure, updated_at: null, stale: true, source: null });
+    expect(await screen.findByText("측정 실패")).toBeTruthy();
+    expect(screen.getByText(failure)).toBeTruthy();
+  });
+
+  it("최신 측정 성공은 오류·오래됨 표시 없이 보인다", async () => {
+    renderUsage({ ...claude, updated_at: nowSec(), windows: [{ key: "five_hour", label: "5시간", percent: 14, resets_at: null, state: "current" }] });
+    expect(await screen.findByText("14%")).toBeTruthy();
+    expect(screen.queryByText("측정 실패")).toBeNull();
+    expect(screen.queryByText(/오래된/)).toBeNull();
+  });
+});

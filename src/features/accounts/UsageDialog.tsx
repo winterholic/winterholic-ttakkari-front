@@ -56,6 +56,8 @@ function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status
   if (a.engine === "muse" && a.stale) return { tone: "warning", text: "오래된 값" };
   if (a.engine === "antigravity" && !a.windows.length) return { tone: a.error ? "warning" : "neutral", text: a.error ? "조회 실패" : "사용량 미관측" };
   if (a.engine === "antigravity" && a.stale) return { tone: "warning", text: "오래된 측정" };
+  // Claude·Codex: 측정에 실패했거나 값이 오래됐으면 정상 상태("지금 사용"·"대기")로 보이면 안 된다.
+  if (a.engine !== "antigravity" && a.engine !== "muse" && (a.error || a.stale) && !a.refreshing) return { tone: "warning", text: a.error ? "측정 실패" : "오래된 측정" };
   if (a.execution_enabled === false) return { tone: "neutral", text: "검증 대기" };
   if (a.login !== "ok" && a.engine === "claude") return { tone: "warning", text: "로그인 필요" };
   if (a.cooldown_seconds > 0) return { tone: "warning", text: `한도 대기 ${Math.ceil(a.cooldown_seconds / 60)}분` };
@@ -67,7 +69,17 @@ function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status
 
 /** 목록(캐시 값) 위에 계정별 조회 결과를 덮는다. 둘 중 더 최근에 관측한 사용량 쪽을 쓰고, 순서·켜기는 목록이 늘 기준이다. */
 function mergeUsage(base: AccountUsage, live: AccountUsage | undefined): AccountUsage {
-  if (!live || (live.updated_at ?? 0) < (base.updated_at ?? 0)) return base;
+  if (!live) return base;
+  if ((live.updated_at ?? 0) < (base.updated_at ?? 0)) {
+    if (!live.error) return base;
+    // 조회 실패는 값을 못 얻은 것이라 updated_at 이 없다. 이때 base(낡은 값)만 보이면 실패가 숨어 20시간 전 0% 가 현재 값처럼 보인다.
+    // 값은 낡은 값으로 두고 실패 사유와 상태를 덮는다.
+    return {
+      ...base, error: live.error, stale: true, remaining_to_limit_percent: null, refreshing: live.refreshing,
+      cooldown_seconds: live.cooldown_seconds, login: live.login,
+      windows: base.windows.map((w) => (w.state === "unavailable" ? w : { ...w, state: "stale" as const })),
+    };
+  }
   const { windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing, cooldown_seconds } = live;
   return { ...base, windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing, cooldown_seconds };
 }
@@ -315,7 +327,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                               ? <p className="usage__note">모델 그룹 quota · 각 그룹이 별도 한도를 공유해요.</p>
                               : <p className="usage__note">계정 상한 {a.max_used_percent}% · 상한까지 여유 {a.remaining_to_limit_percent == null ? (a.engine === "muse" ? "확인 불가" : "측정 대기") : `${a.remaining_to_limit_percent}%`}</p>}
                             {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} observedAt={a.updated_at} remaining={a.engine === "antigravity"} />)}
-                            {a.engine === "muse" && a.error && !loading ? <p className="usage__note">{a.error}</p> : null}
+                            {a.error && !loading ? <p className="usage__note usage__note--error" role={a.engine === "muse" ? undefined : "alert"}>{a.error}</p> : null}
                           </div>
                         ) : (
                           <p className="usage__note">{a.error ?? "아직 사용량 기록이 없어요."}</p>
@@ -334,7 +346,8 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                         {measured(a) && (
                           <p className="usage-card__foot">
                             {a.source ? (a.source === "api" ? (a.engine === "codex" ? "ChatGPT 사용량 기준" : "Claude 구독 사용량 기준") : SOURCE[a.source]) : ""}
-                            {a.updated_at ? ` · ${ago(a.updated_at, now)}` : ""}
+                            {a.updated_at ? ` · 마지막 측정 ${ago(a.updated_at, now)}` : ""}
+                            {a.stale && a.engine !== "antigravity" && a.engine !== "muse" ? " · 현재 값이 아니에요" : ""}
                           </p>
                         )}
                       </li>
