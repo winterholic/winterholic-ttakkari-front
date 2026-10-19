@@ -152,7 +152,7 @@ export function GamePlayer({
             <Icon name="retry" />
             <span>재생</span>
           </Button>
-          {/* 일시정지는 bridge 의 ttakkari:pause/resume 메시지로 게임이 직접 멈춘다(ADR 0051). 이전 템플릿 빌드는 응답이 없어 안내만 보인다. */}
+          {/* 일시정지는 bridge 의 ttakkari:pause/resume 메시지로 게임이 직접 멈춘다(ADR 0052). 이전 템플릿 빌드는 응답이 없어 안내만 보인다. */}
           <Button size="sm" onClick={() => void togglePause()} busy={pausing} disabled={!play || !!problem} aria-pressed={paused} aria-label={paused ? "계속하기" : "일시정지"}>
             <Icon name={paused ? "play" : "hand"} />
             <span>{paused ? "계속" : "일시정지"}</span>
