@@ -1,14 +1,10 @@
 import { ApiError } from "../../api/client";
-import type { NlmCapability, NlmJob, NlmLoginState, NlmSource, NlmSourceKind, NlmSourceStatus, NlmState } from "../../api/notebooklmTypes";
+import type { NlmCapability, NlmJob, NlmSource, NlmSourceKind, NlmSourceStatus, NlmState } from "../../api/notebooklmTypes";
+
+// 시각 표기와 로그인 창 문구는 Google 계정 공통 모듈과 같은 것을 쓴다(한 곳에서 고친다).
+export { LOGIN_LABEL, when } from "../google-account/labels";
 
 type Tone = "info" | "success" | "warning" | "danger";
-
-const KST = new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" });
-export const when = (iso: string | null | undefined): string => {
-  if (!iso) return "기록 없음";
-  const t = Date.parse(iso);
-  return Number.isFinite(t) ? KST.format(new Date(t)) : "기록 없음";
-};
 
 export const STATE_LABEL: Record<NlmState, { label: string; tone?: Tone }> = {
   login_required: { label: "로그인 필요", tone: "warning" },
@@ -29,18 +25,6 @@ export const STATE_SENTENCE: Record<NlmState, string> = {
   cooldown: "Google이 사용 제한을 알려서 잠시 요청을 멈췄어요. 시간이 지나면 저절로 풀려요. 그동안은 Google에 아무것도 보내지 않아요.",
   blocked: "Google이 CAPTCHA나 보안 확인 같은 신호를 보냈어요. 자동 요청은 멈춘 상태예요. Google에서 직접 확인을 마친 뒤에 재개를 눌러 주세요.",
   disabled: "백엔드에서 NotebookLM 연결을 꺼 둔 상태예요. 이 화면에서는 켤 수 없어요.",
-};
-
-export const LOGIN_LABEL: Record<NlmLoginState, string> = {
-  idle: "",
-  starting: "로그인 창을 여는 중이에요.",
-  waiting: "Mac Studio 화면의 Chrome 창에서 Google 로그인을 마쳐 주세요. 폰 화면에는 창이 뜨지 않아요.",
-  protection: "로그인 창에 Google 보안 확인이 떴어요. Mac Studio 화면에서 직접 처리해 주세요. 따까리는 대신 넘기지 않아요.",
-  saving: "로그인을 마쳤어요. 세션을 저장하는 중이에요.",
-  done: "로그인 세션을 저장했어요.",
-  timeout: "로그인 창이 시간 안에 끝나지 않아 닫혔어요. 다시 열어 주세요.",
-  cancelled: "로그인을 취소했어요.",
-  failed: "로그인 창이 실패했어요. 다시 열어 주세요.",
 };
 
 const CAPABILITY_LABEL: Record<string, string> = {
