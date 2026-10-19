@@ -54,6 +54,7 @@ import type { WeatherBriefing } from "./weatherTypes";
 import type {
   NlmAddSourceResult, NlmAuthStatus, NlmJob, NlmLogin, NlmNotebook, NlmNotebookDetail, NlmQueryIn, NlmQueryResult, NlmSource,
 } from "./notebooklmTypes";
+import type { GaAccount, GaAccountList, GaLogin } from "./googleAccountTypes";
 import type { StocksProvider, TossInvestLoginHelp, TossInvestLoginWindow, TossInvestRun, TossInvestStatus } from "./stocksTypes";
 
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://127.0.0.1:8787";
@@ -1292,6 +1293,15 @@ export const connectRemoteMac = (id: string, authorization: { password?: string;
 export const disconnectRemoteMac = async (grant: string): Promise<void> => {
   await raw('/api/remote-desktop/disconnect', { method: 'POST', json: { grant } });
 };
+
+// ---- Google 계정(소유자 전용). 로그인·세션은 계정 단위이고 NotebookLM 같은 기능이 공유한다.
+const ga = (id: string, rest = ""): string => `/api/google-accounts/${encodeURIComponent(id)}${rest}`;
+export const listGoogleAccounts = (): Promise<GaAccountList> => json("/api/google-accounts");
+export const startGoogleLogin = (id: string, feature?: string): Promise<GaLogin> =>
+  json(ga(id, "/login"), { method: "POST", json: feature ? { feature } : {} });
+export const completeGoogleLogin = (id: string): Promise<GaLogin> => json(ga(id, "/login/complete"), { method: "POST" });
+export const cancelGoogleLogin = (id: string): Promise<GaLogin> => json(ga(id, "/login/cancel"), { method: "POST" });
+export const deleteGoogleSession = (id: string): Promise<GaAccount> => json(ga(id, "/session"), { method: "DELETE" });
 
 // ---- NotebookLM 플랫폼(소유자 전용). 쓰기 요청의 중복·재시도 규칙은 백엔드가 지키므로 여기서는 한 번만 보낸다.
 const nlm = (id: string, rest = ""): string => `/api/notebooklm/notebooks/${encodeURIComponent(id)}${rest}`;

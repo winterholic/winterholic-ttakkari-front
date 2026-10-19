@@ -1,0 +1,29 @@
+/* Google 계정 연결 공통 컴포넌트. NotebookLM 화면의 연결 카드(.nlm-*)와 같은 모양을 쓰도록 맞췄다. */
+.ga-note { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.ga-note--protect { padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.ga-warn { color: var(--tk-color-text-warning); }
+.ga-sentence { margin: 0; line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.ga-actions { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); }
+.ga-actions:empty { display: none; }
+.ga-login p { margin: 0; }
+
+.ga-card { display: grid; gap: var(--tk-space-3); }
+.ga-card__id { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-sm); }
+
+.ga-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--tk-space-3); margin: 0; padding: var(--tk-space-4); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-subtle); }
+.ga-fact { display: grid; gap: var(--tk-space-1); min-width: 0; align-content: start; }
+.ga-fact dt { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.ga-fact dd { display: grid; gap: var(--tk-space-1); margin: 0; font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-semibold); overflow-wrap: anywhere; }
+.ga-fact dd small { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-regular); }
+
+.ga-subtitle { margin: 0; font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-semibold); color: var(--tk-color-text-secondary); }
+.ga-features { display: grid; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+.ga-feature { display: grid; gap: var(--tk-space-1); padding: var(--tk-space-2) var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); }
+.ga-feature__head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
+.ga-feature__name { font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-semibold); }
+.ga-feature small { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); overflow-wrap: anywhere; }
+.ga-feature a { margin-inline-start: auto; font-size: var(--tk-font-size-sm); }
+
+@media (max-width: 30rem) {
+  .ga-facts { grid-template-columns: minmax(0, 1fr); }
+}
