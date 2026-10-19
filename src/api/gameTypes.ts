@@ -74,6 +74,22 @@ export interface GameFeedbackIn {
   height?: number | null;
   coordinate_space: "normalized-0-1-top-left";
   annotations: GameAnnotation[];
+  /** 관제탑 오브젝트 선택(back ADR 0059)으로 고른 오브젝트. 소스 위치가 아니라 게임이 알려 준 관측 정보다 */
+  picked?: GamePickedObject[];
+  /** 고른 위치(게임 화면 0~1 비율) */
+  pick_point?: { x: number; y: number } | null;
+}
+
+export interface GamePickedObject {
+  scene: string;
+  name: string;
+  type: string;
+  texture: string | null;
+  frame: string | null;
+  text: string | null;
+  container: string | null;
+  depth: number;
+  bounds: { x: number; y: number; width: number; height: number };
 }
 
 export interface GameRequestIn {

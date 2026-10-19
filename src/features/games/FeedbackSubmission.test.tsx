@@ -75,6 +75,24 @@ describe("FeedbackForm", () => {
     expect(api.requestGameWork.mock.calls[0][1]).toMatchObject({ instruction: "배경을 밝게", feedback: null });
   });
 
+  it("고른 오브젝트는 스크린샷 없이도 구조화 필드(picked·pick_point)로 보내고, 빼면 글만 보낸다", async () => {
+    const hit = { scene: "play", name: "player", type: "Rectangle", texture: null, frame: null, text: null, container: null, depth: 5, bounds: { x: 0.2, y: 0.4, width: 0.1, height: 0.05 } };
+    const picked = { hit, point: [0.25, 0.5] as [number, number], buildId: "b2", buildSeq: 2 };
+    const onSubmitted = vi.fn();
+    const onClear = vi.fn();
+    wrap(<FeedbackForm game={game} build={{ id: "b2", seq: 2 }} screenshot={null} annotations={[]} picked={picked} onClearPicked={onClear} onSubmitted={onSubmitted} />);
+    expect(screen.getByText("고른 오브젝트: player (Rectangle) · v2")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "고른 오브젝트 빼기" }));
+    expect(onClear).toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "이 캐릭터를 20% 크게" } });
+    fireEvent.click(screen.getByRole("button", { name: "AI 수정 요청" }));
+    await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
+    expect(api.uploadFile).not.toHaveBeenCalled();
+    const body = api.requestGameWork.mock.calls[0][1];
+    expect(body.feedback).toMatchObject({ build_id: "b2", picked: [hit], pick_point: { x: 0.25, y: 0.5 }, annotations: [] });
+    expect(JSON.stringify(body.feedback)).not.toContain("source"); // 소스 위치 같은 값은 만들어 보내지 않는다
+  });
+
   it("빌드가 없으면 보낼 수 없다고 알려 주고 단추를 끈다", () => {
     wrap(<FeedbackForm game={game} build={null} screenshot={null} annotations={[]} onSubmitted={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "x" } });

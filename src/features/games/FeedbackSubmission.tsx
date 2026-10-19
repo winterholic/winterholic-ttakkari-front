@@ -11,6 +11,7 @@ import { errorText } from "../viewer/api";
 import { TaskTreeCard } from "../tasks/TaskTreeCard";
 import { buildPayload, renderAnnotatedPng, toFeedbackIn } from "./feedback";
 import type { Annotation, Screenshot } from "./feedback";
+import type { PickSelection } from "./pickBridge";
 
 const ACTIVE = new Set(["queued", "running", "waiting"]);
 export const MAX_COMMENT_CHARS = 4000;
@@ -31,7 +32,7 @@ export function useGameRequests(gameId: string) {
 export function useSubmitFeedback(game: Game) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { build: Pick<GameBuild, "id" | "seq">; screenshot: Screenshot | null; annotations: Annotation[]; comment: string }) => {
+    mutationFn: async (input: { build: Pick<GameBuild, "id" | "seq">; screenshot: Screenshot | null; annotations: Annotation[]; comment: string; picked?: PickSelection | null }) => {
       let original: ArtifactOut | null = null;
       let annotated: ArtifactOut | null = null;
       if (input.screenshot) {
@@ -44,7 +45,7 @@ export function useSubmitFeedback(game: Game) {
       }
       const payload = buildPayload({ gameId: game.id, build: input.build, screenshot: input.screenshot, annotations: input.annotations, comment: input.comment, artifact: original, annotatedArtifact: annotated });
       const request = await requestGameWork(game.id, {
-        kind: "modify", build_id: input.build.id, instruction: payload.comment, feedback: toFeedbackIn(payload),
+        kind: "modify", build_id: input.build.id, instruction: payload.comment, feedback: toFeedbackIn(payload, input.picked ?? null),
       });
       return { request, payload, original, annotated };
     },
@@ -61,12 +62,17 @@ export function FeedbackForm({
   build,
   screenshot,
   annotations,
+  picked = null,
+  onClearPicked,
   onSubmitted,
 }: {
   game: Game;
   build: Pick<GameBuild, "id" | "seq"> | null;
   screenshot: Screenshot | null;
   annotations: Annotation[];
+  /** 오브젝트 선택 모드에서 담은 오브젝트(back ADR 0059) */
+  picked?: PickSelection | null;
+  onClearPicked?: () => void;
   onSubmitted: () => void;
 }) {
   const [comment, setComment] = useState("");
@@ -77,7 +83,7 @@ export function FeedbackForm({
   const send = () => {
     if (!build || !text) return;
     submit.mutate(
-      { build, screenshot, annotations, comment },
+      { build, screenshot, annotations, comment, picked },
       {
         onSuccess: () => {
           toast({ message: "AI에게 수정 요청을 보냈어요", tone: "success" });
@@ -100,6 +106,13 @@ export function FeedbackForm({
         onChange={(e) => setComment(e.target.value)}
         placeholder="예: 주인공 점프가 너무 무거워요. 20%만 가볍게 해 주세요"
       />
+      {picked && (
+        <p className="vf-form__attach game-picked" aria-live="polite">
+          <Icon name="search" />
+          <span>{"고른 오브젝트: " + (picked.hit.name || picked.hit.type) + " (" + picked.hit.type + ") · v" + picked.buildSeq}</span>
+          {onClearPicked && <Button size="xs" onClick={onClearPicked} aria-label="고른 오브젝트 빼기">빼기</Button>}
+        </p>
+      )}
       <p className="vf-form__attach" aria-live="polite">
         <Icon name={screenshot ? "image" : "info"} />
         {screenshot ? `스크린샷 첨부됨 · 표시 ${annotations.length}개 · v${screenshot.buildSeq}` : "스크린샷 없이 글만 보냅니다. 화면을 가리키려면 위에서 캡처해 주세요."}

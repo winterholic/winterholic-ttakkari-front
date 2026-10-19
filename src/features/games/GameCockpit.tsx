@@ -8,6 +8,7 @@ import { errorText } from "../viewer/api";
 import { BuildHistory, activeBuildOf, useGameBuilds } from "./BuildHistory";
 import { FeedbackForm, GameRequests, useGameRequests } from "./FeedbackSubmission";
 import { GamePlayer } from "./GamePlayer";
+import type { PickSelection } from "./pickBridge";
 import { LockedDecisions } from "./LockedDecisions";
 import { VisualFeedback } from "./VisualFeedback";
 import type { Annotation, Screenshot } from "./feedback";
@@ -45,6 +46,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
   const [tab, setTab] = useState<Tab>("feedback");
   const [screenshot, setScreenshot] = useState<Screenshot | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [picked, setPicked] = useState<PickSelection | null>(null);
   const [shots, setShots] = useState<Record<string, Screenshot>>({});
   const urls = useRef(new Set<string>());
   const panelRef = useRef<HTMLDivElement>(null);
@@ -116,6 +118,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
 
   const onCaptured = useCallback((s: Screenshot) => {
     keepShot(s);
+    setPicked((p) => (p && p.buildId === s.buildId ? p : null)); // 요청의 빌드는 하나라서 다른 빌드에서 고른 오브젝트는 담아 두지 않는다
     setScreenshot(s);
     setAnnotations([]);
     setTab("feedback");
@@ -127,7 +130,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
   const g = game.data;
   const status = gameStatus(builds.data, requestsActive, g.last_build);
   const playedBuild = play.data ? { id: play.data.build_id, seq: play.data.build_seq } : null;
-  const target = screenshot ? { id: screenshot.buildId, seq: screenshot.buildSeq } : playedBuild;
+  const target = screenshot ? { id: screenshot.buildId, seq: screenshot.buildSeq } : picked ? { id: picked.buildId, seq: picked.buildSeq } : playedBuild;
 
   return (
     <div className="game-cockpit">
@@ -147,6 +150,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
         error={play.isError ? play.error : null}
         onRestart={() => void play.refetch()}
         onCaptured={onCaptured}
+        onPickUse={(selection) => { setPicked(selection); setTab("feedback"); }}
         onStartBuild={() => start.mutate()}
         working={requestsActive}
         gameId={gameId}
@@ -170,7 +174,15 @@ export function GameCockpit({ gameId }: { gameId: string }) {
             ) : (
               <p className="tk-help game-panel__hint">게임 화면 아래 <strong>캡처</strong>를 누르면 그 장면 위에 영역·화살표·그림으로 바꿀 곳을 표시할 수 있어요.</p>
             )}
-            <FeedbackForm game={g} build={target} screenshot={screenshot} annotations={annotations} onSubmitted={() => { setScreenshot(null); setAnnotations([]); setTab("work"); }} />
+            <FeedbackForm
+              game={g}
+              build={target}
+              screenshot={screenshot}
+              annotations={annotations}
+              picked={picked}
+              onClearPicked={() => setPicked(null)}
+              onSubmitted={() => { setScreenshot(null); setAnnotations([]); setPicked(null); setTab("work"); }}
+            />
           </>
         )}
         {tab === "work" && <GameRequests gameId={g.id} />}

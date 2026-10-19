@@ -29,6 +29,14 @@ export interface PickHit {
   bounds: PickBounds;
 }
 
+/** 사용자가 수정 요청에 담기로 한 오브젝트 1건과 그것을 고른 위치·빌드. 요청의 build_id 는 고른 빌드와 같아야 한다. */
+export interface PickSelection {
+  hit: PickHit;
+  point: [number, number];
+  buildId: string;
+  buildSeq: number;
+}
+
 export type PickOutcome =
   | { supported: true; hits: PickHit[]; truncated: boolean; point: { x: number; y: number } }
   | { supported: false; reason: string };

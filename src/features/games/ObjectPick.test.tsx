@@ -127,6 +127,42 @@ describe("GamePlayer 오브젝트 선택 모드", () => {
     expect(screen.queryByText("이 위치의 오브젝트 2개 · 위에 그려진 것부터")).toBeNull();
   });
 
+  it("고른 오브젝트를 수정 요청에 담으면 선택한 항목과 위치·빌드가 함께 전달된다", async () => {
+    const onPickUse = vi.fn();
+    render(<GamePlayer play={play} loading={false} error={null} onRestart={() => undefined} onCaptured={() => undefined} onPickUse={onPickUse} buildTitle="v2" />);
+    fireEvent.click(screen.getByRole("button", { name: "오브젝트 선택" }));
+    const layer = screen.getByTestId("game-pick-layer");
+    layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: 200, height: 400, right: 200, bottom: 400, x: 0, y: 0, toJSON: () => ({}) });
+    const post = vi.spyOn(frameOf().contentWindow as Window, "postMessage");
+    fireEvent.pointerUp(layer, { clientX: 50, clientY: 200 });
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const sent = post.mock.calls[0][0] as { id: string };
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", {
+        data: reply({ id: sent.id, hits: [hit({ name: "player" }), hit({ name: "shadow", depth: 0 })] }), origin: "null", source: frameOf().contentWindow as unknown as MessageEventSource,
+      }));
+    });
+    fireEvent.click(await screen.findByRole("button", { name: /shadow/ })); // 아래 항목을 골라도 그 항목이 담긴다
+    fireEvent.click(screen.getByRole("button", { name: "'shadow' 수정 요청에 담기" }));
+    expect(onPickUse).toHaveBeenCalledTimes(1);
+    expect(onPickUse.mock.calls[0][0]).toMatchObject({ hit: { name: "shadow" }, point: [0.25, 0.5], buildId: "b2", buildSeq: 2 });
+  });
+
+  it("담을 곳(onPickUse)이 없으면 담기 버튼을 보이지 않는다", async () => {
+    renderPlayer();
+    fireEvent.click(screen.getByRole("button", { name: "오브젝트 선택" }));
+    const layer = screen.getByTestId("game-pick-layer");
+    layer.getBoundingClientRect = () => ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) });
+    const post = vi.spyOn(frameOf().contentWindow as Window, "postMessage");
+    fireEvent.pointerUp(layer, { clientX: 50, clientY: 50 });
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", { data: reply({ id: (post.mock.calls[0][0] as { id: string }).id }), origin: "null", source: frameOf().contentWindow as unknown as MessageEventSource }));
+    });
+    await screen.findByText(/위에 그려진 것부터/);
+    expect(screen.queryByRole("button", { name: /수정 요청에 담기/ })).toBeNull();
+  });
+
   it("미지원 게임과 빈 위치와 응답 없음을 각각 사유와 함께 알린다", async () => {
     vi.useFakeTimers();
     renderPlayer();

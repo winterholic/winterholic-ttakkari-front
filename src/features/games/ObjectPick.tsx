@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { RefObject } from "react";
 import type { GamePlay } from "../../api/gameTypes";
+import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
 import { requestPick } from "./pickBridge";
 import type { PickHit, PickOutcome } from "./pickBridge";
@@ -72,7 +73,18 @@ function hitTitle(h: PickHit): string {
 }
 
 /** 선택 결과. 게임이 알려 준 관측 값만 보인다(소스 위치는 알 수 없다). */
-export function ObjectPickPanel({ state, selected, onSelect }: { state: PickState; selected: number; onSelect: (index: number) => void }) {
+export function ObjectPickPanel({
+  state,
+  selected,
+  onSelect,
+  onUse,
+}: {
+  state: PickState;
+  selected: number;
+  onSelect: (index: number) => void;
+  /** 고른 오브젝트를 수정 요청에 담는다. 없으면 버튼을 보이지 않는다 */
+  onUse?: (hit: PickHit) => void;
+}) {
   if (state.status === "idle") return <p className="tk-help game-pick-panel">게임 화면에서 바꾸고 싶은 오브젝트를 눌러 보세요.</p>;
   if (state.status === "loading") return <p className="tk-status game-pick-panel" role="status"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />오브젝트를 찾는 중</p>;
   if (state.status === "error") return <p className="tk-error game-pick-panel" role="alert">{state.error}</p>;
@@ -107,6 +119,12 @@ export function ObjectPickPanel({ state, selected, onSelect }: { state: PickStat
           </li>
         ))}
       </ul>
+      {onUse && outcome.hits[selected] && (
+        <Button size="sm" variant="primary" onClick={() => onUse(outcome.hits[selected])}>
+          <Icon name="send" />
+          <span>{"'" + hitTitle(outcome.hits[selected]) + "' 수정 요청에 담기"}</span>
+        </Button>
+      )}
     </section>
   );
 }

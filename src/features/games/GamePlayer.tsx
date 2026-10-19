@@ -6,6 +6,7 @@ import { Icon } from "../../ui/Icon";
 import { requestCapture, requestPause, pngBlobFromDataUrl } from "./captureBridge";
 import type { Screenshot } from "./feedback";
 import { ObjectPickLayer, ObjectPickPanel, useObjectPick } from "./ObjectPick";
+import type { PickSelection } from "./pickBridge";
 import { useGameSave } from "./useGameSave";
 
 /** 사람이 읽는 플레이 불가 사유. 코드는 back api/games.py 의 CODE_STATUS 와 같다. */
@@ -28,6 +29,7 @@ export function GamePlayer({
   error,
   onRestart,
   onCaptured,
+  onPickUse,
   onStartBuild,
   buildTitle,
   working = false,
@@ -39,6 +41,8 @@ export function GamePlayer({
   /** 새 토큰을 받아 iframe 을 다시 연다. */
   onRestart: () => void;
   onCaptured: (shot: Screenshot) => void;
+  /** 선택한 오브젝트를 수정 요청에 담는다. 없으면 선택 결과는 보기만 한다 */
+  onPickUse?: (selection: PickSelection) => void;
   onStartBuild?: () => void;
   buildTitle: string;
   /** AI 가 이 게임을 만들거나 고치는 중이면 빌드 시작 버튼 대신 기다리라는 안내를 보인다(끝나면 서버가 자동 빌드한다). */
@@ -212,7 +216,14 @@ export function GamePlayer({
       </div>
       {picking && (
         <div ref={pickPanelRef}>
-          <ObjectPickPanel state={objectPick.state} selected={pickSelected} onSelect={setPickSelected} />
+          <ObjectPickPanel
+            state={objectPick.state}
+            selected={pickSelected}
+            onSelect={setPickSelected}
+            onUse={onPickUse && play && objectPick.state.at
+              ? (hit) => onPickUse({ hit, point: objectPick.state.at as [number, number], buildId: play.build_id, buildSeq: play.build_seq })
+              : undefined}
+          />
         </div>
       )}
       {gameId && save.saved && (
