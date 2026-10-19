@@ -119,4 +119,22 @@ describe("GameRequests", () => {
     wrap(<GameRequests gameId="g1" />);
     expect(await screen.findByText("잠금 결정 변경 감지")).toBeTruthy();
   });
+
+  it("요청 시점에는 정상이었지만 worker 가 끝난 뒤 잠금 결정이 바뀐 요청과 자동 빌드 건너뜀 사유를 보인다", async () => {
+    api.listGameRequests.mockResolvedValue([req({ status: "succeeded", lock: "verified", lock_after: "tampered", auto_build_result: { status: "skipped", code: "lock_violation" } })]);
+    wrap(<GameRequests gameId="g1" />);
+    expect(await screen.findByText("잠금 결정 변경 감지")).toBeTruthy();
+    expect(screen.getByText(/자동 빌드를 건너뛰었어요/)).toBeTruthy();
+  });
+
+  it("타입 검사 실패는 AI에게 되돌렸다고 알리고, 정상 결과는 아무 말도 덧붙이지 않는다", async () => {
+    api.listGameRequests.mockResolvedValue([
+      req({ run_id: "r2", session_id: "s2", status: "succeeded", lock_after: "verified", auto_build_result: { status: "failed", code: "typecheck_failed" } }),
+      req({ run_id: "r1", session_id: "s1", status: "succeeded", lock_after: "verified", auto_build_result: { status: "succeeded", seq: 3 } }),
+    ]);
+    wrap(<GameRequests gameId="g1" />);
+    expect(await screen.findByText(/타입 검사에서 실패했어요/)).toBeTruthy();
+    expect(screen.queryByText("잠금 결정 변경 감지")).toBeNull();
+    expect(screen.getAllByRole("status").filter((n) => n.classList.contains("game-request__note"))).toHaveLength(1);
+  });
 });

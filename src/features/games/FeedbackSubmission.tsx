@@ -114,14 +114,26 @@ export function FeedbackForm({
   );
 }
 
+/** 자동 빌드가 막히거나 실패한 사유. 정상(성공·소스 변경 없음)은 말하지 않는다. */
+function autoBuildNotice(r: GameRequest): string | null {
+  const a = r.auto_build_result;
+  if (!a) return null;
+  if (a.code === "lock_violation") return "승인한 잠긴 결정이 바뀌어 자동 빌드를 건너뛰었어요. 위에서 결정을 확인하고 다시 승인하거나 되돌려 주세요.";
+  if (a.code === "typecheck_failed") return "자동 빌드가 타입 검사에서 실패했어요. 오류를 담아 AI에게 다시 고쳐 달라고 요청했어요.";
+  if (a.status === "failed") return "자동 빌드가 실패했어요. 빌드 이력에서 로그를 확인해 주세요.";
+  if (a.status === "skipped" && a.code === "build_in_progress") return "다른 빌드가 진행 중이라 자동 빌드를 건너뛰었어요.";
+  return null;
+}
+
 function RequestRow({ r }: { r: GameRequest }) {
   return (
     <li className="game-request" data-status={r.status}>
       <p className="game-request__meta">
         <span className="tk-badge" data-state={r.status === "succeeded" ? "succeeded" : r.status === "failed" ? "failed" : r.status}>{STATUS_TEXT[r.status] ?? r.status}</span>
         <span>{new Date(r.created_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-        {r.lock === "tampered" && <span className="tk-badge tk-badge--warning">잠금 결정 변경 감지</span>}
+        {(r.lock === "tampered" || r.lock_after === "tampered") && <span className="tk-badge tk-badge--warning">잠금 결정 변경 감지</span>}
       </p>
+      {autoBuildNotice(r) && <p className="tk-help game-request__note" role="status">{autoBuildNotice(r)}</p>}
       {/* 새 상태 시스템을 만들지 않고 기존 작업 트리 카드(back ADR 0014)를 그대로 쓴다 */}
       <TaskTreeCard rootId={r.session_id} onSelect={() => undefined} />
       <Link className="tk-link game-request__open" to={`/workspace/${r.session_id}`}>작업 세션 열기</Link>

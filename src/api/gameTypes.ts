@@ -90,7 +90,19 @@ export interface GameRequest {
   kind: string;
   build_id: UUID | null;
   lock: string;
+  /** Run 이 끝난 시점의 잠금 상태. worker 가 승인된 잠금 결정을 바꿨으면 "tampered". 끝나기 전에는 없다 */
+  lock_after?: string | null;
+  /** 자동 빌드 결과. 건너뛴 사유(lock_violation 등)와 타입 검사 실패를 요청 단위로 보인다 */
+  auto_build_result?: GameAutoBuildResult | null;
   created_at: ISODateTime;
+}
+
+export interface GameAutoBuildResult {
+  status: "succeeded" | "failed" | "skipped" | string;
+  code?: string;
+  message?: string;
+  build_id?: UUID;
+  seq?: number;
 }
 
 export interface GameRollbackIn {
