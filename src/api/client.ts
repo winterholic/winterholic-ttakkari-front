@@ -1297,6 +1297,7 @@ export const disconnectRemoteMac = async (grant: string): Promise<void> => {
 const nlm = (id: string, rest = ""): string => `/api/notebooklm/notebooks/${encodeURIComponent(id)}${rest}`;
 export const getNotebookLMStatus = (): Promise<NlmAuthStatus> => json("/api/notebooklm/auth/status");
 export const startNotebookLMLogin = (): Promise<NlmLogin> => json("/api/notebooklm/auth/login-window", { method: "POST" });
+export const completeNotebookLMLogin = (): Promise<NlmLogin> => json("/api/notebooklm/auth/login-window/complete", { method: "POST" });
 export const cancelNotebookLMLogin = (): Promise<NlmLogin> => json("/api/notebooklm/auth/login-window/cancel", { method: "POST" });
 export const verifyNotebookLM = (): Promise<NlmAuthStatus> => json("/api/notebooklm/auth/verify", { method: "POST" });
 export const resumeNotebookLM = (): Promise<NlmAuthStatus> => json("/api/notebooklm/auth/resume", { method: "POST" });

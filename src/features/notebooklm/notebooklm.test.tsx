@@ -13,11 +13,12 @@ import { QueryPanel } from "./QueryPanel";
 import { NOTEBOOK } from "./fixtures";
 
 const h = vi.hoisted(() => ({
-  login: vi.fn(), cancel: vi.fn(), verify: vi.fn(), resume: vi.fn(), query: vi.fn(), toast: vi.fn(),
+  login: vi.fn(), complete: vi.fn(), cancel: vi.fn(), verify: vi.fn(), resume: vi.fn(), query: vi.fn(), toast: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({
   ...(await orig<typeof import("../../api/client")>()),
   startNotebookLMLogin: h.login,
+  completeNotebookLMLogin: h.complete,
   cancelNotebookLMLogin: h.cancel,
   verifyNotebookLM: h.verify,
   resumeNotebookLM: h.resume,
@@ -64,11 +65,16 @@ it("metrics 는 접힌 영역이다", () => {
   expect(d.open).toBe(false);
 });
 
-it("로그인 창이 열려 있으면 취소 버튼만 있고 로그인 시작 버튼은 없다", async () => {
+it("로그인 창이 열려 있으면 완료·취소 버튼이 있고 로그인 시작 버튼은 없다", async () => {
   h.cancel.mockResolvedValue({});
+  h.complete.mockResolvedValue({});
   wrap(<AuthStatusCard status={authStatus({ login: { state: "waiting", message: null, active: true, started_at: null, finished_at: null } })} />);
   expect(screen.queryByRole("button", { name: /로그인 창 열기/ })).toBeNull();
   expect(screen.getByText(/Mac Studio 화면의 Chrome 창에서 Google 로그인/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: /로그인 완료/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: /로그인 취소/ })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /로그인 완료/ }));
+  await waitFor(() => expect(h.complete).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByRole("button", { name: /로그인 취소/ }));
   await waitFor(() => expect(h.cancel).toHaveBeenCalledTimes(1));
 });

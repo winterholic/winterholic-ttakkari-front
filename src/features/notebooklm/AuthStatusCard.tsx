@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { cancelNotebookLMLogin, resumeNotebookLM, startNotebookLMLogin, verifyNotebookLM } from "../../api/client";
+import { cancelNotebookLMLogin, completeNotebookLMLogin, resumeNotebookLM, startNotebookLMLogin, verifyNotebookLM } from "../../api/client";
 import type { NlmAuthStatus } from "../../api/notebooklmTypes";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
@@ -99,6 +99,11 @@ export function AuthStatusCard({ status }: { status: NlmAuthStatus }) {
     onSuccess: refresh,
     onError: (e) => { fail(e); void refresh(); },
   });
+  const complete = useMutation({
+    mutationFn: completeNotebookLMLogin,
+    onSuccess: refresh,
+    onError: (e) => { fail(e); void refresh(); },
+  });
   const cancel = useMutation({ mutationFn: cancelNotebookLMLogin, onSuccess: refresh, onError: fail });
   const verify = useMutation({
     mutationFn: verifyNotebookLM,
@@ -118,7 +123,7 @@ export function AuthStatusCard({ status }: { status: NlmAuthStatus }) {
   // 연결돼 있을 때는 로그인 버튼을 두지 않는다. 만료되면 reauth_required 로 바뀌며 나타난다.
   const canLogin = !["disabled", "blocked", "ready", "cooldown"].includes(status.state) && !loginActive;
   const loginFinished = !loginActive && ["timeout", "cancelled", "failed"].includes(status.login.state);
-  const busy = login.isPending || cancel.isPending || verify.isPending || resume.isPending;
+  const busy = login.isPending || complete.isPending || cancel.isPending || verify.isPending || resume.isPending;
 
   return (
     <section className="tk-section nlm-status" aria-labelledby="nlm-status-title" data-state={status.state}>
@@ -143,6 +148,7 @@ export function AuthStatusCard({ status }: { status: NlmAuthStatus }) {
           <div className="tk-callout__body">
             <strong className="tk-callout__title">로그인 창 진행 중</strong>
             <p>{LOGIN_LABEL[status.login.state] || status.login.message}</p>
+            <p className="nlm-note">로그인을 마친 뒤 창을 닫거나 아래 <strong>로그인 완료</strong>를 눌러 주세요.</p>
           </div>
         </div>
       )}
@@ -155,9 +161,14 @@ export function AuthStatusCard({ status }: { status: NlmAuthStatus }) {
           </Button>
         )}
         {loginActive && (
-          <Button variant="danger" busy={cancel.isPending} onClick={() => cancel.mutate()}>
-            <Icon name="x" />로그인 취소
-          </Button>
+          <>
+            <Button variant="primary" busy={complete.isPending} disabled={busy} onClick={() => complete.mutate()}>
+              <Icon name="check" />로그인 완료
+            </Button>
+            <Button variant="danger" busy={cancel.isPending} disabled={busy} onClick={() => cancel.mutate()}>
+              <Icon name="x" />로그인 취소
+            </Button>
+          </>
         )}
         {status.state === "session_saved" && (
           <Button variant="primary" busy={verify.isPending} disabled={busy} onClick={() => verify.mutate()}>
