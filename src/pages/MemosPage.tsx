@@ -5,6 +5,7 @@ import { listMemos, listMemoTags } from "../api/client";
 import type { MemoCategory } from "../api/client";
 import { CategoryDot, CategoryManager, useMemoCategories } from "../features/planner/MemoCategories";
 import { MemoEditor } from "../features/planner/MemoEditor";
+import { ScopeBadge } from "../features/planner/scope";
 import { formatWhen } from "../features/viewer/kinds";
 import { EmptyState, ErrorState, ListSkeleton } from "../features/viewer/screenStates";
 import { PageHeader } from "../shell/PageHeader";
@@ -177,6 +178,7 @@ export function MemosPage() {
                     </span>
                     {m.title && m.excerpt && <span className="tk-list__snippet">{m.excerpt}</span>}
                     <span className="tk-list__meta">
+                      <ScopeBadge scope={m.scope} />
                       {showCategoryOnItems && cat && (
                         <span className="memo-item__cat">
                           <CategoryDot color={cat.color} />

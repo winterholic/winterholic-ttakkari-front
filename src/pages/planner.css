@@ -67,6 +67,7 @@
 /* 마지막 버튼의 오른쪽 끝을 모달 머리의 닫기 버튼(같은 -space-2 여백)과 맞춘다 */
 .memo-editor__bar > .tk-icon-button:last-child { margin-right: calc(-1 * var(--tk-space-2)); }
 .memo-editor__status { flex: 1 1 auto; min-width: 0; text-align: right; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.memo-editor__scope, .planner-form__scope { display: flex; align-items: center; gap: var(--tk-space-2); margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); }
 .memo-editor__status[data-status="error"], .memo-editor__status[data-status="conflict"] { color: var(--tk-color-text-danger); }
 .memo-editor__fields { display: flex; flex-direction: column; flex: 1 1 auto; gap: var(--tk-space-3); min-height: 0; }
 .memo-editor__title { font-weight: var(--tk-font-weight-semibold); }
@@ -186,6 +187,22 @@
 .planner-cal__body .fc-list-event.tk-cal-holiday td, .planner-cal__body .fc-list-event.tk-cal-holiday a { color: var(--tk-color-text-danger); }
 .planner-cal__body .fc-list-event.tk-cal-holiday { cursor: default; }
 .planner-cal__body .fc-list-event.tk-cal-holiday .fc-list-event-dot { border-color: var(--tk-color-border-danger); }
+
+/* 회사 일정: 개인(파랑)과 다른 앰버 톤 + 왼쪽 굵은 선. 색만으로 구분하지 않도록 선 모양과(주·목록) '회사' 글자를 함께 둔다.
+   월 보기와 폰 폭의 주 보기는 칸이 좁아 글자 접두어를 넣지 않는다. 일정을 열면 '회사' 배지가 보인다 */
+.planner-cal__body .fc-event.tk-cal-work {
+  background: var(--tk-color-status-warning-bg); border-color: var(--tk-color-status-warning-border);
+  border-left: var(--tk-space-1) solid var(--tk-color-status-warning-icon); --fc-event-text-color: var(--tk-color-text-primary);
+}
+.planner-cal__body .fc-list-event.tk-cal-work .fc-list-event-dot { border-color: var(--tk-color-status-warning-icon); }
+.planner-cal__body .fc-list-event.tk-cal-work .fc-list-event-title a::before {
+  content: "회사 "; font-weight: var(--tk-font-weight-semibold); color: var(--tk-color-status-warning-text);
+}
+@media (min-width: 640px) {
+  .planner-cal__body .fc-timegrid-event.tk-cal-work .fc-event-title::before {
+    content: "회사 "; font-weight: var(--tk-font-weight-semibold); color: var(--tk-color-status-warning-text);
+  }
+}
 
 .planner-cal__body .fc-daygrid-event { border-width: var(--tk-border-width-hairline); padding-inline: var(--tk-space-0-5); }
 .planner-cal__body .fc-event.tk-cal-holiday .fc-event-title { white-space: normal; font-weight: var(--tk-font-weight-medium); }

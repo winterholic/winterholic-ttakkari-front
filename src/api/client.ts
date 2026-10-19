@@ -1062,6 +1062,8 @@ export const systemResourceHistory = (range: ResourceHistoryRange): Promise<Reso
   json(`/api/system/resources/history?range=${range}`);
 
 // ---- 메모·캘린더(ADR 0008). 시각은 Asia/Seoul 벽시계 문자열이다(시간 `YYYY-MM-DDTHH:MM`, 종일 `YYYY-MM-DD`, 끝 날짜 포함).
+/** 개인/회사 범위(SEC2-AUTHZ-01). 회사 에이전트 세션이 만든 항목만 work 다. 필드가 없는 옛 응답은 personal 로 읽는다. */
+export type PlannerScope = "personal" | "work";
 export interface MemoSummary {
   id: string;
   title: string;
@@ -1070,6 +1072,7 @@ export interface MemoSummary {
   category_id: string | null;
   pinned: boolean;
   source: "user" | "agent";
+  scope?: PlannerScope;
   rev: number;
   excerpt: string;
   created_at: string;
@@ -1119,6 +1122,7 @@ export interface EventOut {
   remind_at: string | null;
   reminder_sent: boolean;
   source: "user" | "agent";
+  scope?: PlannerScope;
   created_at: string;
   updated_at: string;
 }

@@ -13,6 +13,7 @@ import { errorText } from "../viewer/api";
 import { ErrorState } from "../viewer/screenStates";
 import { useCaretVisible } from "./caret";
 import { CategoryDot, useMemoCategories } from "./MemoCategories";
+import { ScopeBadge } from "./scope";
 import { useAutosave } from "./useAutosave";
 import type { SaveStatus } from "./useAutosave";
 
@@ -192,6 +193,13 @@ function MemoForm({ memo, defaultCategory }: { memo: MemoOut | null; defaultCate
           <Icon name="trash" />
         </IconButton>
       </div>
+
+      {memo?.scope === "work" && (
+        <p className="memo-editor__scope">
+          <ScopeBadge scope="work" />
+          <span>회사 범위 메모예요</span>
+        </p>
+      )}
 
       {conflict && (
         <div className="tk-banner tk-banner--warning" role="alert">

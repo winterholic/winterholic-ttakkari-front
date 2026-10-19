@@ -29,7 +29,8 @@ export function toFcEvent(e: EventOut): EventInput {
     start: e.start,
     end: e.all_day ? shiftDate(e.end, 1) : e.end,
     allDay: e.all_day,
-    extendedProps: { eventId: e.id, recurring: e.recurring, location: e.location },
+    classNames: e.scope === "work" ? ["tk-cal-work"] : [],
+    extendedProps: { eventId: e.id, recurring: e.recurring, location: e.location, scope: e.scope ?? "personal" },
   };
 }
 

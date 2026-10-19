@@ -17,6 +17,14 @@ describe("날짜 헬퍼", () => {
     expect(timed.extendedProps).toMatchObject({ eventId: "e1" });
   });
 
+  it("회사 일정만 tk-cal-work 클래스를 달고, scope 없는 옛 응답은 개인으로 읽는다", () => {
+    expect(toFcEvent(ev({ scope: "work" }))).toMatchObject({ classNames: ["tk-cal-work"], extendedProps: { scope: "work" } });
+    expect(toFcEvent(ev({ scope: "personal" })).classNames).toEqual([]);
+    const legacy = toFcEvent(ev({}));
+    expect(legacy.classNames).toEqual([]);
+    expect(legacy.extendedProps).toMatchObject({ scope: "personal" });
+  });
+
   it("반복 발생분은 같은 id 라도 시작이 달라 FullCalendar id 가 겹치지 않는다", () => {
     const a = toFcEvent(ev({ start: "2026-10-05T10:00" }));
     const b = toFcEvent(ev({ start: "2026-10-12T10:00" }));

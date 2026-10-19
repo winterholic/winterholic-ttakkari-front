@@ -96,6 +96,21 @@ describe("메모 목록 거르기", () => {
   });
 });
 
+describe("메모 범위 표시", () => {
+  it("회사 메모에만 배지를 붙이고, scope 가 없는 옛 응답과 개인은 표시가 없다", async () => {
+    h.listMemos.mockResolvedValue({
+      memos: [
+        { ...MEMOS[0], id: "w1", title: "분기 계획", scope: "work" },
+        { ...MEMOS[1], id: "p1", title: "개인 메모", scope: "personal" },
+        { ...MEMOS[1], id: "o1", title: "옛 메모" },
+      ],
+    });
+    mount("/memos");
+    const work = (await screen.findByText("분기 계획")).closest("a")!;
+    expect(within(work).getByText("회사", { selector: ".tk-badge span" })).toBeTruthy();
+    expect(screen.getAllByText("회사", { selector: ".tk-badge span" })).toHaveLength(1);
+  });
+});
 
 describe("메모 편집 화면", () => {
   it("모바일에서는 목록과 모달 대신 편집 페이지를 열고 목록으로 돌아간다", async () => {

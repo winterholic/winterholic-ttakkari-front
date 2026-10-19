@@ -10,8 +10,9 @@ import { ErrorState } from "../viewer/screenStates";
 import { usePush } from "../push/usePush";
 import { ALL_DAY_REMINDERS, blankForm, formFromEvent, formToPayload, reminderFor, TIMED_REMINDERS, validateForm } from "./eventForm";
 import { formatLunarDate, lunarDate } from "./lunar";
+import { ScopeBadge } from "./scope";
 import type { EventForm } from "./eventForm";
-import type { Reminder } from "../../api/client";
+import type { PlannerScope, Reminder } from "../../api/client";
 
 /** create: 날짜(와 시각)를 눌러 만든다. edit: 일정(시리즈) id 로 연다. */
 export type EditorTarget = { mode: "create"; date: string; time?: string } | { mode: "edit"; eventId: string };
@@ -25,12 +26,12 @@ export function EventDialog({ target, onClose, showLunar = true }: { target: Edi
       {target && edit && series.isPending && <p className="tk-status tk-status--agent" role="status"><span className="tk-spinner tk-spinner--sm" aria-hidden />불러오는 중</p>}
       {target && edit && series.isError && <ErrorState error={series.error} what="일정" onRetry={() => void series.refetch()} />}
       {target?.mode === "create" && <EventFormView key={`${target.date}${target.time ?? ""}`} initial={blankForm(target.date, target.time)} eventId={null} onClose={onClose} showLunar={showLunar} />}
-      {edit && series.data && <EventFormView key={series.data.id} initial={formFromEvent(series.data)} eventId={edit} recurring={series.data.recurring} onClose={onClose} showLunar={showLunar} />}
+      {edit && series.data && <EventFormView key={series.data.id} initial={formFromEvent(series.data)} eventId={edit} recurring={series.data.recurring} scope={series.data.scope} onClose={onClose} showLunar={showLunar} />}
     </Dialog>
   );
 }
 
-function EventFormView({ initial, eventId, recurring, onClose, showLunar }: { initial: EventForm; eventId: string | null; recurring?: boolean; onClose: () => void; showLunar: boolean }) {
+function EventFormView({ initial, eventId, recurring, scope, onClose, showLunar }: { initial: EventForm; eventId: string | null; recurring?: boolean; scope?: PlannerScope; onClose: () => void; showLunar: boolean }) {
   const id = useId();
   const qc = useQueryClient();
   const [f, setF] = useState(initial);
@@ -79,6 +80,12 @@ function EventFormView({ initial, eventId, recurring, onClose, showLunar }: { in
         submit();
       }}
     >
+      {scope === "work" && (
+        <p className="planner-form__scope">
+          <ScopeBadge scope="work" />
+          <span>회사 범위 일정이에요</span>
+        </p>
+      )}
       <div className="tk-field">
         <label className="tk-label" htmlFor={`${id}-title`}>제목</label>
         <input id={`${id}-title`} className="tk-input tk-input--lg" value={f.title} maxLength={200} autoComplete="off" onChange={(e) => set({ title: e.target.value })} />
