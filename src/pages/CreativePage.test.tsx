@@ -195,7 +195,7 @@ test("format selection changes default aspect and duration, template selection u
     scenes: [
       {
         id: "s1",
-        duration: 3,
+        duration: 15,
         prompt: "장면 1",
         caption: "훅",
         asset_id: null,
@@ -210,22 +210,73 @@ test("format selection changes default aspect and duration, template selection u
     generation_jobs: [],
   };
 
+  const calls: Array<{ url: string; init?: RequestInit }> = [];
+  let patchShouldFail422 = false;
+
   vi.stubGlobal(
     "fetch",
-    vi.fn(async (url: string) => {
+    vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
       if (url.includes("/catalog")) {
         return new Response(JSON.stringify(catalog), { status: 200 });
+      }
+      if (init?.method === "POST" && url.endsWith("/projects")) {
+        return new Response(JSON.stringify(project), { status: 201 });
+      }
+      if (init?.method === "PATCH") {
+        if (patchShouldFail422) {
+          return new Response(
+            JSON.stringify({ detail: "규격 검증 오류: 자막 줄 수 초과" }),
+            {
+              status: 422,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
+        }
+        return new Response(JSON.stringify(project), { status: 200 });
+      }
+      if (url.endsWith("/projects")) {
+        return new Response(JSON.stringify([project]), { status: 200 });
       }
       return new Response(JSON.stringify(project), { status: 200 });
     }),
   );
 
+  // 1. 포맷 선택 시 POST 본문의 format_id 검증
+  const client1 = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const { unmount: unmountCreate } = render(
+    <QueryClientProvider client={client1}>
+      <MemoryRouter>
+        <CreativePage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  await screen.findByText("어떤 이야기를 만들까요?");
+  fireEvent.change(screen.getByLabelText("프로젝트 이름"), {
+    target: { value: "쇼츠 만들기" },
+  });
+  fireEvent.change(screen.getByLabelText("콘텐츠 포맷"), {
+    target: { value: "shorts_9_16" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "프로젝트 만들기" }));
+
+  await waitFor(() => {
+    const postCall = calls.find(
+      (c) => c.init?.method === "POST" && c.url.endsWith("/projects"),
+    );
+    expect(postCall).toBeDefined();
+    const body = JSON.parse(postCall!.init!.body as string);
+    expect(body.format_id).toBe("shorts_9_16");
+    expect(body.aspect).toBe("9:16");
+  });
+
+  unmountCreate();
+
+  // 2. 템플릿 교체 시 장면 길이 보정(clamp) 및 PATCH 본문의 template_id 검증
+  const client2 = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
+    <QueryClientProvider client={client2}>
       <MemoryRouter initialEntries={["/creative/format-project"]}>
         <Routes>
           <Route path="/creative/:id" element={<CreativeDetailPage />} />
@@ -237,4 +288,27 @@ test("format selection changes default aspect and duration, template selection u
   await screen.findAllByText("인트로 훅");
   const templateSelect = screen.getByLabelText("장면 템플릿 (부품)");
   expect(templateSelect).toBeDefined();
+
+  // 템플릿을 outro로 교체 (max_duration 10으로 clamp 검증)
+  fireEvent.change(templateSelect, { target: { value: "outro" } });
+
+  // 변경 저장 버튼 클릭
+  const saveBtn = screen.getByRole("button", { name: "변경 저장" });
+  fireEvent.click(saveBtn);
+
+  await waitFor(() => {
+    const patchCall = calls.find((c) => c.init?.method === "PATCH");
+    expect(patchCall).toBeDefined();
+    const body = JSON.parse(patchCall!.init!.body as string);
+    expect(body.scenes[0].template_id).toBe("outro");
+    expect(body.scenes[0].duration).toBe(10);
+  });
+
+  // 3. 422 시 오류 표시 검증
+  patchShouldFail422 = true;
+  fireEvent.change(templateSelect, { target: { value: "intro_hook" } });
+  fireEvent.click(screen.getByRole("button", { name: "변경 저장" }));
+
+  const alertMsg = await screen.findByRole("alert");
+  expect(alertMsg.textContent).toContain("규격 검증 오류");
 });

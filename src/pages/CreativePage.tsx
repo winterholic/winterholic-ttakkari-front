@@ -379,6 +379,8 @@ function Editor({ project: p }: { project: CreativeProject }) {
       id: "intro_hook",
       name: "인트로 훅",
       description: "시청자의 첫 시선을 사로잡는 훅 장면",
+      min_duration: 1.5,
+      max_duration: 6.0,
       default_animation: "zoom_in",
       default_transition: "cut",
       default_caption_style: "center_highlight",
@@ -387,6 +389,8 @@ function Editor({ project: p }: { project: CreativeProject }) {
       id: "title_card",
       name: "타이틀 카드",
       description: "제목과 핵심 주제 명시",
+      min_duration: 2.0,
+      max_duration: 8.0,
       default_animation: "zoom_in",
       default_transition: "fade",
       default_caption_style: "title_card",
@@ -395,6 +399,8 @@ function Editor({ project: p }: { project: CreativeProject }) {
       id: "lyric_scene",
       name: "가사 장면",
       description: "음악 반주와 리듬에 맞춘 가사 전달",
+      min_duration: 2.0,
+      max_duration: 15.0,
       default_animation: "zoom_in",
       default_transition: "fade",
       default_caption_style: "bottom_card",
@@ -403,6 +409,8 @@ function Editor({ project: p }: { project: CreativeProject }) {
       id: "ken_burns",
       name: "켄번즈 서사",
       description: "정적 이미지에 서정적 카메라 무브",
+      min_duration: 4.0,
+      max_duration: 25.0,
       default_animation: "zoom_in",
       default_transition: "fade",
       default_caption_style: "bottom_card",
@@ -411,6 +419,8 @@ function Editor({ project: p }: { project: CreativeProject }) {
       id: "code_diagram",
       name: "코드 / 다이어그램",
       description: "코드 및 시스템 구조도 설명 오버레이",
+      min_duration: 4.0,
+      max_duration: 30.0,
       default_animation: "still",
       default_transition: "cut",
       default_caption_style: "code_overlay",
@@ -419,6 +429,8 @@ function Editor({ project: p }: { project: CreativeProject }) {
       id: "highlight_text",
       name: "핵심 키워드 강조",
       description: "요약 문구 또는 키워드 시각 강조",
+      min_duration: 1.5,
+      max_duration: 6.0,
       default_animation: "pulse",
       default_transition: "cut",
       default_caption_style: "center_highlight",
@@ -427,6 +439,8 @@ function Editor({ project: p }: { project: CreativeProject }) {
       id: "split_screen",
       name: "비교 분할 화면",
       description: "두 개념 또는 비포/애프터 대조",
+      min_duration: 3.0,
+      max_duration: 12.0,
       default_animation: "still",
       default_transition: "cut",
       default_caption_style: "bottom_card",
@@ -435,6 +449,8 @@ function Editor({ project: p }: { project: CreativeProject }) {
       id: "outro",
       name: "아웃트로 / 마무리",
       description: "요약과 마무리, 행동 유도",
+      min_duration: 2.0,
+      max_duration: 10.0,
       default_animation: "zoom_out",
       default_transition: "fade",
       default_caption_style: "title_card",
@@ -444,8 +460,13 @@ function Editor({ project: p }: { project: CreativeProject }) {
   const handleTemplateChange = (tmplId: string) => {
     const tmpl = templates.find((t) => t.id === tmplId);
     if (tmpl) {
+      let duration = scene.duration;
+      if (typeof tmpl.min_duration === "number" && typeof tmpl.max_duration === "number") {
+        duration = Math.max(tmpl.min_duration, Math.min(tmpl.max_duration, duration));
+      }
       change({
         template_id: tmpl.id,
+        duration,
         animation: tmpl.default_animation as CreativeScene["animation"],
         transition: tmpl.default_transition as CreativeScene["transition"],
         caption_style: tmpl.default_caption_style as CreativeScene["caption_style"],
