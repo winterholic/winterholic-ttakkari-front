@@ -1342,13 +1342,17 @@ export const listNotebookJobs = (limit = 20): Promise<NlmJob[]> => json("/api/no
 export const cancelNotebookJob = (id: string): Promise<NlmJob> => json(`/api/notebooklm/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST" });
 
 // ---- 게임 스튜디오(back ADR 0046~0050). 게임 화면은 별도 origin 의 sandbox iframe 이라 여기서는 주소만 받는다.
-import type { Game, GameBuild, GameBuildDetail, GameCreateIn, GameCreateOut, GamePlay, GameRequest, GameRequestIn, GameRollbackIn, GameRollbackOut } from "./gameTypes";
+import type { Game, GameBuild, GameBuildDetail, GameCreateIn, GameCreateOut, GamePlay, GameRequest, GameRequestIn, GameRollbackIn, GameRollbackOut, GameSourceDiff, GameVersion } from "./gameTypes";
 export const listGames = (): Promise<Game[]> => json("/api/games");
 export const getGame = (id: UUID): Promise<Game> => json(`/api/games/${id}`);
 export const registerGame = (slug: string): Promise<Game> => json("/api/games", { method: "POST", json: { slug } });
 export const createGame = (body: GameCreateIn): Promise<GameCreateOut> => json("/api/games/create", { method: "POST", json: body });
 export const approveGameLock = (id: UUID): Promise<Game> => json(`/api/games/${id}/lock/approve`, { method: "POST" });
-export const listGameBuilds = (id: UUID, limit = 50): Promise<GameBuild[]> => json(`/api/games/${id}/builds`, { query: { limit } });
+export const listGameBuilds = (id: UUID, limit = 100): Promise<GameBuild[]> => json(`/api/games/${id}/builds`, { query: { limit } });
+/** 버전 이력용. 빌드마다 만든 요청·피드백 요약이 붙는다(back ADR 0061). */
+export const listGameVersions = (id: UUID, limit = 100): Promise<GameVersion[]> => json(`/api/games/${id}/versions`, { query: { limit } });
+/** 두 빌드의 소스 변경 요약(파일 증감·커밋 제목). 읽기 전용이다. */
+export const compareGameVersions = (id: UUID, base: UUID, head: UUID): Promise<GameSourceDiff> => json(`/api/games/${id}/compare`, { query: { base, head } });
 export const getGameBuild = (id: UUID, buildId: UUID): Promise<GameBuildDetail> => json(`/api/games/${id}/builds/${buildId}`);
 export const startGameBuild = (id: UUID): Promise<GameBuild> => json(`/api/games/${id}/builds`, { method: "POST", json: {} });
 export const playGame = (id: UUID, buildId?: UUID | null): Promise<GamePlay> =>

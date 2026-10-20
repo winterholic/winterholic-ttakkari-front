@@ -159,3 +159,51 @@ export interface GameCreateOut {
   /** 게임은 만들어졌지만 첫 요청 접수가 실패했을 때. */
   request_error: { code: string; message: string } | null;
 }
+
+/** GET /api/games/{id}/versions (back ADR 0061). 빌드에 만든 요청과 이 버전에 걸린 요청 수가 붙는다. 서버가 아직 이 경로를 모르면 빌드 목록만 쓴다. */
+export interface GameFeedbackSummary {
+  annotations: number;
+  picked: number;
+  clip_frames: number;
+  has_screenshot: boolean;
+}
+
+export interface GameVersionRequest {
+  run_id: UUID;
+  session_id: UUID;
+  kind: string;
+  status: string;
+  /** 사용자가 적은 요청 본문(공백을 접고 200자로 자른 것). 읽지 못하면 빈 문자열 */
+  instruction: string;
+  base_build_id: UUID | null;
+  base_build_seq: number | null;
+  feedback: GameFeedbackSummary | null;
+  repair_attempt: number;
+  lock_after: string | null;
+  created_at: ISODateTime;
+}
+
+export interface GameVersion extends GameBuild {
+  is_active: boolean;
+  /** 이 빌드를 만든 요청. 수동 빌드·복구 빌드는 null */
+  produced_by: GameVersionRequest | null;
+  requests_on: number;
+  feedback_requests_on: number;
+}
+
+/** GET /api/games/{id}/compare. 두 빌드의 source commit 사이 변경(git 객체에서 읽음). */
+export interface GameSourceDiff {
+  base_build_id: UUID;
+  head_build_id: UUID;
+  available: boolean;
+  reason: string;
+  same_commit: boolean;
+  base_dirty: boolean;
+  head_dirty: boolean;
+  files_total: number;
+  insertions: number;
+  deletions: number;
+  files: { path: string; added: number | null; deleted: number | null }[];
+  commits: { sha: string; subject: string }[];
+  commits_truncated: boolean;
+}

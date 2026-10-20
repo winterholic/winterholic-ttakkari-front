@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, getGameBuild, listGameBuilds, rollbackGame, startGameBuild } from "../../api/client";
+import { ApiError, getGameBuild, listGameBuilds, listGameVersions, rollbackGame, startGameBuild } from "../../api/client";
 import type { Game, GameBuild } from "../../api/gameTypes";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
-import { captureBuild } from "./captureBuild";
 import type { Screenshot } from "./feedback";
+import { BuildCompare, PlayPreview, VersionOrigin, resolvePair, togglePair } from "./VersionCompare";
+import type { ComparePair } from "./VersionCompare";
+import { VersionFilters } from "./VersionFilters";
+import { EMPTY_FILTER, activeFilterCount, filterVersions, kb, summarizeChange } from "./versionInfo";
+import type { VersionFilter, VersionItem } from "./versionInfo";
 
 const STATUS: Record<GameBuild["status"], { text: string; tone?: "success" | "danger" | "info" }> = {
   building: { text: "만드는 중", tone: "info" },
@@ -33,23 +37,7 @@ export function rollbackProblem(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-const kb = (n: number | null) => (n === null ? "?" : n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : n >= 1024 ? `${Math.round(n / 1024)}KB` : `${n}B`);
-
-/** 두 빌드의 변경 요약. 서버에 변경 설명이 없어 빌드 기록(커밋·번들 크기·파일 수·잠금 검증)에서만 만든다. */
-export function summarizeChange(prev: GameBuild, next: GameBuild): string[] {
-  const out: string[] = [];
-  if (prev.source_commit && next.source_commit) {
-    out.push(prev.source_commit === next.source_commit ? "소스 커밋이 같아요" : `소스 커밋 ${prev.source_commit.slice(0, 7)} → ${next.source_commit.slice(0, 7)}`);
-  }
-  if (prev.bundle_bytes !== null && next.bundle_bytes !== null) {
-    const d = next.bundle_bytes - prev.bundle_bytes;
-    out.push(d === 0 ? "번들 크기 변화 없음" : `번들 ${d > 0 ? "+" : "-"}${kb(Math.abs(d))} (${kb(prev.bundle_bytes)} → ${kb(next.bundle_bytes)})`);
-  }
-  if (prev.bundle_files !== null && next.bundle_files !== null && prev.bundle_files !== next.bundle_files) out.push(`파일 ${prev.bundle_files}개 → ${next.bundle_files}개`);
-  if (prev.bundle_sha256 && prev.bundle_sha256 === next.bundle_sha256) out.push("번들 내용이 완전히 같아요");
-  if (prev.lock_verified !== next.lock_verified) out.push(next.lock_verified ? "새 빌드는 잠긴 결정 검증을 통과했어요" : "새 빌드는 잠긴 결정 검증이 없어요");
-  return out;
-}
+export { summarizeChange };
 
 export function activeBuildOf(game: Game, builds: GameBuild[]): GameBuild | null {
   const ok = builds.filter((b) => b.status === "succeeded");
@@ -104,25 +92,53 @@ export function RollbackDialog({ game, target, onClose }: { game: Game; target: 
   );
 }
 
-function BuildRow({ game, b, active, onRollback }: { game: Game; b: GameBuild; active: boolean; onRollback: (b: GameBuild) => void }) {
+/** 비교 칸에 들어가 있는 위치. 이전 칸이면 "이전", 최신 칸이면 "최신". */
+type Slot = "left" | "right" | null;
+
+function BuildRow({ game, b, active, slot, onRollback, onCompare, onPlay }: {
+  game: Game;
+  b: VersionItem;
+  active: boolean;
+  slot: Slot;
+  onRollback: (b: GameBuild) => void;
+  onCompare: (b: VersionItem) => void;
+  onPlay: (b: GameBuild) => void;
+}) {
   const st = STATUS[b.status];
   const [open, setOpen] = useState(false);
   const detail = useQuery({ enabled: open, queryKey: ["games", game.id, "build", b.id], queryFn: () => getGameBuild(game.id, b.id) });
   return (
-    <li className="game-build" data-active={active ? "" : undefined}>
+    <li className="game-build" data-active={active ? "" : undefined} data-compare={slot ?? undefined}>
       <div className="game-build__head">
         <strong>v{b.seq}</strong>
         <span className={`tk-badge${st.tone ? ` tk-badge--${st.tone}` : ""}`}>{st.text}</span>
         {active && <span className="tk-badge tk-badge--info">지금 보는 버전</span>}
         {b.restored_from_id && <span className="tk-badge tk-badge--warning">복구 빌드</span>}
         {b.status === "succeeded" && !b.lock_verified && <span className="tk-badge" title="승인된 잠금 결정이 없을 때 만든 빌드">잠금 미검증</span>}
+        {slot && <span className="tk-badge tk-badge--success">{slot === "left" ? "비교 중 · 이전" : "비교 중 · 최신"}</span>}
         <span className="game-build__time">{new Date(b.created_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
       </div>
+      <VersionOrigin v={b} />
+      {(b.requests_on ?? 0) > 0 && (
+        <p className="game-build__meta">이 버전을 보고 수정 요청 {b.requests_on}건{b.feedback_requests_on ? ` (시각 피드백 ${b.feedback_requests_on}건)` : ""}</p>
+      )}
       <p className="game-build__meta">
         {b.source_commit ? `커밋 ${b.source_commit.slice(0, 7)}${b.source_dirty ? " (저장 전 변경 포함)" : ""}` : "커밋 기록 없음"} · {kb(b.bundle_bytes)}
       </p>
       {b.error && <p className="tk-error">{b.error}</p>}
       <div className="game-build__actions">
+        {b.status === "succeeded" && (
+          <>
+            <Button size="xs" aria-pressed={!!slot} onClick={() => onCompare(b)} aria-label={`v${b.seq} ${slot ? "비교에서 빼기" : "비교에 담기"}`}>
+              <Icon name={slot ? "check" : "git-merge"} />
+              <span>{slot ? "비교에서 빼기" : "비교에 담기"}</span>
+            </Button>
+            <Button size="xs" onClick={() => onPlay(b)} aria-label={`v${b.seq} 해 보기`}>
+              <Icon name="play" />
+              <span>해 보기</span>
+            </Button>
+          </>
+        )}
         {b.status === "succeeded" && !active && (
           <Button size="xs" variant="danger" onClick={() => onRollback(b)} aria-label={`v${b.seq}로 되돌리기`}>
             <Icon name="history" />
@@ -141,92 +157,58 @@ function BuildRow({ game, b, active, onRollback }: { game: Game; b: GameBuild; a
   );
 }
 
-/** 이전·최신 빌드의 캡처를 나란히 둔다. 캡처는 해당 빌드를 비교용으로 열어 bridge 로 찍는다. */
-export function BuildCompare({
-  game,
-  builds,
-  shots,
-  onShot,
-}: {
-  game: Game;
-  builds: GameBuild[];
-  shots: Record<string, Screenshot>;
-  onShot: (s: Screenshot) => void;
-}) {
-  const ok = builds.filter((b) => b.status === "succeeded");
-  const [leftId, setLeftId] = useState<string | null>(null);
-  const [rightId, setRightId] = useState<string | null>(null);
-  const right = ok.find((b) => b.id === (rightId ?? ok[0]?.id)) ?? null;
-  const left = ok.find((b) => b.id === (leftId ?? ok.find((b2) => b2.id !== right?.id)?.id)) ?? null;
-  const [busy, setBusy] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  if (ok.length < 2) return <p className="tk-empty tk-empty--boxed">성공한 빌드가 둘 이상이면 이전·최신 화면을 나란히 비교할 수 있어요.</p>;
-
-  const capture = async (b: GameBuild) => {
-    setBusy(b.id);
-    setErr(null);
-    try {
-      onShot(await captureBuild(game.id, b.id));
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const slot = (label: string, cur: GameBuild | null, set: (id: string) => void) => (
-    <div className="game-compare__slot" role="group" aria-label={label}>
-      <label className="tk-label" htmlFor={`cmp-${label}`}>{label}</label>
-      <select id={`cmp-${label}`} className="tk-input tk-input--sm" value={cur?.id ?? ""} onChange={(e) => set(e.target.value)}>
-        {ok.map((b) => <option key={b.id} value={b.id}>v{b.seq}{b.id === game.active_build_id ? " (지금)" : ""}</option>)}
-      </select>
-      <div className="game-compare__shot">
-        {cur && shots[cur.id] ? (
-          <img src={shots[cur.id].url} alt={`${label} v${cur.seq} 화면`} />
-        ) : (
-          <Button size="sm" busy={busy === cur?.id} disabled={!cur || busy !== null} onClick={() => cur && void capture(cur)}>
-            <Icon name="camera" />
-            <span>이 빌드 화면 캡처</span>
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-
-  return (
-    <section className="game-compare" aria-label="빌드 비교">
-      <div className="game-compare__grid">
-        {slot("이전 빌드", left, setLeftId)}
-        {slot("최신 빌드", right, setRightId)}
-      </div>
-      {err && <p className="tk-error" role="alert">{err}</p>}
-      {left && right && left.id !== right.id && (
-        <div className="game-compare__summary">
-          <p className="tk-label">변경 요약 <span className="tk-help">빌드 기록 기준</span></p>
-          <ul>{summarizeChange(left, right).map((l) => <li key={l}>{l}</li>)}</ul>
-        </div>
-      )}
-    </section>
-  );
+/** 빌드 목록에 요청·피드백 정보를 덧붙인다. 서버가 /versions 를 모르면(이전 세대) 덧붙일 것이 없고 빌드 기록만 보인다. */
+export function useGameVersionInfo(gameId: string, builds: GameBuild[] | undefined) {
+  const newest = builds?.[0];
+  // 새 빌드가 생기거나 최신 빌드 상태가 바뀌면 요청 연결도 다시 읽는다
+  const sig = builds ? `${builds.length}:${newest?.id ?? ""}:${newest?.status ?? ""}` : "";
+  return useQuery({
+    enabled: !!builds,
+    queryKey: ["games", gameId, "versions", sig],
+    queryFn: () => listGameVersions(gameId),
+    retry: false,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
 }
 
 export function BuildHistory({ game, shots, onShot }: { game: Game; shots: Record<string, Screenshot>; onShot: (s: Screenshot) => void }) {
   const qc = useQueryClient();
   const q = useGameBuilds(game.id);
+  const info = useGameVersionInfo(game.id, q.data);
   const [target, setTarget] = useState<GameBuild | null>(null);
+  const [preview, setPreview] = useState<GameBuild | null>(null);
+  const [filter, setFilterState] = useState<VersionFilter>(EMPTY_FILTER);
+  // 기간 필터의 기준 시각. 렌더 중 Date.now() 를 부르지 않고 필터를 바꿀 때 갱신한다
+  const [now, setNow] = useState(() => Date.now());
+  const setFilter = (f: VersionFilter) => { setNow(Date.now()); setFilterState(f); };
+  const [pair, setPair] = useState<ComparePair>({ left: null, right: null });
+  const compareRef = useRef<HTMLDivElement>(null);
   const start = useMutation({
     mutationFn: () => startGameBuild(game.id),
     onSuccess: () => { void qc.invalidateQueries({ queryKey: ["games", game.id] }); toast({ message: "빌드를 시작했어요", tone: "success" }); },
     onError: (e) => toast({ message: errorText(e).message, tone: "danger" }),
   });
+  const items: VersionItem[] = useMemo(() => {
+    const byId = new Map((info.data ?? []).map((v) => [v.id, v]));
+    return (q.data ?? []).map((b) => byId.get(b.id) ?? b);
+  }, [q.data, info.data]);
+  const enriched = !!info.data;
+  const shown = useMemo(() => filterVersions(items, filter, now), [items, filter, now]);
   if (q.isPending) return <p className="tk-status" role="status"><span className="tk-spinner tk-spinner--sm" aria-hidden="true" />빌드를 불러오는 중</p>;
   if (q.isError) return <p className="tk-error" role="alert">{errorText(q.error).message}</p>;
   const active = activeBuildOf(game, q.data);
+  const ok = items.filter((b) => b.status === "succeeded");
+  const eff = resolvePair(ok, pair);
+  const slotOf = (b: VersionItem): Slot => (eff.left?.id === b.id ? "left" : eff.right?.id === b.id ? "right" : null);
+  const addToCompare = (b: VersionItem) => {
+    setPair(togglePair(ok, pair, b));
+    compareRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  };
   return (
     <div className="game-builds">
       <div className="game-builds__bar">
-        <p className="tk-label">빌드 {q.data.length}개</p>
+        <p className="tk-label">버전 이력</p>
         <Button size="xs" onClick={() => start.mutate()} busy={start.isPending}>
           <Icon name="retry" />
           <span>새로 빌드</span>
@@ -236,13 +218,26 @@ export function BuildHistory({ game, shots, onShot }: { game: Game; shots: Recor
         <p className="tk-empty tk-empty--boxed">아직 빌드가 없어요.</p>
       ) : (
         <>
-          <BuildCompare game={game} builds={q.data} shots={shots} onShot={onShot} />
-          <ul className="game-builds__list" aria-label="빌드 목록">
-            {q.data.map((b) => <BuildRow key={b.id} game={game} b={b} active={b.id === active?.id} onRollback={setTarget} />)}
-          </ul>
+          <div ref={compareRef}>
+            <BuildCompare game={game} builds={items} shots={shots} onShot={onShot} pair={pair} onPair={setPair} enriched={enriched} />
+          </div>
+          <VersionFilters gameId={game.id} filter={filter} onChange={setFilter} total={items.length} shown={shown.length} withRequests={enriched} />
+          {info.isError && <p className="tk-help" role="status">요청·피드백 정보는 아직 읽지 못해 빌드 기록만 보여요.</p>}
+          {shown.length === 0 ? (
+            <div className="tk-empty tk-empty--boxed">
+              <p className="tk-empty__title">조건에 맞는 버전이 없어요</p>
+              <p>검색어나 필터를 바꿔 보세요.</p>
+              {activeFilterCount(filter) > 0 && <Button size="sm" onClick={() => setFilter(EMPTY_FILTER)}>필터 지우기</Button>}
+            </div>
+          ) : (
+            <ul className="game-builds__list" aria-label="빌드 목록">
+              {shown.map((b) => <BuildRow key={b.id} game={game} b={b} active={b.id === active?.id} slot={slotOf(b)} onRollback={setTarget} onCompare={addToCompare} onPlay={setPreview} />)}
+            </ul>
+          )}
         </>
       )}
       <RollbackDialog game={game} target={target} onClose={() => setTarget(null)} />
+      <PlayPreview game={game} build={preview} onClose={() => setPreview(null)} />
     </div>
   );
 }

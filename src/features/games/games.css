@@ -36,16 +36,16 @@
 /* 플레이 녹화(ADR 0060) */
 .game-record { display: flex; flex-direction: column; gap: var(--tk-space-2); }
 .game-record__review { display: flex; flex-direction: column; gap: var(--tk-space-2); }
-.game-record__preview { width: 100%; max-height: 40vh; object-fit: contain; background: var(--tk-color-bg-inset, #0b0e14); border-radius: var(--tk-radius-md); }
+.game-record__preview { width: 100%; max-height: 40dvh; object-fit: contain; background: var(--tk-color-ink-bg); border-radius: var(--tk-radius-md); }
 .game-record__note { margin: 0; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
 .game-record__field { display: flex; flex-direction: column; gap: var(--tk-space-1); font-size: var(--tk-font-size-sm); }
-.game-record__field input[type="range"] { width: 100%; min-height: 44px; }
+.game-record__field input[type="range"] { width: 100%; min-height: var(--tk-size-touch-target-min); }
 .game-record__range { display: flex; flex-direction: column; gap: var(--tk-space-1); }
 .game-record__thumbs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--tk-space-1); }
 .game-record__thumbs li { display: flex; flex-direction: column; align-items: center; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
-.game-record__thumbs label { display: flex; flex-direction: column; align-items: center; min-height: 44px; cursor: pointer; }
-.game-record__thumbs input { min-width: 24px; min-height: 24px; accent-color: var(--tk-color-action-primary-bg); }
-.game-record__thumbs img { border-radius: var(--tk-radius-sm); border: 1px solid var(--tk-color-border); }
+.game-record__thumbs label { display: flex; flex-direction: column; align-items: center; min-height: var(--tk-size-touch-target-min); cursor: pointer; }
+.game-record__thumbs input { min-width: var(--tk-space-6); min-height: var(--tk-space-6); accent-color: var(--tk-color-action-primary-bg); }
+.game-record__thumbs img { border-radius: var(--tk-radius-sm); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
 .game-pick-panel { margin: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); }
 .game-pick-panel__title { margin: 0; font-weight: var(--tk-font-weight-semibold); font-size: var(--tk-font-size-sm); }
 .game-pick-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-1); }
@@ -160,3 +160,51 @@
 .game-save { display: flex; align-items: center; flex-wrap: wrap; gap: var(--tk-space-2); margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
 .game-save > span { flex: 1 1 12rem; min-width: 0; }
 .game-save .tk-button { flex: none; }
+
+/* 버전 이력 탐색·비교(ADR 0061): 검색·필터, 경위·요청, 소스 변경, 해 보기 */
+.game-filter { padding-block: 0; }
+.game-filter__panel { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.game-filter__group { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; }
+.game-filter__group .tk-label { margin: 0; }
+.game-filter .tk-input-wrap { flex: 1 1 auto; min-width: 0; }
+.game-filter .tk-filterbar__row > .tk-button { flex: none; }
+
+.game-origin { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1) var(--tk-space-2); min-width: 0; }
+.game-origin__line { margin: 0; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+.game-origin__ask {
+  flex: 1 1 100%; margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-primary);
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+}
+.game-build[data-compare] { border-color: var(--tk-color-border-brand); }
+.game-compare__slot .tk-button { align-self: flex-start; }
+
+.game-compare__summary { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.game-compare__summary .tk-label { margin: 0; }
+.game-source { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
+.game-source__total { margin: 0; font-size: var(--tk-font-size-sm); }
+.game-source__add { color: var(--tk-color-status-success-text); }
+.game-source__del { color: var(--tk-color-status-danger-text); }
+.game-source__commits, .game-source__files ul, .game-between__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-1); }
+.game-source__commits li { display: flex; gap: var(--tk-space-2); min-width: 0; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
+.game-source__commits li > span { min-width: 0; overflow-wrap: anywhere; }
+.game-source__files summary { cursor: pointer; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
+.game-source__files li { display: flex; justify-content: space-between; gap: var(--tk-space-2); min-width: 0; font-size: var(--tk-font-size-xs); }
+.game-source__path { min-width: 0; overflow-wrap: anywhere; }
+.game-source__counts { flex: none; }
+.game-between { display: flex; flex-direction: column; gap: var(--tk-space-1); }
+.game-between .tk-label { margin: 0; }
+.game-between__list li { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--tk-space-1) var(--tk-space-2); font-size: var(--tk-font-size-sm); min-width: 0; }
+.game-between__ask { flex: 1 1 100%; min-width: 0; overflow-wrap: anywhere; color: var(--tk-color-text-secondary); }
+
+.game-preview { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.game-preview__frame {
+  inline-size: 100%; aspect-ratio: 9 / 16; max-block-size: 68dvh; margin-inline: auto; border: 0;
+  border-radius: var(--tk-radius-md); background: var(--tk-color-ink-bg);
+}
+.game-preview .tk-help { margin: 0; }
+.game-origin__fb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1); min-width: 0; }
+.game-origin__fb .tk-help { margin: 0; }
+.game-compare__slot { overflow-wrap: anywhere; }
+.game-source__commits code { flex: none; white-space: nowrap; }
+/* 캡처 전에는 9:16 빈 상자 대신 버튼만 둬서 목록까지 스크롤이 길어지지 않게 한다 */
+.game-compare__shot[data-empty] { aspect-ratio: auto; min-block-size: var(--tk-space-16); padding: var(--tk-space-2); }
