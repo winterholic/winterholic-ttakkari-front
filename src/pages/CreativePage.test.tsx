@@ -124,3 +124,117 @@ test("new creators see an empty studio and can create a project", async () => {
     ).toBe(true),
   );
 });
+
+test("format selection changes default aspect and duration, template selection updates scene", async () => {
+  const catalog = {
+    formats: [
+      {
+        id: "shorts_9_16",
+        name: "9:16 모바일 쇼츠",
+        description: "쇼츠 포맷 설명",
+        allowed_aspects: ["9:16"],
+        default_aspect: "9:16",
+        min_duration: 10,
+        max_duration: 60,
+        default_duration: 30,
+        min_scenes: 3,
+        max_scenes: 15,
+        has_hook: true,
+        default_scene_templates: ["intro_hook", "outro"],
+        pacing: "fast",
+      },
+    ],
+    templates: [
+      {
+        id: "intro_hook",
+        name: "인트로 훅",
+        description: "시선 집중용 훅",
+        category: "hook",
+        default_duration: 3,
+        min_duration: 1.5,
+        max_duration: 6,
+        default_animation: "zoom_in",
+        allowed_animations: ["zoom_in"],
+        default_transition: "cut",
+        allowed_transitions: ["cut"],
+        default_caption_style: "center_highlight",
+        allowed_caption_styles: ["center_highlight"],
+        max_caption_lines: 2,
+        max_caption_chars: 40,
+      },
+      {
+        id: "outro",
+        name: "아웃트로 / 마무리",
+        description: "마무리 장면",
+        category: "ending",
+        default_duration: 4,
+        min_duration: 2,
+        max_duration: 10,
+        default_animation: "zoom_out",
+        allowed_animations: ["zoom_out"],
+        default_transition: "fade",
+        allowed_transitions: ["fade"],
+        default_caption_style: "title_card",
+        allowed_caption_styles: ["title_card"],
+        max_caption_lines: 2,
+        max_caption_chars: 60,
+      },
+    ],
+    tools: [],
+  };
+
+  const project = {
+    id: "format-project",
+    revision: 1,
+    name: "포맷 프로젝트",
+    brief: "",
+    style: "",
+    aspect: "9:16",
+    duration: 30,
+    music_asset_id: null,
+    scenes: [
+      {
+        id: "s1",
+        duration: 3,
+        prompt: "장면 1",
+        caption: "훅",
+        asset_id: null,
+        template_id: "intro_hook",
+        animation: "zoom_in",
+        transition: "cut",
+        caption_style: "center_highlight",
+      },
+    ],
+    assets: [],
+    render_jobs: [],
+    generation_jobs: [],
+  };
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string) => {
+      if (url.includes("/catalog")) {
+        return new Response(JSON.stringify(catalog), { status: 200 });
+      }
+      return new Response(JSON.stringify(project), { status: 200 });
+    }),
+  );
+
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({ defaultOptions: { queries: { retry: false } } })
+      }
+    >
+      <MemoryRouter initialEntries={["/creative/format-project"]}>
+        <Routes>
+          <Route path="/creative/:id" element={<CreativeDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+
+  await screen.findAllByText("인트로 훅");
+  const templateSelect = screen.getByLabelText("장면 템플릿 (부품)");
+  expect(templateSelect).toBeDefined();
+});

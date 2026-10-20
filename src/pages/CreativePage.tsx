@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router";
 import {
+  creativeCatalog,
   creativeCreate,
   creativeDemo,
   creativeEdit,
@@ -82,15 +83,73 @@ function AssetImage({
 
 export function CreativePage() {
   const q = useQuery({ queryKey: ["creative"], queryFn: creativeList });
+  const catQ = useQuery({
+    queryKey: ["creative-catalog"],
+    queryFn: creativeCatalog,
+  });
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
   const [duration, setDuration] = useState(30);
   const [aspect, setAspect] = useState("16:9");
   const [type, setType] = useState("music_video");
+
+  const formats = catQ.data?.formats ?? [
+    {
+      id: "shorts_9_16",
+      name: "9:16 모바일 쇼츠",
+      default_aspect: "9:16" as const,
+      allowed_aspects: ["9:16" as const],
+      default_duration: 30,
+      description: "스마트폰 세로 화면에 최적화된 빠른 호흡의 숏폼 (15~60초)",
+    },
+    {
+      id: "tech_explainer",
+      name: "기술 설명 · 교육 영상",
+      default_aspect: "16:9" as const,
+      allowed_aspects: ["16:9" as const],
+      default_duration: 60,
+      description: "코드 블록, 아키텍처 다이어그램, 단계별 해설 (30~240초)",
+    },
+    {
+      id: "music_video",
+      name: "뮤직비디오 · 감성 비주얼",
+      default_aspect: "16:9" as const,
+      allowed_aspects: ["16:9" as const, "1:1" as const],
+      default_duration: 30,
+      description: "배경 음악과 가사의 리듬감에 맞춘 시각 영상 (30~240초)",
+    },
+    {
+      id: "narration_story",
+      name: "내레이션 스토리 · 장편 다큐",
+      default_aspect: "16:9" as const,
+      allowed_aspects: ["16:9" as const],
+      default_duration: 120,
+      description: "차분한 내레이션과 깊이 있는 시각 전개 (60~240초)",
+    },
+  ];
+
+  const handleFormatChange = (fmtId: string) => {
+    setType(fmtId);
+    const found = formats.find((f) => f.id === fmtId);
+    if (found) {
+      setAspect(found.default_aspect);
+      setDuration(found.default_duration);
+    }
+  };
+
+  const selectedFormat = formats.find((f) => f.id === type);
+
   const create = useMutation({
     mutationFn: () =>
-      creativeCreate({ name, brief, duration, aspect, content_type: type }),
+      creativeCreate({
+        name,
+        brief,
+        duration,
+        aspect,
+        content_type: type,
+        format_id: type,
+      }),
     onSuccess: (p) => navigate(`/creative/${p.id}`),
   });
   return (
@@ -142,17 +201,17 @@ export function CreativePage() {
             </label>
             <div className="creative-controls">
               <label className="creative-field">
-                콘텐츠
+                콘텐츠 포맷
                 <select
                   className="tk-input"
                   value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  onChange={(e) => handleFormatChange(e.target.value)}
                 >
-                  <option value="music_video">뮤직비디오</option>
-                  <option value="animation">애니메이션</option>
-                  <option value="education">설명·교육</option>
-                  <option value="short">쇼츠</option>
-                  <option value="narration">내레이션 영상</option>
+                  {formats.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="creative-field">
@@ -162,10 +221,11 @@ export function CreativePage() {
                   value={duration}
                   onChange={(e) => setDuration(Number(e.target.value))}
                 >
+                  <option value={15}>15초 (숏폼)</option>
                   <option value={30}>30초</option>
                   <option value={60}>1분</option>
-                  <option value={120}>2분</option>
-                  <option value={240}>4분</option>
+                  <option value={120}>2분 (장편)</option>
+                  <option value={240}>4분 (장편)</option>
                 </select>
               </label>
               <label className="creative-field">
@@ -175,12 +235,25 @@ export function CreativePage() {
                   value={aspect}
                   onChange={(e) => setAspect(e.target.value)}
                 >
-                  <option>16:9</option>
-                  <option>9:16</option>
-                  <option>1:1</option>
+                  {selectedFormat?.allowed_aspects?.map((a: string) => (
+                    <option key={a} value={a}>
+                      {a}
+                    </option>
+                  )) ?? (
+                    <>
+                      <option>16:9</option>
+                      <option>9:16</option>
+                      <option>1:1</option>
+                    </>
+                  )}
                 </select>
               </label>
             </div>
+            {selectedFormat && (
+              <p className="creative-hint">
+                규격: {selectedFormat.description}
+              </p>
+            )}
             {create.isError && (
               <p className="tk-error" role="alert">
                 {errorText(create.error).message}
@@ -280,6 +353,10 @@ export function CreativeDetailPage() {
 
 function Editor({ project: p }: { project: CreativeProject }) {
   const qc = useQueryClient();
+  const catQ = useQuery({
+    queryKey: ["creative-catalog"],
+    queryFn: creativeCatalog,
+  });
   const [draft, setDraft] = useState<CreativeDraft>(() => draftOf(p));
   const [selected, setSelected] = useState<string | undefined>(p.scenes[0]?.id);
   const [chosenRender, setChosenRender] = useState<string | null>(null);
@@ -296,6 +373,87 @@ function Editor({ project: p }: { project: CreativeProject }) {
   );
   const music = p.assets.filter((a) => a.kind === "audio");
   const latest = p.render_jobs.at(-1);
+
+  const templates = catQ.data?.templates ?? [
+    {
+      id: "intro_hook",
+      name: "인트로 훅",
+      description: "시청자의 첫 시선을 사로잡는 훅 장면",
+      default_animation: "zoom_in",
+      default_transition: "cut",
+      default_caption_style: "center_highlight",
+    },
+    {
+      id: "title_card",
+      name: "타이틀 카드",
+      description: "제목과 핵심 주제 명시",
+      default_animation: "zoom_in",
+      default_transition: "fade",
+      default_caption_style: "title_card",
+    },
+    {
+      id: "lyric_scene",
+      name: "가사 장면",
+      description: "음악 반주와 리듬에 맞춘 가사 전달",
+      default_animation: "zoom_in",
+      default_transition: "fade",
+      default_caption_style: "bottom_card",
+    },
+    {
+      id: "ken_burns",
+      name: "켄번즈 서사",
+      description: "정적 이미지에 서정적 카메라 무브",
+      default_animation: "zoom_in",
+      default_transition: "fade",
+      default_caption_style: "bottom_card",
+    },
+    {
+      id: "code_diagram",
+      name: "코드 / 다이어그램",
+      description: "코드 및 시스템 구조도 설명 오버레이",
+      default_animation: "still",
+      default_transition: "cut",
+      default_caption_style: "code_overlay",
+    },
+    {
+      id: "highlight_text",
+      name: "핵심 키워드 강조",
+      description: "요약 문구 또는 키워드 시각 강조",
+      default_animation: "pulse",
+      default_transition: "cut",
+      default_caption_style: "center_highlight",
+    },
+    {
+      id: "split_screen",
+      name: "비교 분할 화면",
+      description: "두 개념 또는 비포/애프터 대조",
+      default_animation: "still",
+      default_transition: "cut",
+      default_caption_style: "bottom_card",
+    },
+    {
+      id: "outro",
+      name: "아웃트로 / 마무리",
+      description: "요약과 마무리, 행동 유도",
+      default_animation: "zoom_out",
+      default_transition: "fade",
+      default_caption_style: "title_card",
+    },
+  ];
+
+  const handleTemplateChange = (tmplId: string) => {
+    const tmpl = templates.find((t) => t.id === tmplId);
+    if (tmpl) {
+      change({
+        template_id: tmpl.id,
+        animation: tmpl.default_animation as CreativeScene["animation"],
+        transition: tmpl.default_transition as CreativeScene["transition"],
+        caption_style: tmpl.default_caption_style as CreativeScene["caption_style"],
+      });
+    } else {
+      change({ template_id: tmplId || null });
+    }
+  };
   const completed = p.render_jobs.filter((j) => j.status === "succeeded");
   const renderId = chosenRender ?? completed.at(-1)?.id;
   const media = useQuery({
@@ -551,6 +709,45 @@ function Editor({ project: p }: { project: CreativeProject }) {
             />
           </div>
           <fieldset disabled={busy} className="creative-editor-fields">
+            <div className="creative-controls">
+              <label className="creative-field">
+                장면 템플릿 (부품)
+                <select
+                  className="tk-input"
+                  value={scene.template_id ?? ""}
+                  onChange={(e) => handleTemplateChange(e.target.value)}
+                >
+                  <option value="">템플릿 미선택 (자유 구성)</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="creative-field">
+                자막 스타일
+                <select
+                  className="tk-input"
+                  value={scene.caption_style ?? "bottom_card"}
+                  onChange={(e) =>
+                    change({
+                      caption_style: e.target.value as CreativeScene["caption_style"],
+                    })
+                  }
+                >
+                  <option value="bottom_card">하단 자막 카드</option>
+                  <option value="center_highlight">중앙 강조 텍스트</option>
+                  <option value="title_card">타이틀 헤드라인</option>
+                  <option value="code_overlay">상단 코드 오버레이</option>
+                </select>
+              </label>
+            </div>
+            {scene.template_id && (
+              <p className="creative-hint">
+                템플릿: {templates.find((t) => t.id === scene.template_id)?.description}
+              </p>
+            )}
             <label className="creative-field">
               장면 설명·프롬프트
               <textarea
@@ -600,7 +797,9 @@ function Editor({ project: p }: { project: CreativeProject }) {
                 >
                   <option value="zoom_in">천천히 확대</option>
                   <option value="zoom_out">천천히 축소</option>
-                  <option value="pan">옆으로 이동</option>
+                  <option value="pan">옆으로 이동 (Pan)</option>
+                  <option value="pan_down">아래로 이동 (Pan Down)</option>
+                  <option value="pulse">비트 펄스 (Pulse)</option>
                   <option value="still">정지</option>
                 </select>
               </label>
@@ -710,6 +909,12 @@ function Editor({ project: p }: { project: CreativeProject }) {
               />
               <strong>
                 {i + 1}. {clock(sceneTime(scenes, i))}
+                {s.template_id && (
+                  <span className="creative-tmpl-badge">
+                    {templates.find((t) => t.id === s.template_id)?.name ??
+                      s.template_id}
+                  </span>
+                )}
               </strong>
               <span>
                 {s.duration}초 · {s.caption || "자막 없음"}

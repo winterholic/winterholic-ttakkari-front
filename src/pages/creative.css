@@ -30,6 +30,19 @@
   line-height: 1.6;
   margin: 0;
 }
+.creative-tmpl-badge {
+  display: inline-block;
+  font-size: var(--tk-font-size-xs);
+  font-weight: 500;
+  padding-inline: var(--tk-space-2);
+  padding-block: var(--tk-space-1);
+  border-radius: var(--tk-radius-sm);
+  background: var(--tk-color-surface-subtle);
+  color: var(--tk-color-text-secondary);
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-default);
+  margin-left: var(--tk-space-2);
+  vertical-align: middle;
+}
 .creative-create,
 .creative-panel {
   display: flex;

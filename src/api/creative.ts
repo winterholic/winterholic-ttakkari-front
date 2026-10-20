@@ -1,13 +1,62 @@
 import { apiUrl, json } from "./client";
 
+export interface CreativeTool {
+  id: string;
+  kind: "animation" | "transition" | "caption_style";
+  name: string;
+  description: string;
+}
+
+export interface CreativeSceneTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: "hook" | "title" | "content" | "code" | "ending";
+  default_duration: number;
+  min_duration: number;
+  max_duration: number;
+  default_animation: "still" | "zoom_in" | "zoom_out" | "pan" | "pan_down" | "pulse";
+  allowed_animations: Array<"still" | "zoom_in" | "zoom_out" | "pan" | "pan_down" | "pulse">;
+  default_transition: "fade" | "cut";
+  allowed_transitions: Array<"fade" | "cut">;
+  default_caption_style: "bottom_card" | "center_highlight" | "title_card" | "code_overlay";
+  allowed_caption_styles: Array<"bottom_card" | "center_highlight" | "title_card" | "code_overlay">;
+  max_caption_lines: number;
+  max_caption_chars: number;
+}
+
+export interface CreativeFormat {
+  id: string;
+  name: string;
+  description: string;
+  allowed_aspects: Array<"16:9" | "9:16" | "1:1">;
+  default_aspect: "16:9" | "9:16" | "1:1";
+  min_duration: number;
+  max_duration: number;
+  default_duration: number;
+  min_scenes: number;
+  max_scenes: number;
+  has_hook: boolean;
+  default_scene_templates: string[];
+  pacing: "fast" | "moderate" | "dynamic" | "slow_moderate" | "very_fast";
+}
+
+export interface CreativeCatalog {
+  formats: CreativeFormat[];
+  templates: CreativeSceneTemplate[];
+  tools: CreativeTool[];
+}
+
 export interface CreativeScene {
   id: string;
   duration: number;
   prompt: string;
   caption: string;
   asset_id: string | null;
-  animation: "still" | "zoom_in" | "zoom_out" | "pan";
+  template_id?: string | null;
+  animation: "still" | "zoom_in" | "zoom_out" | "pan" | "pan_down" | "pulse";
   transition: "fade" | "cut";
+  caption_style?: "bottom_card" | "center_highlight" | "title_card" | "code_overlay";
 }
 export interface CreativeAsset {
   id: string;
@@ -70,6 +119,7 @@ export const draftOf = (p: CreativeProject): CreativeDraft => ({
   scenes: p.scenes,
 });
 const root = "/api/creative/projects";
+export const creativeCatalog = () => json<CreativeCatalog>("/api/creative/catalog");
 export const creativeList = () => json<CreativeProject[]>(root);
 export const creativeGet = (id: string) =>
   json<CreativeProject>(`${root}/${id}`);
@@ -79,6 +129,7 @@ export const creativeCreate = (body: {
   duration: number;
   aspect: string;
   content_type: string;
+  format_id?: string;
 }) => json<CreativeProject>(root, { method: "POST", json: body });
 export const creativeEdit = (id: string, body: CreativeDraft) =>
   json<CreativeProject>(`${root}/${id}`, { method: "PATCH", json: body });
