@@ -36,6 +36,8 @@ import { GamesPage } from "./pages/GamesPage";
 import { GamePage } from "./pages/GamePage";
 
 const RemoteDesktopPage = lazy(() => import('./pages/RemoteDesktopPage').then(m => ({ default: m.RemoteDesktopPage })));
+const CreativePage = lazy(() => import('./pages/CreativePage').then(m => ({ default: m.CreativePage })));
+const CreativeDetailPage = lazy(() => import('./pages/CreativePage').then(m => ({ default: m.CreativeDetailPage })));
 
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
@@ -122,6 +124,8 @@ export function App() {
         <Route path="/wbs/:projectId/:view" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/github/*" element={<Suspense fallback={<RouteFallback />}><GithubPage /></Suspense>} />
         <Route path="/games" element={<GamesPage />} />
+        <Route path="/creative" element={<Suspense fallback={<RouteFallback />}><CreativePage /></Suspense>} />
+        <Route path="/creative/:id" element={<Suspense fallback={<RouteFallback />}><CreativeDetailPage /></Suspense>} />
         <Route path="/games/:id" element={<GamePage />} />
         <Route path="/checklists" element={<ChecklistsPage />} />
         <Route path="/memos" element={<MemosPage />} />

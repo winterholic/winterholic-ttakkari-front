@@ -197,7 +197,7 @@ async function raw(path: string, o: ReqOpts): Promise<Response> {
   return res;
 }
 
-async function json<T>(path: string, o: ReqOpts = {}): Promise<T> {
+export async function json<T>(path: string, o: ReqOpts = {}): Promise<T> {
   const res = await raw(path, o);
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
