@@ -4,7 +4,7 @@ import type { GamePlay } from "../../api/gameTypes";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
 import { CLIP_MAX_FRAMES, CLIP_MAX_MS, RECORD_MAX_MS, jpegBlobFromDataUrl, pickSegmentFrames, requestRecordStart, requestRecordStop } from "./recordBridge";
-import type { RecordFrame, Recording } from "./recordBridge";
+import type { ClipSelection, RecordFrame, Recording } from "./recordBridge";
 
 export type RecorderState =
   | { status: "idle" }
@@ -79,7 +79,9 @@ function useFrameUrls(frames: RecordFrame[]) {
   return urls;
 }
 
-function Review({ recording, onAgain, onDiscard }: { recording: Recording; onAgain: () => void; onDiscard: () => void }) {
+type Segment = Pick<ClipSelection, "startMs" | "endMs" | "frames">;
+
+function Review({ recording, onAgain, onDiscard, onUse }: { recording: Recording; onAgain: () => void; onDiscard: () => void; onUse?: (segment: Segment) => void }) {
   const { frames } = recording;
   const urls = useFrameUrls(frames);
   const last = frames.length - 1;
@@ -91,6 +93,8 @@ function Review({ recording, onAgain, onDiscard }: { recording: Recording; onAga
   const length = endMs - startMs;
   const tooLong = length > CLIP_MAX_MS;
   const picked = useMemo(() => (from < to ? pickSegmentFrames(frames, startMs, endMs, CLIP_MAX_FRAMES) : []), [frames, from, to, startMs, endMs]);
+  const [excluded, setExcluded] = useState<Set<number>>(new Set());
+  const included = picked.filter((f) => !excluded.has(f.tMs));
   const index = (f: RecordFrame) => frames.indexOf(f);
   return (
     <div className="game-record__review">
@@ -115,16 +119,17 @@ function Review({ recording, onAgain, onDiscard }: { recording: Recording; onAga
           ? "시작과 끝을 다르게 골라 주세요."
           : tooLong
             ? `구간이 너무 길어요(${seconds(length)}초). 최대 ${CLIP_MAX_MS / 1000}초까지 보낼 수 있어요.`
-            : `선택한 구간 ${seconds(length)}초 · 대표 화면 ${picked.length}장`}
+            : `선택한 구간 ${seconds(length)}초 · 대표 화면 ${included.length}장`}
       </p>
       {picked.length > 0 && !tooLong && (
         <ul className="game-record__thumbs" aria-label="수정 요청에 담길 대표 화면">
           {picked.map((f) => (
-            <li key={f.tMs}><img src={urls[index(f)]} alt={`${seconds(f.tMs)}초`} width={56} /><span>{seconds(f.tMs)}초</span></li>
+            <li key={f.tMs}><label><img src={urls[index(f)]} alt={`${seconds(f.tMs)}초`} width={56} /><span>{seconds(f.tMs)}초</span><input type="checkbox" checked={!excluded.has(f.tMs)} aria-label={`${seconds(f.tMs)}초 화면 포함`} onChange={() => setExcluded((old) => { const next = new Set(old); if (next.has(f.tMs)) next.delete(f.tMs); else next.add(f.tMs); return next; })} /></label></li>
           ))}
         </ul>
       )}
       <p className="game-record__note">이 화면은 아직 이 기기에만 있어요. 서버로 보내기 전에는 아무것도 올라가지 않아요.</p>
+      {onUse && <Button size="sm" variant="primary" block disabled={tooLong || included.length === 0} onClick={() => onUse({ startMs, endMs, frames: included })}>이 구간을 수정 요청에 담기</Button>}
       <div className="tk-toolbar__group">
         <Button size="sm" onClick={onAgain}>다시 녹화</Button>
         <Button size="sm" variant="danger" onClick={onDiscard}>버리기</Button>
@@ -133,7 +138,7 @@ function Review({ recording, onAgain, onDiscard }: { recording: Recording; onAga
   );
 }
 
-export function PlayRecorderPanel({ recorder }: { recorder: ReturnType<typeof usePlayRecorder> }) {
+export function PlayRecorderPanel({ recorder, onUse }: { recorder: ReturnType<typeof usePlayRecorder>; onUse?: (segment: Segment) => void }) {
   const { state } = recorder;
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -158,7 +163,7 @@ export function PlayRecorderPanel({ recorder }: { recorder: ReturnType<typeof us
         </>
       )}
       {state.status === "stopping" && <p className="game-record__note" role="status"><span className="tk-spinner" aria-hidden="true" /> 녹화 화면을 받는 중</p>}
-      {state.status === "review" && <Review recording={state.recording} onAgain={() => void recorder.start()} onDiscard={recorder.reset} />}
+      {state.status === "review" && <Review key={state.recording.frames[0]?.dataUrl + state.recording.durationMs} onUse={onUse} recording={state.recording} onAgain={() => void recorder.start()} onDiscard={recorder.reset} />}
       {state.status === "error" && (
         <>
           <p className="tk-error" role="alert">{state.message}</p>

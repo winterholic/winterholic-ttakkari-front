@@ -21,6 +21,7 @@
 .game-stage__empty-title { font-weight: var(--tk-font-weight-semibold); }
 .game-stage__empty-detail { font-size: var(--tk-font-size-sm); opacity: 0.85; max-inline-size: 28ch; }
 .game-toolbar { flex-wrap: wrap; }
+.game-toolbar .tk-toolbar__group { flex-wrap: wrap; min-width: 0; max-width: 100%; }
 
 /* 오브젝트 선택 모드: 게임 위를 덮는 레이어, 선택한 오브젝트의 경계 박스, 결과 목록 */
 .game-pick { position: absolute; inset: 0; cursor: crosshair; touch-action: none; outline-offset: calc(-1 * var(--tk-space-1)); }
@@ -42,6 +43,8 @@
 .game-record__range { display: flex; flex-direction: column; gap: var(--tk-space-1); }
 .game-record__thumbs { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--tk-space-1); }
 .game-record__thumbs li { display: flex; flex-direction: column; align-items: center; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
+.game-record__thumbs label { display: flex; flex-direction: column; align-items: center; min-height: 44px; cursor: pointer; }
+.game-record__thumbs input { min-width: 24px; min-height: 24px; accent-color: var(--tk-color-action-primary-bg); }
 .game-record__thumbs img { border-radius: var(--tk-radius-sm); border: 1px solid var(--tk-color-border); }
 .game-pick-panel { margin: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); }
 .game-pick-panel__title { margin: 0; font-weight: var(--tk-font-weight-semibold); font-size: var(--tk-font-size-sm); }

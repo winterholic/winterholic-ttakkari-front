@@ -36,6 +36,46 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("FeedbackForm", () => {
+  it("프레임 업로드가 실패하면 수정 요청을 보내지 않고 입력을 보존한다", async () => {
+    api.uploadFile.mockRejectedValueOnce(new Error("업로드 실패"));
+    const clip = { buildId: "b2", buildSeq: 2, startMs: 0, endMs: 500, frames: [{ tMs: 0, dataUrl: "data:image/jpeg;base64,/9j/2Q==" }] };
+    const done = vi.fn();
+    wrap(<FeedbackForm game={game} build={{ id: "b2", seq: 2 }} screenshot={null} annotations={[]} clip={clip} onSubmitted={done} />);
+    fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "착지 수정" } });
+    fireEvent.click(screen.getByRole("button", { name: "AI 수정 요청" }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect((screen.getByLabelText("이렇게 바꿔 주세요") as HTMLTextAreaElement).value).toBe("착지 수정");
+    expect(api.requestGameWork).not.toHaveBeenCalled();
+    expect(done).not.toHaveBeenCalled();
+  });
+
+  it("담은 구간만 최종 요청 때 업로드하고 시각과 빌드 ID를 보낸다", async () => {
+    const clip = { buildId: "b2", buildSeq: 2, startMs: 500, endMs: 1000, frames: [
+      { tMs: 500, dataUrl: "data:image/jpeg;base64,/9j/2Q==" },
+      { tMs: 1000, dataUrl: "data:image/jpeg;base64,/9j/2Q==" },
+    ] };
+    const done = vi.fn();
+    wrap(<FeedbackForm game={game} build={{ id: "b2", seq: 2 }} screenshot={null} annotations={[]} clip={clip} onSubmitted={done} />);
+    expect(api.uploadFile).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "착지할 때 튀어요" } });
+    fireEvent.click(screen.getByRole("button", { name: "AI 수정 요청" }));
+    await waitFor(() => expect(done).toHaveBeenCalled());
+    expect(api.uploadFile).toHaveBeenCalledTimes(2);
+    expect(api.uploadFile.mock.calls[0][0].type).toBe("image/jpeg");
+    expect(api.uploadFile.mock.calls[0][1]).toBe("w1");
+    expect(api.requestGameWork.mock.calls[0][1].feedback.clip).toEqual({ start_ms: 500, end_ms: 1000, frames: [{ artifact_id: "art-1", t_ms: 500 }, { artifact_id: "art-1", t_ms: 1000 }], note: "" });
+  });
+
+  it("다른 빌드의 구간을 섞으면 업로드 전에 거절한다", async () => {
+    const clip = { buildId: "old", buildSeq: 1, startMs: 0, endMs: 500, frames: [{ tMs: 0, dataUrl: "data:image/jpeg;base64,/9j/2Q==" }] };
+    wrap(<FeedbackForm game={game} build={{ id: "b2", seq: 2 }} screenshot={null} annotations={[]} clip={clip} onSubmitted={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "수정" } });
+    fireEvent.click(screen.getByRole("button", { name: "AI 수정 요청" }));
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(api.uploadFile).not.toHaveBeenCalled();
+    expect(api.requestGameWork).not.toHaveBeenCalled();
+  });
+
   it("스크린샷을 Artifact 로 올리고 빌드 ID·정규화 좌표를 담은 수정 요청을 worker 로 보낸다", async () => {
     const onSubmitted = vi.fn();
     wrap(<FeedbackForm game={game} build={{ id: "b2", seq: 2 }} screenshot={shot} annotations={annotations} onSubmitted={onSubmitted} />);

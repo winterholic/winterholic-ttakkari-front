@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { listGameRequests, requestGameWork, uploadFile } from "../../api/client";
-import type { Game, GameBuild, GameRequest } from "../../api/gameTypes";
+import type { Game, GameBuild, GameRequest, GameClipIn } from "../../api/gameTypes";
 import type { ArtifactOut } from "../../api/types";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
@@ -12,6 +12,9 @@ import { TaskTreeCard } from "../tasks/TaskTreeCard";
 import { buildPayload, renderAnnotatedPng, toFeedbackIn } from "./feedback";
 import type { Annotation, Screenshot } from "./feedback";
 import type { PickSelection } from "./pickBridge";
+
+import { clipFiles } from "./recordBridge";
+import type { ClipSelection } from "./recordBridge";
 
 const ACTIVE = new Set(["queued", "running", "waiting"]);
 export const MAX_COMMENT_CHARS = 4000;
@@ -32,7 +35,18 @@ export function useGameRequests(gameId: string) {
 export function useSubmitFeedback(game: Game) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { build: Pick<GameBuild, "id" | "seq">; screenshot: Screenshot | null; annotations: Annotation[]; comment: string; picked?: PickSelection | null }) => {
+    mutationFn: async (input: { build: Pick<GameBuild, "id" | "seq">; screenshot: Screenshot | null; annotations: Annotation[]; comment: string; picked?: PickSelection | null; clip?: ClipSelection | null }) => {
+      // 모든 프레임을 먼저 검사해 일부 업로드 후 로컬 검증에 실패하지 않게 한다.
+      const files = input.clip ? clipFiles(input.clip, input.build.id) : [];
+      let clip: GameClipIn | undefined;
+      if (input.clip) {
+        const frames: GameClipIn["frames"] = [];
+        for (const [i, file] of files.entries()) {
+          const artifact = await uploadFile(file, game.workspace_id);
+          frames.push({ artifact_id: artifact.id, t_ms: input.clip.frames[i].tMs });
+        }
+        clip = { start_ms: input.clip.startMs, end_ms: input.clip.endMs, frames, note: "" };
+      }
       let original: ArtifactOut | null = null;
       let annotated: ArtifactOut | null = null;
       if (input.screenshot) {
@@ -45,7 +59,7 @@ export function useSubmitFeedback(game: Game) {
       }
       const payload = buildPayload({ gameId: game.id, build: input.build, screenshot: input.screenshot, annotations: input.annotations, comment: input.comment, artifact: original, annotatedArtifact: annotated });
       const request = await requestGameWork(game.id, {
-        kind: "modify", build_id: input.build.id, instruction: payload.comment, feedback: toFeedbackIn(payload, input.picked ?? null),
+        kind: "modify", build_id: input.build.id, instruction: payload.comment, feedback: toFeedbackIn(payload, input.picked ?? null, clip),
       });
       return { request, payload, original, annotated };
     },
@@ -64,6 +78,8 @@ export function FeedbackForm({
   annotations,
   picked = null,
   onClearPicked,
+  clip = null,
+  onClearClip,
   onSubmitted,
 }: {
   game: Game;
@@ -73,6 +89,8 @@ export function FeedbackForm({
   /** 오브젝트 선택 모드에서 담은 오브젝트(back ADR 0059) */
   picked?: PickSelection | null;
   onClearPicked?: () => void;
+  clip?: ClipSelection | null;
+  onClearClip?: () => void;
   onSubmitted: () => void;
 }) {
   const [comment, setComment] = useState("");
@@ -83,7 +101,7 @@ export function FeedbackForm({
   const send = () => {
     if (!build || !text) return;
     submit.mutate(
-      { build, screenshot, annotations, comment, picked },
+      { build, screenshot, annotations, comment, picked, clip },
       {
         onSuccess: () => {
           toast({ message: "AI에게 수정 요청을 보냈어요", tone: "success" });
@@ -115,8 +133,12 @@ export function FeedbackForm({
       )}
       <p className="vf-form__attach" aria-live="polite">
         <Icon name={screenshot ? "image" : "info"} />
-        {screenshot ? `스크린샷 첨부됨 · 표시 ${annotations.length}개 · v${screenshot.buildSeq}` : "스크린샷 없이 글만 보냅니다. 화면을 가리키려면 위에서 캡처해 주세요."}
+        {screenshot ? `스크린샷 첨부됨 · 표시 ${annotations.length}개 · v${screenshot.buildSeq}` : clip ? "스크린샷 없이 고른 녹화 구간을 보냅니다." : "스크린샷 없이 글만 보냅니다. 화면을 가리키려면 위에서 캡처해 주세요."}
       </p>
+      {clip && <div className="vf-form__attach" aria-live="polite">
+        <span>녹화 구간 {((clip.endMs - clip.startMs) / 1000).toFixed(1)}초 · 화면 {clip.frames.length}장 · v{clip.buildSeq}. AI 수정 요청을 누르면 이 화면만 전송돼요.</span>
+        {onClearClip && <Button size="xs" onClick={onClearClip} aria-label="녹화 구간 빼기">빼기</Button>}
+      </div>}
       {submit.isError && <p className="tk-error" role="alert">{errorText(submit.error).message}</p>}
       {blocked && <p className="tk-help">{blocked}</p>}
       <Button type="submit" variant="primary" block busy={submit.isPending} disabled={!!blocked}>

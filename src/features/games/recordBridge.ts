@@ -65,6 +65,7 @@ export function acceptRecordResult(event: { origin: string; source: unknown; dat
     if (typeof f.dataUrl !== "string" || !f.dataUrl.startsWith(JPEG_PREFIX)) return null;
     bytes += decodedBytes(f.dataUrl);
     if (bytes > RECORD_MAX_BYTES) return null;
+    try { jpegBlobFromDataUrl(f.dataUrl); } catch { return null; }
     prev = f.tMs;
     frames.push({ tMs: f.tMs, dataUrl: f.dataUrl });
   }
@@ -145,4 +146,28 @@ export function requestRecordStop(
   { timeoutMs = 20_000, win = window }: { timeoutMs?: number; win?: Window } = {},
 ) {
   return exchange(frame, "ttakkari:record-stop", acceptRecordResult, gameOrigin, timeoutMs, 0, win, false, "게임에서 녹화 결과가 오지 않았어요. 다시 녹화해 주세요.");
+}
+
+/** 사용자가 미리 보고 담은 프레임. AI 수정 요청을 누르기 전까지 메모리에만 둔다. */
+export interface ClipSelection {
+  buildId: string;
+  buildSeq: number;
+  startMs: number;
+  endMs: number;
+  frames: RecordFrame[];
+}
+
+export function clipFiles(clip: ClipSelection, buildId: string): File[] {
+  if (clip.buildId !== buildId) throw new Error("녹화 구간과 요청 빌드가 달라요. 구간을 다시 골라 주세요.");
+  if (!Number.isInteger(clip.startMs) || !Number.isInteger(clip.endMs) || clip.startMs < 0 || clip.endMs <= clip.startMs || clip.endMs - clip.startMs > CLIP_MAX_MS || clip.frames.length < 1 || clip.frames.length > CLIP_MAX_FRAMES) throw new Error("구간은 15초 이하, 화면은 1~8장으로 골라 주세요.");
+  let prev = -1;
+  let bytes = 0;
+  return clip.frames.map((f, i) => {
+    if (!Number.isInteger(f.tMs) || f.tMs < clip.startMs || f.tMs > clip.endMs || f.tMs <= prev) throw new Error("구간의 화면 순서가 올바르지 않아요.");
+    prev = f.tMs;
+    const blob = jpegBlobFromDataUrl(f.dataUrl);
+    bytes += blob.size;
+    if (blob.size > 1024 * 1024 || bytes > RECORD_MAX_BYTES) throw new Error("화면은 장당 1MB, 합계 6MB까지만 보낼 수 있어요.");
+    return new File([blob], `game-clip-${i + 1}.jpg`, { type: "image/jpeg" });
+  });
 }

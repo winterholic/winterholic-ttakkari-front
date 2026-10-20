@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { GamePlay } from "../../api/gameTypes";
+import { PlayRecorderPanel } from "./PlayRecorder";
 import { GamePlayer } from "./GamePlayer";
 
 const play = { url: "https://games.example/p/t#ttk-parent=x", origin: "https://games.example", sandbox: "allow-scripts", build_id: "b1", build_seq: 1, bundle_sha256: "abc" } as unknown as GamePlay;
@@ -107,4 +108,14 @@ describe("플레이 녹화 패널", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
     expect(screen.getByRole("alert").textContent).toContain("녹화를 지원하지 않아요");
   });
+});
+
+it("대표 화면을 제외하고 명시적으로 담을 때만 선택 결과를 넘긴다", () => {
+  const onUse = vi.fn();
+  const recorder = { state: { status: "review" as const, recording: { frames: [0, 500, 1000].map(tMs => ({ tMs, dataUrl: JPEG })), width: 390, height: 844, fps: 2, durationMs: 1000, reason: "stopped" as const } }, start: vi.fn(), stop: vi.fn(), reset: vi.fn() };
+  render(<PlayRecorderPanel recorder={recorder} onUse={onUse} />);
+  expect(onUse).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByLabelText("0.5초 화면 포함"));
+  fireEvent.click(screen.getByRole("button", { name: "이 구간을 수정 요청에 담기" }));
+  expect(onUse).toHaveBeenCalledWith({ startMs: 0, endMs: 1000, frames: [{ tMs: 0, dataUrl: JPEG }, { tMs: 1000, dataUrl: JPEG }] });
 });

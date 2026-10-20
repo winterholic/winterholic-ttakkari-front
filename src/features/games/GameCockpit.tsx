@@ -8,6 +8,7 @@ import { errorText } from "../viewer/api";
 import { BuildHistory, activeBuildOf, useGameBuilds } from "./BuildHistory";
 import { FeedbackForm, GameRequests, useGameRequests } from "./FeedbackSubmission";
 import { GamePlayer } from "./GamePlayer";
+import type { ClipSelection } from "./recordBridge";
 import type { PickSelection } from "./pickBridge";
 import { LockedDecisions } from "./LockedDecisions";
 import { VisualFeedback } from "./VisualFeedback";
@@ -46,6 +47,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
   const [tab, setTab] = useState<Tab>("feedback");
   const [screenshot, setScreenshot] = useState<Screenshot | null>(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  const [clip, setClip] = useState<ClipSelection | null>(null);
   const [picked, setPicked] = useState<PickSelection | null>(null);
   const [shots, setShots] = useState<Record<string, Screenshot>>({});
   const urls = useRef(new Set<string>());
@@ -118,6 +120,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
 
   const onCaptured = useCallback((s: Screenshot) => {
     keepShot(s);
+    setClip((c) => c?.buildId === s.buildId ? c : null);
     setPicked((p) => (p && p.buildId === s.buildId ? p : null)); // 요청의 빌드는 하나라서 다른 빌드에서 고른 오브젝트는 담아 두지 않는다
     setScreenshot(s);
     setAnnotations([]);
@@ -130,7 +133,7 @@ export function GameCockpit({ gameId }: { gameId: string }) {
   const g = game.data;
   const status = gameStatus(builds.data, requestsActive, g.last_build);
   const playedBuild = play.data ? { id: play.data.build_id, seq: play.data.build_seq } : null;
-  const target = screenshot ? { id: screenshot.buildId, seq: screenshot.buildSeq } : picked ? { id: picked.buildId, seq: picked.buildSeq } : playedBuild;
+  const target = screenshot ? { id: screenshot.buildId, seq: screenshot.buildSeq } : picked ? { id: picked.buildId, seq: picked.buildSeq } : clip ? { id: clip.buildId, seq: clip.buildSeq } : playedBuild;
 
   return (
     <div className="game-cockpit">
@@ -145,12 +148,14 @@ export function GameCockpit({ gameId }: { gameId: string }) {
       </div>
 
       <GamePlayer
+        key={`${gameId}:${play.data?.build_id}`}
         play={play.data}
         loading={play.isFetching || game.isFetching && !play.data}
         error={play.isError ? play.error : null}
         onRestart={() => void play.refetch()}
         onCaptured={onCaptured}
-        onPickUse={(selection) => { setPicked(selection); setTab("feedback"); }}
+        onPickUse={(selection) => { setPicked(selection); if (clip?.buildId !== selection.buildId) setClip(null); if (screenshot?.buildId !== selection.buildId) { setScreenshot(null); setAnnotations([]); } setTab("feedback"); }}
+        onClipUse={(selection) => { setClip(selection); if (screenshot?.buildId !== selection.buildId) { setScreenshot(null); setAnnotations([]); } if (picked?.buildId !== selection.buildId) setPicked(null); setTab("feedback"); panelRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }); }}
         onStartBuild={() => start.mutate()}
         working={requestsActive}
         gameId={gameId}
@@ -179,9 +184,11 @@ export function GameCockpit({ gameId }: { gameId: string }) {
               build={target}
               screenshot={screenshot}
               annotations={annotations}
+              clip={clip}
+              onClearClip={() => setClip(null)}
               picked={picked}
               onClearPicked={() => setPicked(null)}
-              onSubmitted={() => { setScreenshot(null); setAnnotations([]); setPicked(null); setTab("work"); }}
+              onSubmitted={() => { setScreenshot(null); setAnnotations([]); setPicked(null); setClip(null); setTab("work"); }}
             />
           </>
         )}

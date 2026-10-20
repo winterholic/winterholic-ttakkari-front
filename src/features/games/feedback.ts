@@ -1,6 +1,6 @@
 // 시각적 피드백의 데이터 모델. 좌표는 캡처 이미지 기준 0~1 정규화(왼쪽 위가 0,0)라 화면 크기와 무관하게 같은 위치를 가리킨다.
 import type { ArtifactOut } from "../../api/types";
-import type { GameAnnotation, GameBuild, GameFeedbackIn } from "../../api/gameTypes";
+import type { GameAnnotation, GameBuild, GameFeedbackIn, GameClipIn } from "../../api/gameTypes";
 import type { PickSelection } from "./pickBridge";
 
 export type Annotation = GameAnnotation;
@@ -115,9 +115,10 @@ export function buildPayload(input: {
  * 요청의 구조화 feedback 필드. 스크린샷은 Artifact ID 로만 가리키고, 서버가 파일로 내놓아 worker prompt 에 열 수 있는 경로를 싣는다.
  * 캡처도 표시도 없으면 null(글만 보내는 요청).
  */
-export function toFeedbackIn(payload: FeedbackPayload, picked: PickSelection | null = null): GameFeedbackIn | null {
-  if (!payload.capture?.artifact_id && !payload.capture?.annotated_artifact_id && payload.annotations.length === 0 && !picked) return null;
+export function toFeedbackIn(payload: FeedbackPayload, picked: PickSelection | null = null, clip?: GameClipIn): GameFeedbackIn | null {
+  if (!payload.capture?.artifact_id && !payload.capture?.annotated_artifact_id && payload.annotations.length === 0 && !picked && !clip) return null;
   return {
+    ...(clip ? { clip } : {}),
     ...(picked ? { picked: [picked.hit], pick_point: { x: round4(picked.point[0]), y: round4(picked.point[1]) } } : {}),
     build_id: payload.build_id,
     artifact_id: payload.capture?.artifact_id ?? null,

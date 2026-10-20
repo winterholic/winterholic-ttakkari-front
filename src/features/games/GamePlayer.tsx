@@ -8,6 +8,7 @@ import type { Screenshot } from "./feedback";
 import { ObjectPickLayer, ObjectPickPanel, useObjectPick } from "./ObjectPick";
 import { PlayRecorderPanel, usePlayRecorder } from "./PlayRecorder";
 import type { PickSelection } from "./pickBridge";
+import type { ClipSelection } from "./recordBridge";
 import { useGameSave } from "./useGameSave";
 
 /** 사람이 읽는 플레이 불가 사유. 코드는 back api/games.py 의 CODE_STATUS 와 같다. */
@@ -31,6 +32,7 @@ export function GamePlayer({
   onRestart,
   onCaptured,
   onPickUse,
+  onClipUse,
   onStartBuild,
   buildTitle,
   working = false,
@@ -44,6 +46,7 @@ export function GamePlayer({
   onCaptured: (shot: Screenshot) => void;
   /** 선택한 오브젝트를 수정 요청에 담는다. 없으면 선택 결과는 보기만 한다 */
   onPickUse?: (selection: PickSelection) => void;
+  onClipUse?: (selection: ClipSelection) => void;
   onStartBuild?: () => void;
   buildTitle: string;
   /** AI 가 이 게임을 만들거나 고치는 중이면 빌드 시작 버튼 대신 기다리라는 안내를 보인다(끝나면 서버가 자동 빌드한다). */
@@ -69,7 +72,7 @@ export function GamePlayer({
   const [pickSelected, setPickSelected] = useState(0);
   const objectPick = useObjectPick(frameRef, play);
   const pickPanelRef = useRef<HTMLDivElement>(null);
-  // 플레이 녹화(back ADR 0060): 프레임으로 모아 구간을 고른다. 서버 전송은 아직 없다.
+  // 플레이 녹화: 담기는 메모리에만, 최종 AI 수정 요청 때 업로드한다.
   const [recordOpen, setRecordOpen] = useState(false);
   const recorder = usePlayRecorder(frameRef, play);
   const pickStatus = objectPick.state.status;
@@ -234,7 +237,7 @@ export function GamePlayer({
           />
         </div>
       )}
-      {recordOpen && play && !problem && <PlayRecorderPanel recorder={recorder} />}
+      {recordOpen && play && !problem && <PlayRecorderPanel recorder={recorder} onUse={onClipUse ? (segment) => onClipUse({ ...segment, buildId: play.build_id, buildSeq: play.build_seq }) : undefined} />}
       {gameId && save.saved && (
         <p className="game-save" role="status">
           <Icon name="check" />

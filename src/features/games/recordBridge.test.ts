@@ -20,6 +20,9 @@ const result = (over: Record<string, unknown> = {}) => ({
 });
 
 describe("녹화 응답 검증", () => {
+  it("깨진 JPEG는 미리보기 렌더 전에 거부한다", () => {
+    expect(acceptRecordResult(ev(result({frames:[{tMs:0,dataUrl:"data:image/jpeg;base64,YmFk"}]})),ctx)).toBeNull();
+  });
   it("출처 창·origin·요청 id 가 맞는 응답만 받는다", () => {
     expect(acceptRecordResult(ev(result()), ctx)).toMatchObject({ width: 390, height: 844, fps: 4, reason: "stopped", frames: [{ tMs: 0 }, { tMs: 250 }, { tMs: 500 }, { tMs: 750 }] });
     expect(acceptRecordResult(ev(result(), { origin: "https://games.example" }), ctx)).not.toBeNull();

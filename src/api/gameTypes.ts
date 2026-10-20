@@ -66,7 +66,15 @@ export type GameAnnotation =
   | { type: "freehand"; points: [number, number][] };
 
 /** 요청에 붙는 시각 피드백(back RequestIn.feedback). 스크린샷은 Artifact 참조이고 서버가 worker 가 열 수 있는 파일로 내놓는다. */
+export interface GameClipIn {
+  start_ms: number;
+  end_ms: number;
+  frames: { artifact_id: UUID; t_ms: number }[];
+  note: string;
+}
+
 export interface GameFeedbackIn {
+  clip?: GameClipIn;
   build_id: UUID;
   artifact_id?: UUID | null;
   annotated_artifact_id?: UUID | null;
