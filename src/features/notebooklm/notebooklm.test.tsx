@@ -4,16 +4,18 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import { ApiError } from "../../api/client";
+import type { NlmJob } from "../../api/notebooklmTypes";
 import { AuthStatusCard } from "./AuthStatusCard";
 import { ErrorNotice } from "./ErrorNotice";
 import { splitAnswer } from "./citations";
-import { describeError, jobStatusText } from "./labels";
+import { describeError, jobErrorToApiError, jobStatusText, jobTarget } from "./labels";
 import { OFF_REASON, QUERY_RESULT, authStatus, job } from "./fixtures";
 import { QueryPanel } from "./QueryPanel";
 import { NOTEBOOK } from "./fixtures";
 
 const h = vi.hoisted(() => ({
-  login: vi.fn(), complete: vi.fn(), cancel: vi.fn(), verify: vi.fn(), resume: vi.fn(), query: vi.fn(), toast: vi.fn(),
+  login: vi.fn(), complete: vi.fn(), cancel: vi.fn(), verify: vi.fn(), resume: vi.fn(),
+  start: vi.fn(), cancelJob: vi.fn(), toast: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({
   ...(await orig<typeof import("../../api/client")>()),
@@ -22,12 +24,14 @@ vi.mock("../../api/client", async (orig) => ({
   cancelNotebookLMLogin: h.cancel,
   verifyNotebookLM: h.verify,
   resumeNotebookLM: h.resume,
-  queryNotebook: h.query,
+  startNotebookQuery: h.start,
+  cancelNotebookJob: h.cancelJob,
 }));
 vi.mock("../../ui/toastStore", () => ({ toast: h.toast }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); this.dispatchEvent(new Event("close")); };
 });
@@ -38,6 +42,35 @@ const wrap = (ui: ReactNode) => render(
     <MemoryRouter>{ui}</MemoryRouter>
   </QueryClientProvider>,
 );
+
+/** QueryPanel 렌더. jobs 목록이 바뀌는 상황을 rerender 로 재현한다. */
+const renderQuery = (jobs: NlmJob[] | undefined) => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter><QueryPanel notebook={NOTEBOOK} jobs={jobs} active /></MemoryRouter>
+    </QueryClientProvider>,
+  );
+  return {
+    ...view,
+    setJobs: (next: NlmJob[] | undefined) => view.rerender(
+      <QueryClientProvider client={client}>
+        <MemoryRouter><QueryPanel notebook={NOTEBOOK} jobs={next} active /></MemoryRouter>
+      </QueryClientProvider>,
+    ),
+  };
+};
+
+const queryJob = (over: Partial<NlmJob> = {}): NlmJob => job({
+  id: "jq1", kind: "query", notebook_id: "nb1", status: "running",
+  params: { question_preview: "핵심 주장은?" }, result: null,
+  ...over,
+});
+
+const askQuestion = (q: string) => {
+  fireEvent.change(screen.getByLabelText("질문"), { target: { value: q } });
+  fireEvent.click(screen.getByRole("button", { name: /질문하기/ }));
+};
 const apiError = (status: number, code: string, message: string, extra: { retryAfter?: number; outcome_unknown?: boolean } = {}) =>
   new ApiError(status, { code, message, outcome_unknown: extra.outcome_unknown }, extra.retryAfter);
 
@@ -186,13 +219,14 @@ it("답변 속 인용 마커는 인용 목록에 있는 번호만 나눈다", ()
   expect(parts.some((p) => p.type === "text" && p.text.includes("[9]"))).toBe(true);
 });
 
-it("질의: 분석과 인용을 나눠 보이고, 마커를 누르면 출처와 인용 원문을 연다", async () => {
-  h.query.mockResolvedValue(QUERY_RESULT);
-  wrap(<QueryPanel notebook={NOTEBOOK} active />);
-  fireEvent.change(screen.getByLabelText("질문"), { target: { value: "핵심 주장은?" } });
-  fireEvent.click(screen.getByRole("button", { name: /질문하기/ }));
+it("질의: job 으로 시작하고 끝나면 분석과 인용을 나눠 보인다", async () => {
+  h.start.mockResolvedValue({ job: queryJob() });
+  const view = renderQuery([]);
+  askQuestion("핵심 주장은?");
+  await waitFor(() => expect(h.start).toHaveBeenCalledWith("nb1", { question: "핵심 주장은?", conversation_id: null, source_ids: null }));
+  expect(screen.getByText(/답을 만드는 중/)).toBeTruthy();
+  view.setJobs([queryJob({ status: "succeeded", result: { query: QUERY_RESULT }, finished_at: "2026-10-19T02:01:00Z" })]);
   await screen.findByTestId("answer");
-  expect(h.query).toHaveBeenCalledWith("nb1", { question: "핵심 주장은?", conversation_id: null, source_ids: null });
   expect(screen.getByRole("region", { name: "NotebookLM 분석" })).toBeTruthy();
   expect(screen.getByRole("region", { name: "인용과 출처" })).toBeTruthy();
 
@@ -204,10 +238,11 @@ it("질의: 분석과 인용을 나눠 보이고, 마커를 누르면 출처와 
 });
 
 it("인용 값이 null 이면 '원문 위치 정보 없음'으로 쓰고 꾸며내지 않는다", async () => {
-  h.query.mockResolvedValue(QUERY_RESULT);
-  wrap(<QueryPanel notebook={NOTEBOOK} active />);
-  fireEvent.change(screen.getByLabelText("질문"), { target: { value: "q" } });
-  fireEvent.click(screen.getByRole("button", { name: /질문하기/ }));
+  h.start.mockResolvedValue({ job: queryJob() });
+  const view = renderQuery([]);
+  askQuestion("q");
+  await waitFor(() => expect(h.start).toHaveBeenCalledTimes(1));
+  view.setJobs([queryJob({ status: "succeeded", result: { query: QUERY_RESULT } })]);
   await screen.findByTestId("answer");
   fireEvent.click(screen.getAllByRole("button", { name: "인용 2번 보기" })[0]);
   const dlg = await screen.findByRole("dialog", { name: "인용 [2]" });
@@ -215,11 +250,78 @@ it("인용 값이 null 이면 '원문 위치 정보 없음'으로 쓰고 꾸며�
   expect(within(dlg).getByText("인용 원문 텍스트 없음")).toBeTruthy();
 });
 
-it("질의 오류: 결과 불명이면 같은 질문을 다시 보내기 전에 알린다", async () => {
-  h.query.mockRejectedValue(apiError(504, "timeout", "시간 초과", { outcome_unknown: true }));
-  wrap(<QueryPanel notebook={NOTEBOOK} active />);
-  fireEvent.change(screen.getByLabelText("질문"), { target: { value: "q" } });
-  fireEvent.click(screen.getByRole("button", { name: /질문하기/ }));
+it("질의 시작 오류: 결과 불명이면 같은 질문을 다시 보내기 전에 알린다", async () => {
+  h.start.mockRejectedValue(apiError(504, "timeout", "시간 초과", { outcome_unknown: true }));
+  renderQuery([]);
+  askQuestion("q");
   expect(await screen.findByText("요청이 Google에 닿았는지 알 수 없어요")).toBeTruthy();
   expect(screen.getByRole("button", { name: "이 질문 다시 보내기" })).toBeTruthy();
+});
+
+it("질의 job 실패: 끝난 뒤에도 다시 보내기를 준다", async () => {
+  h.start.mockResolvedValue({ job: queryJob() });
+  const view = renderQuery([]);
+  askQuestion("q");
+  await waitFor(() => expect(h.start).toHaveBeenCalledTimes(1));
+  view.setJobs([queryJob({ status: "failed", error_code: "upstream_error", error: "NotebookLM이 요청을 처리하지 못했어요." })]);
+  expect(await screen.findByText("NotebookLM이 요청을 처리하지 못했어요.")).toBeTruthy();
+  const retry = screen.getByRole("button", { name: "이 질문 다시 보내기" });
+  h.start.mockResolvedValue({ job: queryJob({ id: "jq2" }) });
+  fireEvent.click(retry);
+  await waitFor(() => expect(h.start).toHaveBeenCalledTimes(2));
+});
+
+it("진행 중 질의는 명시적 취소 버튼으로만 취소하고, 화면을 나가도 취소하지 않는다", async () => {
+  localStorage.setItem("ttakkari:nlm:turns:nb1", JSON.stringify({
+    turns: [{ question: "핵심 주장은?", jobId: "jq1", result: null }],
+    conversationId: null,
+  }));
+  h.cancelJob.mockResolvedValue(queryJob({ status: "cancelled" }));
+  const view = renderQuery([queryJob()]);
+  expect(await screen.findByText(/답을 만드는 중/)).toBeTruthy();
+  view.unmount();
+  expect(h.cancelJob).not.toHaveBeenCalled();
+
+  const view2 = renderQuery([queryJob()]);
+  expect(await screen.findByText(/답을 만드는 중/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "이 질문 취소" }));
+  await waitFor(() => expect(h.cancelJob).toHaveBeenCalledWith("jq1"));
+  view2.unmount();
+});
+
+it("돌아오면 저장된 답변은 바로 보이고 진행 중 job 은 목록으로 복구한다", async () => {
+  localStorage.setItem("ttakkari:nlm:turns:nb1", JSON.stringify({
+    turns: [
+      { question: "먼저 한 질문", jobId: "jq0", result: QUERY_RESULT },
+      { question: "핵심 주장은?", jobId: "jq1", result: null },
+    ],
+    conversationId: "c1",
+  }));
+  const view = renderQuery([queryJob()]);
+  expect(await screen.findByText("먼저 한 질문")).toBeTruthy();
+  expect(screen.getAllByTestId("answer")).toHaveLength(1);
+  expect(screen.getByText(/답을 만드는 중/)).toBeTruthy();
+  view.setJobs([queryJob({ status: "succeeded", result: { query: QUERY_RESULT } })]);
+  await waitFor(() => expect(screen.getAllByTestId("answer")).toHaveLength(2));
+});
+
+it("목록에 없는 복원 job 은 다시 질문을 안내한다", async () => {
+  localStorage.setItem("ttakkari:nlm:turns:nb1", JSON.stringify({
+    turns: [{ question: "오래된 질문", jobId: "jq-old", result: null }],
+    conversationId: null,
+  }));
+  renderQuery([]);
+  expect(await screen.findByText("이 질의의 진행 정보를 찾지 못했어요. 다시 질문해 주세요.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "이 질문 다시 보내기" })).toBeTruthy();
+});
+
+it("질의 job 문장: 소스 등록 문장과 섞지 않는다", () => {
+  expect(jobTarget(queryJob())).toBe("핵심 주장은?");
+  expect(jobStatusText(queryJob({ status: "running" })).text).toMatch(/답을 만드는 중/);
+  expect(jobStatusText(queryJob({ status: "succeeded", result: { query: QUERY_RESULT } })).text).toBe("답변 완료");
+  expect(jobStatusText(queryJob({ status: "cancelled" })).text).toBe("취소했어요.");
+  expect(jobStatusText(queryJob({ status: "unknown", error: null })).text).toMatch(/다시 질문하기 전에/);
+  const err = jobErrorToApiError(queryJob({ status: "unknown", error_code: "timeout", error: "시간 초과", result: { outcome_unknown: true } }));
+  expect(err).toMatchObject({ status: 504, code: "timeout", outcomeUnknown: true });
+  expect(describeError(err).kind).toBe("unknown_outcome");
 });

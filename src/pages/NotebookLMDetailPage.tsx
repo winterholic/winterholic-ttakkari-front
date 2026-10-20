@@ -26,6 +26,7 @@ export function NotebookLMDetailPage() {
   useForegroundResync(() => {
     void qc.invalidateQueries({ queryKey: nlmKeys.status });
     void qc.invalidateQueries({ queryKey: nlmKeys.notebook(notebookId) });
+    void qc.invalidateQueries({ queryKey: nlmKeys.jobs });
   });
   useEffect(() => {
     if (!detail.error) return;
@@ -76,7 +77,7 @@ export function NotebookLMDetailPage() {
             </div>
             <div className="nlm-split">
               <SourcePanel notebook={nb} jobs={jobs.data ?? []} active={tab === "sources"} />
-              <QueryPanel key={nb.id} notebook={nb} active={tab === "query"} />
+              <QueryPanel key={nb.id} notebook={nb} jobs={jobs.data} active={tab === "query"} />
             </div>
           </>
         )}

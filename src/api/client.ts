@@ -53,6 +53,7 @@ import type {
 import type { WeatherBriefing } from "./weatherTypes";
 import type {
   NlmAddSourceResult, NlmAuthStatus, NlmJob, NlmLogin, NlmNotebook, NlmNotebookDetail, NlmQueryIn, NlmQueryResult, NlmSource,
+  NlmStartQueryResult,
 } from "./notebooklmTypes";
 import type { GaAccount, GaAccountList, GaLogin } from "./googleAccountTypes";
 import type { StocksProvider, TossInvestLoginHelp, TossInvestLoginWindow, TossInvestRun, TossInvestStatus } from "./stocksTypes";
@@ -1338,6 +1339,9 @@ export const uploadNotebookSource = (id: string, file: File, opts: { title?: str
 export const deleteNotebookSource = (id: string, sourceId: string): Promise<void> =>
   json(nlm(id, `/sources/${encodeURIComponent(sourceId)}`), { method: "DELETE" });
 export const queryNotebook = (id: string, body: NlmQueryIn): Promise<NlmQueryResult> => json(nlm(id, "/query"), { method: "POST", json: body });
+/** 비동기 질의 시작(202 {job}). 페이지를 벗어나도 서버에서 이어지고 결과는 job 조회로 받는다. */
+export const startNotebookQuery = (id: string, body: NlmQueryIn): Promise<NlmStartQueryResult> =>
+  json(nlm(id, "/queries"), { method: "POST", json: body });
 export const listNotebookJobs = (limit = 20): Promise<NlmJob[]> => json("/api/notebooklm/jobs", { query: { limit } });
 export const cancelNotebookJob = (id: string): Promise<NlmJob> => json(`/api/notebooklm/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST" });
 

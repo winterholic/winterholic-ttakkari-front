@@ -89,10 +89,10 @@ export interface NlmJob {
   kind: string;
   notebook_id: string | null;
   status: NlmJobStatus;
-  /** url 작업: {url, kind}, 텍스트: {title, chars}, 파일: {file_name, sha256} */
+  /** url 작업: {url, kind}, 텍스트: {title, chars}, 파일: {file_name, sha256}, 질의: {question_preview, conversation_id?, source_ids?} */
   params: Record<string, unknown> | null;
-  /** 성공: {source, ready, note?}, 결과 불명: {outcome_unknown: true} */
-  result: { source?: NlmSource; ready?: boolean; note?: string; outcome_unknown?: boolean } | null;
+  /** 소스 성공: {source, ready, note?}, 질의 성공: {query, ledger_export?}, 결과 불명: {outcome_unknown: true} */
+  result: { source?: NlmSource; ready?: boolean; note?: string; outcome_unknown?: boolean; query?: NlmQueryResult } | null;
   error_code: string | null;
   error: string | null;
   cancel_requested: boolean;
@@ -150,4 +150,10 @@ export interface NlmQueryIn {
   question: string;
   conversation_id?: string | null;
   source_ids?: string[] | null;
+  export_for_ledger?: boolean;
+}
+
+/** 비동기 질의 시작(202) 응답. 결과는 job 조회로 받는다. */
+export interface NlmStartQueryResult {
+  job: NlmJob;
 }

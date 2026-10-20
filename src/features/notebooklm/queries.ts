@@ -31,7 +31,7 @@ export function useNotebookDetail(id: string, enabled: boolean) {
   return useQuery({ queryKey: nlmKeys.notebook(id), queryFn: () => getNotebook(id), enabled, retry: false });
 }
 
-/** 소스 등록 job. 진행 중인 job 이 하나라도 있을 때만 폴링하고, 모두 끝나면 멈춘다. */
+/** 소스 등록·질의 job. 진행 중인 job 이 하나라도 있을 때만 폴링하고, 모두 끝나면 멈춘다. */
 export function useNotebookJobs(notebookId: string, enabled: boolean) {
   const qc = useQueryClient();
   const query = useQuery({

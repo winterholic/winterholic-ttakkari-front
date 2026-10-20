@@ -69,10 +69,25 @@ export const jobActive = (j: Pick<NlmJob, "status">): boolean => JOB_ACTIVE.has(
 export function jobTarget(j: NlmJob): string {
   const p = j.params ?? {};
   const str = (k: string) => (typeof p[k] === "string" ? (p[k] as string) : null);
+  if (j.kind === "query") return str("question_preview") ?? "질의";
   return str("title") ?? str("file_name") ?? str("url") ?? "소스";
 }
 
+/** 질의 job 상태 문장. 소스 등록 문장과 섞지 않는다. */
+function queryJobStatusText(j: NlmJob): { text: string; tone?: Tone } {
+  switch (j.status) {
+    case "queued": return { text: "대기 중", tone: "info" };
+    case "running": return { text: "소스를 읽고 답을 만드는 중", tone: "info" };
+    case "succeeded": return { text: "답변 완료", tone: "success" };
+    case "failed": return { text: j.error ?? "질문에 답하지 못했어요.", tone: "danger" };
+    case "cancelled": return { text: "취소했어요." };
+    case "unknown":
+      return { text: j.error ?? "결과를 알 수 없어요. 다시 질문하기 전에 잠시 기다려 주세요.", tone: "warning" };
+  }
+}
+
 export function jobStatusText(j: NlmJob): { text: string; tone?: Tone } {
+  if (j.kind === "query") return queryJobStatusText(j);
   switch (j.status) {
     case "queued": return { text: "대기 중", tone: "info" };
     case "running": return { text: "등록하고 처리하는 중", tone: "info" };
@@ -133,6 +148,25 @@ export function describeError(e: unknown): DescribedError {
     return { kind: "upstream", title: "NotebookLM이 요청을 처리하지 못했어요", detail: detail || "잠시 후 다시 시도해 주세요.", cause: e.detail };
   }
   return { kind: "other", title: detail || "요청하지 못했어요", detail: e.status >= 500 ? "잠시 후 다시 시도해 주세요." : "", cause: e.detail };
+}
+
+/** 끝난 job 의 실패를 ErrorNotice 가 읽는 ApiError 로 바꾼다. 상태 코드는 describeError 분기용 근사값이다. */
+export function jobErrorToApiError(j: NlmJob): ApiError {
+  const code = j.error_code ?? "unknown";
+  const message = j.error ?? (j.kind === "query" ? "질문에 답하지 못했어요." : "작업하지 못했어요.");
+  const status =
+    code === "rate_limited" || code === "cooldown" || code === "too_soon" ? 429
+    : code === "protection_signal" ? 423
+    : code === "too_large" ? 413
+    : code === "upstream_error" || code === "upstream_rejected" ? 502
+    : code === "transient" ? 503
+    : code === "timeout" ? 504
+    : code === "auth_required" || code === "busy" || code === "duplicate" || code === "cancelled" ? 409
+    : code === "not_found" ? 404
+    : code === "invalid" ? 422
+    : code === "unsupported" ? 501
+    : 500;
+  return new ApiError(status, { code, message, outcome_unknown: j.result?.outcome_unknown === true });
 }
 
 export function formatRemaining(seconds: number): string {
