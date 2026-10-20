@@ -15,7 +15,7 @@ import { NOTEBOOK } from "./fixtures";
 
 const h = vi.hoisted(() => ({
   login: vi.fn(), complete: vi.fn(), cancel: vi.fn(), verify: vi.fn(), resume: vi.fn(),
-  start: vi.fn(), cancelJob: vi.fn(), toast: vi.fn(),
+  start: vi.fn(), query: vi.fn(), cancelJob: vi.fn(), toast: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({
   ...(await orig<typeof import("../../api/client")>()),
@@ -25,6 +25,7 @@ vi.mock("../../api/client", async (orig) => ({
   verifyNotebookLM: h.verify,
   resumeNotebookLM: h.resume,
   startNotebookQuery: h.start,
+  queryNotebook: h.query,
   cancelNotebookJob: h.cancelJob,
 }));
 vi.mock("../../ui/toastStore", () => ({ toast: h.toast }));
@@ -313,6 +314,20 @@ it("목록에 없는 복원 job 은 다시 질문을 안내한다", async () => 
   renderQuery([]);
   expect(await screen.findByText("이 질의의 진행 정보를 찾지 못했어요. 다시 질문해 주세요.")).toBeTruthy();
   expect(screen.getByRole("button", { name: "이 질문 다시 보내기" })).toBeTruthy();
+});
+
+it("구 백엔드(/queries 없음)에서는 동기 질의로 받아 바로 보인다", async () => {
+  h.start.mockRejectedValue(new ApiError(404, { code: "http_404", message: "Not Found" }));
+  h.query.mockResolvedValue(QUERY_RESULT);
+  renderQuery([]);
+  askQuestion("핵심 주장은?");
+  await screen.findByTestId("answer");
+  expect(h.query).toHaveBeenCalledWith("nb1", { question: "핵심 주장은?", conversation_id: null, source_ids: null });
+  // 노트북 자체가 없는 404 는 폴백하지 않는다.
+  h.start.mockRejectedValue(apiError(404, "not_found", "노트북 없음"));
+  askQuestion("q2");
+  expect(await screen.findByText("노트북 없음")).toBeTruthy();
+  expect(h.query).toHaveBeenCalledTimes(1);
 });
 
 it("질의 job 문장: 소스 등록 문장과 섞지 않는다", () => {

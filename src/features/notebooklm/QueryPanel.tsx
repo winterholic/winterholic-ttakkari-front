@@ -1,7 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ApiError, cancelNotebookJob, startNotebookQuery } from "../../api/client";
-import type { NlmCitation, NlmJob, NlmNotebookDetail, NlmQueryResult } from "../../api/notebooklmTypes";
+import { ApiError, cancelNotebookJob, queryNotebook, startNotebookQuery } from "../../api/client";
+import type { NlmCitation, NlmJob, NlmNotebookDetail, NlmQueryResult, NlmStartQueryResult } from "../../api/notebooklmTypes";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
@@ -177,9 +177,21 @@ export function QueryPanel({ notebook, jobs, active }: { notebook: NlmNotebookDe
   }, [viewTurns, conv, notebook.id]);
 
   const start = useMutation({
-    mutationFn: ({ q }: { q: string; turn: number }) =>
-      startNotebookQuery(notebook.id, { question: q, conversation_id: conv, source_ids: scope.size ? [...scope] : null }),
+    mutationFn: ({ q }: { q: string; turn: number }): Promise<NlmStartQueryResult | { legacy: true; result: NlmQueryResult }> => {
+      const body = { question: q, conversation_id: conv, source_ids: scope.size ? [...scope] : null };
+      return startNotebookQuery(notebook.id, body).catch((e: unknown) => {
+        // 구 백엔드(아직 /queries 없음) 호환: 경로 자체가 없으면 동기 질의로 받아 바로 보여 준다.
+        if (e instanceof ApiError && e.status === 404 && e.code === "http_404") {
+          return queryNotebook(notebook.id, body).then((result) => ({ legacy: true as const, result }));
+        }
+        throw e;
+      });
+    },
     onSuccess: (res, { turn }) => {
+      if ("legacy" in res) {
+        setTurns((ts) => ts.map((t) => (t.id === turn ? { ...t, result: res.result, sending: false } : t)));
+        return;
+      }
       // 목록 다시 읽기가 끝나기 전에도 폴링·취소가 잡히게 캐시에 먼저 넣는다.
       qc.setQueryData<NlmJob[]>(nlmKeys.jobs, (old) => (old ? [res.job, ...old.filter((j) => j.id !== res.job.id)] : [res.job]));
       setTurns((ts) => ts.map((t) => (t.id === turn ? { ...t, jobId: res.job.id, sending: false } : t)));
