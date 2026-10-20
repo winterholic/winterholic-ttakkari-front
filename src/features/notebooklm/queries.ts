@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getNotebook, getNotebookLMStatus, listNotebookJobs, listNotebooks } from "../../api/client";
-import type { NlmAuthStatus } from "../../api/notebooklmTypes";
+import { useQueries, useQuery, useQueryClient, type Query } from "@tanstack/react-query";
+import { ApiError, getNotebook, getNotebookJob, getNotebookLMStatus, listNotebookJobs, listNotebooks } from "../../api/client";
+import type { NlmAuthStatus, NlmJob } from "../../api/notebooklmTypes";
 import { jobActive } from "./labels";
 
 export const nlmKeys = {
@@ -9,6 +9,7 @@ export const nlmKeys = {
   notebooks: ["notebooklm", "notebooks"] as const,
   notebook: (id: string) => ["notebooklm", "notebook", id] as const,
   jobs: ["notebooklm", "jobs"] as const,
+  job: (id: string) => ["notebooklm", "job", id] as const,
 };
 
 /** 마지막으로 알려진 상태만 읽는다(브라우저·Google 요청 없음). 로그인 창이 열려 있는 동안만 주기적으로 다시 읽는다. */
@@ -78,4 +79,18 @@ export function useCountdown(until: string | null | undefined, onZero?: () => vo
     }
   }, [left]);
   return left;
+}
+
+
+/** 목록에서 밀려난 질문도 저장한 ID로 독립적으로 복원·폴링한다. */
+export function useNotebookQueryJobs(ids: string[]) {
+  return useQueries({ queries: ids.map((id) => ({
+    queryKey: nlmKeys.job(id),
+    queryFn: () => getNotebookJob(id),
+    retry: false,
+    refetchInterval: (q: Query<NlmJob>) => {
+      if (q.state.error instanceof ApiError && q.state.error.status === 404) return false;
+      return !q.state.data || jobActive(q.state.data) ? 2500 : false;
+    },
+  })) });
 }

@@ -1343,6 +1343,7 @@ export const queryNotebook = (id: string, body: NlmQueryIn): Promise<NlmQueryRes
 export const startNotebookQuery = (id: string, body: NlmQueryIn): Promise<NlmStartQueryResult> =>
   json(nlm(id, "/queries"), { method: "POST", json: body });
 export const listNotebookJobs = (limit = 20): Promise<NlmJob[]> => json("/api/notebooklm/jobs", { query: { limit } });
+export const getNotebookJob = (id: string): Promise<NlmJob> => json(`/api/notebooklm/jobs/${encodeURIComponent(id)}`);
 export const cancelNotebookJob = (id: string): Promise<NlmJob> => json(`/api/notebooklm/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST" });
 
 // ---- 게임 스튜디오(back ADR 0046~0050). 게임 화면은 별도 origin 의 sandbox iframe 이라 여기서는 주소만 받는다.

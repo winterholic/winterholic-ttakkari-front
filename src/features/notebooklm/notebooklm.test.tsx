@@ -15,7 +15,7 @@ import { NOTEBOOK } from "./fixtures";
 
 const h = vi.hoisted(() => ({
   login: vi.fn(), complete: vi.fn(), cancel: vi.fn(), verify: vi.fn(), resume: vi.fn(),
-  start: vi.fn(), query: vi.fn(), cancelJob: vi.fn(), toast: vi.fn(),
+  start: vi.fn(), query: vi.fn(), getJob: vi.fn(), cancelJob: vi.fn(), toast: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({
   ...(await orig<typeof import("../../api/client")>()),
@@ -27,11 +27,13 @@ vi.mock("../../api/client", async (orig) => ({
   startNotebookQuery: h.start,
   queryNotebook: h.query,
   cancelNotebookJob: h.cancelJob,
+  getNotebookJob: h.getJob,
 }));
 vi.mock("../../ui/toastStore", () => ({ toast: h.toast }));
 
 beforeEach(() => {
   vi.clearAllMocks();
+  h.getJob.mockImplementation(() => new Promise(() => {}));
   localStorage.clear();
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); this.dispatchEvent(new Event("close")); };
@@ -306,7 +308,8 @@ it("돌아오면 저장된 답변은 바로 보이고 진행 중 job 은 목록�
   await waitFor(() => expect(screen.getAllByTestId("answer")).toHaveLength(2));
 });
 
-it("목록에 없는 복원 job 은 다시 질문을 안내한다", async () => {
+it("단건 조회도 404인 복원 job 만 다시 질문을 안내한다", async () => {
+  h.getJob.mockRejectedValue(apiError(404, "not_found", "작업 없음"));
   localStorage.setItem("ttakkari:nlm:turns:nb1", JSON.stringify({
     turns: [{ question: "오래된 질문", jobId: "jq-old", result: null }],
     conversationId: null,
@@ -339,4 +342,101 @@ it("질의 job 문장: 소스 등록 문장과 섞지 않는다", () => {
   const err = jobErrorToApiError(queryJob({ status: "unknown", error_code: "timeout", error: "시간 초과", result: { outcome_unknown: true } }));
   expect(err).toMatchObject({ status: 504, code: "timeout", outcomeUnknown: true });
   expect(describeError(err).kind).toBe("unknown_outcome");
+});
+
+
+it("다른 노트북 작업 20개에 밀려도 저장한 ID로 답변을 복구한다", async () => {
+  localStorage.setItem("ttakkari:nlm:turns:nb1", JSON.stringify({
+    turns: [{ question: "오래된 질문", jobId: "jq-old", result: null }], conversationId: null,
+  }));
+  h.getJob.mockResolvedValue(queryJob({ id: "jq-old", status: "succeeded", result: { query: QUERY_RESULT } }));
+  renderQuery(Array.from({ length: 20 }, (_, i) => queryJob({ id: `other-${i}`, notebook_id: "nb2" })));
+  await screen.findByTestId("answer");
+  expect(h.getJob).toHaveBeenCalledWith("jq-old");
+  expect(h.start).not.toHaveBeenCalled();
+});
+
+it("단건 조회의 일시적인 통신 실패는 없는 작업으로 처리하지 않는다", async () => {
+  localStorage.setItem("ttakkari:nlm:turns:nb1", JSON.stringify({
+    turns: [{ question: "긴 분석", jobId: "jq-old", result: null }], conversationId: null,
+  }));
+  h.getJob.mockRejectedValue(new TypeError("network"));
+  renderQuery([]);
+  await waitFor(() => expect(h.getJob).toHaveBeenCalledWith("jq-old"));
+  expect(screen.queryByRole("button", { name: "이 질문 다시 보내기" })).toBeNull();
+  h.getJob.mockResolvedValue(queryJob({ id: "jq-old", status: "succeeded", result: { query: QUERY_RESULT } }));
+  fireEvent.click(await screen.findByRole("button", { name: "진행 상태 다시 읽기" }));
+  await screen.findByTestId("answer");
+});
+
+it("시작 응답 전에 화면을 나가도 응답의 job ID를 저장해 복구한다", async () => {
+  let finish!: (value: { job: NlmJob }) => void;
+  h.start.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  const first = renderQuery([]);
+  askQuestion("긴 분석");
+  await waitFor(() => expect(h.start).toHaveBeenCalledTimes(1));
+  first.unmount();
+  finish({ job: queryJob() });
+  await waitFor(() => {
+    expect(JSON.parse(localStorage.getItem("ttakkari:nlm:turns:nb1")!).turns[0].jobId).toBe("jq1");
+  });
+  h.getJob.mockResolvedValue(queryJob({ status: "succeeded", result: { query: QUERY_RESULT } }));
+  renderQuery([]);
+  await screen.findByTestId("answer");
+});
+
+it("브라우저 저장이 거부되면 복원 제한을 사용자에게 알린다", () => {
+  const spy = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new DOMException("full", "QuotaExceededError"); });
+  try {
+    renderQuery([]);
+    expect(h.toast).toHaveBeenCalledWith(expect.objectContaining({ tone: "warning", message: expect.stringMatching(/저장하지 못/) }));
+  } finally {
+    spy.mockRestore();
+  }
+});
+
+it("오래된 완료 노트북 캐시는 정리하고 진행 중 질문은 남긴다", () => {
+  for (let i = 0; i < 30; i++) {
+    localStorage.setItem(`ttakkari:nlm:turns:old-${i}`, JSON.stringify({
+      updatedAt: i, turns: [{ question: "완료", jobId: `done-${i}`, result: QUERY_RESULT }], conversationId: null,
+    }));
+  }
+  localStorage.setItem("ttakkari:nlm:turns:pending", JSON.stringify({
+    updatedAt: 0, turns: [{ question: "진행", jobId: "pending", result: null }], conversationId: null,
+  }));
+  localStorage.setItem("unrelated", "keep");
+  renderQuery([]);
+  const keys = Object.keys(localStorage).filter((key) => key.startsWith("ttakkari:nlm:turns:"));
+  expect(keys.length).toBeLessThanOrEqual(21); // 완료 캐시 20개 + 진행 중 캐시는 보존
+  expect(localStorage.getItem("ttakkari:nlm:turns:pending")).not.toBeNull();
+  expect(localStorage.getItem("unrelated")).toBe("keep");
+});
+
+
+it("목록 밖 진행 중 job 은 개별 폴링으로 완료 답변까지 받는다", async () => {
+  localStorage.setItem("ttakkari:nlm:turns:nb1", JSON.stringify({
+    turns: [{ question: "긴 분석", jobId: "jq-old", result: null }], conversationId: null,
+  }));
+  h.getJob.mockResolvedValueOnce(queryJob({ id: "jq-old" })).mockResolvedValue(
+    queryJob({ id: "jq-old", status: "succeeded", result: { query: QUERY_RESULT } }),
+  );
+  renderQuery([]);
+  await screen.findByRole("button", { name: "이 질문 취소" });
+  await screen.findByTestId("answer", {}, { timeout: 4000 });
+  expect(h.getJob).toHaveBeenCalledTimes(2);
+  expect(h.start).not.toHaveBeenCalled();
+});
+
+
+it("완료 캐시의 개수가 적어도 전체 문자 예산을 넘기면 오래된 기록부터 정리한다", () => {
+  for (let i = 0; i < 4; i++) {
+    localStorage.setItem(`ttakkari:nlm:turns:large-${i}`, JSON.stringify({
+      updatedAt: i, turns: [{ question: "완료", jobId: `done-${i}`, result: { ...QUERY_RESULT, answer: "가".repeat(350000) } }],
+    }));
+  }
+  renderQuery([]);
+  const size = Object.keys(localStorage).filter((key) => key.startsWith("ttakkari:nlm:turns:")).reduce((total, key) => total + localStorage.getItem(key)!.length, 0);
+  expect(size).toBeLessThanOrEqual(1_000_000);
+  expect(localStorage.getItem("ttakkari:nlm:turns:large-3")).not.toBeNull();
+  expect(localStorage.getItem("ttakkari:nlm:turns:large-0")).toBeNull();
 });

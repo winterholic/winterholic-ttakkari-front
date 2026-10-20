@@ -8,7 +8,7 @@ import { toast } from "../../ui/toastStore";
 import { CitationViewer } from "./CitationViewer";
 import { ErrorNotice } from "./ErrorNotice";
 import { describeError, jobActive, jobErrorToApiError, sourceKindLabel, sourceTitle } from "./labels";
-import { nlmKeys } from "./queries";
+import { nlmKeys, useNotebookQueryJobs } from "./queries";
 import { splitAnswer } from "./citations";
 
 interface Open {
@@ -113,15 +113,41 @@ function loadStored(notebookId: string): { turns: Turn[]; conversationId: string
   }
 }
 
-function saveStored(notebookId: string, turns: Turn[], conversationId: string | null): void {
+// 완료 캐시만 정리하고 진행 중 질문의 job ID는 보존한다.
+function pruneStored(currentKey: string, incomingChars: number): void {
+  const entries = Object.keys(localStorage).filter((key) => key.startsWith("ttakkari:nlm:turns:") && key !== currentKey).map((key) => {
+    const raw = localStorage.getItem(key) ?? "";
+    try {
+      const data = JSON.parse(raw) as { turns?: StoredTurn[]; updatedAt?: number };
+      return { key, chars: raw.length, at: data.updatedAt ?? 0, pending: data.turns?.some((t) => t.jobId && !t.result) ?? false };
+    } catch {
+      return { key, chars: raw.length, at: 0, pending: false };
+    }
+  }).sort((a, b) => a.at - b.at);
+  let chars = entries.reduce((sum, entry) => sum + entry.chars, incomingChars);
+  let completed = entries.filter((entry) => !entry.pending).length + 1;
+  for (const entry of entries) {
+    if (completed <= 20 && chars <= 1_000_000) break;
+    if (entry.pending) continue;
+    localStorage.removeItem(entry.key);
+    chars -= entry.chars;
+    completed--;
+  }
+}
+
+function saveStored(notebookId: string, turns: Turn[], conversationId: string | null): boolean {
   try {
     const stored = {
       turns: turns.slice(-MAX_STORED_TURNS).map((t) => ({ question: t.question, jobId: t.jobId, result: t.result ?? null })),
       conversationId,
+      updatedAt: Date.now(),
     };
-    localStorage.setItem(storeKey(notebookId), JSON.stringify(stored));
+    const raw = JSON.stringify(stored);
+    pruneStored(storeKey(notebookId), raw.length);
+    localStorage.setItem(storeKey(notebookId), raw);
+    return true;
   } catch {
-    // 저장 실패는 화면 동작과 무관하게 무시한다.
+    return false;
   }
 }
 
@@ -136,45 +162,57 @@ export function QueryPanel({ notebook, jobs, active }: { notebook: NlmNotebookDe
   const [conversationId, setConversationId] = useState<string | null>(initial.conversationId);
   const [scope, setScope] = useState<Set<string>>(new Set());
   const [viewer, setViewer] = useState<Open | null>(null);
-  // 저장소에서 복원한 job id. 목록에 없는 복원 job 은 오래돼 사라진 것으로 보고 다시 질문을 안내한다.
-  const [restoredJobIds] = useState(() => new Set(
-    initial.turns.map((t) => t.jobId).filter((v): v is string => v !== null)));
+  const turnsRef = useRef(initial.turns);
+  const warnedStorage = useRef(false);
+  const listedById = useMemo(() => new Map((jobs ?? []).map((j) => [j.id, j])), [jobs]);
+  const missingIds = [...new Set(turns.filter((t) => t.jobId && !t.result && !t.error && !listedById.has(t.jobId)).map((t) => t.jobId!))];
+  const details = useNotebookQueryJobs(missingIds);
+  const jobsById = new Map(listedById);
+  details.forEach((detail) => { if (detail.data) jobsById.set(detail.data.id, detail.data); });
+  const missing404 = new Set(missingIds.filter((_, i) => details[i].error instanceof ApiError && details[i].error.status === 404));
+  const lookupFailed = details.some((detail) => detail.isError && !(detail.error instanceof ApiError && detail.error.status === 404));
 
-  const jobsById = useMemo(() => new Map((jobs ?? []).map((j) => [j.id, j])), [jobs]);
-
-  // 끝난 job 을 턴에 반영한 보기 상태. jobs 가 undefined(목록 로딩 전)이면 복원 판단을 하지 않는다.
-  const viewTurns = useMemo(() => {
-    if (jobs === undefined) return turns;
-    return turns.map((t) => {
-      if (t.result || t.error || !t.jobId) return t;
-      const job = jobsById.get(t.jobId);
-      if (!job) {
-        if (!restoredJobIds.has(t.jobId)) return t;
-        return { ...t, error: new ApiError(0, { code: "job_missing", message: "이 질의의 진행 정보를 찾지 못했어요. 다시 질문해 주세요." }) };
-      }
-      if (jobActive(job)) return t;
-      if (job.status === "succeeded") {
-        const result = job.result?.query;
-        return result
-          ? { ...t, result }
-          : { ...t, error: new ApiError(500, { code: "integration_error", message: "답변 형식이 달라 결과를 읽지 못했어요." }) };
-      }
-      return { ...t, error: jobErrorToApiError(job) };
-    });
-  }, [turns, jobs, jobsById, restoredJobIds]);
+  const viewTurns = turns.map((t) => {
+    if (t.result || t.error || !t.jobId) return t;
+    const job = jobsById.get(t.jobId);
+    if (!job) {
+      return missing404.has(t.jobId)
+        ? { ...t, error: new ApiError(404, { code: "job_missing", message: "이 질의의 진행 정보를 찾지 못했어요. 다시 질문해 주세요." }) }
+        : t;
+    }
+    if (jobActive(job)) return t;
+    if (job.status === "succeeded") {
+      const result = job.result?.query;
+      return result
+        ? { ...t, result }
+        : { ...t, error: new ApiError(500, { code: "integration_error", message: "답변 형식이 달라 결과를 읽지 못했어요." }) };
+    }
+    return { ...t, error: jobErrorToApiError(job) };
+  });
 
   // 이어지는 질문에 쓸 대화 id. 최근 답변에서 찾고, 없으면 저장된 값을 쓴다.
-  const conv = useMemo(() => {
-    for (let i = viewTurns.length - 1; i >= 0; i--) {
-      const c = viewTurns[i].result?.conversation_id;
-      if (c) return c;
-    }
-    return conversationId;
-  }, [viewTurns, conversationId]);
+  const conv = viewTurns.reduce<string | null>((previous, turn) => turn.result?.conversation_id || previous, conversationId);
 
+  const persist = (next: Turn[], conversation: string | null) => {
+    if (!saveStored(notebook.id, next, conversation) && !warnedStorage.current) {
+      warnedStorage.current = true;
+      toast({ tone: "warning", message: "질문 기록을 브라우저에 저장하지 못했어요. 서버 분석은 계속되지만 화면을 다시 열 때 기록을 복원하지 못할 수 있어요." });
+    }
+  };
   useEffect(() => {
-    saveStored(notebook.id, viewTurns, conv);
+    turnsRef.current = viewTurns;
+    if (!saveStored(notebook.id, viewTurns, conv) && !warnedStorage.current) {
+      warnedStorage.current = true;
+      toast({ tone: "warning", message: "질문 기록을 브라우저에 저장하지 못했어요. 서버 분석은 계속되지만 화면을 다시 열 때 기록을 복원하지 못할 수 있어요." });
+    }
   }, [viewTurns, conv, notebook.id]);
+  // mutation의 완료 콜백은 화면 구독이 없어져도 실행된다. React 상태와 별도로 ID를 즉시 저장한다.
+  const updateTurns = (update: (previous: Turn[]) => Turn[]) => {
+    const next = update(turnsRef.current);
+    turnsRef.current = next;
+    persist(next, conv);
+    setTurns(next);
+  };
 
   const start = useMutation({
     mutationFn: ({ q }: { q: string; turn: number }): Promise<NlmStartQueryResult | { legacy: true; result: NlmQueryResult }> => {
@@ -189,15 +227,15 @@ export function QueryPanel({ notebook, jobs, active }: { notebook: NlmNotebookDe
     },
     onSuccess: (res, { turn }) => {
       if ("legacy" in res) {
-        setTurns((ts) => ts.map((t) => (t.id === turn ? { ...t, result: res.result, sending: false } : t)));
+        updateTurns((ts) => ts.map((t) => (t.id === turn ? { ...t, result: res.result, sending: false } : t)));
         return;
       }
       // 목록 다시 읽기가 끝나기 전에도 폴링·취소가 잡히게 캐시에 먼저 넣는다.
       qc.setQueryData<NlmJob[]>(nlmKeys.jobs, (old) => (old ? [res.job, ...old.filter((j) => j.id !== res.job.id)] : [res.job]));
-      setTurns((ts) => ts.map((t) => (t.id === turn ? { ...t, jobId: res.job.id, sending: false } : t)));
+      updateTurns((ts) => ts.map((t) => (t.id === turn ? { ...t, jobId: res.job.id, sending: false } : t)));
       void qc.invalidateQueries({ queryKey: nlmKeys.jobs });
     },
-    onError: (error, { turn }) => setTurns((ts) => ts.map((t) => (t.id === turn ? { ...t, error, sending: false } : t))),
+    onError: (error, { turn }) => updateTurns((ts) => ts.map((t) => (t.id === turn ? { ...t, error, sending: false } : t))),
   });
 
   const cancel = useMutation({
@@ -208,7 +246,7 @@ export function QueryPanel({ notebook, jobs, active }: { notebook: NlmNotebookDe
 
   const send = (q: string, reuse?: number) => {
     const turn = reuse ?? ++seq.current;
-    setTurns((ts) => (reuse
+    updateTurns((ts) => (reuse
       ? ts.map((t) => (t.id === turn ? { ...t, jobId: null, sending: true, result: undefined, error: undefined } : t))
       : [...ts, { id: turn, question: q, jobId: null, sending: true }]));
     start.mutate({ q, turn });
@@ -220,6 +258,7 @@ export function QueryPanel({ notebook, jobs, active }: { notebook: NlmNotebookDe
     send(q);
   };
   const reset = () => {
+    turnsRef.current = [];
     setTurns([]);
     setConversationId(null);
     try {
@@ -244,6 +283,11 @@ export function QueryPanel({ notebook, jobs, active }: { notebook: NlmNotebookDe
       {noSources && <p className="nlm-note">소스를 먼저 추가하면 그 내용으로 질문할 수 있어요.</p>}
       {viewTurns.length === 0 && !noSources && <p className="nlm-note">소스 내용을 근거로 답하고 인용을 붙여요. 질문은 서버에서 끝까지 진행되고, 다른 화면에 갔다 와도 결과는 여기 남아요.</p>}
 
+      {lookupFailed && (
+        <p role="status" className="nlm-note">진행 상태를 불러오지 못했어요. 분석을 다시 시작할 필요는 없어요.
+          <Button size="xs" variant="ghost" onClick={() => { details.forEach((detail) => { void detail.refetch(); }); }}>진행 상태 다시 읽기</Button>
+        </p>
+      )}
       <ol className="nlm-turns">
         {viewTurns.map((t) => {
           const job = turnJob(t);
