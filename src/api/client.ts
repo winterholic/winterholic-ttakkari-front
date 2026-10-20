@@ -202,6 +202,11 @@ async function json<T>(path: string, o: ReqOpts = {}): Promise<T> {
   return (res.status === 204 ? undefined : await res.json()) as T;
 }
 
+/** Research domain uses the same refresh, error and cookie policy as the rest of Ttakkari. */
+export function researchRequest<T = unknown>(path: string, body?: unknown, method?: string): Promise<T> {
+  return json(`/api/research${path}`, { method: method ?? (body === undefined ? "GET" : "POST"), json: body });
+}
+
 // ---- notifications
 import type { NotificationListParams, NotificationOut, NotificationPage, NotificationCategory } from "./notificationTypes";
 export const listNotifications = (params: NotificationListParams = {}): Promise<NotificationPage> =>

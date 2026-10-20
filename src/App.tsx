@@ -49,6 +49,7 @@ const GithubPage = lazy(() => import("./pages/GithubPage").then((m) => ({ defaul
 const NotebookLMPage = lazy(() => import("./pages/NotebookLMPage").then((m) => ({ default: m.NotebookLMPage })));
 const NotebookLMDetailPage = lazy(() => import("./pages/NotebookLMDetailPage").then((m) => ({ default: m.NotebookLMDetailPage })));
 const WbsListPage = lazy(() => import("./pages/WbsPage").then((m) => ({ default: m.WbsListPage })));
+const ResearchPage = lazy(() => import("./pages/ResearchPage").then((m) => ({ default: m.ResearchPage })));
 const WbsProjectPage = lazy(() => import("./pages/WbsPage").then((m) => ({ default: m.WbsProjectPage })));
 
 function RouteFallback() {
@@ -100,6 +101,7 @@ export function App() {
         <Route path="/notebooklm" element={<Suspense fallback={<RouteFallback />}><NotebookLMPage /></Suspense>} />
         <Route path="/notebooklm/:notebookId" element={<Suspense fallback={<RouteFallback />}><NotebookLMDetailPage /></Suspense>} />
         <Route path="/resources" element={<ResourcesPage />} />
+        <Route path="/research" element={<Suspense fallback={<RouteFallback />}><ResearchPage /></Suspense>} />
         <Route path="/logs" element={<OpsLogsPage />} />
         <Route path="/design-systems" element={<DesignSystemPage />} />
         <Route path="/artcraft" element={<ArtcraftPage />} />

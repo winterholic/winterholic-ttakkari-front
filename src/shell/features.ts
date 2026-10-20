@@ -21,6 +21,7 @@ export interface Feature {
  * 새 기능은 라우트를 만들고 여기에 항목 하나만 넣으면 양쪽에 같이 나타난다. 순서도 이 순서다.
  */
 export const FEATURES: readonly Feature[] = [
+  { root: "research", to: "/research", icon: "search", label: "AI Research Lab", description: "논문·가설·실험의 근거를 연결하고 다음 연구로 이어가기" },
   { root: "remote-desktop", to: "/remote-desktop", icon: "server", label: "원격 데스크톱", description: "Mac 화면을 열고 터치·트랙패드·키보드로 조작" },
   { root: "notifications", to: "/notifications", icon: "important", label: "알림", description: "따까리·작업·일정의 알림을 유형별로" },
   { root: "weather", to: "/weather", icon: "sun", label: "날씨 브리핑", description: "수원 오늘 날씨와 서울 출퇴근·주간 예보" },
