@@ -168,7 +168,7 @@ function BriefingView({ item, isToday }: { item: WeatherBriefing; isToday: boole
     </section>}
 
     <footer className="weather-source">
-      {item.request_source === "scheduled" && item.scheduled_at && <span>예약 06:30 · 실제 수집 시작 {new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(new Date(item.created_at))}</span>}
+      {item.request_source === "scheduled" && item.scheduled_at && <span>예약 {new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(new Date(item.scheduled_at))} · 실제 수집 시작 {new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(new Date(item.created_at))}</span>}
       <span>기상 정보 기준 {new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(new Date((suwon ?? seoul)!.fetched_at))} KST 수집</span>
       <span>갱신 {new Intl.DateTimeFormat("ko-KR", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(new Date((suwon ?? seoul)!.fetched_at))} · 예보 기준 {timeLabel((suwon ?? seoul)!.forecast_time)}</span>
       {item.source_errors && Object.keys(item.source_errors).length > 0 && <span className="weather-source__missing">지역 예보 일부 수집 실패: {Object.keys(item.source_errors).map(key => key === "suwon" ? "수원" : "서울").join("·")}</span>}
@@ -211,7 +211,7 @@ export function WeatherPage() {
     <PageHeader title="날씨 브리핑" />
     <div className="tk-screen__body"><div className="tk-container tk-container--md weather-page__container">
       <header className="weather-heading">
-        <div><p className="weather-eyebrow">매일 오전 6:30 · Asia/Seoul</p><h1>{dayLabel(activeDay)}</h1>
+        <div><p className="weather-eyebrow">매일 낮 12:00 · Asia/Seoul</p><h1>{dayLabel(activeDay)}</h1>
           <p>{isToday ? "수원을 중심으로 서울 출퇴근과 한 주 예보를 살펴봅니다." : "지난 날짜에 만들어진 브리핑을 보고 있어요."}</p></div>
         {isToday
           ? <Button variant="primary" busy={busy} onClick={requestToday}><Icon name="retry" />{busy ? "브리핑 준비 중" : active ? "오늘 브리핑 다시 확인" : "오늘 브리핑 만들기"}</Button>
