@@ -1,0 +1,8 @@
+/* 음성 생성 화면 보조 규칙. 디자인 시스템 토큰만 쓴다. */
+.tts-text { min-height: calc(var(--tk-size-control-md) * 3); resize: vertical; }
+.tts-count { align-self: flex-end; margin: 0; font-variant-numeric: tabular-nums; }
+.tts-progress { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.tts-player { display: flex; flex-direction: column; gap: var(--tk-space-3); padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.tts-player[data-phase="blocked"] { border-color: var(--tk-color-status-warning-icon); }
+.tts-player__controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
+.tts-player__progress { display: flex; flex-direction: column; gap: var(--tk-space-1); }

@@ -3,6 +3,7 @@ import { downloadLink } from "../../api/client";
 import type { ArtifactOut, RunOut } from "../../api/types";
 import { Icon, KIND_GLYPH } from "../../ui/Icon";
 import { AppMarkdown } from "../markdown/AppMarkdown";
+import { SpeakButton } from "../tts/SpeakButton";
 import { SentAttachments } from "./Attachments";
 import { RunCard, StateBadge } from "./RunCard";
 import { formatBytes, isLive, stateLabel } from "./runView";
@@ -174,6 +175,7 @@ export function AgentMessage({
           <button className="tk-icon-button tk-icon-button--sm" type="button" aria-label="응답 복사" onClick={copy}>
             <Icon name="copy" />
           </button>
+          <SpeakButton ownerId={run.id} text={view.text} />
         </div>
       )}
     </article>

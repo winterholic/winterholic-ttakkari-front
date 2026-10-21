@@ -56,6 +56,7 @@ import type {
   NlmStartQueryResult,
 } from "./notebooklmTypes";
 import type { GaAccount, GaAccountList, GaLogin } from "./googleAccountTypes";
+import type { TtsCacheStats, TtsJob, TtsJobCreated, TtsStatus, TtsSynthesisIn, TtsVoice } from "./ttsTypes";
 import type { StocksProvider, TossInvestLoginHelp, TossInvestLoginWindow, TossInvestRun, TossInvestStatus } from "./stocksTypes";
 
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? "http://127.0.0.1:8787";
@@ -1372,3 +1373,25 @@ export const requestGameWork = (id: UUID, body: GameRequestIn): Promise<GameRequ
 export const listGameRequests = (id: UUID, limit = 30): Promise<GameRequest[]> => json(`/api/games/${id}/requests`, { query: { limit } });
 export const rollbackGame = (id: UUID, body: GameRollbackIn): Promise<GameRollbackOut> =>
   json(`/api/games/${id}/rollback`, { method: "POST", json: body });
+
+// ---- 로컬 TTS (back ADR 0062). 오디오는 Bearer 가 필요해 <audio src> 로 바로 못 쓰므로 Blob 으로 받아 객체 URL 로 재생한다.
+export const getTtsStatus = (): Promise<TtsStatus> => json("/api/tts/status");
+export const listTtsVoices = async (): Promise<TtsVoice[]> => (await json<{ voices?: TtsVoice[] }>("/api/tts/voices")).voices ?? [];
+export const createTtsJob = (body: TtsSynthesisIn, signal?: AbortSignal): Promise<TtsJobCreated> => json("/api/tts/jobs", { method: "POST", json: body, signal });
+export const getTtsJob = (id: string, signal?: AbortSignal): Promise<TtsJob> => json(`/api/tts/jobs/${encodeURIComponent(id)}`, { signal });
+export const cancelTtsJob = (id: string): Promise<TtsJob> => json(`/api/tts/jobs/${encodeURIComponent(id)}`, { method: "DELETE" });
+export const getTtsCacheStats = (): Promise<TtsCacheStats> => json("/api/tts/cache/stats");
+export const speakTts = async (body: TtsSynthesisIn, signal?: AbortSignal): Promise<Blob> => (await raw("/api/tts/speak", { method: "POST", json: body, signal })).blob();
+
+/**
+ * job 응답의 audio_url 을 Blob 으로 받는다. 같은 API 아래 경로면 Bearer 를 붙이고(401 재시도 포함),
+ * 다른 출처의 절대 URL(단기 토큰 링크)은 자격 증명 없이 그대로 받는다.
+ */
+export async function fetchTtsAudio(url: string, signal?: AbortSignal): Promise<Blob> {
+  const base = API_BASE.replace(/\/$/, "");
+  if (url.startsWith("/")) return (await raw(url, { signal })).blob();
+  if (url.startsWith(`${base}/`)) return (await raw(url.slice(base.length), { signal })).blob();
+  const res = await fetch(url, { credentials: "omit", signal });
+  if (!res.ok) throw await toApiError(res);
+  return res.blob();
+}

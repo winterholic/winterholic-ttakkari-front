@@ -10,6 +10,7 @@ import { AccountsSection } from "../features/accounts/AccountsSection";
 import { QwenWorkerSection } from "../features/accounts/QwenWorkerSection";
 import { GoogleAccountSection } from "../features/google-account/GoogleAccountSection";
 import { ShortcutSection } from "../features/transfer/ShortcutSection";
+import { TtsSection } from "../features/tts/TtsSection";
 import { PageHeader } from "../shell/PageHeader";
 import { Icon } from "../ui/Icon";
 import "./settings.css";
@@ -39,6 +40,7 @@ export function SettingsPage() {
           <AccountsSection />
           <QwenWorkerSection />
           <GoogleAccountSection />
+          <TtsSection />
           <ShortcutSection />
           {ws.data && <WritableRoots ws={ws.data} />}
         </div>

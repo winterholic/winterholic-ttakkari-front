@@ -44,6 +44,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "github", to: "/github", icon: "git-branch", label: "GitHub", description: "내 프로필·조직·저장소와 코드·PR·이슈·Actions를 폰에서 읽기" },
   { root: "reverse", to: "/reverse", icon: "search", label: "리버스 엔지니어링", description: "대상을 자연어로 설명하고 관찰·검증을 거쳐 작업공간에 소스코드로 재현" },
   { root: "notebooklm", to: "/notebooklm", icon: "notebook", label: "NotebookLM", description: "자료를 노트북에 모아 소스를 근거로 질문하고 인용으로 확인" },
+  { root: "tts", to: "/tts", icon: "volume", label: "음성 생성", description: "글을 Mac Studio의 로컬 음성으로 만들어 듣고 내려받기" },
   { root: "stocks", to: "/stocks", icon: "chart", label: "주식 투자", description: "토스증권 연결 상태를 확인하는 읽기 전용 기초 틀" },
 ];
 

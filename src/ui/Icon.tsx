@@ -2,7 +2,7 @@ import {
   BookOpen, Briefcase, CalendarDays, Camera, ChevronDown, ChevronLeft, NotebookPen, Tag, GripVertical, Gauge, ChevronRight, ChevronUp, Plus, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
   Download, Ellipsis, EllipsisVertical, ExternalLink, Eye, FileArchive, FileCode, FileSpreadsheet, FileText, Folder,
   FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Lock, LogOut, Mail, Maximize,
-  Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, Palette, PanelRight, Paperclip, Pin, Play, Presentation, RefreshCw,
+  Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, Palette, PanelRight, Paperclip, Pause, Pin, Play, Volume2, Presentation, RefreshCw,
   Search, Send, Server, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, Square, SquarePen, Sun, Terminal, Trash2,
   TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, Keyboard, Gamepad2, MousePointer2, Pointer, Film, LayoutTemplate, Music, PenTool, Ruler, Sparkles, ChartGantt, ChartCandlestick, Building2, CircleDot, Code, FileDiff, GitBranch, GitFork, GitMerge, GitPullRequest, GitPullRequestDraft, Star, User, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users, Workflow,
 } from "lucide-react";
@@ -36,7 +36,7 @@ const ICONS = {
   // NotebookLM 플랫폼
   notebook: BookOpen,
   // ArtCraft 관제
-  palette: Palette, play: Play,
+  palette: Palette, play: Play, pause: Pause, volume: Volume2,
   // 원격 데스크톱 조작 도구
   keyboard: Keyboard, gamepad: Gamepad2, "mouse-pointer": MousePointer2, pointer: Pointer,
   // ArtCraft 작업 범주
