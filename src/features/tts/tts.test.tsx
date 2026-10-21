@@ -8,7 +8,7 @@ import { TtsSection } from "./TtsSection";
 import { TTS_PREFS_KEY, resetTtsPrefsCache, setTtsPrefs } from "./ttsPrefs";
 import { ttsPlayer } from "./ttsPlayer";
 
-const api = vi.hoisted(() => ({ status: vi.fn(), voices: vi.fn(), speak: vi.fn(), createJob: vi.fn(), getJob: vi.fn() }));
+const api = vi.hoisted(() => ({ status: vi.fn(), voices: vi.fn(), speak: vi.fn(), createJob: vi.fn(), getJob: vi.fn(), cancelJob: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({
   ...(await orig<typeof import("../../api/client")>()),
   getTtsStatus: api.status,
@@ -16,10 +16,11 @@ vi.mock("../../api/client", async (orig) => ({
   speakTts: api.speak,
   createTtsJob: api.createJob,
   getTtsJob: api.getJob,
+  cancelTtsJob: api.cancelJob,
 }));
 import { ApiError } from "../../api/client";
 
-const VOICES = [{ id: "f1", name: "여성 1", lang: "ko", gender: "female" }, { id: "m1", name: "남성 1", lang: "ko", gender: "male" }];
+const VOICES = [{ id: "f1", name: "여성 1", lang: ["ko"], gender: "female" }, { id: "m1", name: "남성 1", lang: ["ko"], gender: "male" }];
 const READY = { enabled: true, ready: true, reason: null, engine: "supertonic-3", model: "supertonic-3", voice_count: 2 };
 const missing = () => new ApiError(404, { code: "not_found", message: "Not Found" });
 
@@ -147,7 +148,7 @@ describe("채팅 재생 버튼(SpeakButton)", () => {
     fireEvent.click(await screen.findByRole("button", { name: "응답 음성으로 듣기" }));
     const sources = await play.mock.calls[0][0].prepare(new AbortController().signal);
     expect(api.speak).not.toHaveBeenCalled();
-    expect(api.createJob).toHaveBeenCalledWith(expect.objectContaining({ text: "가".repeat(501) }), expect.any(AbortSignal));
+    expect(api.createJob).toHaveBeenCalledWith(expect.objectContaining({ text: "가".repeat(501) }));
     expect(sources).toHaveLength(2);
   });
 
@@ -244,4 +245,56 @@ describe("설정의 음성 출력 토글(TtsSection)", () => {
 
 it("availability 쿼리 키는 한 곳(TTS_AVAILABILITY_KEY)에서만 정해진다", () => {
   expect(TTS_AVAILABILITY_KEY).toEqual(["tts", "availability"]);
+});
+
+describe("synthesizeSources 및 채팅 재생 동적 한도·취소 검증", () => {
+  it("speak_max_chars 동적 한도에 따라 /speak 와 job 경로가 나뉜다", async () => {
+    const { synthesizeSources } = await import("./ttsJob");
+    api.speak.mockResolvedValue(new Blob(["x"]));
+    const abort = new AbortController();
+
+    // 한도가 200일 때 150자는 /speak 호출
+    await synthesizeSources({ text: "a".repeat(150) }, abort.signal, 200);
+    expect(api.speak).toHaveBeenCalledTimes(1);
+    expect(api.createJob).not.toHaveBeenCalled();
+
+    // 250자는 job 생성
+    api.createJob.mockResolvedValue({ job_id: "job-dyn-1", chunks: 1, cached_chunks: 1 });
+    api.getJob.mockResolvedValue({ status: "succeeded", progress: { done: 1, total: 1 }, chunks: [{ index: 0, audio_url: "/a/1" }] });
+    await synthesizeSources({ text: "a".repeat(250) }, abort.signal, 200);
+    expect(api.createJob).toHaveBeenCalledTimes(1);
+  });
+
+  it("채팅 경로 synthesizeSources: createTtsJob 지연 중 abort 시 늦게 반환된 job_id 를 즉시 취소한다", async () => {
+    const { synthesizeSources } = await import("./ttsJob");
+    let resolveCreate: (val: unknown) => void = () => undefined;
+    api.createJob.mockReturnValue(new Promise((res) => { resolveCreate = res; }));
+    api.cancelJob.mockResolvedValue({ status: "cancelled" });
+
+    const abort = new AbortController();
+    const promise = synthesizeSources({ text: "a".repeat(600) }, abort.signal, 500);
+
+    // 아직 응답 전 취소
+    abort.abort();
+
+    // 그 뒤에 서버에서 job 생성 응답이 늦게 도착
+    resolveCreate({ job_id: "late-job-chat", chunks: 2, cached_chunks: 0 });
+
+    await expect(promise).rejects.toThrow("aborted");
+    expect(api.cancelJob).toHaveBeenCalledWith("late-job-chat");
+  });
+
+  it("채팅 경로 synthesizeSources: waitForJob 중단 시 cancelTtsJob 을 호출한다", async () => {
+    const { synthesizeSources } = await import("./ttsJob");
+    api.createJob.mockResolvedValue({ job_id: "running-job-chat", chunks: 2, cached_chunks: 0 });
+    const abort = new AbortController();
+    api.getJob.mockImplementation(() => {
+      abort.abort();
+      return Promise.resolve({ status: "running", progress: { done: 0, total: 2 } });
+    });
+    api.cancelJob.mockResolvedValue({ status: "cancelled" });
+
+    await expect(synthesizeSources({ text: "a".repeat(600) }, abort.signal, 500)).rejects.toThrow();
+    expect(api.cancelJob).toHaveBeenCalledWith("running-job-chat");
+  });
 });

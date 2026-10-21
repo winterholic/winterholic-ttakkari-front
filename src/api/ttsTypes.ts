@@ -8,12 +8,21 @@ export interface TtsStatus {
   engine?: string | null;
   model?: string | null;
   voice_count?: number;
+  default_voice?: string | null;
+  default_speed?: number | null;
+  speed_range?: number[];
+  sample_rate?: number;
+  output_format?: string;
+  max_text_chars?: number;
+  speak_max_chars?: number;
+  accepting?: boolean;
 }
 
 export interface TtsVoice {
   id: string;
   name: string;
-  lang?: string;
+  /** 백엔드 응답은 list(v.lang) 형태의 문자열 배열이다. */
+  lang?: string[];
   gender?: string | null;
   sample_url?: string | null;
 }
@@ -57,6 +66,18 @@ export interface TtsCacheStats {
   max_bytes: number;
 }
 
-/** 서버가 받는 입력 한도(설계서 §14). status 가 알려 주지 않으므로 상수로 둔다. */
+/** 서버 기본 입력 한도(설계서 §14, status 기본값). */
 export const TTS_MAX_TEXT_CHARS = 5000;
 export const TTS_SPEAK_MAX_CHARS = 500;
+
+/** status.max_text_chars 가 유효한 양의 정수면 그것을 쓰고, 아니면 기본값(5000)을 쓴다. */
+export function resolveMaxTextChars(status?: TtsStatus | null): number {
+  const v = status?.max_text_chars;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v) : TTS_MAX_TEXT_CHARS;
+}
+
+/** status.speak_max_chars 가 유효한 양의 정수면 그것을 쓰고, 아니면 기본값(500)을 쓴다. */
+export function resolveSpeakMaxChars(status?: TtsStatus | null): number {
+  const v = status?.speak_max_chars;
+  return typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.floor(v) : TTS_SPEAK_MAX_CHARS;
+}

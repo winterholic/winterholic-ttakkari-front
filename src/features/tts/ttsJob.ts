@@ -1,4 +1,4 @@
-import { ApiError, createTtsJob, fetchTtsAudio, getTtsJob, speakTts } from "../../api/client";
+import { ApiError, cancelTtsJob, createTtsJob, fetchTtsAudio, getTtsJob, speakTts } from "../../api/client";
 import { TTS_SPEAK_MAX_CHARS } from "../../api/ttsTypes";
 import type { TtsJob, TtsSynthesisIn } from "../../api/ttsTypes";
 import type { ChunkSource } from "./ttsPlayer";
@@ -89,19 +89,60 @@ export function chunkSourcesFromJob(job: TtsJob): ChunkSource[] {
 }
 
 /**
- * 채팅 재생용. 500자 이하는 /speak 로 한 번에, 넘으면 job 으로 만든 뒤 문장 단위로 재생한다(설계서 §10.2).
+ * 채팅 재생용. speak_max_chars 이하는 /speak 로 한 번에, 넘으면 job 으로 만든 뒤 문장 단위로 재생한다(설계서 §10.2).
  * 캐시 미스 job 은 워커가 끝나야 문장이 보이므로(설계서 §7.1) 긴 글의 첫 소리는 전체 합성이 끝난 뒤에 난다.
+ * 취소 시 서버에 작업이 남지 않도록 late acceptance 및 waitForJob 중단 시 cancelTtsJob 을 보장한다.
  */
-export async function synthesizeSources(body: TtsSynthesisIn, signal: AbortSignal): Promise<ChunkSource[]> {
-  try {
-    if (body.text.length <= TTS_SPEAK_MAX_CHARS) {
+export async function synthesizeSources(
+  body: TtsSynthesisIn,
+  signal: AbortSignal,
+  speakLimit: number = TTS_SPEAK_MAX_CHARS,
+): Promise<ChunkSource[]> {
+  const limit = typeof speakLimit === "number" && Number.isFinite(speakLimit) && speakLimit > 0
+    ? Math.floor(speakLimit)
+    : TTS_SPEAK_MAX_CHARS;
+
+  if (signal.aborted) throw new DOMException("aborted", "AbortError");
+
+  if (body.text.length <= limit) {
+    try {
       const blob = await speakTts(body, signal);
       return [{ load: async () => blob }];
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") throw e;
+      throw toJobError(e);
     }
-    const created = await createTtsJob(body, signal);
-    return chunkSourcesFromJob(await waitForJob(created.job_id, { signal }));
+  }
+
+  let cancelledBeforeAccept = false;
+  let acceptedJobId: string | null = null;
+
+  const onAbort = () => {
+    cancelledBeforeAccept = true;
+    if (acceptedJobId) {
+      void cancelTtsJob(acceptedJobId).catch(() => undefined);
+    }
+  };
+  signal.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    const created = await createTtsJob(body);
+    acceptedJobId = created.job_id;
+
+    if (signal.aborted || cancelledBeforeAccept) {
+      void cancelTtsJob(acceptedJobId).catch(() => undefined);
+      throw new DOMException("aborted", "AbortError");
+    }
+
+    const job = await waitForJob(acceptedJobId, { signal });
+    return chunkSourcesFromJob(job);
   } catch (e) {
+    if (acceptedJobId && (signal.aborted || (e instanceof DOMException && e.name === "AbortError"))) {
+      void cancelTtsJob(acceptedJobId).catch(() => undefined);
+    }
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     throw toJobError(e);
+  } finally {
+    signal.removeEventListener("abort", onAbort);
   }
 }

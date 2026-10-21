@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { resolveMaxTextChars, resolveSpeakMaxChars } from "../../api/ttsTypes";
 import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
 import { useTtsPrefs } from "./ttsPrefs";
@@ -25,7 +26,9 @@ function SpeakControl({ ownerId, text }: { ownerId: string; text: string }) {
   useEffect(() => () => ttsPlayer.stop(ownerId), [ownerId]);
 
   if (availability.data?.state !== "ready") return null;
-  const voices = availability.data.voices;
+  const { voices, status } = availability.data;
+  const maxTextChars = resolveMaxTextChars(status);
+  const speakMaxChars = resolveSpeakMaxChars(status);
 
   const onClick = () => {
     switch (mine.phase) {
@@ -44,14 +47,14 @@ function SpeakControl({ ownerId, text }: { ownerId: string; text: string }) {
     }
     // iOS Safari: 비동기 작업 전에, 이 클릭과 같은 동기 구간에서 엘리먼트를 연다.
     ttsPlayer.unlock();
-    const { text: speech, truncated } = prepareSpeechText(text);
+    const { text: speech, truncated } = prepareSpeechText(text, maxTextChars);
     if (!speech) return;
-    if (truncated) toast({ message: "답이 길어서 앞 5000자까지만 읽어요.", tone: "neutral" });
+    if (truncated) toast({ message: `답이 길어서 앞 ${maxTextChars.toLocaleString("ko-KR")}자까지만 읽어요.`, tone: "neutral" });
     const voice = pickVoice(voices, prefs.voice);
     void ttsPlayer.play({
       ownerId,
       title: "따까리의 응답",
-      prepare: (signal) => synthesizeSources({ text: speech, voice, speed: prefs.speed }, signal),
+      prepare: (signal) => synthesizeSources({ text: speech, voice, speed: prefs.speed }, signal, speakMaxChars),
     });
   };
 

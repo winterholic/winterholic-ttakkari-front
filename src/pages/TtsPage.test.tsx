@@ -56,7 +56,7 @@ class FakeAudio {
   }
 }
 
-const VOICES = [{ id: "f1", name: "여성 1", gender: "female" }, { id: "m1", name: "남성 1", gender: "male" }];
+const VOICES = [{ id: "f1", name: "여성 1", lang: ["ko"], gender: "female" }, { id: "m1", name: "남성 1", lang: ["ko"], gender: "male" }];
 const READY = { enabled: true, ready: true, engine: "supertonic-3", voice_count: 2 };
 const missing = () => new ApiError(404, { code: "not_found", message: "Not Found" });
 const done = (over = {}) => ({
@@ -158,7 +158,7 @@ describe("생성 흐름", () => {
     make();
     expect(order).toEqual(["unlock", "create"]);
     expect(unlock).toHaveBeenCalledTimes(1);
-    expect(api.createJob).toHaveBeenCalledWith({ text: "첫 문장입니다. 둘째 문장입니다.", voice: "m1", speed: 1.2 }, expect.any(AbortSignal));
+    expect(api.createJob).toHaveBeenCalledWith({ text: "첫 문장입니다. 둘째 문장입니다.", voice: "m1", speed: 1.2 });
     expect(await screen.findByRole("progressbar", { name: "음성 생성 진행" })).toBeTruthy();
     // 재생은 실제 플레이어가 하고, 두 문장을 같은 엘리먼트로 이어 붙인다.
     expect(await screen.findByRole("button", { name: "일시정지" })).toBeTruthy();
@@ -362,7 +362,7 @@ describe("최근 생성", () => {
     show();
     fireEvent.click(await screen.findByRole("button", { name: /다시 듣기/ }));
     expect(await screen.findByRole("button", { name: "일시정지" })).toBeTruthy();
-    expect(api.createJob).toHaveBeenCalledWith({ text: "어제 만든 글입니다", voice: "f1", speed: 1 }, expect.any(AbortSignal));
+    expect(api.createJob).toHaveBeenCalledWith({ text: "어제 만든 글입니다", voice: "f1", speed: 1 });
     const saved = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
     expect(saved).toHaveLength(1);
     expect(saved[0].jobId).toBe("new1");
@@ -382,5 +382,104 @@ describe("최근 생성", () => {
     fireEvent.click(await screen.findByRole("button", { name: /다시 듣기/ }));
     await screen.findByRole("button", { name: "일시정지" });
     expect(JSON.parse(localStorage.getItem(TTS_PREFS_KEY) ?? "{}")).toMatchObject({ voice: "m1", speed: 1.5 });
+  });
+});
+
+describe("경합 상태(Race Conditions) 및 late acceptance 취소 검증", () => {
+  it("생성 제출 중 cancel() 호출 시 늦게 도착한 job_id 를 즉시 취소하고 UI 덮어쓰기를 막는다", async () => {
+    let resolveCreate: (val: unknown) => void = () => undefined;
+    api.createJob.mockReturnValue(new Promise((res) => { resolveCreate = res; }));
+    show();
+    await type("지연 테스트 문장");
+    make();
+
+    // submitting 상태 확인
+    expect(await screen.findByText("요청을 보내는 중이에요.")).toBeTruthy();
+
+    // 응답 오기 전 취소 버튼 클릭
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    expect(await screen.findByText("취소했어요. 같은 글로 다시 만들 수 있어요.")).toBeTruthy();
+
+    // 이후 백엔드가 202 로 늦게 job 을 수락
+    resolveCreate({ job_id: "late-accepted-job-1", chunks: 2, cached_chunks: 0 });
+
+    // 취소된 늦은 응답이 cancelTtsJob 을 즉시 호출해야 함
+    await waitFor(() => {
+      expect(api.cancelJob).toHaveBeenCalledWith("late-accepted-job-1");
+    });
+
+    // UI 상태가 cancelled 로 유지되어야 함 (succeeded 나 running 으로 바뀌지 않음)
+    expect(screen.getByText("취소했어요. 같은 글로 다시 만들 수 있어요.")).toBeTruthy();
+    expect(screen.queryByText("요청을 보내는 중이에요.")).toBeNull();
+  });
+
+  it("생성 제출 중 새 요청으로 교체될 때 이전 요청의 늦은 응답만 취소하고 새 job 은 방해하지 않는다", async () => {
+    let resolveCreate1: (val: unknown) => void = () => undefined;
+    api.createJob.mockReturnValueOnce(new Promise((res) => { resolveCreate1 = res; }));
+    api.createJob.mockResolvedValueOnce({ job_id: "job-2-success", chunks: 1, cached_chunks: 1 });
+    api.getJob.mockResolvedValue(done({ chunks: [{ index: 0, audio_url: "/api/tts/a/0" }] }));
+
+    show();
+    await type("첫 번째 요청");
+    make();
+    expect(await screen.findByText("요청을 보내는 중이에요.")).toBeTruthy();
+
+    // 취소 후 바로 두 번째 요청 제출
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    await type("두 번째 요청");
+    make();
+
+    // 두 번째 요청이 완료되어 재생 화면이 뜸
+    expect(await screen.findByRole("button", { name: "일시정지" })).toBeTruthy();
+
+    // 이제 첫 번째 요청의 응답이 늦게 도착!
+    resolveCreate1({ job_id: "job-1-late", chunks: 3, cached_chunks: 0 });
+
+    // 첫 번째 지연 job 만 취소되어야 함
+    await waitFor(() => {
+      expect(api.cancelJob).toHaveBeenCalledWith("job-1-late");
+    });
+    // 두 번째 job-2 는 취소되지 않음
+    expect(api.cancelJob).not.toHaveBeenCalledWith("job-2-success");
+    // 재생 화면(두 번째 작업)이 정상 유지됨
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeTruthy();
+  });
+
+  it("생성 제출 중 언마운트(페이지 이탈) 시 늦게 도착한 job_id 를 즉시 취소한다", async () => {
+    let resolveCreate: (val: unknown) => void = () => undefined;
+    api.createJob.mockReturnValue(new Promise((res) => { resolveCreate = res; }));
+
+    const view = show();
+    await type("페이지 이탈 테스트");
+    make();
+    expect(await screen.findByText("요청을 보내는 중이에요.")).toBeTruthy();
+
+    // 화면 언마운트 (페이지 이탈)
+    view.unmount();
+
+    // 이후 백엔드가 늦게 job 접수
+    resolveCreate({ job_id: "unmounted-late-job", chunks: 1, cached_chunks: 0 });
+
+    await waitFor(() => {
+      expect(api.cancelJob).toHaveBeenCalledWith("unmounted-late-job");
+    });
+  });
+
+  it("서버 status.max_text_chars 동적 한도가 입력 길이 및 카운터에 반영된다", async () => {
+    api.status.mockResolvedValue({ ...READY, max_text_chars: 2500 });
+    show();
+
+    const area = await textbox();
+    expect(area.maxLength).toBe(2500);
+    expect(screen.getByText("0 / 2,500자")).toBeTruthy();
+  });
+
+  it("status.max_text_chars 가 비정상이면 기본값 5000자로 안전하게 폴백한다", async () => {
+    api.status.mockResolvedValue({ ...READY, max_text_chars: -100 });
+    show();
+
+    const area = await textbox();
+    expect(area.maxLength).toBe(5000);
+    expect(screen.getByText("0 / 5,000자")).toBeTruthy();
   });
 });

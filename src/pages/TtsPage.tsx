@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { fetchTtsAudio } from "../api/client";
-import { TTS_MAX_TEXT_CHARS } from "../api/ttsTypes";
-import type { TtsJob, TtsVoice } from "../api/ttsTypes";
+import { resolveMaxTextChars } from "../api/ttsTypes";
+import type { TtsJob, TtsStatus, TtsVoice } from "../api/ttsTypes";
 import { ErrorState, EmptyState, ListSkeleton } from "../features/viewer/screenStates";
 import { VoiceSpeedFields } from "../features/tts/VoiceSpeedFields";
 import { chunkSourcesFromJob } from "../features/tts/ttsJob";
@@ -52,7 +52,7 @@ export function TtsPage() {
               {reasonText(a.reason)}
             </EmptyState>
           )}
-          {a?.state === "ready" && <TtsWorkspace voices={a.voices} />}
+          {a?.state === "ready" && <TtsWorkspace voices={a.voices} status={a.status} />}
         </div>
       </div>
     </div>
@@ -66,8 +66,9 @@ function fileExt(type: string): string {
   return "wav";
 }
 
-function TtsWorkspace({ voices }: { voices: TtsVoice[] }) {
+function TtsWorkspace({ voices, status }: { voices: TtsVoice[]; status?: TtsStatus }) {
   const id = useId();
+  const maxTextChars = resolveMaxTextChars(status);
   const prefs = useTtsPrefs();
   const recent = useRecentTts();
   const gen = useTtsGeneration();
@@ -151,13 +152,13 @@ function TtsWorkspace({ voices }: { voices: TtsVoice[] }) {
             className="tk-textarea tts-text"
             rows={6}
             value={text}
-            maxLength={TTS_MAX_TEXT_CHARS}
+            maxLength={maxTextChars}
             placeholder="음성으로 만들 글을 붙여 넣거나 적어 주세요."
             disabled={busy}
             onChange={(e) => setText(e.target.value)}
             aria-describedby={`${id}-count`}
           />
-          <p className="tk-help tts-count" id={`${id}-count`}>{text.length.toLocaleString("ko-KR")} / {TTS_MAX_TEXT_CHARS.toLocaleString("ko-KR")}자</p>
+          <p className="tk-help tts-count" id={`${id}-count`}>{text.length.toLocaleString("ko-KR")} / {maxTextChars.toLocaleString("ko-KR")}자</p>
         </div>
         <VoiceSpeedFields voices={voices} disabled={busy} />
         <div className="tk-button-group">

@@ -50,10 +50,7 @@ export interface Generation {
 export function useTtsGeneration(): Generation {
   const [state, dispatch] = useReducer(genReducer, { phase: "idle" } as GenState);
   const run = useRef<{ token: number; abort: AbortController | null; jobId: string | null }>({ token: 0, abort: null, jobId: null });
-  const live = useRef(false);
-  useEffect(() => {
-    live.current = state.phase === "submitting" || state.phase === "running";
-  });
+  const mountedRef = useRef(true);
 
   const halt = useCallback((cancelServer: boolean) => {
     const r = run.current;
@@ -88,31 +85,40 @@ export function useTtsGeneration(): Generation {
               // 만료·삭제·네트워크 문제면 새로 요청한다. 캐시에 소리가 남아 있어 대개 바로 끝난다.
             }
           }
-          if (my !== r.token) return;
+          if (my !== r.token || !mountedRef.current) return;
           if (known && jobId) {
             dispatch({ type: "succeeded", jobId, job: known });
             return;
           }
           if (!jobId) {
-            const created = await createTtsJob(body, abort.signal);
-            if (my !== r.token) return;
+            // 제출 fetch 는 임의로 abort 시키지 않고 응답을 온전히 받아 늦게라도 서버 job_id 를 안전하게 회수한다.
+            const created = await createTtsJob(body);
+            if (my !== r.token || !mountedRef.current) {
+              // Late acceptance: 응답 수신 전 취소/언마운트/교체되었으므로 새로 발급된 서버 job 을 즉시 취소한다.
+              // 새 요청의 jobId 나 UI 상태는 일절 건드리지 않는다.
+              if (created?.job_id) void cancelTtsJob(created.job_id).catch(() => undefined);
+              return;
+            }
             jobId = created.job_id;
             dispatch({ type: "accepted", jobId, total: created.chunks, cached: created.cached_chunks });
           } else {
+            if (my !== r.token || !mountedRef.current) return;
             dispatch({ type: "accepted", jobId, total: 0, cached: 0 });
           }
           r.jobId = jobId;
           const job = await waitForJob(jobId, {
             signal: abort.signal,
             onProgress: (j) => {
-              if (my === r.token && j.progress) dispatch({ type: "progress", done: j.progress.done, total: j.progress.total });
+              if (my === r.token && mountedRef.current && j.progress) {
+                dispatch({ type: "progress", done: j.progress.done, total: j.progress.total });
+              }
             },
           });
-          if (my !== r.token) return;
+          if (my !== r.token || !mountedRef.current) return;
           r.jobId = null;
           dispatch({ type: "succeeded", jobId, job });
         } catch (e) {
-          if (my !== r.token || (e instanceof DOMException && e.name === "AbortError")) return;
+          if (my !== r.token || !mountedRef.current || (e instanceof DOMException && e.name === "AbortError")) return;
           r.jobId = null;
           const err = e instanceof TtsJobError ? e : toJobError(e);
           dispatch({ type: "failed", code: err.code, message: err.message, retryable: err.retryable });
@@ -133,13 +139,13 @@ export function useTtsGeneration(): Generation {
   }, [halt]);
 
   // 화면을 떠나면 폴링을 멈추고, 아직 도는 job 은 서버 직렬 큐를 막지 않게 취소한다.
-  useEffect(
-    () => () => {
-      if (live.current) halt(true);
-      else halt(false);
-    },
-    [halt],
-  );
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      halt(true);
+    };
+  }, [halt]);
 
   return { state, start, cancel, reset };
 }
