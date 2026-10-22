@@ -168,7 +168,7 @@ test("AI intent draft runs through Ttakkari and exposes editable structured fiel
           music_seconds: null, open_questions: ["AI가 제안한 의도와 근거를 확인해 주세요."],
           extraction: { method: "llm", model: "Qwen3.8-Flash-Next-Q2_K" },
         },
-        validation: { valid: true, needs_confirmation: true, errors: [], warnings: [] },
+        validation: { valid: true, needs_confirmation: true, errors: [], warnings: [{ code: "semantic_support_unverified", message: "인용이 브리프에 존재하는지는 확인했지만, 의미적으로 뒷받침하는지는 자동 검증하지 않았습니다.", path: "intent" }] },
         selection_labels: [{ entry_id: "C01.tech_explainer", catalog: "콘텐츠 유형", name: "기술 설명" }],
         review_required: true,
       };
@@ -186,6 +186,7 @@ test("AI intent draft runs through Ttakkari and exposes editable structured fiel
   fireEvent.change(await screen.findByPlaceholderText(/주제, 분위기/), { target: { value: "기술 설명 영상으로 요청을 받아 검증하는 과정을 만들어줘" } });
   fireEvent.click(screen.getByRole("button", { name: "AI로 의도 분석" }));
   expect(await screen.findByRole("combobox", { name: "콘텐츠 형식" })).toBeTruthy();
+  expect(await screen.findByText(/의미적으로 뒷받침하는지는 자동 검증하지 않았습니다/)).toBeTruthy();
   expect(screen.getByRole("textbox", { name: "근거 문구" })).toBeTruthy();
   expect(screen.getByRole("textbox", { name: "전달할 내용" })).toBeTruthy();
   expect(calls.some((c) => c.url.endsWith("/api/creative/v2/intent/runs") && c.method === "POST")).toBe(true);
@@ -225,6 +226,33 @@ test("late intent response from an edited brief is not attached to the current b
   expect(calls.some((call) => call.url.endsWith("/intent/runs/run-old"))).toBe(false);
   await waitFor(() => expect(calls.some((call) => call.url.endsWith("/api/runs/run-old/cancel"))).toBe(true));
   expect(screen.queryByText("AI 의도 초안")).toBeNull();
+});
+
+test("only the newest extraction request can attach a draft after overlapping brief edits", async () => {
+  const completions: Array<(value: unknown) => void> = [];
+  const calls = stub((url, init) => {
+    if (url.endsWith("/api/creative/v2/intent/runs") && init?.method === "POST") {
+      return new Promise((resolve) => { completions.push(resolve); });
+    }
+    if (url.endsWith("/api/creative/v2/catalog")) return { catalogs: {} };
+    return [];
+  });
+  mountPlanNew();
+  const brief = await screen.findByPlaceholderText(/주제, 분위기/);
+  fireEvent.change(brief, { target: { value: "새 브리프에 겹치는 공통 문구" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI로 의도 분석" }));
+  await waitFor(() => expect(completions).toHaveLength(1));
+
+  fireEvent.change(brief, { target: { value: "수정된 새 브리프에 겹치는 공통 문구" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI로 의도 분석" }));
+  await waitFor(() => expect(completions).toHaveLength(2));
+  completions[1]({ session_id: "session-b", run_id: "run-b", status: "queued", engine: "qwen-local", model: "qwen" });
+  await waitFor(() => expect(calls.some((call) => call.url.endsWith("/intent/runs/run-b"))).toBe(true));
+
+  completions[0]({ session_id: "session-a", run_id: "run-a", status: "queued", engine: "qwen-local", model: "qwen" });
+  await waitFor(() => expect(calls.some((call) => call.url.endsWith("/api/runs/run-a/cancel"))).toBe(true));
+  expect(calls.some((call) => call.url.endsWith("/intent/runs/run-a"))).toBe(false);
+  expect((brief as HTMLTextAreaElement).value).toBe("수정된 새 브리프에 겹치는 공통 문구");
 });
 
 test("reviewed desired duration and aspect reach creation unless the user changes them", async () => {

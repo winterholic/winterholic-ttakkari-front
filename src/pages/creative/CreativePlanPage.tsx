@@ -834,6 +834,11 @@ export function CreativePlanNewPage() {
           {intentDraft && <section className="creative-intent-preview" aria-labelledby="creative-intent-title">
             <div><h3 id="creative-intent-title">{intentDraft.extraction.method === "llm" ? "AI 의도 초안" : "구조화한 의도"}</h3>
               <p>브리프 근거를 확인하고 항목을 수정하세요. 사용자가 확인하기 전까지 AI 추정은 계획에 적용되지 않습니다.</p></div>
+            {run.data?.validation?.warnings?.length ? (
+              <ul className="creative-hint" role="status" aria-label="AI 초안 검토 안내">
+                {run.data.validation.warnings.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}
+              </ul>
+            ) : null}
             <IntentEditor value={intentDraft} catalog={catalog.data} onChange={updateIntent} />
             <label className="creative-field">음악 길이(초)
               <input className="tk-input" type="number" min="1" max="900" value={intentDraft.music_seconds ?? ""}
