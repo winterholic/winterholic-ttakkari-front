@@ -43,3 +43,20 @@ it("실패 원인과 실행 환경을 보여 주고 원래 세션으로 연결�
   expect(screen.queryByRole("heading", { name: "백그라운드 작업" })).toBeNull();
   await waitFor(() => expect(h.listFailedRuns).toHaveBeenCalled());
 });
+
+it("오래된 Run 엔진보다 실제 선택 엔진을 실패 작업 환경으로 보여 준다", async () => {
+  h.listFailedRuns.mockResolvedValue({
+    ...page,
+    items: [{
+      ...page.items[0], engine: "qwen-local", profile: "Qwen local",
+      model: "Qwen3.8-Flash-Next-Q2_K",
+      usage: { selected_engine: "codex", selected_model: "gpt-6-luna",
+        fallback: { to_engine: "qwen-local", to_model: "Qwen3.8-Flash-Next-Q2_K" } },
+    }],
+  });
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(<QueryClientProvider client={qc}><MemoryRouter><FailedTasksPage /></MemoryRouter></QueryClientProvider>);
+
+  expect(await screen.findByText("codex · 계정 미상 · gpt-6-luna")).toBeTruthy();
+  expect(screen.queryByText(/Qwen3\.8-Flash-Next/)).toBeNull();
+});

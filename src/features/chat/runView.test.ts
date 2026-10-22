@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { RunEvent, RunOut } from "../../api/types";
 import { shouldSubmit } from "./Composer";
-import { buildRunView, describeTool } from "./runView";
+import { actualEngine, buildRunView, describeTool } from "./runView";
 
 const base: RunOut = {
   id: "r1", session_id: "s1", workspace_id: "w1", prompt: "README 고쳐줘", context_artifact_ids: [], engine: "claude",
@@ -15,6 +15,14 @@ const ev = <T extends RunEvent["type"]>(type: T, payload: Extract<RunEvent, { ty
   ({ seq: ++seq, type, payload, created_at: "2026-10-09T00:00:02Z" }) as RunEvent;
 
 describe("buildRunView", () => {
+  it("사용량의 실제 선택 엔진이 오래된 Run 엔진 표기보다 우선한다", () => {
+    const staleQwenRun = { ...base, engine: "qwen-local", usage: {
+      selected_engine: "codex",
+      fallback: { to_engine: "qwen-local", to_model: "Qwen3.8-Flash-Next-Q2_K" },
+    } };
+    expect(actualEngine(staleQwenRun)).toBe("codex");
+  });
+
   it("도구 호출과 결과를 단계로 짝짓고 진행 중 단계를 doing 으로 보여준다", () => {
     const v = buildRunView(base, [
       ev("run.status", { status: "running" }),

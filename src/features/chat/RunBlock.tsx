@@ -6,7 +6,7 @@ import { useRunStream } from "../../hooks/useRunStream";
 import { DeskFeedback, deskDecision } from "./DeskFeedback";
 import { TaskTreeCard } from "../tasks/TaskTreeCard";
 import { AgentMessage, ReportMessage, UserMessage } from "./Messages";
-import { buildRunView } from "./runView";
+import { actualEngine, buildRunView } from "./runView";
 import { Icon } from "../../ui/Icon";
 import { AccountBadge, EngineBadge } from "../../ui/EngineBadge";
 
@@ -59,6 +59,8 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
   const decided = !active && run.origin === "user" ? deskDecision(run, past.data ?? []) : null;
   const lead = onOpenNode ? leadOf(run, active ? stream.events : (past.data ?? [])) : null;
   const events = active ? stream.events : (past.data ?? []);
+  const engine = actualEngine(run);
+  const engineMatchesRun = engine === run.engine;
   const fallbacks = events.filter((event) => event.type === "engine.fallback");
   const fallbackTitle = fallbacks.length > 0
     ? fallbacks.map((event) => event.type === "engine.fallback" ? `${event.payload.from} → ${event.payload.to}` : "").join(", ")
@@ -92,8 +94,8 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
     <>
       {(run.engine || run.profile) && (
         <div className="run-attribution" aria-label="실행 엔진과 계정">
-          {run.engine && <EngineBadge engine={run.engine} />}
-          {run.profile && <AccountBadge account={run.profile} />}
+          {engine && <EngineBadge engine={engine} />}
+          {run.profile && engineMatchesRun && <AccountBadge account={run.profile} />}
           {fallbackTitle && (
             <span className="run-attribution__fallback" title={`엔진/계정 폴백: ${fallbackTitle}`}>
               계정 전환 · {fallbacks.map((event, index) => event.type === "engine.fallback" ? (

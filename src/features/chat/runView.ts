@@ -76,6 +76,17 @@ export interface RunView {
   waiting: WaitingView | null;
 }
 
+/** Prefer the engine that completed the latest execution over legacy Run.engine metadata. */
+export function actualEngine(run: Pick<RunOut, "engine" | "usage">): string {
+  const selected = run.usage.selected_engine;
+  return typeof selected === "string" && selected.length > 0 ? selected : run.engine;
+}
+
+export function actualModel(run: Pick<RunOut, "model" | "usage">): string | null {
+  const selected = run.usage.selected_model;
+  return typeof selected === "string" && selected.length > 0 ? selected : run.model;
+}
+
 /** 진행 중으로 보이는 상태(멈추기 버튼·실시간 표시). 한도 대기도 아직 끝난 Run 이 아니다. */
 export function isLive(state: UiRunState): boolean {
   return state === "running" || state === "queued" || state === "waiting";

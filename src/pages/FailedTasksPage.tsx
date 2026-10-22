@@ -8,6 +8,7 @@ import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import "../features/tasks/tasks.css";
 import { Art } from "../ui/Art";
+import { actualEngine, actualModel } from "../features/chat/runView";
 
 const PERIODS = [
   { value: "all", label: "전체 기간" },
@@ -88,7 +89,10 @@ export function FailedTasksPage() {
             <section className="tk-section" aria-labelledby="failed-runs-title">
               <div className="tk-section__head"><h2 className="tk-section__title" id="failed-runs-title">에이전트 실행</h2></div>
               <ul className="tk-list tk-list--inset failed-run-list">
-                {items.map((run) => (
+                {items.map((run) => {
+                  const engine = actualEngine(run);
+                  const profile = engine === run.engine ? run.profile : null;
+                  return (
                   <li key={run.id}>
                     <Link className="tk-list__item tk-list__item--interactive failed-run" to={runLink(run)}>
                       <span className="tk-list__body failed-run__body">
@@ -100,7 +104,7 @@ export function FailedTasksPage() {
                           {run.workspace_name} · {run.session_title} · {sessionKind(run)}
                         </span>
                         <span className="tk-list__meta failed-run__meta">
-                          {run.engine} · {run.profile ?? "계정 미상"} · {run.model ?? "모델 미지정"}
+                          {engine} · {profile ?? "계정 미상"} · {actualModel(run) ?? "모델 미지정"}
                         </span>
                         <span className="failed-run__reason">{failureReason(run.error, run.exit_code)}</span>
                         <span className="tk-list__meta failed-run__time">{failedTime(run.failed_at)}</span>
@@ -108,7 +112,8 @@ export function FailedTasksPage() {
                       <span className="tk-list__end failed-run__linklabel">원래 대화 열기</span>
                     </Link>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
               {query.hasNextPage && (
                 <div className="tasks-page__more">
