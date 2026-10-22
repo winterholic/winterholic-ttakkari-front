@@ -310,6 +310,27 @@ test("plan detail shows expected runtime, reasons, range, honest match status an
   expect(screen.getByText(/R03 React 컴포넌트 조립/)).toBeTruthy();
 });
 
+test("plan detail exposes why a 600-second preference deviated to 24 seconds", async () => {
+  const base = planFixture();
+  const deviated = planFixture({
+    duration: {
+      ...base.duration,
+      status: "deviated",
+      request: { mode: "preferred", seconds: 600 },
+      planned_seconds: 24,
+      planned_frames: 720,
+      reasons: ["장면 3개만 있어 반복 없이 늘릴 수 있는 최대 24.0초로 정했습니다. 목표와 96% 차이입니다."],
+      alternatives: [],
+    },
+  });
+  stub(() => deviated);
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  await screen.findByText("예상 러닝타임");
+  expect(screen.getByText("0:24")).toBeTruthy();
+  expect(screen.getByText("희망과 차이")).toBeTruthy();
+  expect(screen.getByText(/장면 3개만 있어 반복 없이 늘릴 수 있는 최대 24.0초/)).toBeTruthy();
+});
+
 test("editing a scene previews the new total and saving sends the revision for recomputation", async () => {
   const edited = planFixture({
     revision: 2,
