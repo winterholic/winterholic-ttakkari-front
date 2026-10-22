@@ -157,6 +157,11 @@ export function CreativePage() {
       <PageHeader
         title="콘텐츠 스튜디오"
         meta="아이디어를 장면으로, 장면을 한 편의 영상으로"
+        actions={
+          <Link className="tk-button" to="/creative/records">
+            제작 기록
+          </Link>
+        }
       />
       <div className="tk-screen__body">
         <div className="tk-container creative-home">

@@ -1,0 +1,377 @@
+/* 제작 기록(목록·상세). 값은 디자인 토큰만 쓴다. 폰 폭 기준으로 한 열이 기본이다. */
+.records-home,
+.records-detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-4);
+  padding-block: var(--tk-space-4);
+  max-width: 75rem;
+  min-width: 0;
+}
+.records-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-4);
+  padding-top: var(--tk-space-4);
+  min-width: 0;
+}
+.records-pending {
+  align-items: center;
+  text-align: center;
+}
+.records-hint {
+  margin: 0;
+  color: var(--tk-color-text-tertiary);
+  font-size: var(--tk-font-size-xs);
+  line-height: 1.6;
+}
+.records-unmeasured {
+  color: var(--tk-color-text-tertiary);
+  font-style: italic;
+}
+
+/* 목록 */
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--tk-space-4);
+}
+.records-grid--shots {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  padding-top: var(--tk-space-4);
+}
+.tk-card.records-card {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+.records-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-2);
+  padding: var(--tk-space-3) var(--tk-space-4) var(--tk-space-4);
+  min-width: 0;
+}
+.records-card__badges,
+.records-card__engines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--tk-space-1);
+  min-width: 0;
+}
+.records-card__title {
+  font-size: var(--tk-font-size-md);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.records-card__meta {
+  color: var(--tk-color-text-secondary);
+  font-size: var(--tk-font-size-xs);
+}
+.records-thumb {
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: var(--tk-color-surface-sunken);
+  overflow: hidden;
+}
+.records-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.records-thumb--empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tk-space-1);
+  color: var(--tk-color-text-tertiary);
+  font-size: var(--tk-font-size-xs);
+}
+
+/* 폰 폭: 썸네일을 왼쪽에 두는 가로 카드로 한 화면에 더 많이 보이게 한다 */
+@media (max-width: 40rem) {
+  .tk-card.records-card {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+  }
+  .records-card .records-thumb {
+    aspect-ratio: auto;
+    height: 100%;
+    min-height: 7.5rem;
+  }
+  .records-card__body {
+    padding: var(--tk-space-3);
+  }
+}
+
+/* 상세 */
+.records-summary,
+.records-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-3);
+  padding: var(--tk-space-4);
+  border: var(--tk-border-width-hairline) solid var(--tk-color-border-default);
+  border-radius: var(--tk-radius-lg);
+  background: var(--tk-color-surface-default);
+  min-width: 0;
+}
+.records-panel h2 {
+  margin: 0;
+  font-size: var(--tk-font-size-md);
+}
+.records-prose {
+  margin: 0;
+  line-height: 1.6;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.records-prose--muted {
+  color: var(--tk-color-text-secondary);
+  font-size: var(--tk-font-size-sm);
+}
+.records-tabs {
+  overflow-x: auto;
+}
+.records-list {
+  margin: 0;
+  padding-left: var(--tk-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-1);
+  font-size: var(--tk-font-size-sm);
+  color: var(--tk-color-text-secondary);
+  overflow-wrap: anywhere;
+}
+
+/* 단계 타임라인: 왼쪽 레일과 상태 점 */
+.records-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.records-timeline__item {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--tk-space-4) 1fr;
+  gap: var(--tk-space-3);
+  padding-bottom: var(--tk-space-4);
+  min-width: 0;
+}
+.records-timeline__item::before {
+  content: "";
+  position: absolute;
+  left: calc(var(--tk-space-2) - var(--tk-border-width-hairline));
+  top: var(--tk-space-4);
+  bottom: 0;
+  width: var(--tk-border-width-hairline);
+  background: var(--tk-color-border-default);
+}
+.records-timeline__item:last-child::before {
+  display: none;
+}
+.records-timeline__dot {
+  width: var(--tk-space-3);
+  height: var(--tk-space-3);
+  margin: var(--tk-space-1) auto 0;
+  border-radius: var(--tk-radius-full);
+  background: var(--tk-color-status-neutral-solid);
+}
+.records-timeline__item[data-status="done"] .records-timeline__dot {
+  background: var(--tk-color-status-success-solid);
+}
+.records-timeline__item[data-status="partial"] .records-timeline__dot {
+  background: var(--tk-color-status-warning-solid);
+}
+.records-timeline__item[data-status="failed"] .records-timeline__dot {
+  background: var(--tk-color-status-danger-solid);
+}
+.records-timeline__head,
+.records-defects__head,
+.records-shot__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--tk-space-2);
+  min-width: 0;
+}
+.records-shot__head {
+  justify-content: space-between;
+}
+.records-revision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-2);
+}
+.records-defects,
+.records-tools,
+.records-docs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-3);
+}
+.records-defects > li,
+.records-tools > li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-1);
+  padding-left: var(--tk-space-3);
+  border-left: var(--tk-space-0-5) solid var(--tk-color-border-default);
+  min-width: 0;
+}
+.records-defects > li[data-status="open"] {
+  border-left-color: var(--tk-color-status-warning-solid);
+}
+.records-defects > li[data-status="fixed"] {
+  border-left-color: var(--tk-color-status-success-solid);
+}
+.records-docs a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--tk-space-2);
+  min-height: var(--tk-size-touch-target-min);
+  color: var(--tk-color-text-link);
+  overflow-wrap: anywhere;
+}
+
+/* 샷 카드 */
+.records-shot {
+  gap: var(--tk-space-2);
+}
+.records-shot__media {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--tk-radius-md);
+  background: var(--tk-color-surface-sunken);
+  display: block;
+}
+.records-shot__play {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--tk-space-2);
+  border: 0;
+  color: var(--tk-color-text-secondary);
+  cursor: pointer;
+  overflow: hidden;
+}
+.records-shot__play img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.records-shot__play > :not(img) {
+  position: relative;
+  padding: var(--tk-space-1) var(--tk-space-2);
+  border-radius: var(--tk-radius-md);
+  background: var(--tk-color-surface-overlay);
+  color: var(--tk-color-text-primary);
+}
+.records-shot__audio {
+  width: 100%;
+}
+.records-shot__prompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--tk-space-1);
+}
+.records-prose--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* 폰에서 값 칸이 좁아 숫자가 글자 단위로 쪼개지지 않게 한다 */
+.records-metrics th[scope="row"] {
+  white-space: normal; /* lint-ok: 디자인 시스템 th 의 nowrap 을 풀어 긴 근거 문장이 줄바꿈된다 */
+  overflow-wrap: anywhere;
+}
+.records-metrics__hint {
+  display: block;
+  overflow-wrap: anywhere;
+  font-weight: var(--tk-font-weight-regular);
+}
+.records-metrics td:nth-child(2) {
+  min-width: 7rem;
+  white-space: nowrap; /* lint-ok: 표 래퍼(.tk-table-wrap)가 가로 스크롤을 맡는다 */
+}
+.records-kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--tk-space-1) var(--tk-space-3);
+  margin: 0;
+  font-size: var(--tk-font-size-sm);
+}
+.records-kv__row {
+  display: contents;
+}
+.records-kv dt {
+  color: var(--tk-color-text-tertiary);
+}
+.records-kv dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+/* 결과물 */
+.records-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr));
+  gap: var(--tk-space-4);
+}
+.records-media {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-2);
+  min-width: 0;
+}
+.records-media video,
+.records-media img {
+  width: 100%;
+  border-radius: var(--tk-radius-md);
+  background: var(--tk-color-surface-sunken);
+  display: block;
+}
+.records-media audio {
+  width: 100%;
+}
+.records-media figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--tk-space-0-5);
+  font-size: var(--tk-font-size-sm);
+  color: var(--tk-color-text-secondary);
+  overflow-wrap: anywhere;
+}
+.records-media__caption {
+  color: var(--tk-color-text-tertiary);
+  font-size: var(--tk-font-size-xs);
+}
+.records-media__missing {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 16 / 9;
+  border: var(--tk-border-width-hairline) dashed var(--tk-color-border-default);
+  border-radius: var(--tk-radius-md);
+  color: var(--tk-color-text-tertiary);
+  font-size: var(--tk-font-size-sm);
+}
