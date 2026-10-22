@@ -39,6 +39,8 @@ const RemoteDesktopPage = lazy(() => import('./pages/RemoteDesktopPage').then(m 
 const CreativePage = lazy(() => import('./pages/CreativePage').then(m => ({ default: m.CreativePage })));
 const ProductionRecordsPage = lazy(() => import('./pages/ProductionRecordsPage').then(m => ({ default: m.ProductionRecordsPage })));
 const ProductionRecordDetailPage = lazy(() => import('./pages/ProductionRecordsPage').then(m => ({ default: m.ProductionRecordDetailPage })));
+const CreativePlanNewPage = lazy(() => import('./pages/creative/CreativePlanPage').then(m => ({ default: m.CreativePlanNewPage })));
+const CreativePlanDetailPage = lazy(() => import('./pages/creative/CreativePlanPage').then(m => ({ default: m.CreativePlanDetailPage })));
 const CreativeDetailPage = lazy(() => import('./pages/CreativePage').then(m => ({ default: m.CreativeDetailPage })));
 
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
@@ -129,6 +131,8 @@ export function App() {
         <Route path="/github/*" element={<Suspense fallback={<RouteFallback />}><GithubPage /></Suspense>} />
         <Route path="/games" element={<GamesPage />} />
         <Route path="/creative" element={<Suspense fallback={<RouteFallback />}><CreativePage /></Suspense>} />
+        <Route path="/creative/plan" element={<Suspense fallback={<RouteFallback />}><CreativePlanNewPage /></Suspense>} />
+        <Route path="/creative/plan/:id" element={<Suspense fallback={<RouteFallback />}><CreativePlanDetailPage /></Suspense>} />
         <Route path="/creative/records" element={<Suspense fallback={<RouteFallback />}><ProductionRecordsPage /></Suspense>} />
         <Route path="/creative/records/:rid" element={<Suspense fallback={<RouteFallback />}><ProductionRecordDetailPage /></Suspense>} />
         <Route path="/creative/:id" element={<Suspense fallback={<RouteFallback />}><CreativeDetailPage /></Suspense>} />

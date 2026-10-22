@@ -22,7 +22,13 @@ import type {
 import { errorText } from "../features/viewer/api";
 import { PageHeader } from "../shell/PageHeader";
 import { Button } from "../ui/Button";
+import { DurationPicker } from "./creative/DurationPicker";
+import { INITIAL_DURATION, toRequest } from "./creative/duration";
+import type { DurationState } from "./creative/duration";
 import "./creative.css";
+
+// v1 렌더러가 만들 수 있는 최대 길이. 더 긴 영상은 제작 계획(v2)에서 만든다.
+const V1_MAX_SECONDS = 240;
 
 const sceneTime = (scenes: CreativeScene[], i: number) =>
   scenes.slice(0, i).reduce((n, s) => n + s.duration, 0);
@@ -90,7 +96,7 @@ export function CreativePage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
-  const [duration, setDuration] = useState(30);
+  const [durationState, setDurationState] = useState<DurationState>(INITIAL_DURATION);
   const [aspect, setAspect] = useState("16:9");
   const [type, setType] = useState("music_video");
 
@@ -134,11 +140,14 @@ export function CreativePage() {
     const found = formats.find((f) => f.id === fmtId);
     if (found) {
       setAspect(found.default_aspect);
-      setDuration(found.default_duration);
+      setDurationState(INITIAL_DURATION);
     }
   };
 
   const selectedFormat = formats.find((f) => f.id === type);
+  const durationRequest = toRequest(durationState, "", V1_MAX_SECONDS);
+  // v1은 희망 길이만 받는다. 자동이면 포맷의 기본 길이를 쓰고, 이 값은 서버가 포맷 범위로 다시 조정한다.
+  const duration = durationRequest.request?.seconds ?? selectedFormat?.default_duration ?? 30;
 
   const create = useMutation({
     mutationFn: () =>
@@ -158,9 +167,14 @@ export function CreativePage() {
         title="콘텐츠 스튜디오"
         meta="아이디어를 장면으로, 장면을 한 편의 영상으로"
         actions={
-          <Link className="tk-button" to="/creative/records">
-            제작 기록
-          </Link>
+          <>
+            <Link className="tk-button" to="/creative/plan">
+              제작 계획
+            </Link>
+            <Link className="tk-button" to="/creative/records">
+              제작 기록
+            </Link>
+          </>
         }
       />
       <div className="tk-screen__body">
@@ -220,20 +234,6 @@ export function CreativePage() {
                 </select>
               </label>
               <label className="creative-field">
-                목표 길이
-                <select
-                  className="tk-input"
-                  value={duration}
-                  onChange={(e) => setDuration(Number(e.target.value))}
-                >
-                  <option value={15}>15초 (숏폼)</option>
-                  <option value={30}>30초</option>
-                  <option value={60}>1분</option>
-                  <option value={120}>2분 (장편)</option>
-                  <option value={240}>4분 (장편)</option>
-                </select>
-              </label>
-              <label className="creative-field">
                 화면 비율
                 <select
                   className="tk-input"
@@ -254,6 +254,14 @@ export function CreativePage() {
                 </select>
               </label>
             </div>
+            <DurationPicker
+              value={durationState}
+              onChange={setDurationState}
+              max={V1_MAX_SECONDS}
+              maxHint="이 화면은 4분까지 만들 수 있어요. 더 긴 영상은 제작 계획에서 만들어요."
+              softOnly
+              idPrefix="v1-duration"
+            />
             {selectedFormat && (
               <p className="creative-hint">
                 규격: {selectedFormat.description}
@@ -268,7 +276,7 @@ export function CreativePage() {
               type="submit"
               variant="primary"
               busy={create.isPending}
-              disabled={!name.trim()}
+              disabled={!name.trim() || durationRequest.request === null}
             >
               프로젝트 만들기
             </Button>
