@@ -153,6 +153,7 @@ interface ReqOpts {
   /** 배열은 같은 이름으로 여러 번 붙인다(?tag=a&tag=b). */
   query?: Record<string, string | number | boolean | string[] | undefined | null>;
   json?: unknown;
+  headers?: Record<string, string>;
   form?: FormData;
   /** 바이트 그대로 보낼 본문(파일 조각). */
   blob?: Blob;
@@ -170,7 +171,7 @@ async function raw(path: string, o: ReqOpts): Promise<Response> {
   const url = apiUrl(path) + (qs.size ? `?${qs}` : "");
 
   const send = (token: string | null) => {
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = { ...o.headers };
     if (o.json !== undefined) headers["Content-Type"] = "application/json";
     if (o.blob) headers["Content-Type"] = "application/octet-stream";
     if (token && !o.noAuth) headers.Authorization = `Bearer ${token}`;

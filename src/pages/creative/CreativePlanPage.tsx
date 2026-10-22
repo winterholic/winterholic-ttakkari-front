@@ -1,14 +1,20 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
+  intentRunGet,
+  intentRunResume,
+  intentRunStart,
+  intentValidate,
+  planCatalog,
   planApprove,
   planCreate,
   planEdit,
   planGet,
   planList,
-  intentExtract,
 } from "../../api/creativeV2";
+import type { CreativeCatalog } from "../../api/creativeV2";
+import { cancelRun } from "../../api/client";
 import type {
   CreativePlan,
   CreativeIntent,
@@ -344,6 +350,182 @@ function SceneEditor({
   );
 }
 
+function IntentEditor({
+  value,
+  catalog,
+  onChange,
+}: {
+  value: CreativeIntent;
+  catalog?: CreativeCatalog;
+  onChange: (intent: CreativeIntent) => void;
+}) {
+  const entries = Object.entries(catalog?.catalogs ?? {});
+  const patchSelection = (index: number, patch: Partial<CreativeIntent["selections"][number]>) =>
+    onChange({
+      ...value,
+      selections: value.selections.map((selection, i) =>
+        i === index ? { ...selection, ...patch, source: "user_explicit" } : selection,
+      ),
+    });
+  const patchConstraint = (index: number, patch: Partial<CreativeIntent["constraints"][number]>) =>
+    onChange({
+      ...value,
+      constraints: value.constraints.map((constraint, i) =>
+        i === index ? { ...constraint, ...patch, source: "user_explicit" } : constraint,
+      ),
+    });
+  const patchInfo = (index: number, patch: Partial<CreativeIntent["info_items"][number]>) =>
+    onChange({
+      ...value,
+      info_items: value.info_items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    });
+
+  return (
+    <div className="creative-intent-editor">
+      <fieldset className="creative-intent-editor__group">
+        <legend>제작 유형과 선호</legend>
+        <p className="creative-hint">AI가 고른 항목은 모두 선호 초안입니다. 바꾸거나 필수로 표시하면 사용자가 결정한 값으로 기록돼요.</p>
+        {value.selections.map((selection, index) => (
+          <div className="creative-intent-editor__row" key={`${selection.entry_id}-${index}`}>
+            <label className="creative-field">
+              콘텐츠 형식
+              <select
+                className="tk-input"
+                aria-label="콘텐츠 형식"
+                value={selection.entry_id}
+                onChange={(event) => patchSelection(index, { entry_id: event.target.value })}
+              >
+                <option value="">선택해 주세요</option>
+                {entries.map(([key, group]) => (
+                  <optgroup key={key} label={group.name}>
+                    {group.entries.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <label className="creative-field">
+              중요도
+              <select
+                className="tk-input"
+                aria-label="중요도"
+                value={selection.strength}
+                onChange={(event) => patchSelection(index, { strength: event.target.value as "hard" | "soft" })}
+              >
+                <option value="soft">선호</option>
+                <option value="hard">필수</option>
+              </select>
+            </label>
+            <label className="creative-field creative-intent-editor__evidence">
+              근거 문구
+              <input
+                className="tk-input"
+                value={selection.evidence[0]?.quote ?? ""}
+                onChange={(event) => patchSelection(index, { evidence: event.target.value ? [{ quote: event.target.value }] : [] })}
+                placeholder="브리프에서 그대로 인용"
+              />
+            </label>
+              <Button size="xs" variant="ghost" aria-label={`선택 항목 ${index + 1} 삭제`}
+              onClick={() => onChange({ ...value, selections: value.selections.filter((_, i) => i !== index) })}>
+              삭제
+            </Button>
+          </div>
+        ))}
+        <Button size="sm" variant="ghost" onClick={() => onChange({
+          ...value,
+          selections: [...value.selections, { entry_id: "", role: "secondary", strength: "soft", confidence: 1, source: "user_explicit", evidence: [] }],
+        })}>유형 추가</Button>
+      </fieldset>
+
+      <fieldset className="creative-intent-editor__group">
+        <legend>제약</legend>
+        {value.constraints.map((constraint, index) => (
+          <div className="creative-intent-editor__row creative-intent-editor__row--constraint" key={constraint.id}>
+            <label className="creative-field">
+              제약 유형
+              <select className="tk-input" aria-label="제약 유형" value={constraint.kind}
+                onChange={(event) => patchConstraint(index, { kind: event.target.value as CreativeIntent["constraints"][number]["kind"] })}>
+                {[["duration", "길이"], ["aspect", "화면 비율"], ["platform", "플랫폼"], ["budget", "예산"], ["resource", "리소스"], ["style", "스타일"], ["content", "내용"], ["legal", "법률"]].map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+              </select>
+            </label>
+            <label className="creative-field">
+              제약 내용
+              <input className="tk-input" value={constraint.statement} onChange={(event) => patchConstraint(index, { statement: event.target.value })} />
+            </label>
+            <label className="creative-field">
+              중요도
+              <select className="tk-input" aria-label="제약 중요도" value={constraint.hard ? "hard" : "soft"}
+                onChange={(event) => patchConstraint(index, { hard: event.target.value === "hard" })}>
+                <option value="soft">선호</option><option value="hard">필수</option>
+              </select>
+            </label>
+            <label className="creative-field creative-intent-editor__evidence">
+              제약 근거
+              <input className="tk-input" value={constraint.evidence[0]?.quote ?? ""}
+                onChange={(event) => patchConstraint(index, { evidence: event.target.value ? [{ quote: event.target.value }] : [] })}
+                placeholder="브리프에서 그대로 인용" />
+            </label>
+              <Button size="xs" variant="ghost" aria-label={`${constraint.statement || "제약"} 삭제`}
+              onClick={() => onChange({ ...value, constraints: value.constraints.filter((_, i) => i !== index) })}>삭제</Button>
+          </div>
+        ))}
+        <Button size="sm" variant="ghost" onClick={() => onChange({
+          ...value,
+          constraints: [...value.constraints, { id: `c${Date.now().toString(36)}`, kind: "content", hard: false, statement: "", source: "user_explicit", evidence: [] }],
+        })}>제약 추가</Button>
+      </fieldset>
+
+      <fieldset className="creative-intent-editor__group">
+        <legend>전달할 내용</legend>
+        {value.info_items.map((item, index) => (
+          <div className="creative-intent-editor__row creative-intent-editor__row--info" key={item.id}>
+            <label className="creative-field">항목 제목
+              <input className="tk-input" value={item.title} onChange={(event) => patchInfo(index, { title: event.target.value })} />
+            </label>
+            <label className="creative-field creative-intent-editor__evidence">전달할 내용
+              <textarea className="tk-textarea" rows={2} value={item.narration} onChange={(event) => patchInfo(index, { narration: event.target.value })} />
+            </label>
+            <label className="creative-field creative-intent-editor__evidence">전달 근거
+              <input className="tk-input" value={item.evidence[0]?.quote ?? ""}
+                onChange={(event) => patchInfo(index, { evidence: event.target.value ? [{ quote: event.target.value }] : [] })}
+                placeholder="브리프에서 그대로 인용" />
+            </label>
+            <label className="creative-field">중요도
+              <input className="tk-input" type="number" min="0" max="10" step="0.1" value={item.weight}
+                onChange={(event) => patchInfo(index, { weight: event.target.value ? Number(event.target.value) : 0 })} />
+            </label>
+            <label className="creative-intent-editor__check">
+              <input type="checkbox" checked={item.essential} onChange={(event) => patchInfo(index, { essential: event.target.checked })} />
+              꼭 전달
+            </label>
+              <Button size="xs" variant="ghost" aria-label={`${item.title || `전달 항목 ${index + 1}`} 삭제`}
+              onClick={() => onChange({ ...value, info_items: value.info_items.filter((_, i) => i !== index) })}>삭제</Button>
+          </div>
+        ))}
+        <Button size="sm" variant="ghost" onClick={() => onChange({
+          ...value,
+          info_items: [...value.info_items, { id: `i${Date.now().toString(36)}`, title: "", narration: "", weight: 1, essential: false, evidence: [] }],
+        })}>전달 항목 추가</Button>
+      </fieldset>
+
+      {value.open_questions.length > 0 && (
+        <fieldset className="creative-intent-editor__group">
+          <legend>아직 결정되지 않은 점</legend>
+          <p className="creative-hint">각 질문을 읽고 해결한 뒤 목록에서 닫아 주세요. 남은 질문이 있으면 의도를 확정할 수 없어요.</p>
+          {value.open_questions.map((question, index) => (
+            <div className="creative-intent-editor__question" key={`${question}-${index}`}>
+              <label className="creative-field">확인할 질문 {index + 1}
+                <textarea className="tk-textarea" rows={2} value={question}
+                  onChange={(event) => onChange({ ...value, open_questions: value.open_questions.map((q, i) => i === index ? event.target.value : q) })} />
+              </label>
+              <Button size="sm" variant="ghost" onClick={() => onChange({ ...value, open_questions: value.open_questions.filter((_, i) => i !== index) })}>확인하고 닫기</Button>
+            </div>
+          ))}
+        </fieldset>
+      )}
+    </div>
+  );
+}
+
 function MatchPanel({ plan }: { plan: CreativePlan }) {
   const m = plan.match;
   const label = MATCH_LABEL[m.status];
@@ -505,195 +687,143 @@ export function CreativePlanDetailPage() {
 
 export function CreativePlanNewPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
   const list = useQuery({ queryKey: ["creative-plans"], queryFn: planList });
+  const catalog = useQuery({ queryKey: ["creative-catalog"], queryFn: planCatalog });
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
-  const [aspect, setAspect] = useState("16:9");
-  const [intentDraft, setIntentDraft] = useState<CreativeIntent | null>(null);
+  const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
+  const [intentOverride, setIntentOverride] = useState<CreativeIntent | null>(null);
   const [intentReviewed, setIntentReviewed] = useState(false);
-  const extract = useMutation({
-    mutationFn: () => intentExtract(brief.trim()),
+  const runId = searchParams.get("intent_run") ?? "";
+  const startKey = searchParams.get("intent_request") ?? "";
+  const resumeKey = searchParams.get("intent_resume_request") ?? "";
+  const run = useQuery({
+    queryKey: ["creative-intent-run", runId], queryFn: () => intentRunGet(runId), enabled: Boolean(runId),
+    refetchInterval: (query) => ["queued", "running"].includes(query.state.data?.status ?? "") ? 1200 : false,
+  });
+  const start = useMutation({
+    mutationFn: (key: string) => intentRunStart(brief.trim(), key),
     onSuccess: (result) => {
-      setIntentDraft(result.intent);
-      setIntentReviewed(false);
+      setIntentOverride(null); setIntentReviewed(false);
+      setSearchParams({ intent_run: result.run_id, intent_session: result.session_id });
+    },
+  });
+  const resume = useMutation({
+    mutationFn: (key: string) => intentRunResume(runId, key),
+    onSuccess: (result) => { setIntentOverride(null); setSearchParams({ intent_run: result.run_id, intent_session: result.session_id }); },
+  });
+  const cancel = useMutation({ mutationFn: () => cancelRun(runId), onSuccess: () => void run.refetch() });
+  const intentDraft = intentOverride ?? (run.data?.status === "succeeded" ? run.data.intent : null);
+  const validation = useMutation({
+    mutationFn: async (intent: CreativeIntent) => {
+      const confirmed: CreativeIntent = {
+        ...intent,
+        selections: intent.selections.map((selection) => ({ ...selection, source: "user_explicit" })),
+        constraints: intent.constraints.map((constraint) => ({ ...constraint, source: "user_explicit" })),
+        extraction: { method: "user_structured", model: null },
+      };
+      return { candidate: confirmed, validation: await intentValidate(brief.trim(), confirmed) };
+    },
+    onSuccess: ({ candidate, validation: result }) => {
+      const accepted = Boolean(result?.valid && !result.needs_confirmation);
+      setIntentReviewed(accepted);
+      if (accepted) setIntentOverride(candidate);
     },
   });
   const [duration, setDuration] = useState<DurationState>(INITIAL_DURATION);
   const resolved = toRequest(duration, today());
   const create = useMutation({
     mutationFn: () => planCreate({
-      brief,
-      name,
-      aspect,
-      duration: resolved.request!,
-      ...(intentDraft && intentReviewed ? { intent: intentDraft } : {}),
+      brief, name, aspect, duration: resolved.request!,
+      intent: { ...intentDraft!, duration: resolved.request!, aspect, extraction: { method: "user_structured", model: null } },
     }),
-    onSuccess: (plan) => {
-      void qc.invalidateQueries({ queryKey: ["creative-plans"] });
-      navigate(`/creative/plan/${plan.id}`);
-    },
+    onSuccess: (plan) => { void qc.invalidateQueries({ queryKey: ["creative-plans"] }); navigate(`/creative/plan/${plan.id}`); },
   });
-  const ready = brief.trim().length > 0 && resolved.request !== null && (!intentDraft || intentReviewed);
+  const ready = brief.trim().length > 0 && resolved.request !== null && Boolean(intentDraft && intentReviewed
+    && intentDraft.selections.some((item) => item.entry_id.startsWith("C01.") && item.role === "primary")
+    && intentDraft.open_questions.length === 0);
+  const updateIntent = (intent: CreativeIntent) => { setIntentOverride(intent); setIntentReviewed(false); validation.reset(); };
+  const makeManualIntent = () => {
+    setIntentOverride({
+      schema_version: 1,
+      selections: [{ entry_id: "", role: "primary", source: "user_explicit", strength: "soft", confidence: 1, evidence: [] }],
+      constraints: [], duration: resolved.request ?? { mode: "auto", seconds: null, platform: null, source: null, as_of: null },
+      aspect: aspect as CreativeIntent["aspect"], info_items: [], music_seconds: null, open_questions: [], extraction: { method: "user_structured", model: null },
+    });
+    setIntentReviewed(false); setSearchParams({});
+  };
+  const startIntent = () => {
+    const key = startKey || crypto.randomUUID();
+    if (!startKey) setSearchParams({ intent_request: key });
+    start.mutate(key);
+  };
+  const resumeIntent = () => {
+    const key = resumeKey || crypto.randomUUID();
+    if (!resumeKey) setSearchParams({ intent_run: runId, intent_session: searchParams.get("intent_session") ?? "", intent_resume_request: key });
+    resume.mutate(key);
+  };
   return (
     <div className="tk-screen">
-      <PageHeader
-        title="제작 계획"
-        meta="아이디어에서 예상 길이와 장면 구성까지, 렌더 전에 확인해요"
-        actions={
-          <Link className="tk-button" to="/creative">
-            콘텐츠 스튜디오
-          </Link>
-        }
-      />
-      <div className="tk-screen__body">
-        <div className="tk-container creative-plan">
-          <form
-            className="creative-create"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (ready) create.mutate();
-            }}
-          >
-            <label className="creative-field">
-              계획 이름
-              <input className="tk-input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="비워 두면 내용에서 정해요" />
-            </label>
-            <label className="creative-field">
-              만들고 싶은 콘텐츠
-              <textarea
-                className="tk-textarea"
-                value={brief}
-                maxLength={6000}
-                rows={4}
-                onChange={(e) => {
-                  setBrief(e.target.value);
-                  setIntentDraft(null);
-                  setIntentReviewed(false);
-                  extract.reset();
-                }}
-                placeholder="주제, 분위기, 전달할 내용을 적어 주세요."
-              />
+      <PageHeader title="제작 계획" meta="아이디어에서 예상 길이와 장면 구성까지, 렌더 전에 확인해요" actions={<Link className="tk-button" to="/creative">콘텐츠 스튜디오</Link>} />
+      <div className="tk-screen__body"><div className="tk-container creative-plan">
+        <form className="creative-create" onSubmit={(e) => { e.preventDefault(); if (ready) create.mutate(); }}>
+          <label className="creative-field">계획 이름
+            <input className="tk-input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="비워 두면 내용에서 정해요" />
+          </label>
+          <label className="creative-field">만들고 싶은 콘텐츠
+            <textarea className="tk-textarea" value={brief} maxLength={6000} rows={4}
+              onChange={(e) => { setBrief(e.target.value); setIntentOverride(null); setIntentReviewed(false); start.reset(); setSearchParams({}); }}
+              placeholder="주제, 분위기, 전달할 내용을 적어 주세요." />
+          </label>
+          <div className="creative-intent-actions">
+            <Button type="button" busy={start.isPending} disabled={!brief.trim()} onClick={startIntent}>{start.isError && startKey ? "같은 요청 다시 확인" : "AI로 의도 분석"}</Button>
+            <Button type="button" variant="ghost" disabled={!brief.trim()} onClick={makeManualIntent}>직접 의도 작성</Button>
+            <span>AI 제안은 초안입니다. 근거와 선택을 직접 확인해야 계획에 반영돼요.</span>
+          </div>
+          {start.isError && <p className="tk-error" role="alert">{errorLine(start.error)} 요청 결과가 불명확하면 같은 키로 다시 요청해 기존 Run을 확인합니다.</p>}
+          {runId && <section className="creative-intent-run" aria-live="polite">
+            <div><strong>의도 분석 Run</strong><span>{run.data?.status ?? "상태 조회 중"} · {run.data?.engine ?? "qwen-local"} · {run.data?.model ?? ""}</span></div>
+            {run.isError && <p className="tk-error">{errorLine(run.error)} <Button type="button" onClick={() => void run.refetch()}>상태 다시 확인</Button></p>}
+            {run.data?.error && <p className="tk-error" role="alert">{run.data.error}</p>}
+            {["queued", "running"].includes(run.data?.status ?? "") && <Button type="button" variant="ghost" busy={cancel.isPending} onClick={() => cancel.mutate()}>분석 취소</Button>}
+            {["failed", "cancelled", "interrupted"].includes(run.data?.status ?? "") && <Button type="button" busy={resume.isPending} onClick={resumeIntent}>{resume.isError ? "같은 재개 요청 다시 확인" : "같은 대화에서 재개"}</Button>}
+            {resume.isError && <p className="tk-error" role="alert">{errorLine(resume.error)} 같은 요청 키로 재시도해 이미 접수된 Run인지 확인할 수 있어요.</p>}
+            {run.data?.status === "succeeded" && !run.data.intent && <p className="tk-error">모델 응답이 의도 스키마 검증을 통과하지 못했습니다. 초안은 만들어지지 않았어요.</p>}
+          </section>}
+          {intentDraft && <section className="creative-intent-preview" aria-labelledby="creative-intent-title">
+            <div><h3 id="creative-intent-title">{intentDraft.extraction.method === "llm" ? "AI 의도 초안" : "구조화한 의도"}</h3>
+              <p>브리프 근거를 확인하고 항목을 수정하세요. 사용자가 확인하기 전까지 AI 추정은 계획에 적용되지 않습니다.</p></div>
+            <IntentEditor value={intentDraft} catalog={catalog.data} onChange={updateIntent} />
+            <label className="creative-field">음악 길이(초)
+              <input className="tk-input" type="number" min="1" max="900" value={intentDraft.music_seconds ?? ""}
+                onChange={(event) => updateIntent({ ...intentDraft, music_seconds: event.target.value ? Number(event.target.value) : null })} />
             </label>
             <div className="creative-intent-actions">
-              <Button type="button" busy={extract.isPending} disabled={!brief.trim()} onClick={() => extract.mutate()}>
-                AI로 의도 분석
-              </Button>
-              <span>분석 결과는 초안으로 제안되며, 확인해야 계획에 반영돼요.</span>
+              <Button type="button" busy={validation.isPending} onClick={() => validation.mutate(intentDraft)}>의도 검증 후 확인</Button>
+              {intentReviewed && <span role="status">검증을 통과했고 사용자가 확인했습니다.</span>}
             </div>
-            {extract.isError && (
-              <p className="tk-error" role="alert">
-                {errorLine(extract.error)} <Button type="button" onClick={() => extract.mutate()}>다시 시도</Button>
-              </p>
-            )}
-            {extract.data && intentDraft && (
-              <section className="creative-intent-preview" aria-labelledby="creative-intent-title">
-                <div>
-                  <h3 id="creative-intent-title">AI 의도 초안</h3>
-                  <p>모델의 추정은 모두 선호로 표시돼요. 인용이 브리프와 맞는지 확인해 주세요.</p>
-                </div>
-                {extract.data.selection_labels.length > 0 ? (
-                  <ul className="creative-intent-preview__items">
-                    {extract.data.selection_labels.map((item) => {
-                      const selection = intentDraft.selections.find((s) => s.entry_id === item.entry_id);
-                      return (
-                        <li key={item.entry_id}>
-                          <span>{item.catalog}</span>
-                          <strong>{item.name}</strong>
-                          {selection?.evidence[0] && <q>{selection.evidence[0].quote}</q>}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <p>뚜렷한 유형을 고르지 못했어요. 계획 전에 브리프를 구체화해 주세요.</p>
-                )}
-                {intentDraft.constraints.length > 0 && (
-                  <div>
-                    <strong>제약 제안</strong>
-                    <ul className="creative-intent-preview__items">
-                      {intentDraft.constraints.map((constraint) => (
-                        <li key={constraint.id}>
-                          <span>선호</span>
-                          <strong>{constraint.statement}</strong>
-                          {constraint.evidence[0] && <q>{constraint.evidence[0].quote}</q>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {(intentDraft.duration.mode !== "auto" || intentDraft.aspect || intentDraft.music_seconds) && (
-                  <p>
-                    기타 제안:{" "}
-                    {intentDraft.duration.seconds != null && `희망 ${formatSeconds(intentDraft.duration.seconds)}`}
-                    {intentDraft.aspect && ` · 화면 비율 ${intentDraft.aspect}`}
-                    {intentDraft.music_seconds && ` · 음악 ${formatSeconds(intentDraft.music_seconds)}`}
-                  </p>
-                )}
-                {intentDraft.info_items.length > 0 && (
-                  <div>
-                    <strong>전달할 내용</strong>
-                    <ul className="creative-intent-preview__questions">
-                      {intentDraft.info_items.map((item) => <li key={item.id}>{item.title || item.narration}</li>)}
-                    </ul>
-                  </div>
-                )}
-                {intentDraft.open_questions.length > 0 && (
-                  <ul className="creative-intent-preview__questions">
-                    {intentDraft.open_questions.map((question) => <li key={question}>{question}</li>)}
-                  </ul>
-                )}
-                <label className="creative-intent-review">
-                  <input type="checkbox" checked={intentReviewed} onChange={(e) => setIntentReviewed(e.target.checked)} />
-                  AI 분석 결과를 확인하고 계획에 반영
-                </label>
-              </section>
-            )}
-            <DurationPicker value={duration} onChange={setDuration} idPrefix="plan-new-picker" />
-            <label className="creative-field">
-              화면 비율
-              <select className="tk-input" value={aspect} onChange={(e) => setAspect(e.target.value)}>
-                <option>16:9</option>
-                <option>9:16</option>
-                <option>1:1</option>
-              </select>
-            </label>
-            {create.isError && (
-              <p className="tk-error" role="alert">
-                {errorLine(create.error)}
-              </p>
-            )}
-            <Button type="submit" variant="primary" busy={create.isPending} disabled={!ready}>
-              계획 만들기
-            </Button>
-          </form>
-          <h2>내 제작 계획</h2>
-          {list.isPending && <p role="status">계획을 불러오는 중</p>}
-          {list.isError && (
-            <p className="tk-error" role="alert">
-              {errorLine(list.error)} <Button onClick={() => void list.refetch()}>다시 불러오기</Button>
-            </p>
-          )}
-          {list.data?.length === 0 && (
-            <div className="tk-empty tk-empty--boxed">
-              <h3>아직 계획이 없어요</h3>
-              <p>콘텐츠를 설명하면 예상 길이와 장면 구성을 먼저 보여드려요.</p>
-            </div>
-          )}
-          <div className="creative-projects">
-            {list.data?.map((p) => (
-              <Link key={p.id} className="creative-project" to={`/creative/plan/${p.id}`}>
-                <div>
-                  <strong>{p.name}</strong>
-                  <span>
-                    {p.duration.planned_seconds == null ? "길이 충돌" : formatSeconds(p.duration_check?.total_seconds ?? p.duration.planned_seconds)} · 장면 {p.scenes.length}개 · {p.approval && p.approval.revision === p.revision ? "승인됨" : "확인 전"}
-                  </span>
-                </div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
+            {validation.data?.validation && (validation.data.validation.errors.length > 0 || validation.data.validation.warnings.length > 0) &&
+              <ul className={validation.data.validation.errors.length ? "tk-error" : "creative-hint"} role={validation.data.validation.errors.length ? "alert" : "status"}>
+                {[...validation.data.validation.errors, ...validation.data.validation.warnings].map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}
+              </ul>}
+          </section>}
+          <DurationPicker value={duration} onChange={setDuration} idPrefix="plan-new-picker" />
+          <label className="creative-field">화면 비율
+            <select className="tk-input" value={aspect} onChange={(e) => setAspect(e.target.value as "16:9" | "9:16" | "1:1")}><option>16:9</option><option>9:16</option><option>1:1</option></select>
+          </label>
+          {create.isError && <p className="tk-error" role="alert">{errorLine(create.error)}</p>}
+          <Button type="submit" variant="primary" busy={create.isPending} disabled={!ready}>계획 만들기</Button>
+        </form>
+        <h2>내 제작 계획</h2>
+        {list.isPending && <p role="status">계획을 불러오는 중</p>}
+        {list.isError && <p className="tk-error" role="alert">{errorLine(list.error)} <Button onClick={() => void list.refetch()}>다시 불러오기</Button></p>}
+        {list.data?.length === 0 && <div className="tk-empty tk-empty--boxed"><h3>아직 계획이 없어요</h3><p>콘텐츠를 설명하면 예상 길이와 장면 구성을 먼저 보여드려요.</p></div>}
+        <div className="creative-projects">{list.data?.map((p) => <Link key={p.id} className="creative-project" to={`/creative/plan/${p.id}`}>
+          <div><strong>{p.name}</strong><span>{p.duration.planned_seconds == null ? "길이 충돌" : formatSeconds(p.duration_check?.total_seconds ?? p.duration.planned_seconds)} · 장면 {p.scenes.length}개 · {p.approval && p.approval.revision === p.revision ? "승인됨" : "확인 전"}</span></div>
+        </Link>)}</div>
+      </div></div>
     </div>
   );
 }

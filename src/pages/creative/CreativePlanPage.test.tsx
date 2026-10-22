@@ -112,67 +112,115 @@ function mount(path: string) {
   );
 }
 
-test("creating a plan sends the chosen soft duration and opens the plan", async () => {
+function mountPlanNew() {
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter initialEntries={["/creative/plan"]}><CreativePlanNewPage /></MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+test("creating a plan requires confirmed structured intent and sends the chosen duration", async () => {
   const created = planFixture();
   const calls = stub((url, init) => {
+    if (url.endsWith("/api/creative/v2/catalog")) return { catalogs: { C01: { name: "콘텐츠 유형", entries: [{ id: "C01.tech_explainer", name: "기술 설명" }] } } };
+    if (url.endsWith("/api/creative/v2/intent/validate")) return { valid: true, needs_confirmation: false, errors: [], warnings: [] };
     if (url.endsWith("/api/creative/v2/plans") && init?.method === "POST") return created;
     if (url.endsWith("/api/creative/v2/plans")) return [];
     return created;
   });
-  mount("/creative/plan");
+  mountPlanNew();
   const submit = await screen.findByRole("button", { name: "계획 만들기" });
   expect((submit as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(screen.getByPlaceholderText(/주제, 분위기/), { target: { value: "기술 설명 영상" } });
+  fireEvent.click(screen.getByRole("button", { name: "직접 의도 작성" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "콘텐츠 형식" }), { target: { value: "C01.tech_explainer" } });
+  fireEvent.change(screen.getByRole("textbox", { name: "근거 문구" }), { target: { value: "기술 설명" } });
+  fireEvent.click(screen.getByRole("button", { name: "의도 검증 후 확인" }));
+  await waitFor(() => expect(calls.some((call) => call.url.endsWith("/intent/validate"))).toBe(true));
+  await screen.findByText("검증을 통과했고 사용자가 확인했습니다.");
   fireEvent.click(screen.getByRole("radio", { name: "3분" }));
-  expect((submit as HTMLButtonElement).disabled).toBe(false);
+  await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(submit);
-  await screen.findByText("예상 러닝타임");
-  const post = calls.find((c) => c.method === "POST");
-  expect(post?.body).toMatchObject({ brief: "기술 설명 영상", duration: { mode: "preferred", seconds: 180 } });
+  await waitFor(() => expect(calls.some((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST")).toBe(true));
+  const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/api/creative/v2/plans"));
+  expect(post?.body).toMatchObject({ brief: "기술 설명 영상", duration: { mode: "preferred", seconds: 180 }, intent: { extraction: { method: "user_structured" }, selections: [{ entry_id: "C01.tech_explainer", source: "user_explicit", evidence: [{ quote: "기술 설명" }] }] } });
 });
 
-test("AI intent draft is reviewed before it is included in the plan", async () => {
-  const created = planFixture();
+test("AI intent draft runs through Ttakkari and exposes editable structured fields", async () => {
   const calls = stub((url, init) => {
-    if (url.endsWith("/api/creative/v2/intent/extract")) {
+    if (url.endsWith("/api/creative/v2/intent/runs") && init?.method === "POST") {
       return {
+        session_id: "session-1", run_id: "run-1", status: "queued", engine: "qwen-local", model: "Qwen3.8-Flash-Next-Q2_K",
+      };
+    }
+    if (url.endsWith("/api/creative/v2/intent/runs/run-1")) {
+      return {
+        session_id: "session-1", run_id: "run-1", status: "succeeded", engine: "qwen-local",
+        model: "Qwen3.8-Flash-Next-Q2_K", profile: "Qwen local (personal)", error: null,
+        brief: "기술 설명 영상으로 요청을 받아 검증하는 과정을 만들어줘",
         intent: {
-          selections: [{ entry_id: "C01.tech_explainer", role: "primary", source: "llm_inferred", strength: "soft", evidence: [{ quote: "기술 설명" }] }],
-          constraints: [],
-          duration: { mode: "auto" },
-          aspect: null,
-          info_items: [],
-          music_seconds: null,
-          open_questions: ["AI가 제안한 의도와 근거를 확인해 주세요."],
-          extraction: { method: "llm", model: "test-local-model" },
+          schema_version: 1,
+          selections: [{ entry_id: "C01.tech_explainer", role: "primary", source: "llm_inferred", strength: "soft", confidence: 0.8, evidence: [{ quote: "기술 설명" }] }],
+          constraints: [], duration: { mode: "auto", seconds: null, platform: null, source: null, as_of: null },
+          aspect: "16:9", info_items: [{ id: "i1", title: "요청 흐름", narration: "요청을 받아 검증하는 과정", weight: 1, essential: false, evidence: [{ quote: "요청을 받아 검증하는 과정" }] }],
+          music_seconds: null, open_questions: ["AI가 제안한 의도와 근거를 확인해 주세요."],
+          extraction: { method: "llm", model: "Qwen3.8-Flash-Next-Q2_K" },
         },
         validation: { valid: true, needs_confirmation: true, errors: [], warnings: [] },
         selection_labels: [{ entry_id: "C01.tech_explainer", catalog: "콘텐츠 유형", name: "기술 설명" }],
         review_required: true,
       };
     }
-    if (url.endsWith("/api/creative/v2/plans") && init?.method === "POST") return created;
+    if (url.endsWith("/api/creative/v2/intent/validate")) return { valid: true, needs_confirmation: false, errors: [], warnings: [] };
+    if (url.endsWith("/api/creative/v2/plans") && init?.method === "POST") return planFixture();
+    if (url.includes("/api/creative/v2/plans/")) return planFixture();
     if (url.endsWith("/api/creative/v2/plans")) return [];
-    return created;
+    if (url.endsWith("/api/creative/v2/catalog")) {
+      return { catalogs: { C01: { name: "콘텐츠 유형", entries: [{ id: "C01.tech_explainer", name: "기술 설명" }] } } };
+    }
+    return {};
   });
-  mount("/creative/plan");
-  fireEvent.change(await screen.findByPlaceholderText(/주제, 분위기/), { target: { value: "기술 설명 영상" } });
+  mountPlanNew();
+  fireEvent.change(await screen.findByPlaceholderText(/주제, 분위기/), { target: { value: "기술 설명 영상으로 요청을 받아 검증하는 과정을 만들어줘" } });
   fireEvent.click(screen.getByRole("button", { name: "AI로 의도 분석" }));
-  expect(await screen.findByText("AI가 제안한 의도와 근거를 확인해 주세요.")).toBeTruthy();
-  expect((screen.getByRole("button", { name: "계획 만들기" }) as HTMLButtonElement).disabled).toBe(true);
-  fireEvent.click(screen.getByRole("checkbox", { name: /AI 분석 결과를 확인/ }));
-  fireEvent.click(screen.getByRole("button", { name: "계획 만들기" }));
-  await screen.findByText("예상 러닝타임");
-  const post = calls.find((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST");
-  expect((post?.body as { intent?: { extraction?: { method?: string } } }).intent?.extraction?.method).toBe("llm");
+  expect(await screen.findByRole("combobox", { name: "콘텐츠 형식" })).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: "근거 문구" })).toBeTruthy();
+  expect(screen.getByRole("textbox", { name: "전달할 내용" })).toBeTruthy();
+  expect(calls.some((c) => c.url.endsWith("/api/creative/v2/intent/runs") && c.method === "POST")).toBe(true);
+  expect(calls.some((c) => c.url.endsWith("/api/creative/v2/intent/runs/run-1"))).toBe(true);
+  const submit = screen.getByRole("button", { name: "계획 만들기" }) as HTMLButtonElement;
+  expect(submit.disabled).toBe(true);
+  fireEvent.change(screen.getByRole("textbox", { name: "근거 문구" }), { target: { value: "기술 설명" } });
+  fireEvent.click(screen.getByRole("button", { name: "확인하고 닫기" }));
+  fireEvent.click(screen.getByRole("button", { name: "의도 검증 후 확인" }));
+  await screen.findByText("검증을 통과했고 사용자가 확인했습니다.");
+  fireEvent.click(screen.getByRole("radio", { name: "3분" }));
+  await waitFor(() => expect(submit.disabled).toBe(false));
+  fireEvent.click(submit);
+  await waitFor(() => expect(calls.some((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST")).toBe(true));
+  const created = calls.find((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST");
+  expect(created?.body).toMatchObject({
+    intent: { extraction: { method: "user_structured", model: null }, selections: [{ source: "user_explicit", strength: "soft", evidence: [{ quote: "기술 설명" }] }] },
+  });
 });
 
 test("auto length is the default request and an invalid custom length blocks submission", async () => {
-  const calls = stub((_url, init) => (init?.method === "POST" ? planFixture() : []));
+  const calls = stub((url, init) => {
+    if (url.endsWith("/api/creative/v2/catalog")) return { catalogs: { C01: { name: "콘텐츠 유형", entries: [{ id: "C01.tech_explainer", name: "기술 설명" }] } } };
+    if (url.endsWith("/api/creative/v2/intent/validate")) return { valid: true, needs_confirmation: false, errors: [], warnings: [] };
+    return init?.method === "POST" ? planFixture() : [];
+  });
   mount("/creative/plan");
   const submit = (await screen.findByRole("button", { name: "계획 만들기" })) as HTMLButtonElement;
   fireEvent.change(screen.getByPlaceholderText(/주제, 분위기/), { target: { value: "내용" } });
-  expect(submit.disabled).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "직접 의도 작성" }));
+  fireEvent.change(screen.getByRole("combobox", { name: "콘텐츠 형식" }), { target: { value: "C01.tech_explainer" } });
+  fireEvent.change(screen.getByRole("textbox", { name: "근거 문구" }), { target: { value: "내용" } });
+  fireEvent.click(screen.getByRole("button", { name: "의도 검증 후 확인" }));
+  await waitFor(() => expect(calls.some((call) => call.url.endsWith("/intent/validate"))).toBe(true));
+  await screen.findByText("검증을 통과했고 사용자가 확인했습니다.");
+  await waitFor(() => expect(submit.disabled).toBe(false));
   fireEvent.click(screen.getByRole("radio", { name: "직접 입력" }));
   expect(submit.disabled).toBe(true);
   fireEvent.change(screen.getByLabelText(/직접 입력 \(초/), { target: { value: "901" } });
@@ -182,7 +230,7 @@ test("auto length is the default request and an invalid custom length blocks sub
   fireEvent.click(screen.getByRole("radio", { name: "자동" }));
   fireEvent.click(submit);
   await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
-  expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({ duration: { mode: "auto" } });
+  expect(calls.find((c) => c.method === "POST" && c.url.endsWith("/api/creative/v2/plans"))?.body).toMatchObject({ duration: { mode: "auto" } });
 });
 
 test("plan detail shows expected runtime, reasons, range, honest match status and gaps before render", async () => {

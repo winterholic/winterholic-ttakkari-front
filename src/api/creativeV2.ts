@@ -187,17 +187,33 @@ export interface CreativeIntent {
   }>;
   duration: DurationRequest;
   aspect: "16:9" | "9:16" | "1:1" | null;
-  info_items: Array<{ id: string; title: string; narration: string; weight: number; essential: boolean }>;
+  info_items: Array<{ id: string; title: string; narration: string; weight: number; essential: boolean; evidence: Array<{ quote: string }> }>;
   music_seconds: number | null;
   open_questions: string[];
   extraction: { method: "llm" | "user_structured" | "lexical_hint"; model: string | null };
 }
 
-export interface IntentExtractionResult {
-  intent: CreativeIntent;
-  validation: { valid: boolean; needs_confirmation: boolean; errors: Array<{ code: string; message: string }>; warnings: Array<{ code: string; message: string }> };
-  selection_labels: Array<{ entry_id: string; catalog: string; name: string }>;
-  review_required: boolean;
+export interface IntentRunStart {
+  session_id: string;
+  run_id: string;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+  engine: string;
+  model: string | null;
+  resumed_from?: string;
+}
+
+export interface IntentRunResult extends IntentRunStart {
+  profile: string | null;
+  error: string | null;
+  brief?: string;
+  intent: CreativeIntent | null;
+  validation?: { valid: boolean; needs_confirmation: boolean; errors: Array<{ code: string; message: string }>; warnings: Array<{ code: string; message: string }> };
+  selection_labels?: Array<{ entry_id: string; catalog: string; name: string }>;
+  review_required?: boolean;
+}
+
+export interface CreativeCatalog {
+  catalogs: Record<string, { name: string; entries: Array<{ id: string; name: string }> }>;
 }
 
 export interface SceneEditBody {
@@ -214,6 +230,7 @@ const root = "/api/creative/v2";
 export const planPolicy = () => json<DurationPolicy>(`${root}/duration/policy`);
 export const planList = () => json<CreativePlan[]>(`${root}/plans`);
 export const planGet = (id: string) => json<CreativePlan>(`${root}/plans/${id}`);
+export const planCatalog = () => json<CreativeCatalog>(`${root}/catalog`);
 export const planCreate = (body: {
   brief: string;
   name: string;
@@ -221,8 +238,17 @@ export const planCreate = (body: {
   aspect: string;
   intent?: CreativeIntent;
 }) => json<CreativePlan>(`${root}/plans`, { method: "POST", json: body });
-export const intentExtract = (brief: string) =>
-  json<IntentExtractionResult>(`${root}/intent/extract`, { method: "POST", json: { brief } });
+export const intentRunStart = (brief: string, requestKey: string) =>
+  json<IntentRunStart>(`${root}/intent/runs`, { method: "POST", headers: { "Idempotency-Key": requestKey }, json: { brief } });
+export const intentRunGet = (runId: string) => json<IntentRunResult>(`${root}/intent/runs/${runId}`);
+export const intentRunResume = (runId: string, requestKey: string) =>
+  json<IntentRunStart>(`${root}/intent/runs/${runId}/resume`, {
+    method: "POST",
+    headers: { "Idempotency-Key": requestKey },
+    json: {},
+  });
+export const intentValidate = (brief: string, intent: CreativeIntent) =>
+  json<IntentRunResult["validation"]>(`${root}/intent/validate`, { method: "POST", json: { brief, intent } });
 export const planEdit = (
   id: string,
   body: { revision: number; scenes?: SceneEditBody[]; duration?: DurationRequest },

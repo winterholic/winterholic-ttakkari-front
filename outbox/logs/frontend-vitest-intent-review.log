@@ -1,0 +1,15 @@
+$ vitest -- --run
+
+ RUN  v5.0.3 /Users/winterholic/development/projects/ttakkari-studio-v2-front
+
+Not implemented: HTMLCanvasElement's getContext() method: without installing the canvas npm package
+
+ Test Files  137 passed | 2 skipped (139)
+      Tests  1305 passed | 10 skipped (1315)
+   Start at  00:34:59
+   Duration  11.40s (environment 39%, tests 38%, import 15%, transform 7%)
+
+Environment  jsdom was created 139 times · 65.43s total, 39% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
