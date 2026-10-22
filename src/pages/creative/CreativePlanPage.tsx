@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import {
@@ -31,7 +31,7 @@ import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { DurationPicker } from "./DurationPicker";
 import type { DurationState } from "./duration";
-import { INITIAL_DURATION, MAX_SECONDS, clock, describeRequest, formatSeconds, toRequest } from "./duration";
+import { INITIAL_DURATION, MAX_SECONDS, PRESETS, clock, describeRequest, formatSeconds, toRequest } from "./duration";
 import "../creative.css";
 import "./creativePlan.css";
 
@@ -69,6 +69,20 @@ const STATE_LABEL: Record<PlanScene["duration_state"], string> = {
 };
 
 const today = () => new Date().toISOString().slice(0, 10);
+
+function requestToDurationState(request: DurationRequest | null | undefined): DurationState {
+  if (!request || request.mode === "auto") return INITIAL_DURATION;
+  const seconds = request.seconds ?? (request.platform === "youtube_shorts" ? 180 : null);
+  if (seconds == null) return INITIAL_DURATION;
+  const choice = PRESETS.includes(seconds as (typeof PRESETS)[number]) ? String(seconds) as DurationState["choice"] : "custom";
+  return {
+    choice,
+    custom: choice === "custom" ? String(seconds) : "",
+    strictness: request.mode === "exact" ? "exact" : request.mode === "platform_cap" ? "cap" : "soft",
+    capKind: request.platform === "youtube_shorts" ? "youtube_shorts" : "custom",
+    capSource: request.source ?? "",
+  };
+}
 
 function errorLine(error: unknown) {
   return errorText(error).message;
@@ -693,7 +707,13 @@ export function CreativePlanNewPage() {
   const catalog = useQuery({ queryKey: ["creative-catalog"], queryFn: planCatalog });
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
+  const briefRef = useRef(brief);
+  const intentRevisionRef = useRef(0);
+  const [intentRevision, setIntentRevision] = useState(0);
+  const bumpIntentRevision = () => { intentRevisionRef.current += 1; setIntentRevision(intentRevisionRef.current); };
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
+  const [aspectTouched, setAspectTouched] = useState(false);
+  const [durationTouched, setDurationTouched] = useState(false);
   const [intentOverride, setIntentOverride] = useState<CreativeIntent | null>(null);
   const [intentReviewed, setIntentReviewed] = useState(false);
   const runId = searchParams.get("intent_run") ?? "";
@@ -704,48 +724,64 @@ export function CreativePlanNewPage() {
     refetchInterval: (query) => ["queued", "running"].includes(query.state.data?.status ?? "") ? 1200 : false,
   });
   const start = useMutation({
-    mutationFn: (key: string) => intentRunStart(brief.trim(), key),
-    onSuccess: (result) => {
+    mutationFn: ({ brief: submittedBrief, key }: { brief: string; key: string; revision: number }) => intentRunStart(submittedBrief, key),
+    onSuccess: (result, variables) => {
+      if (variables.brief !== briefRef.current.trim() || variables.revision !== intentRevisionRef.current) {
+        void cancelRun(result.run_id).catch(() => undefined);
+        return;
+      }
       setIntentOverride(null); setIntentReviewed(false);
       setSearchParams({ intent_run: result.run_id, intent_session: result.session_id });
     },
   });
   const resume = useMutation({
-    mutationFn: (key: string) => intentRunResume(runId, key),
-    onSuccess: (result) => { setIntentOverride(null); setSearchParams({ intent_run: result.run_id, intent_session: result.session_id }); },
+    mutationFn: ({ key }: { key: string; brief: string; revision: number }) => intentRunResume(runId, key),
+    onSuccess: (result, variables) => {
+      if (variables.brief !== briefRef.current.trim() || variables.revision !== intentRevisionRef.current) {
+        void cancelRun(result.run_id).catch(() => undefined);
+        return;
+      }
+      setIntentOverride(null); setSearchParams({ intent_run: result.run_id, intent_session: result.session_id });
+    },
   });
   const cancel = useMutation({ mutationFn: () => cancelRun(runId), onSuccess: () => void run.refetch() });
   const intentDraft = intentOverride ?? (run.data?.status === "succeeded" ? run.data.intent : null);
   const validation = useMutation({
-    mutationFn: async (intent: CreativeIntent) => {
+    mutationFn: async ({ intent, brief: submittedBrief }: { intent: CreativeIntent; brief: string; revision: number }) => {
       const confirmed: CreativeIntent = {
         ...intent,
-        selections: intent.selections.map((selection) => ({ ...selection, source: "user_explicit" })),
-        constraints: intent.constraints.map((constraint) => ({ ...constraint, source: "user_explicit" })),
+        duration: durationTouched ? toRequest(duration, today()).request ?? intent.duration : intent.duration,
+        aspect: aspectTouched ? aspect : intent.aspect,
         extraction: { method: "user_structured", model: null },
       };
-      return { candidate: confirmed, validation: await intentValidate(brief.trim(), confirmed) };
+      return { candidate: confirmed, validation: await intentValidate(submittedBrief, confirmed) };
     },
-    onSuccess: ({ candidate, validation: result }) => {
+    onSuccess: ({ candidate, validation: result }, variables) => {
+      if (variables.brief !== briefRef.current.trim() || variables.revision !== intentRevisionRef.current) return;
       const accepted = Boolean(result?.valid && !result.needs_confirmation);
       setIntentReviewed(accepted);
       if (accepted) setIntentOverride(candidate);
     },
   });
   const [duration, setDuration] = useState<DurationState>(INITIAL_DURATION);
-  const resolved = toRequest(duration, today());
+  const displayedDuration = durationTouched ? duration : requestToDurationState(intentDraft?.duration);
+  const resolved = durationTouched ? toRequest(duration, today()) : { request: intentDraft?.duration ?? toRequest(duration, today()).request, error: null };
+  const displayedAspect = aspectTouched ? aspect : intentDraft?.aspect ?? aspect;
+  const validationMatchesCurrent = validation.variables?.brief === brief.trim()
+    && validation.variables.revision === intentRevision;
   const create = useMutation({
     mutationFn: () => planCreate({
-      brief, name, aspect, duration: resolved.request!,
-      intent: { ...intentDraft!, duration: resolved.request!, aspect, extraction: { method: "user_structured", model: null } },
+      brief, name, aspect: displayedAspect, duration: resolved.request!,
+      intent: { ...intentDraft!, duration: resolved.request!, aspect: displayedAspect, extraction: { method: "user_structured", model: null } },
     }),
     onSuccess: (plan) => { void qc.invalidateQueries({ queryKey: ["creative-plans"] }); navigate(`/creative/plan/${plan.id}`); },
   });
   const ready = brief.trim().length > 0 && resolved.request !== null && Boolean(intentDraft && intentReviewed
     && intentDraft.selections.some((item) => item.entry_id.startsWith("C01.") && item.role === "primary")
     && intentDraft.open_questions.length === 0);
-  const updateIntent = (intent: CreativeIntent) => { setIntentOverride(intent); setIntentReviewed(false); validation.reset(); };
+  const updateIntent = (intent: CreativeIntent) => { bumpIntentRevision(); setIntentOverride(intent); setIntentReviewed(false); validation.reset(); };
   const makeManualIntent = () => {
+    bumpIntentRevision();
     setIntentOverride({
       schema_version: 1,
       selections: [{ entry_id: "", role: "primary", source: "user_explicit", strength: "soft", confidence: 1, evidence: [] }],
@@ -755,14 +791,17 @@ export function CreativePlanNewPage() {
     setIntentReviewed(false); setSearchParams({});
   };
   const startIntent = () => {
+    bumpIntentRevision();
     const key = startKey || crypto.randomUUID();
+    const submittedBrief = brief.trim();
     if (!startKey) setSearchParams({ intent_request: key });
-    start.mutate(key);
+    start.mutate({ key, brief: submittedBrief, revision: intentRevisionRef.current });
   };
   const resumeIntent = () => {
+    bumpIntentRevision();
     const key = resumeKey || crypto.randomUUID();
     if (!resumeKey) setSearchParams({ intent_run: runId, intent_session: searchParams.get("intent_session") ?? "", intent_resume_request: key });
-    resume.mutate(key);
+    resume.mutate({ key, brief: brief.trim(), revision: intentRevisionRef.current });
   };
   return (
     <div className="tk-screen">
@@ -774,7 +813,7 @@ export function CreativePlanNewPage() {
           </label>
           <label className="creative-field">만들고 싶은 콘텐츠
             <textarea className="tk-textarea" value={brief} maxLength={6000} rows={4}
-              onChange={(e) => { setBrief(e.target.value); setIntentOverride(null); setIntentReviewed(false); start.reset(); setSearchParams({}); }}
+              onChange={(e) => { briefRef.current = e.target.value; bumpIntentRevision(); setBrief(e.target.value); setIntentOverride(null); setIntentReviewed(false); validation.reset(); start.reset(); setSearchParams({}); }}
               placeholder="주제, 분위기, 전달할 내용을 적어 주세요." />
           </label>
           <div className="creative-intent-actions">
@@ -782,7 +821,7 @@ export function CreativePlanNewPage() {
             <Button type="button" variant="ghost" disabled={!brief.trim()} onClick={makeManualIntent}>직접 의도 작성</Button>
             <span>AI 제안은 초안입니다. 근거와 선택을 직접 확인해야 계획에 반영돼요.</span>
           </div>
-          {start.isError && <p className="tk-error" role="alert">{errorLine(start.error)} 요청 결과가 불명확하면 같은 키로 다시 요청해 기존 Run을 확인합니다.</p>}
+          {start.isError && start.variables?.brief === brief.trim() && <p className="tk-error" role="alert">{errorLine(start.error)} 요청 결과가 불명확하면 같은 키로 다시 요청해 기존 Run을 확인합니다.</p>}
           {runId && <section className="creative-intent-run" aria-live="polite">
             <div><strong>의도 분석 Run</strong><span>{run.data?.status ?? "상태 조회 중"} · {run.data?.engine ?? "qwen-local"} · {run.data?.model ?? ""}</span></div>
             {run.isError && <p className="tk-error">{errorLine(run.error)} <Button type="button" onClick={() => void run.refetch()}>상태 다시 확인</Button></p>}
@@ -801,17 +840,17 @@ export function CreativePlanNewPage() {
                 onChange={(event) => updateIntent({ ...intentDraft, music_seconds: event.target.value ? Number(event.target.value) : null })} />
             </label>
             <div className="creative-intent-actions">
-              <Button type="button" busy={validation.isPending} onClick={() => validation.mutate(intentDraft)}>의도 검증 후 확인</Button>
+              <Button type="button" busy={validation.isPending} onClick={() => validation.mutate({ intent: intentDraft, brief: brief.trim(), revision: intentRevisionRef.current })}>의도 검증 후 확인</Button>
               {intentReviewed && <span role="status">검증을 통과했고 사용자가 확인했습니다.</span>}
             </div>
-            {validation.data?.validation && (validation.data.validation.errors.length > 0 || validation.data.validation.warnings.length > 0) &&
+            {validationMatchesCurrent && validation.data?.validation && (validation.data.validation.errors.length > 0 || validation.data.validation.warnings.length > 0) &&
               <ul className={validation.data.validation.errors.length ? "tk-error" : "creative-hint"} role={validation.data.validation.errors.length ? "alert" : "status"}>
                 {[...validation.data.validation.errors, ...validation.data.validation.warnings].map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}
               </ul>}
           </section>}
-          <DurationPicker value={duration} onChange={setDuration} idPrefix="plan-new-picker" />
+          <DurationPicker value={displayedDuration} onChange={(value) => { setDuration(value); setDurationTouched(true); }} idPrefix="plan-new-picker" />
           <label className="creative-field">화면 비율
-            <select className="tk-input" value={aspect} onChange={(e) => setAspect(e.target.value as "16:9" | "9:16" | "1:1")}><option>16:9</option><option>9:16</option><option>1:1</option></select>
+            <select className="tk-input" value={displayedAspect} onChange={(e) => { setAspect(e.target.value as "16:9" | "9:16" | "1:1"); setAspectTouched(true); }}><option>16:9</option><option>9:16</option><option>1:1</option></select>
           </label>
           {create.isError && <p className="tk-error" role="alert">{errorLine(create.error)}</p>}
           <Button type="submit" variant="primary" busy={create.isPending} disabled={!ready}>계획 만들기</Button>

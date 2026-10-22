@@ -91,7 +91,7 @@ function stub(handler: Handler) {
       const url = typeof input === "string" ? input : input.toString();
       const body = init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ url, method: init?.method ?? "GET", body });
-      const result = handler(url, init);
+      const result = await handler(url, init);
       if (result instanceof Response) return result;
       return new Response(JSON.stringify(result), { status: 200 });
     }),
@@ -140,11 +140,12 @@ test("creating a plan requires confirmed structured intent and sends the chosen 
   await waitFor(() => expect(calls.some((call) => call.url.endsWith("/intent/validate"))).toBe(true));
   await screen.findByText("검증을 통과했고 사용자가 확인했습니다.");
   fireEvent.click(screen.getByRole("radio", { name: "3분" }));
+  fireEvent.click(screen.getByRole("radio", { name: "정확히" }));
   await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(submit);
   await waitFor(() => expect(calls.some((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST")).toBe(true));
   const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/api/creative/v2/plans"));
-  expect(post?.body).toMatchObject({ brief: "기술 설명 영상", duration: { mode: "preferred", seconds: 180 }, intent: { extraction: { method: "user_structured" }, selections: [{ entry_id: "C01.tech_explainer", source: "user_explicit", evidence: [{ quote: "기술 설명" }] }] } });
+  expect(post?.body).toMatchObject({ brief: "기술 설명 영상", duration: { mode: "exact", seconds: 180 }, intent: { extraction: { method: "user_structured" }, duration: { mode: "exact", seconds: 180 }, selections: [{ entry_id: "C01.tech_explainer", source: "user_explicit", evidence: [{ quote: "기술 설명" }] }] } });
 });
 
 test("AI intent draft runs through Ttakkari and exposes editable structured fields", async () => {
@@ -201,7 +202,68 @@ test("AI intent draft runs through Ttakkari and exposes editable structured fiel
   await waitFor(() => expect(calls.some((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST")).toBe(true));
   const created = calls.find((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST");
   expect(created?.body).toMatchObject({
-    intent: { extraction: { method: "user_structured", model: null }, selections: [{ source: "user_explicit", strength: "soft", evidence: [{ quote: "기술 설명" }] }] },
+    intent: { extraction: { method: "user_structured", model: null }, selections: [{ source: "llm_inferred", strength: "soft", evidence: [{ quote: "기술 설명" }] }] },
+  });
+});
+
+test("late intent response from an edited brief is not attached to the current brief", async () => {
+  let finishStart: ((value: unknown) => void) | undefined;
+  const calls = stub((url, init) => {
+    if (url.endsWith("/api/creative/v2/intent/runs") && init?.method === "POST") {
+      return new Promise((resolve) => { finishStart = resolve; });
+    }
+    if (url.endsWith("/api/creative/v2/catalog")) return { catalogs: {} };
+    return [];
+  });
+  mountPlanNew();
+  const brief = await screen.findByPlaceholderText(/주제, 분위기/);
+  fireEvent.change(brief, { target: { value: "이전 브리프" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI로 의도 분석" }));
+  fireEvent.change(brief, { target: { value: "새 브리프" } });
+  await waitFor(() => expect(finishStart).toBeDefined());
+  finishStart?.({ session_id: "session-old", run_id: "run-old", status: "queued", engine: "qwen-local", model: "qwen" });
+  expect(calls.some((call) => call.url.endsWith("/intent/runs/run-old"))).toBe(false);
+  await waitFor(() => expect(calls.some((call) => call.url.endsWith("/api/runs/run-old/cancel"))).toBe(true));
+  expect(screen.queryByText("AI 의도 초안")).toBeNull();
+});
+
+test("reviewed desired duration and aspect reach creation unless the user changes them", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/api/creative/v2/intent/runs") && init?.method === "POST") {
+      return { session_id: "session-1", run_id: "run-1", status: "queued", engine: "qwen-local", model: "qwen" };
+    }
+    if (url.endsWith("/api/creative/v2/intent/runs/run-1")) return {
+      session_id: "session-1", run_id: "run-1", status: "succeeded", engine: "qwen-local", model: "qwen", profile: "Qwen", error: null,
+      brief: "정확히 3분, 세로 9:16 기술 설명",
+      intent: {
+        schema_version: 1,
+        selections: [{ entry_id: "C01.tech_explainer", role: "primary", source: "llm_inferred", strength: "soft", confidence: 0.8, evidence: [{ quote: "기술 설명" }] }],
+        constraints: [], duration: { mode: "preferred", seconds: 180, platform: null, source: null, as_of: null },
+        aspect: "9:16", info_items: [], music_seconds: null, open_questions: [], extraction: { method: "llm", model: "qwen" },
+      },
+      validation: { valid: true, needs_confirmation: true, errors: [], warnings: [] }, selection_labels: [], review_required: true,
+    };
+    if (url.endsWith("/api/creative/v2/intent/validate")) return { valid: true, needs_confirmation: false, errors: [], warnings: [] };
+    if (url.endsWith("/api/creative/v2/plans") && init?.method === "POST") return planFixture();
+    if (url.endsWith("/api/creative/v2/catalog")) return { catalogs: { C01: { name: "형식", entries: [{ id: "C01.tech_explainer", name: "기술 설명" }] } } };
+    return [];
+  });
+  mountPlanNew();
+  fireEvent.change(await screen.findByPlaceholderText(/주제, 분위기/), { target: { value: "정확히 3분, 세로 9:16 기술 설명" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI로 의도 분석" }));
+  await screen.findByRole("combobox", { name: "콘텐츠 형식" });
+  expect((screen.getByRole("radio", { name: "3분" }) as HTMLButtonElement).getAttribute("aria-checked")).toBe("true");
+  expect((screen.getByRole("combobox", { name: "화면 비율" }) as HTMLSelectElement).value).toBe("9:16");
+  fireEvent.click(screen.getByRole("button", { name: "의도 검증 후 확인" }));
+  await screen.findByText("검증을 통과했고 사용자가 확인했습니다.");
+  const submit = screen.getByRole("button", { name: "계획 만들기" });
+  await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(submit);
+  await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/api/creative/v2/plans"))).toBe(true));
+  const created = calls.find((c) => c.method === "POST" && c.url.endsWith("/api/creative/v2/plans"));
+  expect(created?.body).toMatchObject({
+    duration: { mode: "preferred", seconds: 180 }, aspect: "9:16",
+    intent: { duration: { mode: "preferred", seconds: 180 }, aspect: "9:16", selections: [{ source: "llm_inferred", strength: "soft" }] },
   });
 });
 
