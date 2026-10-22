@@ -131,6 +131,42 @@ test("creating a plan sends the chosen soft duration and opens the plan", async 
   expect(post?.body).toMatchObject({ brief: "기술 설명 영상", duration: { mode: "preferred", seconds: 180 } });
 });
 
+test("AI intent draft is reviewed before it is included in the plan", async () => {
+  const created = planFixture();
+  const calls = stub((url, init) => {
+    if (url.endsWith("/api/creative/v2/intent/extract")) {
+      return {
+        intent: {
+          selections: [{ entry_id: "C01.tech_explainer", role: "primary", source: "llm_inferred", strength: "soft", evidence: [{ quote: "기술 설명" }] }],
+          constraints: [],
+          duration: { mode: "auto" },
+          aspect: null,
+          info_items: [],
+          music_seconds: null,
+          open_questions: ["AI가 제안한 의도와 근거를 확인해 주세요."],
+          extraction: { method: "llm", model: "test-local-model" },
+        },
+        validation: { valid: true, needs_confirmation: true, errors: [], warnings: [] },
+        selection_labels: [{ entry_id: "C01.tech_explainer", catalog: "콘텐츠 유형", name: "기술 설명" }],
+        review_required: true,
+      };
+    }
+    if (url.endsWith("/api/creative/v2/plans") && init?.method === "POST") return created;
+    if (url.endsWith("/api/creative/v2/plans")) return [];
+    return created;
+  });
+  mount("/creative/plan");
+  fireEvent.change(await screen.findByPlaceholderText(/주제, 분위기/), { target: { value: "기술 설명 영상" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI로 의도 분석" }));
+  expect(await screen.findByText("AI가 제안한 의도와 근거를 확인해 주세요.")).toBeTruthy();
+  expect((screen.getByRole("button", { name: "계획 만들기" }) as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(screen.getByRole("checkbox", { name: /AI 분석 결과를 확인/ }));
+  fireEvent.click(screen.getByRole("button", { name: "계획 만들기" }));
+  await screen.findByText("예상 러닝타임");
+  const post = calls.find((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST");
+  expect((post?.body as { intent?: { extraction?: { method?: string } } }).intent?.extraction?.method).toBe("llm");
+});
+
 test("auto length is the default request and an invalid custom length blocks submission", async () => {
   const calls = stub((_url, init) => (init?.method === "POST" ? planFixture() : []));
   mount("/creative/plan");

@@ -7,9 +7,11 @@ import {
   planEdit,
   planGet,
   planList,
+  intentExtract,
 } from "../../api/creativeV2";
 import type {
   CreativePlan,
+  CreativeIntent,
   DurationAlternative,
   DurationRequest,
   DurationStatus,
@@ -508,16 +510,31 @@ export function CreativePlanNewPage() {
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
   const [aspect, setAspect] = useState("16:9");
+  const [intentDraft, setIntentDraft] = useState<CreativeIntent | null>(null);
+  const [intentReviewed, setIntentReviewed] = useState(false);
+  const extract = useMutation({
+    mutationFn: () => intentExtract(brief.trim()),
+    onSuccess: (result) => {
+      setIntentDraft(result.intent);
+      setIntentReviewed(false);
+    },
+  });
   const [duration, setDuration] = useState<DurationState>(INITIAL_DURATION);
   const resolved = toRequest(duration, today());
   const create = useMutation({
-    mutationFn: () => planCreate({ brief, name, aspect, duration: resolved.request! }),
+    mutationFn: () => planCreate({
+      brief,
+      name,
+      aspect,
+      duration: resolved.request!,
+      ...(intentDraft && intentReviewed ? { intent: intentDraft } : {}),
+    }),
     onSuccess: (plan) => {
       void qc.invalidateQueries({ queryKey: ["creative-plans"] });
       navigate(`/creative/plan/${plan.id}`);
     },
   });
-  const ready = brief.trim().length > 0 && resolved.request !== null;
+  const ready = brief.trim().length > 0 && resolved.request !== null && (!intentDraft || intentReviewed);
   return (
     <div className="tk-screen">
       <PageHeader
@@ -549,10 +566,89 @@ export function CreativePlanNewPage() {
                 value={brief}
                 maxLength={6000}
                 rows={4}
-                onChange={(e) => setBrief(e.target.value)}
+                onChange={(e) => {
+                  setBrief(e.target.value);
+                  setIntentDraft(null);
+                  setIntentReviewed(false);
+                  extract.reset();
+                }}
                 placeholder="주제, 분위기, 전달할 내용을 적어 주세요."
               />
             </label>
+            <div className="creative-intent-actions">
+              <Button type="button" busy={extract.isPending} disabled={!brief.trim()} onClick={() => extract.mutate()}>
+                AI로 의도 분석
+              </Button>
+              <span>분석 결과는 초안으로 제안되며, 확인해야 계획에 반영돼요.</span>
+            </div>
+            {extract.isError && (
+              <p className="tk-error" role="alert">
+                {errorLine(extract.error)} <Button type="button" onClick={() => extract.mutate()}>다시 시도</Button>
+              </p>
+            )}
+            {extract.data && intentDraft && (
+              <section className="creative-intent-preview" aria-labelledby="creative-intent-title">
+                <div>
+                  <h3 id="creative-intent-title">AI 의도 초안</h3>
+                  <p>모델의 추정은 모두 선호로 표시돼요. 인용이 브리프와 맞는지 확인해 주세요.</p>
+                </div>
+                {extract.data.selection_labels.length > 0 ? (
+                  <ul className="creative-intent-preview__items">
+                    {extract.data.selection_labels.map((item) => {
+                      const selection = intentDraft.selections.find((s) => s.entry_id === item.entry_id);
+                      return (
+                        <li key={item.entry_id}>
+                          <span>{item.catalog}</span>
+                          <strong>{item.name}</strong>
+                          {selection?.evidence[0] && <q>{selection.evidence[0].quote}</q>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <p>뚜렷한 유형을 고르지 못했어요. 계획 전에 브리프를 구체화해 주세요.</p>
+                )}
+                {intentDraft.constraints.length > 0 && (
+                  <div>
+                    <strong>제약 제안</strong>
+                    <ul className="creative-intent-preview__items">
+                      {intentDraft.constraints.map((constraint) => (
+                        <li key={constraint.id}>
+                          <span>선호</span>
+                          <strong>{constraint.statement}</strong>
+                          {constraint.evidence[0] && <q>{constraint.evidence[0].quote}</q>}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(intentDraft.duration.mode !== "auto" || intentDraft.aspect || intentDraft.music_seconds) && (
+                  <p>
+                    기타 제안:{" "}
+                    {intentDraft.duration.seconds != null && `희망 ${formatSeconds(intentDraft.duration.seconds)}`}
+                    {intentDraft.aspect && ` · 화면 비율 ${intentDraft.aspect}`}
+                    {intentDraft.music_seconds && ` · 음악 ${formatSeconds(intentDraft.music_seconds)}`}
+                  </p>
+                )}
+                {intentDraft.info_items.length > 0 && (
+                  <div>
+                    <strong>전달할 내용</strong>
+                    <ul className="creative-intent-preview__questions">
+                      {intentDraft.info_items.map((item) => <li key={item.id}>{item.title || item.narration}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {intentDraft.open_questions.length > 0 && (
+                  <ul className="creative-intent-preview__questions">
+                    {intentDraft.open_questions.map((question) => <li key={question}>{question}</li>)}
+                  </ul>
+                )}
+                <label className="creative-intent-review">
+                  <input type="checkbox" checked={intentReviewed} onChange={(e) => setIntentReviewed(e.target.checked)} />
+                  AI 분석 결과를 확인하고 계획에 반영
+                </label>
+              </section>
+            )}
             <DurationPicker value={duration} onChange={setDuration} idPrefix="plan-new-picker" />
             <label className="creative-field">
               화면 비율

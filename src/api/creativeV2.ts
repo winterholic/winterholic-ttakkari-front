@@ -167,6 +167,39 @@ export interface CreativePlan {
   history: Array<{ revision: number; kind: string; total_seconds: number | null; status: string }>;
 }
 
+export interface CreativeIntent {
+  schema_version: 1;
+  selections: Array<{
+    entry_id: string;
+    role: "primary" | "secondary";
+    strength: "hard" | "soft";
+    confidence: number;
+    source: "user_explicit" | "llm_inferred" | "lexical_hint" | "default";
+    evidence: Array<{ quote: string }>;
+  }>;
+  constraints: Array<{
+    id: string;
+    kind: string;
+    hard: boolean;
+    statement: string;
+    source: "user_explicit" | "llm_inferred" | "lexical_hint" | "default";
+    evidence: Array<{ quote: string }>;
+  }>;
+  duration: DurationRequest;
+  aspect: "16:9" | "9:16" | "1:1" | null;
+  info_items: Array<{ id: string; title: string; narration: string; weight: number; essential: boolean }>;
+  music_seconds: number | null;
+  open_questions: string[];
+  extraction: { method: "llm" | "user_structured" | "lexical_hint"; model: string | null };
+}
+
+export interface IntentExtractionResult {
+  intent: CreativeIntent;
+  validation: { valid: boolean; needs_confirmation: boolean; errors: Array<{ code: string; message: string }>; warnings: Array<{ code: string; message: string }> };
+  selection_labels: Array<{ entry_id: string; catalog: string; name: string }>;
+  review_required: boolean;
+}
+
 export interface SceneEditBody {
   id: string;
   title: string;
@@ -186,7 +219,10 @@ export const planCreate = (body: {
   name: string;
   duration: DurationRequest;
   aspect: string;
+  intent?: CreativeIntent;
 }) => json<CreativePlan>(`${root}/plans`, { method: "POST", json: body });
+export const intentExtract = (brief: string) =>
+  json<IntentExtractionResult>(`${root}/intent/extract`, { method: "POST", json: { brief } });
 export const planEdit = (
   id: string,
   body: { revision: number; scenes?: SceneEditBody[]; duration?: DurationRequest },
