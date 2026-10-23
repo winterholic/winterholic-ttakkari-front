@@ -1,3 +1,6 @@
+import { Select } from "../ui/Select";
+import { useKbScope } from "../features/kb/scope";
+import { Collection } from "../features/kb/Collection";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import { useSearchParams } from "react-router";
@@ -11,11 +14,12 @@ import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import "../features/kb/kb.css";
 
-type View = "search" | "docs" | "add";
+type View = "search" | "docs" | "add" | "collect";
 const VIEWS: { id: View; label: string }[] = [
   { id: "search", label: "검색" },
   { id: "docs", label: "문서" },
   { id: "add", label: "등록" },
+  { id: "collect", label: "수집" },
 ];
 
 /**
@@ -25,7 +29,8 @@ const VIEWS: { id: View; label: string }[] = [
 export function KnowledgeLibraryPage() {
   const [params, setParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const summary = useQuery({ queryKey: ["kb-summary"], queryFn: kbSummary });
+  const scope = useKbScope();
+  const summary = useQuery({ queryKey: ["kb-summary", scope], queryFn: () => kbSummary(scope) });
   const view: View = VIEWS.find((v) => v.id === params.get("view"))?.id ?? "search";
   const q = params.get("q") || "";
   const dq = params.get("dq") || "";
@@ -50,11 +55,21 @@ export function KnowledgeLibraryPage() {
       <button type="button" className="tk-icon-button" aria-label="다시 읽기" onClick={() => void queryClient.invalidateQueries({ predicate: (qy) => String(qy.queryKey[0]).startsWith("kb-") })}><Icon name="retry" /></button>
     } />
     <div className="tk-screen__body"><div className="tk-container tk-container--lg kb-page" data-selected={Boolean(view === "docs" && doc)}>
+      <div className="kb-actions" role="group" aria-label="자료 범위">
+        <Button size="sm" variant={scope === "personal" ? "primary" : "ghost"} aria-pressed={scope === "personal"} onClick={() => update({ scope: null, doc: null, rev: null })}>개인</Button>
+        <Button size="sm" variant={scope === "work" ? "primary" : "ghost"} aria-pressed={scope === "work"} onClick={() => update({ scope: "work", doc: null, rev: null })}>회사</Button>
+      </div>
       <nav className="kb-tabs" aria-label="보기 방식">
         {VIEWS.map((v) => <button key={v.id} type="button" aria-pressed={view === v.id} onClick={() => update({ view: v.id === "search" ? null : v.id })}>{v.label}</button>)}
       </nav>
       {summary.isError && <div className="kb-error"><p className="tk-error" role="alert">{failure(summary.error)}</p><Button variant="ghost" onClick={() => void summary.refetch()}>다시 시도</Button></div>}
       {view === "search" && <>
+        <div className="kb-field"><label id="kb-search-mode-label" htmlFor="kb-search-mode">검색 방식</label>
+          <Select id="kb-search-mode" labelledBy="kb-search-mode-label" value={params.get("mode") === "hybrid" ? "hybrid" : "lexical"}
+            onChange={(mode) => update({ mode: mode === "lexical" ? null : mode })}
+            options={[{ value: "lexical", label: "단어 검색" }, { value: "hybrid", label: "의미와 단어 함께" }]} />
+        </div>
+        {params.get("mode") === "hybrid" && summary.data?.retrieval && <p className="kb-note" role="status">의미 검색 준비: {summary.data.retrieval.indexed.toLocaleString()} / {summary.data.retrieval.total.toLocaleString()}개 패시지{summary.data.retrieval.last_error ? " · 일부 자료를 처리하지 못했어요. 단어 검색은 계속 이용할 수 있어요." : ""}</p>}
         <SearchBox value={q} onSubmit={(next) => update({ q: next || null })} />
         <SearchResults q={q} openDocument={openDocument} />
       </>}
@@ -67,7 +82,8 @@ export function KnowledgeLibraryPage() {
             : <div className="kb-placeholder"><p>문서를 고르면 버전, 패시지, 원문 위치가 여기에 보여요.</p></div>}
         </div>
       </>}
-      {view === "add" && <Register openDocument={(id) => openDocument(id)} />}
+      {view === "collect" && <Collection key={scope} />}
+      {view === "add" && <Register key={scope} openDocument={(id) => openDocument(id)} />}
     </div></div>
   </div>;
 }

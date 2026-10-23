@@ -11,6 +11,7 @@ export interface KbSource {
 }
 
 export interface KbSummary {
+  retrieval?: { enabled: boolean; model: string; indexed: number; total: number; last_error: string | null; quality_gate: string };
   counts: { sources: number; documents: number; revisions: number; passages: number; evidence: number };
   last_collected_at: string | null;
 }
@@ -120,6 +121,7 @@ export interface KbEvidence {
 }
 
 export interface KbRegisterIn {
+  scope?: "personal" | "work";
   title: string;
   text: string;
   source_key?: string;

@@ -101,3 +101,13 @@
   .kb-detail { position: sticky; top: var(--tk-space-4); max-height: 85dvh; overflow-y: auto; }
   .kb-back { display: none; }
 }
+
+/* 수집: 읽기 흐름을 유지하고 긴 주소와 폼은 좁은 화면에서 한 열로 접는다. */
+.kb-collect-fields { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-3); }
+.kb-policy-fields { display: flex; flex-direction: column; min-width: 0; gap: var(--tk-space-3); padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); }
+.kb-policy-fields legend { font-size: var(--tk-font-size-sm); }
+.kb-policy-consent { display: flex; align-items: start; gap: var(--tk-space-2); font-size: var(--tk-font-size-sm); }
+.kb-policy-consent input { flex: none; }
+.kb-collect-jobhead { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); align-items: center; }
+@media (min-width: 640px) { .kb-collect-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.kb-results > h2, .kb-register > h2, .kb-actions > h2 { margin: 0; font-size: var(--tk-font-size-lg); line-height: var(--tk-font-line-height-normal); }

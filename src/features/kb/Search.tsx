@@ -1,3 +1,5 @@
+import { useSearchParams } from "react-router";
+import { useKbScope } from "./scope";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { kbSearch } from "../../api/client";
@@ -44,9 +46,12 @@ function Hit({ hit, openDocument }: { hit: KbSearchHit; openDocument: (documentI
 }
 
 export function SearchResults({ q, openDocument }: { q: string; openDocument: (documentId: string, revisionId: string) => void }) {
+  const scope = useKbScope();
+  const [params] = useSearchParams();
+  const mode = params.get("mode") === "hybrid" ? "hybrid" : "lexical";
   const query = useInfiniteQuery({
-    queryKey: ["kb-search", q],
-    queryFn: ({ pageParam }) => kbSearch({ q, offset: pageParam }),
+    queryKey: ["kb-search", scope, q, mode],
+    queryFn: ({ pageParam }) => kbSearch({ q, offset: pageParam, ...(scope === "work" ? { scope } : {}), ...(mode === "hybrid" ? { mode } : {}) }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.has_more ? last.offset + last.limit : undefined),
     enabled: q.length > 0,
@@ -64,6 +69,6 @@ export function SearchResults({ q, openDocument }: { q: string; openDocument: (d
     <ul className="kb-hits" aria-label="검색 결과">{hits.map((h) => <Hit key={h.passage_id} hit={h} openDocument={openDocument} />)}</ul>
     {query.hasNextPage && <Button variant="ghost" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>결과 더 보기</Button>}
     {query.isError && query.data && <p className="tk-error" role="alert">{failure(query.error)}</p>}
-    <p className="kb-note">단어 일치 순서로 보여 줘요. 의미 검색이나 재순위는 아직 쓰지 않고, 근거는 원문 인용이라 해석은 검증되지 않았어요.</p>
+    <p className="kb-note">{mode === "hybrid" ? "의미가 가까운 문단과 단어 일치 결과를 함께 보여 줘요." : "단어가 일치하는 문단을 보여 줘요."} 원문 근거를 확인해 주세요. 검색 순위는 내용이 사실이라는 판정이 아니에요.</p>
   </div>;
 }

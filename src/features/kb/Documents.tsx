@@ -1,3 +1,4 @@
+import { useKbScope } from "./scope";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { kbDocument, kbDocuments } from "../../api/client";
@@ -34,9 +35,10 @@ function DocRow({ doc, selected, select }: { doc: KbDocumentRow; selected: boole
 }
 
 export function DocumentList({ q, selected, select }: { q: string; selected: string; select: (id: string) => void }) {
+  const scope = useKbScope();
   const query = useInfiniteQuery({
-    queryKey: ["kb-documents", q],
-    queryFn: ({ pageParam }) => kbDocuments({ q, offset: pageParam }),
+    queryKey: ["kb-documents", scope, q],
+    queryFn: ({ pageParam }) => kbDocuments({ q, offset: pageParam, ...(scope === "work" ? { scope } : {}) }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.offset + last.items.length < last.total ? last.offset + last.limit : undefined),
   });
@@ -72,9 +74,10 @@ function PassageItem({ passage }: { passage: KbPassage }) {
 export function DocumentDetail({ id, revisionId, selectRevision, back }: {
   id: string; revisionId: string; selectRevision: (revisionId: string | null) => void; back: () => void;
 }) {
+  const scope = useKbScope();
   const query = useInfiniteQuery({
-    queryKey: ["kb-document", id, revisionId],
-    queryFn: ({ pageParam }) => kbDocument(id, { revision_id: revisionId || undefined, passage_offset: pageParam }),
+    queryKey: ["kb-document", scope, id, revisionId],
+    queryFn: ({ pageParam }) => kbDocument(id, { revision_id: revisionId || undefined, passage_offset: pageParam, ...(scope === "work" ? { scope } : {}) }),
     initialPageParam: 0,
     getNextPageParam: (last) => (last.passages.offset + last.passages.items.length < last.passages.total ? last.passages.offset + last.passages.limit : undefined),
   });

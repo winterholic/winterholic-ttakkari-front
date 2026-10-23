@@ -1,3 +1,4 @@
+import { useKbScope } from "./scope";
 import { useQuery } from "@tanstack/react-query";
 import { kbEvidence } from "../../api/client";
 import { Badge } from "../../ui/Badge";
@@ -6,7 +7,8 @@ import { KIND_LABEL, failure, formatTime, shortHash } from "./labels";
 
 /** 패시지가 원문(정규화 본문)의 어디에 있는지와 해시 검증 결과. 저장 본문 슬라이스 일치만 뜻하며 내용이 사실이라는 확인은 아니다. */
 export function EvidencePanel({ passageId }: { passageId: string }) {
-  const q = useQuery({ queryKey: ["kb-evidence", passageId], queryFn: () => kbEvidence(passageId) });
+  const scope = useKbScope();
+  const q = useQuery({ queryKey: ["kb-evidence", scope, passageId], queryFn: () => scope === "work" ? kbEvidence(passageId, scope) : kbEvidence(passageId) });
   if (q.isPending) return <p className="kb-note" role="status">원문 위치를 읽는 중</p>;
   if (q.isError) {
     return <div className="kb-error"><p className="tk-error" role="alert">{failure(q.error)}</p><Button variant="ghost" size="sm" onClick={() => void q.refetch()}>다시 시도</Button></div>;

@@ -1,3 +1,4 @@
+import { useKbScope } from "./scope";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { kbRegister } from "../../api/client";
@@ -14,6 +15,7 @@ const MAX_FILE_BYTES = 8 * 1024 * 1024;
  * URL 수집은 collector 플랫폼 소관이라 여기서는 받지 않는다(ADR 0063 후속 작업).
  */
 export function Register({ openDocument }: { openDocument: (documentId: string) => void }) {
+  const scope = useKbScope();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
@@ -23,7 +25,7 @@ export function Register({ openDocument }: { openDocument: (documentId: string) 
   const [done, setDone] = useState<KbRegisterOut | null>(null);
 
   const save = useMutation({
-    mutationFn: () => kbRegister({ title: title.trim(), text, source_key: sourceKey.trim() || undefined, lang: lang.trim() || undefined }),
+    mutationFn: () => kbRegister({ ...(scope === "work" ? { scope } : {}), title: title.trim(), text, source_key: sourceKey.trim() || undefined, lang: lang.trim() || undefined }),
     onSuccess: async (out) => {
       setDone(out);
       setProblem("");
