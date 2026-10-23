@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { collectItemDetail, collectReviewQueue } from "../../api/collector";
+import { collectHoldAudit, collectItemDetail, collectReviewQueue } from "../../api/collector";
 import type { KbScope, ReviewItem } from "../../api/collector";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
@@ -39,16 +39,33 @@ function Row({ item, scope }: { item: ReviewItem; scope: KbScope }) {
   </li>;
 }
 
+function Audit({ scope }: { scope: KbScope }) {
+  const audit = useQuery({ queryKey: ["kb-collect-audit", scope], queryFn: () => collectHoldAudit(scope) });
+  if (audit.isPending) return <p role="status">표본을 고르는 중</p>;
+  if (audit.isError) return <div className="kb-error"><p className="tk-error" role="alert">{failure(audit.error)}</p><Button onClick={() => void audit.refetch()}>다시 시도</Button></div>;
+  const { groups, items } = audit.data;
+  return <section className="kb-results" aria-label="보류 표본 감사">
+    <h2>보류 표본 감사</h2>
+    <p className="kb-note">보류된 자료를 출처와 사유별로 나눠 하루 단위로 고정된 표본을 보여 줘요. 잘못 걸러진 자료가 없는지 확인하고 유용하면 적재해 주세요.</p>
+    {groups.length === 0 && <p className="kb-empty">보류된 자료가 없어요.</p>}
+    <ul className="kb-passages">{groups.map((g) => <li className="kb-passage" key={`${g.source_key}:${g.reason}`}>
+      <p className="kb-hash">{g.source_key}</p><p className="kb-note">{COLLECT_REASON[g.reason] || g.reason} · 보류 {g.held}건 중 {g.sampled}건 표본</p></li>)}</ul>
+    <ul className="kb-hits">{items.map((item) => <Row key={item.id} item={item} scope={scope} />)}</ul>
+  </section>;
+}
+
 export function Review({ scope }: { scope: KbScope }) {
+  const [sample, setSample] = useState(false);
   const query = useInfiniteQuery({ queryKey: ["kb-collect-review", scope], initialPageParam: 0,
     queryFn: ({ pageParam }) => collectReviewQueue(scope, pageParam),
     getNextPageParam: (p) => p.offset + p.items.length < p.total ? p.offset + p.limit : undefined });
+  if (sample) return <><Button size="sm" variant="ghost" onClick={() => setSample(false)}>검토 대기 목록으로</Button><Audit scope={scope} /></>;
   if (query.isPending) return <p role="status">검토 대기 자료를 읽는 중</p>;
   if (query.isError && !query.data) return <div className="kb-error"><p className="tk-error" role="alert">{failure(query.error)}</p><Button onClick={() => void query.refetch()}>다시 시도</Button></div>;
   const total = query.data.pages[0]?.total ?? 0;
   const rows = query.data.pages.flatMap((p) => p.items);
   return <section className="kb-results" aria-label="검토 대기">
-    <h2>검토 대기 {total.toLocaleString("ko-KR")}건</h2>
+    <div className="kb-actions"><h2>검토 대기 {total.toLocaleString("ko-KR")}건</h2><Button size="sm" variant="ghost" onClick={() => setSample(true)}>보류 표본 감사</Button></div>
     <p className="kb-note">보류됐거나, 자동 적재가 꺼진 출처에서 통과한 자료예요. 원문을 보고 유용하면 도서관에 적재할 수 있어요. 검토는 유용성만 뜻하고 사실 확인이 아니에요.</p>
     {rows.length === 0 && <p className="kb-empty">검토할 자료가 없어요.</p>}
     <ul className="kb-hits">{rows.map((item) => <Row key={item.id} item={item} scope={scope} />)}</ul>

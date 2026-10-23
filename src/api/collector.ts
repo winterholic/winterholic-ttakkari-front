@@ -85,3 +85,5 @@ export const reconcileCollectDelivery = (id: string, scope: KbScope) => json<{ s
 export const collectRuntime = (scope: KbScope) => json<CollectRuntime>(`${base}/runtime`, { query: { scope } });
 export const setCollectRuntime = (scope: KbScope, paused: boolean, reason: string) => json<{ paused: boolean }>(`${base}/runtime`, { method: "PUT", query: { scope }, json: { paused, reason } });
 export const registerCollectPilot = (scope: KbScope) => json<{ created: string[]; available: string[] }>(`${base}/pilot`, { method: "POST", query: { scope } });
+export interface HoldAudit { day: string; per_group: number; groups: { source_key: string; reason: string; held: number; sampled: number }[]; items: ReviewItem[] }
+export const collectHoldAudit = (scope: KbScope) => json<HoldAudit>(`${base}/review/audit`, { query: { scope, per_group: 2 } });

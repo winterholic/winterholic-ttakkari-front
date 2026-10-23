@@ -5,12 +5,12 @@ import { MemoryRouter } from "react-router";
 
 const mocks = vi.hoisted(() => ({
   summary: vi.fn(), runtime: vi.fn(), setRuntime: vi.fn(), pilot: vi.fn(), review: vi.fn(), detail: vi.fn(),
-  deliveries: vi.fn(), reconcile: vi.fn(),
+  deliveries: vi.fn(), reconcile: vi.fn(), audit: vi.fn(),
 }));
 vi.mock("../../api/collector", () => ({
   collectSummary: mocks.summary, collectRuntime: mocks.runtime, setCollectRuntime: mocks.setRuntime,
   registerCollectPilot: mocks.pilot, collectReviewQueue: mocks.review, collectItemDetail: mocks.detail,
-  collectDeliveries: mocks.deliveries, reconcileCollectDelivery: mocks.reconcile,
+  collectDeliveries: mocks.deliveries, collectHoldAudit: mocks.audit, reconcileCollectDelivery: mocks.reconcile,
   reviewCollectItem: vi.fn(), importCollectItem: vi.fn(), collectQuality: vi.fn(), trainCollectQuality: vi.fn(),
   collectSources: vi.fn(), collectJobs: vi.fn(), runCollectSource: vi.fn(), updateCollectSource: vi.fn(),
   createCollectSource: vi.fn(), editCollectSource: vi.fn(), collectItems: vi.fn(), retryCollectJob: vi.fn(),
@@ -111,4 +111,16 @@ it("전달 결과에서 실패 항목을 점검하고 결과 문구를 보여 �
   fireEvent.click(screen.getByRole("button", { name: "상태 점검" }));
   expect(await screen.findByText("다시 전달하도록 열었어요.")).toBeTruthy();
   expect(mocks.reconcile).toHaveBeenCalledWith("o1", "personal");
+});
+
+it("보류 표본 감사는 출처·사유별 표본 규모를 보여 준다", async () => {
+  mocks.review.mockResolvedValue({ items: [], total: 0, limit: 20, offset: 0 });
+  mocks.audit.mockResolvedValue({ day: "2026-10-23", per_group: 2, groups: [{ source_key: "pilot:x", reason: "l0_too_short", held: 5, sampled: 2 }],
+    items: [{ id: "i9", url: "https://docs.test/a", source_key: "pilot:x", status: "held", reason_codes: ["l0_too_short"], language: "ko", text_chars: 80, preview: "표본 본문", signals: {} }] });
+  wrap(<Review scope="personal" />);
+  fireEvent.click(await screen.findByRole("button", { name: "보류 표본 감사" }));
+  expect(await screen.findByText(/보류 5건 중 2건 표본/)).toBeTruthy();
+  expect(screen.getByText("표본 본문")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "검토 대기 목록으로" }));
+  expect(await screen.findByText("검토할 자료가 없어요.")).toBeTruthy();
 });
