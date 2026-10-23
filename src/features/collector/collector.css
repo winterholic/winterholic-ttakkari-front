@@ -1,0 +1,15 @@
+/* 수집 관리(/collect). kb.css 의 토큰과 구성요소를 그대로 쓰고, 현황 화면에만 필요한 것을 더한다. */
+.collect-card { display: flex; flex-direction: column; align-items: start; gap: var(--tk-space-2); min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.collect-card > * { min-width: 0; max-width: 100%; }
+.collect-card h3 { margin: 0; font-size: var(--tk-font-size-md); }
+.collect-card[data-paused="true"] { border-color: var(--tk-color-border-brand); background: var(--tk-color-surface-brand-subtle); }
+.collect-card .kb-facts { align-self: stretch; }
+.collect-funnel { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--tk-space-2); }
+.collect-funnel li { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.collect-funnel strong { font-size: var(--tk-font-size-lg); font-variant-numeric: tabular-nums; }
+.collect-funnel span { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); overflow-wrap: anywhere; }
+.collect-funnel li[data-key="awaiting_review"] strong { color: var(--tk-color-text-brand); }
+@media (min-width: 640px) { .collect-funnel { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .collect-funnel { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.collect-clamp { display: -webkit-box; -webkit-line-clamp: 6; line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.collect-page .tk-input, .collect-page .tk-textarea { min-height: var(--tk-size-touch-target-min); }

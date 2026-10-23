@@ -30,6 +30,7 @@ export const FEATURES: readonly Feature[] = [
   { root: "library", to: "/library", icon: "library", label: "보관함", description: "모든 결과물을 날짜별로" },
   { root: "context-library", to: "/context-library", icon: "context-library", label: "맥락 도서관", description: "RAG 색인과 온톨로지가 어떻게 쌓였는지 한눈에" },
   { root: "knowledge-library", to: "/knowledge-library", icon: "kb-library", label: "지식 도서관", description: "공식 문서·표준을 원문 근거와 함께 보관하고 문단 단위로 검색" },
+  { root: "collect", to: "/collect", icon: "hard-drive", label: "수집 관리", description: "공식 문서·피드 수집 출처, 실행, 검토, 전달 결과와 하루 한도" },
   { root: "files", to: "/files", icon: "folder-search", label: "파일", description: "Mac Studio 파일 찾기·폰에서 보내기" },
   { root: "memos", to: "/memos", icon: "memo", label: "메모", description: "카테고리·태그로 정리하는 메모", mobileTab: true },
   { root: "calendar", to: "/calendar", icon: "calendar", label: "캘린더", description: "일정과 한국 공휴일", mobileTab: true },

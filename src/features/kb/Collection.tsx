@@ -9,7 +9,7 @@ import { COLLECT_REASON, failure, formatTime } from "./labels";
 import { useKbScope } from "./scope";
 import { ItemReview, QualityPanel } from "./Quality";
 
-const STATUS: Record<string, string> = {
+export const STATUS: Record<string, string> = {
   queued: "대기", running: "수집 중", succeeded: "수집 마침", partial: "일부 수집", failed: "실패",
   cancelled: "취소", retry_wait: "재시도 대기", budget_wait: "예산 대기", policy_blocked: "정책 확인 필요", quarantined: "격리",
   accepted: "적재 대상", held: "검토 보류", blocked: "차단", not_modified: "변경 없음", discovered: "링크 발견",
@@ -103,20 +103,16 @@ function JobRow({ job, scope }: { job: CollectJob; scope: KbScope }) {
   </li>;
 }
 
-export function Collection() {
-  const scope = useKbScope();
+export function SourcesPanel({ scope }: { scope: KbScope }) {
   const cache = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<CollectSource | undefined>();
-  const [qualityOpen, setQualityOpen] = useState(false);
   const sources = useQuery({ queryKey: ["kb-collect-sources", scope], queryFn: () => collectSources(scope), refetchInterval: 15000 });
-  const jobs = useInfiniteQuery({ queryKey: ["kb-collect-jobs", scope], initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }) => collectJobs(scope, pageParam), getNextPageParam: (p) => p.next_cursor || undefined, refetchInterval: 10000 });
   const run = useMutation({ mutationFn: (id: string) => runCollectSource(id, scope),
     onSuccess: () => cache.invalidateQueries({ queryKey: ["kb-collect-jobs", scope] }) });
   const toggle = useMutation({ mutationFn: ({ id, enabled, version }: { id: string; enabled: boolean; version: number }) => updateCollectSource(id, scope, enabled, version),
     onSuccess: () => cache.invalidateQueries({ queryKey: ["kb-collect-sources", scope] }) });
-  return <section className="kb-results" aria-label="지식 수집 관리">
+  return <section className="kb-results" aria-label="수집 출처">
     <div className="kb-actions"><h2>수집 출처</h2><Button size="sm" variant="primary" onClick={() => setAdding(!adding)}>출처 등록</Button></div>
     <p className="kb-note">출처를 등록하면 허용된 문서를 수집하고 기본 검사를 통과한 자료를 도서관에 쌓아요. 보류·실패 항목도 아래에서 확인할 수 있어요.</p>
     {adding && <SourceForm key={scope} scope={scope} close={() => setAdding(false)} />}
@@ -128,18 +124,35 @@ export function Collection() {
     <ul className="kb-hits">{sources.data?.items.map((source) => <li className="kb-hit" key={source.id}>
       <h3 className="kb-hit__title">{source.title}</h3><p className="kb-hash">{source.seeds[0]}</p>
       <div className="kb-badges"><Badge>{source.enabled ? "사용 중" : "일시정지"}</Badge><Badge>{source.interval_minutes ? `${source.interval_minutes.toLocaleString()}분 주기` : "직접 실행"}</Badge><Badge>{source.auto_import ? "도서관 자동 적재" : "내보내기"}</Badge></div>
+      {source.next_run_at && source.enabled && <p className="kb-note">다음 자동 수집 {formatTime(source.next_run_at)}</p>}
       <div className="kb-actions"><Button size="sm" busy={run.isPending} disabled={!source.enabled} onClick={() => run.mutate(source.id)}>지금 수집</Button>
         <Button size="sm" variant="ghost" busy={toggle.isPending} onClick={() => toggle.mutate({ id: source.id, enabled: !source.enabled, version: source.version })}>{source.enabled ? "일시정지" : "재개"}</Button>
         <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setEditing(source); }}>출처 설정</Button></div>
       {source.last_error && <p className="tk-error">{source.last_error}</p>}
     </li>)}</ul>
     {(run.isError || toggle.isError) && <p className="tk-error" role="alert">{failure(run.error || toggle.error)}</p>}
+  </section>;
+}
+
+export function RunsPanel({ scope }: { scope: KbScope }) {
+  const jobs = useInfiniteQuery({ queryKey: ["kb-collect-jobs", scope], initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }) => collectJobs(scope, pageParam), getNextPageParam: (p) => p.next_cursor || undefined, refetchInterval: 10000 });
+  return <section className="kb-results" aria-label="수집 이력">
     <h2>수집 이력</h2>
     {jobs.isPending && <p role="status">작업을 읽는 중</p>}
     {jobs.isError && <p className="tk-error" role="alert">{failure(jobs.error)}</p>}
     {jobs.data?.pages[0]?.jobs.length === 0 && <p className="kb-note">수집을 시작하면 작업별 진행 상황과 결과가 여기에 보여요.</p>}
     <ul className="kb-hits">{jobs.data?.pages.flatMap((p) => p.jobs).map((job) => <JobRow key={job.job_id} job={job} scope={scope} />)}</ul>
     {jobs.hasNextPage && <Button variant="ghost" busy={jobs.isFetchingNextPage} onClick={() => void jobs.fetchNextPage()}>이전 작업 더 보기</Button>}
+  </section>;
+}
+
+export function Collection() {
+  const scope = useKbScope();
+  const [qualityOpen, setQualityOpen] = useState(false);
+  return <section className="kb-results" aria-label="지식 수집 관리">
+    <SourcesPanel scope={scope} />
+    <RunsPanel scope={scope} />
     <Button variant="ghost" aria-expanded={qualityOpen} onClick={() => setQualityOpen(!qualityOpen)}>{qualityOpen ? "품질 모델 관리 닫기" : "품질 모델 관리"}</Button>
     {qualityOpen && <QualityPanel scope={scope} />}
   </section>;

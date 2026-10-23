@@ -10,8 +10,9 @@ export function ItemReview({ id, scope }: { id: string; scope: KbScope }) {
   const [reason, setReason] = useState("");
   const [approved, setApproved] = useState(false);
   const review = useMutation({ mutationFn: (decision: "accept" | "reject" | "hold") => reviewCollectItem(id, scope, decision, reason),
-    onSuccess: async (_, decision) => { setApproved(decision === "accept"); await cache.invalidateQueries({ queryKey: ["kb-collect-quality", scope] }); } });
-  const accept = useMutation({ mutationFn: () => importCollectItem(id, scope) });
+    onSuccess: async (_, decision) => { setApproved(decision === "accept"); await Promise.all([cache.invalidateQueries({ queryKey: ["kb-collect-quality", scope] }), cache.invalidateQueries({ queryKey: ["kb-collect-summary", scope] })]); } });
+  const accept = useMutation({ mutationFn: () => importCollectItem(id, scope),
+    onSuccess: () => Promise.all([cache.invalidateQueries({ queryKey: ["kb-collect-review", scope] }), cache.invalidateQueries({ queryKey: ["kb-collect-summary", scope] }), cache.invalidateQueries({ queryKey: ["kb-collect-deliveries", scope] })]) });
   return <div className="kb-results">
     <label className="kb-field">자료의 유용성 검토
       <input className="tk-input" value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} placeholder="원문을 확인한 이유·판단을 적어 주세요." /></label>

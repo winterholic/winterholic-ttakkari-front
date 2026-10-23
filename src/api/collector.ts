@@ -37,3 +37,51 @@ export const reviewCollectItem = (id: string, scope: KbScope, decision: "accept"
 export const importCollectItem = (id: string, scope: KbScope) => json(`${base}/items/${encodeURIComponent(id)}/import`, { method: "POST", query: { scope } });
 
 export const editCollectSource = (id: string, scope: KbScope, body: Record<string, unknown>) => json<CollectSource>(`${base}/sources/${encodeURIComponent(id)}`, { method: "PATCH", query: { scope }, json: body });
+
+export interface CollectSummary {
+  funnel: { discovered: number; fetched: number; extracted: number; accepted: number; held: number; blocked: number; failed: number;
+    not_modified: number; delivered: number; awaiting_delivery: number; awaiting_review: number };
+  jobs: Record<string, number>; outbox: Record<string, number>;
+  waiting: { job_id: string; status: string; source_key: string; not_before: string | null; reason: string | null }[];
+  runtime: { loop_available: boolean; paused: boolean; reason: string | null; since: string | null };
+  budget: CollectBudget; daily_page_cap: number;
+}
+export interface CollectBudget {
+  day: string; timezone: string; teacher_enabled: boolean; unsettled: number;
+  tokens: { limit: number; used: number; remaining: number }; calls: { limit: number; used: number; remaining: number };
+  micro_usd: { limit: number; used: number; remaining: number };
+  per_job: { tokens: number; calls: number; micro_usd: number };
+  pages?: { limit: number; reserved: number };
+}
+export interface ReviewItem {
+  id: string; url: string; source_key: string; status: string; reason_codes: string[]; language: string | null;
+  text_chars: number | null; preview: string; signals: Record<string, unknown>;
+}
+export interface CollectItemDetail {
+  id: string; url: string; final_url: string | null; status: string; stage: string; http_status: number | null;
+  language: string | null; text_chars: number | null; reason_codes: string[]; preview: string;
+  decision: { state: string; reason_codes: string[] } | null;
+  quality: Record<string, { score: number | null; status?: string }> | null;
+  versions: { parser: string | null; normalizer: string | null };
+  hashes: { raw_sha256: string | null; text_sha256: string | null; payload: string | null };
+  rights: { permission?: string; purposes?: string[]; license_id?: string | null; policy_url?: string | null };
+  reviews: { decision: string; reason: string; at: string; current: boolean }[];
+  deliveries: { outbox_id: string; sink: string; status: string; attempts: number; last_error: string | null; outcome: string | null }[];
+}
+export interface CollectDelivery {
+  outbox_id: string; job_id: string; sink: string; status: string; attempts: number; not_before: string | null;
+  last_error: string | null; created_at: string; delivered_at: string | null; outcome: string | null;
+}
+export interface CollectRuntime {
+  loop_available: boolean; general_consume_enabled: boolean; paused: boolean; reason: string | null; since: string | null;
+  pilot: { seeded: string[]; rights_checked_at: string } | null; pilot_enabled: boolean; ml_spending_enabled: boolean;
+}
+export const collectSummary = (scope: KbScope) => json<CollectSummary>(`${base}/summary`, { query: { scope } });
+export const collectBudgets = (scope: KbScope) => json<CollectBudget>(`${base}/budgets`, { query: { scope } });
+export const collectReviewQueue = (scope: KbScope, offset = 0) => json<{ items: ReviewItem[]; total: number; limit: number; offset: number }>(`${base}/review`, { query: { scope, offset } });
+export const collectItemDetail = (id: string, scope: KbScope) => json<CollectItemDetail>(`${base}/items/${encodeURIComponent(id)}`, { query: { scope } });
+export const collectDeliveries = (scope: KbScope, status?: string, offset = 0) => json<{ items: CollectDelivery[]; total: number; limit: number; offset: number }>(`${base}/deliveries`, { query: { scope, status, offset } });
+export const reconcileCollectDelivery = (id: string, scope: KbScope) => json<{ state: string; status: string }>(`${base}/deliveries/${encodeURIComponent(id)}/reconcile`, { method: "POST", query: { scope } });
+export const collectRuntime = (scope: KbScope) => json<CollectRuntime>(`${base}/runtime`, { query: { scope } });
+export const setCollectRuntime = (scope: KbScope, paused: boolean, reason: string) => json<{ paused: boolean }>(`${base}/runtime`, { method: "PUT", query: { scope }, json: { paused, reason } });
+export const registerCollectPilot = (scope: KbScope) => json<{ created: string[]; available: string[] }>(`${base}/pilot`, { method: "POST", query: { scope } });

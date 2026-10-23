@@ -46,6 +46,7 @@ const CreativeDetailPage = lazy(() => import('./pages/CreativePage').then(m => (
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
 const ContextLibraryItemPage = lazy(() => import("./pages/ContextLibraryItemPage").then((m) => ({ default: m.ContextLibraryItemPage })));
+const CollectPage = lazy(() => import("./pages/CollectPage").then((m) => ({ default: m.CollectPage })));
 const KnowledgeLibraryPage = lazy(() => import("./pages/KnowledgeLibraryPage").then((m) => ({ default: m.KnowledgeLibraryPage })));
 const HarnessPage = lazy(() => import("./pages/HarnessPage").then((m) => ({ default: m.HarnessPage })));
 const CalendarPage = lazy(() => import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage })));
@@ -114,6 +115,7 @@ export function App() {
         <Route path="/research" element={<Suspense fallback={<RouteFallback />}><ResearchPage /></Suspense>} />
         <Route path="/logs" element={<OpsLogsPage />} />
         <Route path="/design-systems" element={<DesignSystemPage />} />
+        <Route path="/collect" element={<Suspense fallback={<RouteFallback />}><CollectPage /></Suspense>} />
         <Route path="/knowledge-library" element={<Suspense fallback={<RouteFallback />}><KnowledgeLibraryPage /></Suspense>} />
         <Route path="/harness" element={<Suspense fallback={<RouteFallback />}><HarnessPage /></Suspense>} />
         <Route path="/artcraft" element={<ArtcraftPage />} />
