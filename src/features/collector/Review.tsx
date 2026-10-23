@@ -1,6 +1,6 @@
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { collectHoldAudit, collectItemDetail, collectReviewQueue } from "../../api/collector";
+import { collectHoldAudit, collectItemDetail, collectReviewQueue, reprocessCollectItem } from "../../api/collector";
 import type { KbScope, ReviewItem } from "../../api/collector";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
@@ -28,11 +28,30 @@ function Detail({ id, scope }: { id: string; scope: KbScope }) {
 
 function Row({ item, scope }: { item: ReviewItem; scope: KbScope }) {
   const [open, setOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const reprocess = useMutation({
+    mutationFn: () => reprocessCollectItem(item.id, scope),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["kb-collect-review", scope] }),
+        queryClient.invalidateQueries({ queryKey: ["kb-collect-audit", scope] }),
+        queryClient.invalidateQueries({ queryKey: ["kb-collect-jobs", scope] }),
+        queryClient.invalidateQueries({ queryKey: ["kb-collect-summary", scope] }),
+      ]);
+    },
+  });
   return <li className="kb-hit">
     <p className="kb-hash">{item.url}</p>
     <div className="kb-badges"><Badge>{STATUS[item.status] || item.status}</Badge>{item.language && <Badge>{item.language}</Badge>}{item.text_chars != null && <Badge>{formatChars(item.text_chars)}</Badge>}</div>
     {item.reason_codes.length > 0 && <p className="kb-note">{item.reason_codes.map((r) => COLLECT_REASON[r] || r).join(" · ")}</p>}
     {item.preview && <p className="kb-passage__body collect-clamp">{item.preview}</p>}
+    {item.status === "held" && item.can_reprocess && <div className="kb-actions">
+      <Button size="sm" variant="ghost" busy={reprocess.isPending} onClick={() => reprocess.mutate()}>
+        원문으로 다시 처리
+      </Button>
+      {reprocess.isSuccess && <span className="kb-note" role="status">재처리 작업을 등록했어요. 실행 탭에서 진행 상태를 볼 수 있어요.</span>}
+      {reprocess.isError && <span className="tk-error" role="alert">재처리 작업을 등록하지 못했어요: {failure(reprocess.error)}</span>}
+    </div>}
     <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "자세히 닫기" : "근거와 처리 이력"}</Button>
     {open && <Detail id={item.id} scope={scope} />}
     <ItemReview id={item.id} scope={scope} />

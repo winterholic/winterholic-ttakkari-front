@@ -55,7 +55,7 @@ export interface CollectBudget {
 }
 export interface ReviewItem {
   id: string; url: string; source_key: string; status: string; reason_codes: string[]; language: string | null;
-  text_chars: number | null; preview: string; signals: Record<string, unknown>;
+  text_chars: number | null; preview: string; signals: Record<string, unknown>; can_reprocess: boolean;
 }
 export interface CollectItemDetail {
   id: string; url: string; final_url: string | null; status: string; stage: string; http_status: number | null;
@@ -80,6 +80,7 @@ export const collectSummary = (scope: KbScope) => json<CollectSummary>(`${base}/
 export const collectBudgets = (scope: KbScope) => json<CollectBudget>(`${base}/budgets`, { query: { scope } });
 export const collectReviewQueue = (scope: KbScope, offset = 0) => json<{ items: ReviewItem[]; total: number; limit: number; offset: number }>(`${base}/review`, { query: { scope, offset } });
 export const collectItemDetail = (id: string, scope: KbScope) => json<CollectItemDetail>(`${base}/items/${encodeURIComponent(id)}`, { query: { scope } });
+export const reprocessCollectItem = (id: string, scope: KbScope) => json<{ job_id: string; status: string }>(`${base}/items/${encodeURIComponent(id)}/reprocess`, { method: "POST", query: { scope } });
 export const collectDeliveries = (scope: KbScope, status?: string, offset = 0) => json<{ items: CollectDelivery[]; total: number; limit: number; offset: number }>(`${base}/deliveries`, { query: { scope, status, offset } });
 export const reconcileCollectDelivery = (id: string, scope: KbScope) => json<{ state: string; status: string }>(`${base}/deliveries/${encodeURIComponent(id)}/reconcile`, { method: "POST", query: { scope } });
 export const collectRuntime = (scope: KbScope) => json<CollectRuntime>(`${base}/runtime`, { query: { scope } });
