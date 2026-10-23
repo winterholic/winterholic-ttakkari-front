@@ -87,12 +87,15 @@ function productionFixture(overrides: Partial<ProductionView> = {}): ProductionV
   return {
     plan_id: "11111111-1111-4111-8111-111111111111",
     plan_revision: 1,
-    engine: "skill.v1_ffmpeg_slideshow",
     state: "not_dispatched",
     dispatchable: true,
     reasons: [],
-    project_id: null,
-    job: null,
+    assets: { scenes_total: 3, scenes_with_asset: 0, missing_scene_ids: ["s1", "s2", "s3"], music: null, music_problem: "음악 자산이 없습니다.", complete: false },
+    engine: null,
+    outdated_segments: [],
+    segments: [],
+    final: null,
+    log: [],
     ...overrides,
   };
 }
@@ -103,7 +106,7 @@ function stub(handler: Handler) {
     "fetch",
     vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input.toString();
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      const body = init?.body instanceof FormData ? init.body : init?.body ? JSON.parse(String(init.body)) : undefined;
       calls.push({ url, method: init?.method ?? "GET", body });
       const result = await handler(url, init);
       if (result instanceof Response) return result;
@@ -534,66 +537,205 @@ test("the production panel stays hidden until the render gate is open", async ()
   expect(calls.some((c) => c.url.includes("/production"))).toBe(false);
 });
 
-test("a dispatchable approved plan creates the renderer project and then asks for assets", async () => {
-  let dispatched = false;
+const ENGINE = { adapter: "skill.v1_ffmpeg_slideshow", version: "ffmpeg version 7.1" };
+const SEG = {
+  id: "seg-01",
+  scene_ids: ["s1", "s2", "s3"],
+  seconds: 25.8,
+  status: "pending" as const,
+  attempts: 0,
+  error: null,
+  project_id: null,
+  job_id: null,
+  run_key: null,
+  metrics: null,
+};
+
+test("a dispatchable approved plan is prepared, then asks for scene images and music", async () => {
   const calls = stub((url, init) => {
     if (url.endsWith("/production") && init?.method === "POST") {
-      dispatched = true;
       return productionFixture({
         state: "awaiting_assets",
         dispatchable: false,
-        reasons: ["장면 i0에 이미지·영상 자산이 없습니다.", "음악 자산이 없습니다."],
-        project_id: "22222222-2222-4222-8222-222222222222",
-        project_url: "/creative/22222222-2222-4222-8222-222222222222",
+        reasons: ["장면 s1에 이미지가 없습니다.", "음악 자산이 없습니다."],
+        engine: ENGINE,
+        segments: [SEG],
       });
     }
     if (url.includes("/production")) return productionFixture();
     return approvedGate();
   });
   mount("/creative/plan/11111111-1111-4111-8111-111111111111");
-  fireEvent.click(await screen.findByRole("button", { name: "렌더러 프로젝트 만들기" }));
+  fireEvent.click(await screen.findByRole("button", { name: "제작 시작 준비" }));
   await screen.findByText("이미지·음악 자산을 기다리는 중");
-  expect(dispatched).toBe(true);
   expect(calls.find((c) => c.method === "POST")?.body).toEqual({ revision: 1 });
   expect(within(screen.getByLabelText("제작을 진행할 수 없는 이유")).getByText("음악 자산이 없습니다.")).toBeTruthy();
-  const link = screen.getByRole("link", { name: "프로젝트에서 이미지·음악 올리기" });
-  expect(link.getAttribute("href")).toBe("/creative/22222222-2222-4222-8222-222222222222");
-  expect(screen.getByText(/정지 이미지 슬라이드쇼 하나/)).toBeTruthy();
+  expect(screen.getByText(/skill\.v1_ffmpeg_slideshow \(ffmpeg version 7\.1\)/)).toBeTruthy();
+  expect(within(screen.getByLabelText("장면 이미지")).getAllByRole("listitem")).toHaveLength(2);
+  expect(screen.getByLabelText("음악 파일")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "렌더 시작" })).toBeNull();
+  expect(screen.getByText(/정지 이미지 슬라이드쇼 하나/)).toBeTruthy();
 });
 
-test("a ready project can start the render and shows the real job state", async () => {
+test("uploading a scene image posts multipart form data with the scene id and refreshes the state", async () => {
+  const uploads: FormData[] = [];
+  stub((url, init) => {
+    if (url.endsWith("/production/assets") && init?.method === "POST") {
+      uploads.push(init.body as FormData);
+      return { id: "a1", sha256: "x", name: "s1.png" };
+    }
+    if (url.includes("/production")) {
+      return productionFixture({ state: "awaiting_assets", dispatchable: false, engine: ENGINE, segments: [SEG] });
+    }
+    return approvedGate();
+  });
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  const input = (await screen.findByLabelText("장면 s1 이미지")) as HTMLInputElement;
+  fireEvent.change(input, { target: { files: [new File([new Uint8Array([1, 2, 3])], "s1.png", { type: "image/png" })] } });
+  await waitFor(() => expect(uploads).toHaveLength(1));
+  expect(uploads[0].get("kind")).toBe("scene");
+  expect(uploads[0].get("scene_id")).toBe("s1");
+  expect((uploads[0].get("file") as File).name).toBe("s1.png");
+});
+
+test("a ready plan starts the render and shows per-segment engine state", async () => {
   const calls = stub((url, init) => {
     if (url.endsWith("/production/render") && init?.method === "POST") {
       return productionFixture({
-        state: "queued",
+        state: "rendering",
         dispatchable: false,
-        project_id: "p",
-        project_url: "/creative/p",
-        job: { id: "j1", status: "queued", progress: 0, elapsed_seconds: null, peak_rss_bytes: null, error: null },
+        engine: ENGINE,
+        assets: { scenes_total: 3, scenes_with_asset: 3, missing_scene_ids: [], music: { id: "m", name: "m.wav", sha256: "x", duration: 30 }, music_problem: null, complete: true },
+        segments: [{ ...SEG, status: "queued", attempts: 1, project_id: "p", job_id: "j", run_key: "k" }],
       });
     }
     if (url.includes("/production")) {
-      return productionFixture({ state: "ready_to_render", dispatchable: false, project_id: "p", project_url: "/creative/p" });
+      return productionFixture({
+        state: "ready_to_render",
+        dispatchable: false,
+        engine: ENGINE,
+        assets: { scenes_total: 3, scenes_with_asset: 3, missing_scene_ids: [], music: { id: "m", name: "m.wav", sha256: "x", duration: 30 }, music_problem: null, complete: true },
+        segments: [SEG],
+      });
     }
     return approvedGate();
   });
   mount("/creative/plan/11111111-1111-4111-8111-111111111111");
   fireEvent.click(await screen.findByRole("button", { name: "렌더 시작" }));
-  await screen.findByText("렌더 대기 중");
+  await screen.findByText("렌더 중", { selector: "span" });
   expect(calls.some((c) => c.url.endsWith("/production/render") && c.method === "POST")).toBe(true);
-  expect(screen.getByText(/작업 queued/)).toBeTruthy();
+  expect(within(screen.getByLabelText("제작 구간")).getByText(/seg-01 .* 큐 대기 · 1회 실행/)).toBeTruthy();
   expect(screen.queryByRole("button", { name: "렌더 시작" })).toBeNull();
 });
 
-test("a plan the renderer cannot take shows why instead of a dispatch button", async () => {
+test("a failed segment offers a retry and shows the engine error", async () => {
+  const calls = stub((url, init) => {
+    if (url.includes("/production/render") && init?.method === "POST") return productionFixture({ state: "rendering", dispatchable: false, engine: ENGINE, segments: [{ ...SEG, status: "running", attempts: 2 }] });
+    if (url.includes("/production")) {
+      return productionFixture({
+        state: "failed",
+        dispatchable: false,
+        reasons: ["구간 seg-01: 장면 s3의 이미지를 읽을 수 없습니다."],
+        engine: ENGINE,
+        segments: [{ ...SEG, status: "failed", attempts: 1, error: "장면 s3의 이미지를 읽을 수 없습니다.", project_id: "p" }],
+      });
+    }
+    return approvedGate();
+  });
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  fireEvent.click(await screen.findByRole("button", { name: "실패한 구간 다시 시도" }));
+  await screen.findByText("렌더 중", { selector: "span" });
+  expect(calls.some((c) => c.url.endsWith("/production/render") && c.method === "POST")).toBe(true);
+});
+
+test("a finished render shows measured QA checks, the duration deviation and opens the media through a signed link", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/production/media-link") && init?.method === "POST") return { url: "/api/creative/v2/plans/x/production/media/m1?token=t" };
+    if (url.includes("/production")) {
+      return productionFixture({
+        state: "succeeded",
+        dispatchable: false,
+        engine: ENGINE,
+        assets: { scenes_total: 3, scenes_with_asset: 3, missing_scene_ids: [], music: { id: "m", name: "m.wav", sha256: "x", duration: 30 }, music_problem: null, complete: true },
+        segments: [{ ...SEG, status: "succeeded", attempts: 1, project_id: "p", job_id: "j", run_key: "k", metrics: { elapsed_seconds: 3, peak_rss_bytes: 1, cached_scenes: 2 } }],
+        final: {
+          status: "qa_passed",
+          id: "m1",
+          sha256: "s",
+          size: 1000,
+          name: "영상.mp4",
+          planned_seconds: 25.8,
+          duration: { requested: { mode: "preferred", seconds: 600 }, plan_status: "deviated", planned_seconds: 25.8, measured_seconds: 25.8 },
+          assembled_at: "t",
+          error: null,
+          qa: {
+            passed: true,
+            checks: [
+              { id: "resolution", passed: true, detail: "기대 1280x720", measured: "1280x720" },
+              { id: "audible", passed: true, detail: "오디오 최대 음량 -60 dB 초과", measured: { mean_db: -20, max_db: -9 } },
+            ],
+          },
+        },
+      });
+    }
+    return approvedGate();
+  });
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  await screen.findByText("렌더 완료·검사 통과");
+  const checks = screen.getByLabelText("결과 검사 항목");
+  expect(within(checks).getByText(/통과 · 기대 1280x720 · 측정 1280x720/)).toBeTruthy();
+  expect(screen.getByText(/요청 길이 .*계획 .*\(deviated\) · 실제/)).toBeTruthy();
+  expect(screen.getByText(/장면 2개 재사용/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "결과 영상 열기" }));
+  const video = await screen.findByLabelText("결과 영상");
+  expect(video.getAttribute("src")).toContain("/production/media/m1?token=t");
+  expect(calls.find((c) => c.url.endsWith("/production/media-link"))?.body).toEqual({ id: "m1" });
+});
+
+test("a failed QA never offers the media", async () => {
   stub((url) =>
     url.includes("/production")
-      ? productionFixture({ dispatchable: false, reasons: ["총 900초가 렌더러 한도 240초를 넘습니다."] })
+      ? productionFixture({
+          state: "qa_failed",
+          dispatchable: false,
+          reasons: ["검은 화면 비율 90% 미만"],
+          engine: ENGINE,
+          segments: [{ ...SEG, status: "succeeded", attempts: 1 }],
+          final: {
+            status: "qa_failed", id: "m1", sha256: "s", size: 1, name: "a.mp4", planned_seconds: 10, duration: null, assembled_at: "t", error: null,
+            qa: { passed: false, checks: [{ id: "not_black", passed: false, detail: "검은 화면 비율 90% 미만", measured: 1 }] },
+          },
+        })
       : approvedGate(),
   );
   mount("/creative/plan/11111111-1111-4111-8111-111111111111");
-  await screen.findByText("아직 렌더러로 보내지 않음");
-  expect(screen.getByText(/렌더러 한도 240초/)).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "렌더러 프로젝트 만들기" })).toBeNull();
+  await screen.findByText("검사 실패");
+  expect(screen.getByLabelText("결과 검사 항목")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "결과 영상 열기" })).toBeNull();
+});
+
+test("a plan the engine cannot take shows why instead of a dispatch button", async () => {
+  stub((url) =>
+    url.includes("/production")
+      ? productionFixture({ dispatchable: false, reasons: ["필수 의존성 없음: 한국어 자막 글꼴이 없습니다."] })
+      : approvedGate(),
+  );
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  await screen.findByText("아직 엔진으로 보내지 않음");
+  expect(screen.getByText(/필수 의존성 없음/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "제작 시작 준비" })).toBeNull();
+});
+
+test("an approved plan whose gate is closed shows the server's gate reasons, not a promise of a later step", async () => {
+  const closed = planFixture({
+    approval: { revision: 1, planned_frames: 5400, planned_seconds: 180, fps: 30, approved_at: "2026-10-22T00:00:00Z" },
+    render_gate: false,
+    render_gate_reasons: ["실행 범위가 lab_manual(ready_unverified)라 스튜디오 렌더러로 실행할 수 없습니다. 승인은 계획 확정까지만 의미합니다."],
+  });
+  const calls = stub(() => closed);
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  const list = await screen.findByLabelText("스튜디오 렌더러로 실행할 수 없는 이유");
+  expect(within(list).getByText(/lab_manual/)).toBeTruthy();
+  expect(screen.queryByText("제작 연결")).toBeNull();
+  expect(calls.some((c) => c.url.includes("/production"))).toBe(false);
 });

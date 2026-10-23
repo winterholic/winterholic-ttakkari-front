@@ -15,6 +15,8 @@ import {
   productionDispatch,
   productionGet,
   productionRender,
+  productionMediaUrl,
+  productionUpload,
 } from "../../api/creativeV2";
 import type { CreativeCatalog } from "../../api/creativeV2";
 import { cancelRun } from "../../api/client";
@@ -628,29 +630,34 @@ function RenderPlanDetails({ renderPlan }: { renderPlan: RenderPlan }) {
 }
 
 const PRODUCTION_LABEL: Record<ProductionState, string> = {
-  not_dispatched: "아직 렌더러로 보내지 않음",
+  not_dispatched: "아직 엔진으로 보내지 않음",
   stale_revision: "계획이 바뀌어 이전 제작은 무효",
-  project_missing: "렌더러 프로젝트를 찾을 수 없음",
   awaiting_assets: "이미지·음악 자산을 기다리는 중",
   ready_to_render: "렌더 준비 완료",
-  queued: "렌더 대기 중",
-  running: "렌더 중",
-  succeeded: "렌더 완료",
+  rendering: "렌더 중",
   failed: "렌더 실패",
-  drifted: "프로젝트가 승인된 계획과 달라짐",
+  qa_failed: "검사 실패",
+  succeeded: "렌더 완료·검사 통과",
 };
 
 const PRODUCTION_TONE: Record<ProductionState, "info" | "success" | "warning" | "danger"> = {
   not_dispatched: "info",
   stale_revision: "warning",
-  project_missing: "danger",
   awaiting_assets: "warning",
   ready_to_render: "info",
-  queued: "info",
-  running: "info",
-  succeeded: "success",
+  rendering: "info",
   failed: "danger",
-  drifted: "danger",
+  qa_failed: "danger",
+  succeeded: "success",
+};
+
+const SEGMENT_LABEL: Record<string, string> = {
+  pending: "대기",
+  queued: "큐 대기",
+  running: "렌더 중",
+  succeeded: "완료",
+  failed: "실패",
+  stale: "엔진 프로젝트 유실",
 };
 
 function ProductionPanel({ plan }: { plan: CreativePlan }) {
@@ -659,13 +666,20 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
   const q = useQuery({
     queryKey: key,
     queryFn: () => productionGet(plan.id),
-    refetchInterval: (query) => (["queued", "running"].includes(query.state.data?.state ?? "") ? 2000 : false),
+    refetchInterval: (query) => (query.state.data?.state === "rendering" ? 2000 : false),
   });
   const done = (view: ProductionView) => qc.setQueryData(key, view);
   const dispatch = useMutation({ mutationFn: () => productionDispatch(plan.id, plan.revision), onSuccess: done });
   const start = useMutation({ mutationFn: () => productionRender(plan.id, plan.revision), onSuccess: done });
+  const upload = useMutation({
+    mutationFn: (v: { kind: "scene" | "music"; file: File; sceneId?: string }) => productionUpload(plan.id, v.kind, v.file, v.sceneId),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
+  });
+  const media = useMutation({ mutationFn: (mediaId: string) => productionMediaUrl(plan.id, mediaId) });
   const view = q.data;
-  const error = dispatch.error ?? start.error ?? (q.isError ? q.error : null);
+  const error = dispatch.error ?? start.error ?? upload.error ?? media.error ?? (q.isError ? q.error : null);
+  const dispatched = view && view.state !== "not_dispatched" && view.state !== "stale_revision";
+  const missing = new Set(view?.assets.missing_scene_ids ?? []);
   return (
     <section className="creative-panel" aria-labelledby="plan-production">
       <h2 id="plan-production">제작 연결</h2>
@@ -679,7 +693,7 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
         <>
           <p role="status">
             <Badge tone={PRODUCTION_TONE[view.state]}>{PRODUCTION_LABEL[view.state] ?? view.state}</Badge>
-            {view.job && ` · 작업 ${view.job.status}${view.job.elapsed_seconds != null ? ` (${view.job.elapsed_seconds}초)` : ""}`}
+            {view.engine && ` · 엔진 ${view.engine.adapter}${view.engine.version ? ` (${view.engine.version})` : ""}`}
           </p>
           {view.reasons.length > 0 && (
             <ul className="creative-reasons creative-reasons--warn" aria-label="제작을 진행할 수 없는 이유">
@@ -690,23 +704,108 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
           )}
           {view.state === "not_dispatched" && view.dispatchable && (
             <Button variant="primary" busy={dispatch.isPending} onClick={() => dispatch.mutate()}>
-              렌더러 프로젝트 만들기
+              제작 시작 준비
             </Button>
           )}
-          {view.state === "ready_to_render" && (
+          {dispatched && (
+            <div>
+              <h3>이미지·음악 올리기</h3>
+              <p className="creative-hint">
+                장면 {view.assets.scenes_with_asset}/{view.assets.scenes_total}개에 이미지가 있어요. 장면 이미지를 바꾸면 그 장면이 속한 구간만 다시 렌더해요.
+              </p>
+              <ul className="creative-assets" aria-label="장면 이미지">
+                {plan.scenes.map((sc) => (
+                  <li key={sc.scene_id}>
+                    <label>
+                      <span>
+                        {sc.title || sc.scene_id} {missing.has(sc.scene_id) ? "(이미지 없음)" : "(올림)"}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        aria-label={"장면 " + sc.scene_id + " 이미지"}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) upload.mutate({ kind: "scene", file, sceneId: sc.scene_id });
+                        }}
+                      />
+                    </label>
+                  </li>
+                ))}
+              </ul>
+              <label>
+                <span>
+                  음악 {view.assets.music ? `(${view.assets.music.name}${view.assets.music.duration ? ` · ${view.assets.music.duration.toFixed(1)}초` : ""})` : "(없음)"}
+                </span>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  aria-label="음악 파일"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) upload.mutate({ kind: "music", file });
+                  }}
+                />
+              </label>
+            </div>
+          )}
+          {(view.state === "ready_to_render" || view.state === "failed") && (
             <Button variant="primary" busy={start.isPending} onClick={() => start.mutate()}>
-              렌더 시작
+              {view.state === "failed" ? "실패한 구간 다시 시도" : view.outdated_segments.length > 0 && view.final ? "바뀐 구간 다시 렌더" : "렌더 시작"}
             </Button>
           )}
-          {view.project_url && (
-            <p>
-              <Link to={view.project_url}>
-                {view.state === "awaiting_assets" ? "프로젝트에서 이미지·음악 올리기" : "렌더러 프로젝트 열기"}
-              </Link>
-            </p>
+          {view.segments.length > 0 && (
+            <ol aria-label="제작 구간">
+              {view.segments.map((seg) => (
+                <li key={seg.id}>
+                  {seg.id} · 장면 {seg.scene_ids.length}개 · {formatSeconds(seg.seconds)} · {SEGMENT_LABEL[seg.status] ?? seg.status}
+                  {seg.attempts > 0 && ` · ${seg.attempts}회 실행`}
+                  {seg.metrics?.cached_scenes ? ` · 장면 ${seg.metrics.cached_scenes}개 재사용` : ""}
+                  {seg.error && ` · ${seg.error}`}
+                </li>
+              ))}
+            </ol>
+          )}
+          {view.final?.qa && (
+            <div>
+              <h3>결과 검사</h3>
+              <ul className="creative-reasons" aria-label="결과 검사 항목">
+                {view.final.qa.checks.map((c) => (
+                  <li key={c.id}>
+                    {c.passed ? "통과" : "실패"} · {c.detail} · 측정 {typeof c.measured === "object" ? JSON.stringify(c.measured) : String(c.measured)}
+                  </li>
+                ))}
+              </ul>
+              {view.final.duration && (
+                <p className="creative-hint">
+                  요청 길이 {view.final.duration.requested.seconds != null ? formatSeconds(view.final.duration.requested.seconds) : "자동"} · 계획 {formatSeconds(view.final.duration.planned_seconds)} ({view.final.duration.plan_status}) · 실제{" "}
+                  {view.final.duration.measured_seconds != null ? formatSeconds(view.final.duration.measured_seconds) : "측정 못함"}
+                </p>
+              )}
+              {view.state === "succeeded" && view.final.id && (
+                <>
+                  <Button busy={media.isPending} onClick={() => media.mutate(view.final!.id!)}>
+                    결과 영상 열기
+                  </Button>
+                  {media.data && <video controls src={media.data} aria-label="결과 영상" style={{ maxWidth: "100%" }} />}
+                </>
+              )}
+            </div>
+          )}
+          {view.style && view.style.ignored.length > 0 && (
+            <details className="creative-details">
+              <summary>
+                Style DNA 적용 · {Object.keys(view.style.applied).length}개 반영, {view.style.ignored.length}개 미반영
+              </summary>
+              <ul>
+                {view.style.ignored.map((i) => (
+                  <li key={i}>{i}</li>
+                ))}
+              </ul>
+            </details>
           )}
           <p className="creative-hint">
-            지금 연결된 렌더러는 정지 이미지 슬라이드쇼 하나예요. 이미지와 음악은 직접 올려야 하고, 생성 영상·3D·모션 합성은 아직 연결되지 않았어요.
+            지금 연결된 엔진은 정지 이미지 슬라이드쇼 하나예요. 이미지와 음악은 직접 올려야 하고, 생성 영상·3D·모션 합성은 아직 연결되지 않았어요.
           </p>
         </>
       )}
@@ -740,7 +839,20 @@ function ApprovalPanel({ plan, onApprove, busy }: { plan: CreativePlan; onApprov
         </>
       )}
       {plan.render_plan && <RenderPlanDetails renderPlan={plan.render_plan} />}
-      <p className="creative-hint">렌더 실행 연결은 다음 단계에서 붙어요. 지금 승인은 계획 확정까지만 의미해요.</p>
+      {plan.render_gate ? (
+        <p className="creative-hint">승인한 버전은 아래 제작 연결에서 엔진으로 실행돼요.</p>
+      ) : (
+        <>
+          {approved && plan.render_gate_reasons && plan.render_gate_reasons.length > 0 && (
+            <ul className="creative-reasons creative-reasons--warn" aria-label="스튜디오 렌더러로 실행할 수 없는 이유">
+              {plan.render_gate_reasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+          <p className="creative-hint">렌더 게이트가 닫혀 있으면 승인은 계획 확정까지만 의미해요.</p>
+        </>
+      )}
     </section>
   );
 }

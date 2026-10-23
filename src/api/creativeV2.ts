@@ -1,4 +1,4 @@
-import { json } from "./client";
+import { apiUrl, json } from "./client";
 
 export type DurationMode = "auto" | "preferred" | "exact" | "platform_cap";
 
@@ -169,35 +169,74 @@ export interface RenderPlan {
 export type ProductionState =
   | "not_dispatched"
   | "stale_revision"
-  | "project_missing"
   | "awaiting_assets"
   | "ready_to_render"
-  | "queued"
-  | "running"
-  | "succeeded"
+  | "rendering"
   | "failed"
-  | "drifted";
+  | "qa_failed"
+  | "succeeded";
 
-export interface ProductionJob {
+export interface ProductionSegment {
   id: string;
-  status: string;
-  progress: number | null;
-  elapsed_seconds: number | null;
-  peak_rss_bytes: number | null;
+  scene_ids: string[];
+  seconds: number;
+  status: "pending" | "queued" | "running" | "succeeded" | "failed" | "stale";
+  attempts: number;
+  error: string | null;
+  project_id: string | null;
+  job_id: string | null;
+  run_key: string | null;
+  metrics: { elapsed_seconds: number | null; peak_rss_bytes: number | null; cached_scenes: number | null } | null;
+}
+
+export interface QaCheck {
+  id: string;
+  passed: boolean;
+  detail: string;
+  measured: unknown;
+}
+
+export interface ProductionFinal {
+  status: "qa_passed" | "qa_failed" | "assemble_failed";
+  id: string | null;
+  sha256: string | null;
+  size: number | null;
+  name: string | null;
+  qa: { passed: boolean; checks: QaCheck[] } | null;
+  planned_seconds: number | null;
+  duration: {
+    requested: { mode: string; seconds: number | null };
+    plan_status: string;
+    planned_seconds: number;
+    measured_seconds: number | null;
+  } | null;
+  assembled_at: string | null;
   error: string | null;
 }
 
-/** 승인된 계획이 스튜디오 렌더러 프로젝트로 넘어간 뒤의 실제 상태. 서버가 렌더러 프로젝트를 읽어 계산한다. */
+export interface ProductionAssets {
+  scenes_total: number;
+  scenes_with_asset: number;
+  missing_scene_ids: string[];
+  music: { id: string; name: string; sha256: string; duration: number | null } | null;
+  music_problem: string | null;
+  complete: boolean;
+}
+
+/** 승인된 계획의 제작 상태. 서버가 엔진 프로젝트의 실제 작업 상태를 읽어 계산한다. */
 export interface ProductionView {
   plan_id: string;
   plan_revision: number;
-  engine: string;
   state: ProductionState;
   dispatchable: boolean;
   reasons: string[];
-  project_id: string | null;
-  project_url?: string;
-  job: ProductionJob | null;
+  assets: ProductionAssets;
+  engine: { adapter: string; version: string | null } | null;
+  style?: { style_dna: string | null; applied: Record<string, string>; ignored: string[] };
+  outdated_segments: string[];
+  segments: ProductionSegment[];
+  final: ProductionFinal | null;
+  log: Array<{ at: string; event: string; segment?: string; error?: string | null }>;
 }
 
 export interface CreativePlan {
@@ -216,6 +255,8 @@ export interface CreativePlan {
   approval: PlanApproval | null;
   render_blockers: string[];
   render_gate: boolean;
+  /** 게이트가 닫힌 이유. 열려 있으면 빈 배열이다. 서버 판정과 같은 조건이다. */
+  render_gate_reasons?: string[];
   /** 이전 서버가 응답하면 없다. 장면에서 계산한 분할·재개 계획이며 실행 증거가 아니다. */
   render_plan?: RenderPlan;
   updated_at: string;
@@ -315,3 +356,14 @@ export const productionDispatch = (id: string, revision: number) =>
   json<ProductionView>(`${root}/plans/${id}/production`, { method: "POST", json: { revision } });
 export const productionRender = (id: string, revision: number) =>
   json<ProductionView>(`${root}/plans/${id}/production/render`, { method: "POST", json: { revision } });
+export const productionUpload = (id: string, kind: "scene" | "music", file: File, sceneId?: string) => {
+  const form = new FormData();
+  form.append("kind", kind);
+  if (sceneId) form.append("scene_id", sceneId);
+  form.append("file", file);
+  return json<{ id: string; sha256: string; name: string }>(`${root}/plans/${id}/production/assets`, { method: "POST", form });
+};
+export const productionMediaUrl = async (id: string, mediaId: string) => {
+  const link = await json<{ url: string }>(`${root}/plans/${id}/production/media-link`, { method: "POST", json: { id: mediaId } });
+  return apiUrl(link.url);
+};
