@@ -1,0 +1,103 @@
+/* 지식 도서관(kb). 모바일 한 열이 기본이고, 문서 탭은 1024 이상에서 목록과 상세가 2단이 된다. 값은 모두 디자인 토큰이다. */
+.kb-page { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; padding-block: var(--tk-space-3); }
+.kb-note { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
+.kb-error { display: flex; flex-direction: column; align-items: start; gap: var(--tk-space-3); }
+.kb-page button { min-height: var(--tk-size-touch-target-min); }
+.kb-page .tk-button--sm { min-height: var(--tk-size-touch-target-min); }
+.kb-placeholder, .kb-empty { display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0; padding: var(--tk-space-6) var(--tk-space-4); border: var(--tk-border-width-hairline) dashed var(--tk-color-border-default); border-radius: var(--tk-radius-lg); color: var(--tk-color-text-secondary); text-align: center; overflow-wrap: anywhere; }
+.kb-placeholder p, .kb-empty p { margin: 0; }
+.kb-hash { margin: 0; font-family: var(--tk-font-family-mono); font-size: var(--tk-font-size-xs); color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
+.kb-mark { background: var(--tk-color-status-warning-bg); color: var(--tk-color-highlight-mark-text); border-radius: var(--tk-radius-xs); }
+.kb-badges { display: flex; flex-wrap: wrap; gap: var(--tk-space-1-5); min-width: 0; }
+.kb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); min-width: 0; }
+
+/* 보기 방식 탭 */
+.kb-tabs { display: flex; gap: var(--tk-space-1); padding: var(--tk-space-1); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-subtle); }
+.kb-tabs button { flex: 1; min-width: 0; padding-inline: var(--tk-space-2); border: 0; border-radius: var(--tk-radius-md); background: transparent; color: var(--tk-color-text-secondary); font: inherit; font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-medium); cursor: pointer; overflow-wrap: anywhere; }
+.kb-tabs button[aria-pressed="true"] { background: var(--tk-color-surface-default); color: var(--tk-color-text-brand); box-shadow: 0 0 0 var(--tk-border-width-hairline) var(--tk-color-border-default); }
+.kb-page[data-selected="true"] > .kb-tabs { display: none; }
+
+/* 검색창 */
+.kb-search { display: flex; align-items: center; gap: var(--tk-space-2); min-width: 0; padding-inline: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.kb-search .tk-icon { flex: none; color: var(--tk-color-text-secondary); }
+.kb-search input { flex: 1; min-width: 0; min-height: var(--tk-size-touch-target-min); border: 0; background: transparent; font-size: var(--tk-font-size-md); }
+.kb-search .tk-button { flex: none; }
+
+/* 검색 결과 */
+.kb-results { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.kb-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.kb-hit { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.kb-hit__head { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
+.kb-hit__title { margin: 0; font-size: var(--tk-font-size-md); font-weight: var(--tk-font-weight-semibold); overflow-wrap: anywhere; }
+.kb-hit__snippet { margin: 0; line-height: var(--tk-font-line-height-prose); overflow-wrap: anywhere; white-space: pre-wrap; }
+.kb-hit__source { margin: 0; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); overflow-wrap: anywhere; }
+
+/* 근거 원문 위치 */
+.kb-evidence { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.kb-context { margin: 0; padding: var(--tk-space-3); border-inline-start: var(--tk-border-width-accent) solid var(--tk-color-border-brand); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-default); line-height: var(--tk-font-line-height-prose); white-space: pre-wrap; overflow-wrap: anywhere; }
+.kb-context__side { color: var(--tk-color-text-secondary); }
+
+/* 정의 목록 */
+.kb-facts { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-1) var(--tk-space-4); margin: 0; min-width: 0; }
+.kb-facts dt { margin-block-start: var(--tk-space-2); font-size: var(--tk-font-size-xs); color: var(--tk-color-text-secondary); }
+.kb-facts dd { margin: 0; min-width: 0; font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
+.kb-facts__row { display: contents; }
+
+/* 문서 목록 */
+.kb-browser { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-6); min-width: 0; }
+.kb-browser__list { min-width: 0; }
+.kb-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; min-width: 0; }
+.kb-list li { min-width: 0; }
+.kb-row { width: 100%; min-width: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); padding: var(--tk-space-4); border: 0; border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-default); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); text-align: start; font: inherit; line-height: var(--tk-font-line-height-normal); cursor: pointer; }
+.kb-row:hover { background: var(--tk-color-surface-subtle); }
+.kb-row[aria-pressed="true"] { background: var(--tk-color-surface-brand-subtle); }
+.kb-row__main { display: flex; justify-content: space-between; align-items: start; gap: var(--tk-space-3); }
+.kb-row__title { min-width: 0; font-weight: var(--tk-font-weight-semibold); overflow-wrap: anywhere; }
+.kb-row__arrow { flex: none; color: var(--tk-color-text-secondary); }
+.kb-row__meta { display: flex; flex-wrap: wrap; gap: var(--tk-space-1) var(--tk-space-3); color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }
+
+/* 문서 상세 */
+.kb-detail { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); align-self: start; }
+.kb-detail__head { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
+.kb-detail__head h2 { margin: 0; overflow-wrap: anywhere; }
+.kb-detail__head h2:focus-visible { outline: none; }
+.kb-back { align-self: start; }
+.kb-revisions { display: flex; gap: var(--tk-space-2); overflow-x: auto; padding-block-end: var(--tk-space-1); }
+.kb-chip { flex: none; display: inline-flex; align-items: center; padding-inline: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-full); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); font: inherit; font-size: var(--tk-font-size-sm); white-space: nowrap; cursor: pointer; }
+.kb-chip[aria-pressed="true"] { border-color: var(--tk-color-border-brand); background: var(--tk-color-surface-brand-subtle); color: var(--tk-color-text-brand); }
+.kb-callout { display: flex; flex-direction: column; align-items: start; gap: var(--tk-space-2); margin: 0; padding: var(--tk-space-3) var(--tk-space-4); border-inline-start: var(--tk-border-width-accent) solid var(--tk-color-border-brand); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-brand-subtle); overflow-wrap: anywhere; }
+.kb-callout p { margin: 0; }
+.kb-passages { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.kb-passage { display: flex; flex-direction: column; align-items: start; gap: var(--tk-space-2); min-width: 0; padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-md); }
+.kb-passage > div { align-self: stretch; }
+.kb-passage__head { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--tk-space-2); }
+.kb-passage__ord { font-weight: var(--tk-font-weight-semibold); color: var(--tk-color-text-brand); }
+.kb-passage__heading { margin: 0; font-weight: var(--tk-font-weight-semibold); }
+.kb-passage__body { margin: 0; line-height: var(--tk-font-line-height-prose); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* 등록 */
+.kb-register { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; max-width: 48rem; }
+.kb-field { display: flex; flex-direction: column; gap: var(--tk-space-1-5); min-width: 0; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
+.kb-field .tk-input, .kb-field .tk-textarea { width: 100%; min-width: 0; font-size: var(--tk-font-size-md); }
+.kb-disclosure { min-width: 0; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
+.kb-disclosure > summary { cursor: pointer; min-height: var(--tk-size-touch-target-min); align-content: center; }
+.kb-advanced { display: flex; flex-direction: column; gap: var(--tk-space-3); padding-block: var(--tk-space-2); }
+
+/* 모바일은 목록 → 상세로 전환하고, 데스크톱은 2단으로 함께 보여 준다. */
+.kb-browser[data-selected="true"] > .kb-browser__list { display: none; }
+.kb-top[data-selected="true"] { display: none; }
+.kb-placeholder { display: none; }
+@media (min-width: 640px) {
+  .kb-hit__head { flex-direction: row; justify-content: space-between; align-items: start; }
+  .kb-facts { grid-template-columns: max-content minmax(0, 1fr); }
+  .kb-facts dt { margin-block-start: 0; padding-block: var(--tk-space-1); }
+  .kb-facts dd { padding-block: var(--tk-space-1); }
+}
+@media (min-width: 1024px) {
+  .kb-browser { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); align-items: start; }
+  .kb-browser[data-selected="true"] > .kb-browser__list { display: block; }
+  .kb-top[data-selected="true"] { display: flex; }
+  .kb-placeholder { display: flex; }
+  .kb-detail { position: sticky; top: var(--tk-space-4); max-height: 85dvh; overflow-y: auto; }
+  .kb-back { display: none; }
+}

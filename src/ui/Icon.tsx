@@ -1,7 +1,7 @@
 import {
   BookOpen, Briefcase, CalendarDays, Camera, ChevronDown, ChevronLeft, NotebookPen, Tag, GripVertical, Gauge, ChevronRight, ChevronUp, Plus, Archive, ArrowDown, ArrowLeft, ArrowUp, ArrowUpDown, Ban, Bell, Check, CircleCheck, CircleX, Clock, Copy,
   Download, Ellipsis, EllipsisVertical, ExternalLink, Eye, FileArchive, FileCode, FileSpreadsheet, FileText, Folder,
-  FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Lock, LogOut, Mail, Maximize,
+  FolderOpen, FolderSearch, Globe, Hand, HardDrive, History, Image, Info, KeyRound, Lightbulb, LibraryBig, Library, Lock, LogOut, Mail, Maximize,
   Menu, MessageSquare, Mic, Moon, MoveHorizontal, OctagonAlert, Palette, PanelRight, Paperclip, Pause, Pin, Play, Volume2, Presentation, RefreshCw,
   Search, Send, Server, ShieldAlert, ShieldCheck, SlidersHorizontal, Smartphone, Square, SquarePen, Sun, Terminal, Trash2,
   TriangleAlert, WifiOff, WrapText, X, ZoomIn, ZoomOut, Keyboard, Gamepad2, MousePointer2, Pointer, Film, LayoutTemplate, Music, PenTool, Ruler, Sparkles, ChartGantt, ChartCandlestick, Building2, CircleDot, Code, FileDiff, GitBranch, GitFork, GitMerge, GitPullRequest, GitPullRequestDraft, Star, User, CornerDownRight, Flag, IndentDecrease, IndentIncrease, ListTree, SquareKanban, Users, Workflow,
@@ -10,7 +10,7 @@ import type { LucideIcon } from "lucide-react";
 
 // 디자인 시스템 docs/13 §2 의미 고정 매핑. 왼쪽 키는 예제 스프라이트 이름과 같아서 예제 마크업을 그대로 옮길 수 있다.
 const ICONS = {
-  chat: MessageSquare, workspace: PanelRight, library: Archive, "context-library": LibraryBig, "folder-search": FolderSearch, settings: SlidersHorizontal,
+  chat: MessageSquare, workspace: PanelRight, library: Archive, "context-library": LibraryBig, "kb-library": Library, "folder-search": FolderSearch, settings: SlidersHorizontal,
   "new-chat": SquarePen, send: ArrowUp, stop: Square, paperclip: Paperclip,
   copy: Copy, check: Check, download: Download, share: Send, mail: Mail, "external-link": ExternalLink,
   retry: RefreshCw, pin: Pin, trash: Trash2,

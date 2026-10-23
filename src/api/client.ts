@@ -1405,3 +1405,15 @@ export async function fetchTtsAudio(url: string, signal?: AbortSignal): Promise<
   if (!res.ok) throw await toApiError(res);
   return res.blob();
 }
+
+// ---- 지식 도서관(kb, ADR 0063). 개인 맥락 도서관(/api/assistant/knowledge)과 경로·테이블이 다르다.
+import type { KbDocumentDetail, KbDocumentList, KbEvidence, KbRegisterIn, KbRegisterOut, KbSearchResult, KbSummary } from "./kbTypes";
+export const kbSummary = (): Promise<KbSummary> => json("/api/assistant/kb/summary");
+export const kbDocuments = (p: { q?: string; limit?: number; offset?: number } = {}): Promise<KbDocumentList> =>
+  json("/api/assistant/kb/documents", { query: { q: p.q || undefined, limit: p.limit ?? 30, offset: p.offset ?? 0 } });
+export const kbDocument = (id: string, p: { revision_id?: string; passage_offset?: number } = {}): Promise<KbDocumentDetail> =>
+  json(`/api/assistant/kb/documents/${encodeURIComponent(id)}`, { query: { revision_id: p.revision_id, passage_offset: p.passage_offset ?? 0, passage_limit: 50 } });
+export const kbSearch = (p: { q: string; offset?: number; document_id?: string; current_only?: boolean }): Promise<KbSearchResult> =>
+  json("/api/assistant/kb/search", { query: { q: p.q, limit: 10, offset: p.offset ?? 0, document_id: p.document_id, current_only: p.current_only === false ? false : undefined } });
+export const kbEvidence = (passageId: string): Promise<KbEvidence> => json(`/api/assistant/kb/passages/${encodeURIComponent(passageId)}/evidence`);
+export const kbRegister = (body: KbRegisterIn): Promise<KbRegisterOut> => json("/api/assistant/kb/documents", { method: "POST", json: body });
