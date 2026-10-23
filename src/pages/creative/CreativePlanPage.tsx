@@ -12,6 +12,9 @@ import {
   planEdit,
   planGet,
   planList,
+  productionDispatch,
+  productionGet,
+  productionRender,
 } from "../../api/creativeV2";
 import type { CreativeCatalog } from "../../api/creativeV2";
 import { cancelRun } from "../../api/client";
@@ -23,6 +26,8 @@ import type {
   DurationStatus,
   MatchResult,
   PlanScene,
+  ProductionState,
+  ProductionView,
   RenderPlan,
   SceneEditBody,
 } from "../../api/creativeV2";
@@ -622,6 +627,93 @@ function RenderPlanDetails({ renderPlan }: { renderPlan: RenderPlan }) {
   );
 }
 
+const PRODUCTION_LABEL: Record<ProductionState, string> = {
+  not_dispatched: "아직 렌더러로 보내지 않음",
+  stale_revision: "계획이 바뀌어 이전 제작은 무효",
+  project_missing: "렌더러 프로젝트를 찾을 수 없음",
+  awaiting_assets: "이미지·음악 자산을 기다리는 중",
+  ready_to_render: "렌더 준비 완료",
+  queued: "렌더 대기 중",
+  running: "렌더 중",
+  succeeded: "렌더 완료",
+  failed: "렌더 실패",
+  drifted: "프로젝트가 승인된 계획과 달라짐",
+};
+
+const PRODUCTION_TONE: Record<ProductionState, "info" | "success" | "warning" | "danger"> = {
+  not_dispatched: "info",
+  stale_revision: "warning",
+  project_missing: "danger",
+  awaiting_assets: "warning",
+  ready_to_render: "info",
+  queued: "info",
+  running: "info",
+  succeeded: "success",
+  failed: "danger",
+  drifted: "danger",
+};
+
+function ProductionPanel({ plan }: { plan: CreativePlan }) {
+  const qc = useQueryClient();
+  const key = ["creative-production", plan.id, plan.revision];
+  const q = useQuery({
+    queryKey: key,
+    queryFn: () => productionGet(plan.id),
+    refetchInterval: (query) => (["queued", "running"].includes(query.state.data?.state ?? "") ? 2000 : false),
+  });
+  const done = (view: ProductionView) => qc.setQueryData(key, view);
+  const dispatch = useMutation({ mutationFn: () => productionDispatch(plan.id, plan.revision), onSuccess: done });
+  const start = useMutation({ mutationFn: () => productionRender(plan.id, plan.revision), onSuccess: done });
+  const view = q.data;
+  const error = dispatch.error ?? start.error ?? (q.isError ? q.error : null);
+  return (
+    <section className="creative-panel" aria-labelledby="plan-production">
+      <h2 id="plan-production">제작 연결</h2>
+      {q.isPending && <p role="status">제작 상태를 불러오는 중</p>}
+      {error && (
+        <p className="tk-error" role="alert">
+          {errorLine(error)}
+        </p>
+      )}
+      {view && (
+        <>
+          <p role="status">
+            <Badge tone={PRODUCTION_TONE[view.state]}>{PRODUCTION_LABEL[view.state] ?? view.state}</Badge>
+            {view.job && ` · 작업 ${view.job.status}${view.job.elapsed_seconds != null ? ` (${view.job.elapsed_seconds}초)` : ""}`}
+          </p>
+          {view.reasons.length > 0 && (
+            <ul className="creative-reasons creative-reasons--warn" aria-label="제작을 진행할 수 없는 이유">
+              {view.reasons.map((r) => (
+                <li key={r}>{r}</li>
+              ))}
+            </ul>
+          )}
+          {view.state === "not_dispatched" && view.dispatchable && (
+            <Button variant="primary" busy={dispatch.isPending} onClick={() => dispatch.mutate()}>
+              렌더러 프로젝트 만들기
+            </Button>
+          )}
+          {view.state === "ready_to_render" && (
+            <Button variant="primary" busy={start.isPending} onClick={() => start.mutate()}>
+              렌더 시작
+            </Button>
+          )}
+          {view.project_url && (
+            <p>
+              <Link to={view.project_url}>
+                {view.state === "awaiting_assets" ? "프로젝트에서 이미지·음악 올리기" : "렌더러 프로젝트 열기"}
+              </Link>
+            </p>
+          )}
+          <p className="creative-hint">
+            지금 연결된 렌더러는 정지 이미지 슬라이드쇼 하나예요. 이미지와 음악은 직접 올려야 하고, 생성 영상·3D·모션 합성은 아직 연결되지 않았어요.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 function ApprovalPanel({ plan, onApprove, busy }: { plan: CreativePlan; onApprove: () => void; busy: boolean }) {
   const approved = plan.approval && plan.approval.revision === plan.revision;
   return (
@@ -718,6 +810,7 @@ export function CreativePlanDetailPage() {
               <SceneEditor key={plan.revision} plan={plan} busy={edit.isPending} onSave={(scenes) => edit.mutate({ scenes })} />
               <MatchPanel plan={plan} />
               <ApprovalPanel plan={plan} busy={approve.isPending} onApprove={() => approve.mutate()} />
+              {plan.render_gate && plan.approval && <ProductionPanel plan={plan} />}
             </>
           )}
         </div>

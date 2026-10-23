@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-li
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, expect, test, vi } from "vitest";
-import type { CreativePlan } from "../../api/creativeV2";
+import type { CreativePlan, ProductionView } from "../../api/creativeV2";
 import { CreativePlanDetailPage, CreativePlanNewPage } from "./CreativePlanPage";
 
 vi.mock("../../shell/PageHeader", () => ({
@@ -82,6 +82,20 @@ function planFixture(overrides: Partial<CreativePlan> = {}): CreativePlan {
 }
 
 type Handler = (url: string, init?: RequestInit) => unknown;
+
+function productionFixture(overrides: Partial<ProductionView> = {}): ProductionView {
+  return {
+    plan_id: "11111111-1111-4111-8111-111111111111",
+    plan_revision: 1,
+    engine: "skill.v1_ffmpeg_slideshow",
+    state: "not_dispatched",
+    dispatchable: true,
+    reasons: [],
+    project_id: null,
+    job: null,
+    ...overrides,
+  };
+}
 
 function stub(handler: Handler) {
   const calls: Array<{ url: string; method: string; body: unknown }> = [];
@@ -422,7 +436,7 @@ test("approving binds the approval to the revision and shows the frame count", a
     approval: { revision: 1, planned_frames: 5400, planned_seconds: 180, fps: 30, approved_at: "2026-10-22T00:00:00Z" },
     render_gate: true,
   });
-  const calls = stub((_url, init) => (init?.method === "POST" ? approved : planFixture()));
+  const calls = stub((url, init) => (url.includes("/production") ? productionFixture() : init?.method === "POST" ? approved : planFixture()));
   mount("/creative/plan/11111111-1111-4111-8111-111111111111");
   const button = await screen.findByRole("button", { name: "이 예상 길이로 승인" });
   fireEvent.click(button);
@@ -504,4 +518,82 @@ test("an older server without render_plan still renders the approval panel", asy
   mount("/creative/plan/11111111-1111-4111-8111-111111111111");
   await screen.findByRole("button", { name: "이 예상 길이로 승인" });
   expect(screen.queryByText(/분할 렌더 계획/)).toBeNull();
+});
+
+const approvedGate = () =>
+  planFixture({
+    approval: { revision: 1, planned_frames: 5400, planned_seconds: 180, fps: 30, approved_at: "2026-10-22T00:00:00Z" },
+    render_gate: true,
+  });
+
+test("the production panel stays hidden until the render gate is open", async () => {
+  const calls = stub(() => planFixture());
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  await screen.findByRole("button", { name: "이 예상 길이로 승인" });
+  expect(screen.queryByText("제작 연결")).toBeNull();
+  expect(calls.some((c) => c.url.includes("/production"))).toBe(false);
+});
+
+test("a dispatchable approved plan creates the renderer project and then asks for assets", async () => {
+  let dispatched = false;
+  const calls = stub((url, init) => {
+    if (url.endsWith("/production") && init?.method === "POST") {
+      dispatched = true;
+      return productionFixture({
+        state: "awaiting_assets",
+        dispatchable: false,
+        reasons: ["장면 i0에 이미지·영상 자산이 없습니다.", "음악 자산이 없습니다."],
+        project_id: "22222222-2222-4222-8222-222222222222",
+        project_url: "/creative/22222222-2222-4222-8222-222222222222",
+      });
+    }
+    if (url.includes("/production")) return productionFixture();
+    return approvedGate();
+  });
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  fireEvent.click(await screen.findByRole("button", { name: "렌더러 프로젝트 만들기" }));
+  await screen.findByText("이미지·음악 자산을 기다리는 중");
+  expect(dispatched).toBe(true);
+  expect(calls.find((c) => c.method === "POST")?.body).toEqual({ revision: 1 });
+  expect(within(screen.getByLabelText("제작을 진행할 수 없는 이유")).getByText("음악 자산이 없습니다.")).toBeTruthy();
+  const link = screen.getByRole("link", { name: "프로젝트에서 이미지·음악 올리기" });
+  expect(link.getAttribute("href")).toBe("/creative/22222222-2222-4222-8222-222222222222");
+  expect(screen.getByText(/정지 이미지 슬라이드쇼 하나/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "렌더 시작" })).toBeNull();
+});
+
+test("a ready project can start the render and shows the real job state", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/production/render") && init?.method === "POST") {
+      return productionFixture({
+        state: "queued",
+        dispatchable: false,
+        project_id: "p",
+        project_url: "/creative/p",
+        job: { id: "j1", status: "queued", progress: 0, elapsed_seconds: null, peak_rss_bytes: null, error: null },
+      });
+    }
+    if (url.includes("/production")) {
+      return productionFixture({ state: "ready_to_render", dispatchable: false, project_id: "p", project_url: "/creative/p" });
+    }
+    return approvedGate();
+  });
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  fireEvent.click(await screen.findByRole("button", { name: "렌더 시작" }));
+  await screen.findByText("렌더 대기 중");
+  expect(calls.some((c) => c.url.endsWith("/production/render") && c.method === "POST")).toBe(true);
+  expect(screen.getByText(/작업 queued/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "렌더 시작" })).toBeNull();
+});
+
+test("a plan the renderer cannot take shows why instead of a dispatch button", async () => {
+  stub((url) =>
+    url.includes("/production")
+      ? productionFixture({ dispatchable: false, reasons: ["총 900초가 렌더러 한도 240초를 넘습니다."] })
+      : approvedGate(),
+  );
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  await screen.findByText("아직 렌더러로 보내지 않음");
+  expect(screen.getByText(/렌더러 한도 240초/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "렌더러 프로젝트 만들기" })).toBeNull();
 });

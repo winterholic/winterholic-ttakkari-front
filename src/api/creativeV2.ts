@@ -166,6 +166,40 @@ export interface RenderPlan {
   warnings: string[];
 }
 
+export type ProductionState =
+  | "not_dispatched"
+  | "stale_revision"
+  | "project_missing"
+  | "awaiting_assets"
+  | "ready_to_render"
+  | "queued"
+  | "running"
+  | "succeeded"
+  | "failed"
+  | "drifted";
+
+export interface ProductionJob {
+  id: string;
+  status: string;
+  progress: number | null;
+  elapsed_seconds: number | null;
+  peak_rss_bytes: number | null;
+  error: string | null;
+}
+
+/** 승인된 계획이 스튜디오 렌더러 프로젝트로 넘어간 뒤의 실제 상태. 서버가 렌더러 프로젝트를 읽어 계산한다. */
+export interface ProductionView {
+  plan_id: string;
+  plan_revision: number;
+  engine: string;
+  state: ProductionState;
+  dispatchable: boolean;
+  reasons: string[];
+  project_id: string | null;
+  project_url?: string;
+  job: ProductionJob | null;
+}
+
 export interface CreativePlan {
   id: string;
   revision: number;
@@ -276,3 +310,8 @@ export const planEdit = (
 ) => json<CreativePlan>(`${root}/plans/${id}`, { method: "PATCH", json: body });
 export const planApprove = (id: string, revision: number) =>
   json<CreativePlan>(`${root}/plans/${id}/approve`, { method: "POST", json: { revision } });
+export const productionGet = (id: string) => json<ProductionView>(`${root}/plans/${id}/production`);
+export const productionDispatch = (id: string, revision: number) =>
+  json<ProductionView>(`${root}/plans/${id}/production`, { method: "POST", json: { revision } });
+export const productionRender = (id: string, revision: number) =>
+  json<ProductionView>(`${root}/plans/${id}/production/render`, { method: "POST", json: { revision } });
