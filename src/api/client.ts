@@ -1252,6 +1252,15 @@ export const searchDesignSystem = (system: string, p: { q?: string; kind?: Desig
 export const getDesignSystemItem = (system: string, item: string, p: { offset?: number; revision?: string }): Promise<DesignItem> =>
   json(`/api/design-systems/${encodeURIComponent(system)}/item`, { query: { ...p, item, length: 6000 } });
 
+// ---- 하네스 조회 (백엔드 ADR 0069). 소유자 전용 읽기 API.
+import type { HarnessDetail, HarnessLayers, HarnessList, HarnessQuery, HarnessSession, HarnessSummary, LayerEngine } from "./harnessTypes";
+export const getHarnessSummary = (refresh = false): Promise<HarnessSummary> => json("/api/harness", { query: { refresh: refresh || undefined } });
+export const searchHarness = (p: HarnessQuery): Promise<HarnessList> => json("/api/harness/items", { query: { ...p, limit: 30 } });
+export const getHarnessItem = (id: string, offset = 0): Promise<HarnessDetail> =>
+  json(`/api/harness/items/${encodeURIComponent(id)}`, { query: { offset, length: 8000 } });
+export const getHarnessLayers = (session: HarnessSession, engine: LayerEngine, pool: "personal" | "work"): Promise<HarnessLayers> =>
+  json("/api/harness/layers", { query: { session, engine, pool } });
+
 // ---- ArtCraft 관제. 디자인시스템과 별개 도메인이다.
 import type {
   ArtcraftAgentConfig, ArtcraftBug, ArtcraftBugList, ArtcraftBugStatus, ArtcraftCatalog, ArtcraftCategoryId, ArtcraftJob,

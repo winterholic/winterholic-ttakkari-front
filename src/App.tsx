@@ -46,6 +46,7 @@ const CreativeDetailPage = lazy(() => import('./pages/CreativePage').then(m => (
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
 const ContextLibraryItemPage = lazy(() => import("./pages/ContextLibraryItemPage").then((m) => ({ default: m.ContextLibraryItemPage })));
+const HarnessPage = lazy(() => import("./pages/HarnessPage").then((m) => ({ default: m.HarnessPage })));
 const CalendarPage = lazy(() => import("./pages/CalendarPage").then((m) => ({ default: m.CalendarPage })));
 // PMS·WBS 는 간트·칸반 코드가 모여 있어 열 때만 받는다.
 const PmsListPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default: m.PmsListPage })));
@@ -112,6 +113,7 @@ export function App() {
         <Route path="/research" element={<Suspense fallback={<RouteFallback />}><ResearchPage /></Suspense>} />
         <Route path="/logs" element={<OpsLogsPage />} />
         <Route path="/design-systems" element={<DesignSystemPage />} />
+        <Route path="/harness" element={<Suspense fallback={<RouteFallback />}><HarnessPage /></Suspense>} />
         <Route path="/artcraft" element={<ArtcraftPage />} />
         <Route path="/reverse" element={<ReversePage />} />
         <Route path="/reverse/:jobId" element={<ReverseDetailPage />} />
