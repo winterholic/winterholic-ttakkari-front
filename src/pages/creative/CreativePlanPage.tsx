@@ -15,6 +15,7 @@ import {
   productionDispatch,
   productionGet,
   productionRender,
+  productionGenerateAssets,
   productionMediaUrl,
   productionUpload,
 } from "../../api/creativeV2";
@@ -662,22 +663,34 @@ const SEGMENT_LABEL: Record<string, string> = {
 
 function ProductionPanel({ plan }: { plan: CreativePlan }) {
   const qc = useQueryClient();
+  const [assetGenerationRequested, setAssetGenerationRequested] = useState(false);
   const key = ["creative-production", plan.id, plan.revision];
   const q = useQuery({
     queryKey: key,
     queryFn: () => productionGet(plan.id),
-    refetchInterval: (query) => (query.state.data?.state === "rendering" ? 2000 : false),
+    refetchInterval: (query) => {
+      if (query.state.data?.state === "rendering") return 2000;
+      const generation = query.state.data?.asset_generation;
+      return assetGenerationRequested && generation?.status !== "succeeded" && generation?.status !== "failed" ? 2000 : false;
+    },
   });
   const done = (view: ProductionView) => qc.setQueryData(key, view);
   const dispatch = useMutation({ mutationFn: () => productionDispatch(plan.id, plan.revision), onSuccess: done });
   const start = useMutation({ mutationFn: () => productionRender(plan.id, plan.revision), onSuccess: done });
+  const generate = useMutation({
+    mutationFn: () => productionGenerateAssets(plan.id, plan.revision),
+    onSuccess: () => {
+      setAssetGenerationRequested(true);
+      void qc.invalidateQueries({ queryKey: key });
+    },
+  });
   const upload = useMutation({
     mutationFn: (v: { kind: "scene" | "music"; file: File; sceneId?: string }) => productionUpload(plan.id, v.kind, v.file, v.sceneId),
     onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
   });
   const media = useMutation({ mutationFn: (mediaId: string) => productionMediaUrl(plan.id, mediaId) });
   const view = q.data;
-  const error = dispatch.error ?? start.error ?? upload.error ?? media.error ?? (q.isError ? q.error : null);
+  const error = dispatch.error ?? generate.error ?? start.error ?? upload.error ?? media.error ?? (q.isError ? q.error : null);
   const dispatched = view && view.state !== "not_dispatched" && view.state !== "stale_revision";
   const missing = new Set(view?.assets.missing_scene_ids ?? []);
   return (
@@ -709,6 +722,32 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
           )}
           {dispatched && (
             <div>
+              {plan.match.primary_recipe === "R21" && !view.assets.complete && (
+                <div>
+                  <Button
+                    variant="primary"
+                    busy={generate.isPending || view.asset_generation?.status === "running"}
+                    disabled={view.asset_generation?.status === "running"}
+                    onClick={() => generate.mutate()}
+                  >
+                    {view.asset_generation?.status === "failed" ? "생성 다시 시도" : "장면 이미지·음성·음악 자동 생성"}
+                  </Button>
+                  {view.asset_generation && (
+                    <p role="status">
+                      자동 자산 생성: {view.asset_generation.status === "running" ? "실행 중" : view.asset_generation.status === "succeeded" ? "완료" : "실패"}
+                      {view.asset_generation.status === "succeeded" && ` · 장면별 음성 ${Object.keys(view.asset_generation.assets.voices ?? {}).length}/${plan.scenes.length}개`}
+                      {view.asset_generation.error ? ` · ${view.asset_generation.error}` : ""}
+                    </p>
+                  )}
+                  <p className="creative-hint">현재는 R21 기본 레시피만 지원합니다. 다른 레시피는 슬라이드쇼로 바꾸지 않습니다. 음성 캐시 재사용 여부 등 엔진별 출처는 제작 기록에 남아요.</p>
+                </div>
+              )}
+              {plan.match.primary_recipe !== "R21" && (
+                <>
+                  <p className="creative-hint">이 레시피의 자동 자산 생성 어댑터는 아직 없습니다. 현재 계획을 슬라이드쇼로 바꾸지 않으며 자산을 직접 준비해야 합니다.</p>
+                  {view.asset_generation_blockers?.map((reason) => <p key={reason} className="tk-error" role="status">{reason}</p>)}
+                </>
+              )}
               <h3>이미지·음악 올리기</h3>
               <p className="creative-hint">
                 장면 {view.assets.scenes_with_asset}/{view.assets.scenes_total}개에 이미지가 있어요. 장면 이미지를 바꾸면 그 장면이 속한 구간만 다시 렌더해요.
@@ -805,7 +844,7 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
             </details>
           )}
           <p className="creative-hint">
-            지금 연결된 엔진은 정지 이미지 슬라이드쇼 하나예요. 이미지와 음악은 직접 올려야 하고, 생성 영상·3D·모션 합성은 아직 연결되지 않았어요.
+            렌더는 현재 v1 FFmpeg 정지 이미지 슬라이드쇼로 실행돼요. R21 자동 생성은 Comfy 장면 영상, 장면별 Supertonic 음성, ACE-Step 음악을 만들고 엔진별 실행 또는 캐시 출처를 제작 기록에 남겨요.
           </p>
         </>
       )}
