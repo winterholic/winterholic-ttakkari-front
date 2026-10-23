@@ -23,6 +23,7 @@ import type {
   DurationStatus,
   MatchResult,
   PlanScene,
+  RenderPlan,
   SceneEditBody,
 } from "../../api/creativeV2";
 import { errorText } from "../../features/viewer/api";
@@ -596,6 +597,31 @@ function MatchPanel({ plan }: { plan: CreativePlan }) {
   );
 }
 
+function RenderPlanDetails({ renderPlan }: { renderPlan: RenderPlan }) {
+  return (
+    <details className="creative-details">
+      <summary>
+        분할 렌더 계획 · {renderPlan.segments.length}개 구간{renderPlan.requires_split ? " (한 번에 렌더할 수 없는 길이)" : ""}
+      </summary>
+      <p className="creative-hint">아직 실행된 구간은 없어요. 구간 키가 같으면 이어 하기에서 다시 렌더하지 않는 기준이에요.</p>
+      {renderPlan.warnings.length > 0 && (
+        <ul className="creative-reasons creative-reasons--warn" aria-label="렌더러 한도 경고">
+          {renderPlan.warnings.map((w) => (
+            <li key={w}>{w}</li>
+          ))}
+        </ul>
+      )}
+      <ol aria-label="렌더 구간">
+        {renderPlan.segments.map((seg) => (
+          <li key={seg.id}>
+            {seg.id} · 장면 {seg.scene_ids.length}개 · {formatSeconds(seg.seconds)} · 키 {seg.input_sha256.slice(0, 8)}
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
+
 function ApprovalPanel({ plan, onApprove, busy }: { plan: CreativePlan; onApprove: () => void; busy: boolean }) {
   const approved = plan.approval && plan.approval.revision === plan.revision;
   return (
@@ -621,6 +647,7 @@ function ApprovalPanel({ plan, onApprove, busy }: { plan: CreativePlan; onApprov
           </Button>
         </>
       )}
+      {plan.render_plan && <RenderPlanDetails renderPlan={plan.render_plan} />}
       <p className="creative-hint">렌더 실행 연결은 다음 단계에서 붙어요. 지금 승인은 계획 확정까지만 의미해요.</p>
     </section>
   );

@@ -147,6 +147,25 @@ export interface PlanApproval {
   approved_at: string;
 }
 
+export interface RenderSegment {
+  id: string;
+  scene_ids: string[];
+  start_frame: number;
+  end_frame: number;
+  seconds: number;
+  input_sha256: string;
+}
+
+export interface RenderPlan {
+  segment_target_seconds: number;
+  requires_split: boolean;
+  segments: RenderSegment[];
+  join: { method: string; inputs: string[] };
+  resume: string;
+  executed: boolean;
+  warnings: string[];
+}
+
 export interface CreativePlan {
   id: string;
   revision: number;
@@ -163,6 +182,8 @@ export interface CreativePlan {
   approval: PlanApproval | null;
   render_blockers: string[];
   render_gate: boolean;
+  /** 이전 서버가 응답하면 없다. 장면에서 계산한 분할·재개 계획이며 실행 증거가 아니다. */
+  render_plan?: RenderPlan;
   updated_at: string;
   history: Array<{ revision: number; kind: string; total_seconds: number | null; status: string }>;
 }

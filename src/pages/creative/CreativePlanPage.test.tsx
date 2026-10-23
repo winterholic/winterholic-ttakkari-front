@@ -472,3 +472,36 @@ test("a missing plan shows an error with a retry button", async () => {
   expect(alert.textContent).toContain("제작 계획이 없습니다");
   expect(screen.getByRole("button", { name: "다시 불러오기" })).toBeTruthy();
 });
+
+test("shows the split render plan as not executed, with resume keys and renderer limit warnings", async () => {
+  const split = planFixture({
+    render_plan: {
+      segment_target_seconds: 60,
+      requires_split: true,
+      segments: [
+        { id: "seg-01", scene_ids: ["s1", "s2"], start_frame: 0, end_frame: 1800, seconds: 60, input_sha256: "a".repeat(64) },
+        { id: "seg-02", scene_ids: ["s3"], start_frame: 1800, end_frame: 2400, seconds: 20, input_sha256: "b".repeat(64) },
+      ],
+      join: { method: "concat_in_order", inputs: ["seg-01", "seg-02"] },
+      resume: "구간의 input_sha256이 같고 산출물이 남아 있으면 그 구간은 다시 렌더하지 않는다.",
+      executed: false,
+      warnings: ["장면 s9이(가) 75초로 렌더러 장면 한도 60초를 넘습니다. 장면을 나눠야 합니다."],
+    },
+  });
+  stub(() => split);
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  const summary = await screen.findByText(/분할 렌더 계획 · 2개 구간/);
+  expect(summary.textContent).toContain("한 번에 렌더할 수 없는 길이");
+  expect(screen.getByText(/아직 실행된 구간은 없어요/)).toBeTruthy();
+  const list = screen.getByLabelText("렌더 구간");
+  expect(within(list).getAllByRole("listitem")).toHaveLength(2);
+  expect(within(list).getByText(/seg-02 · 장면 1개 · .*키 bbbbbbbb/)).toBeTruthy();
+  expect(within(screen.getByLabelText("렌더러 한도 경고")).getByText(/한도 60초/)).toBeTruthy();
+});
+
+test("an older server without render_plan still renders the approval panel", async () => {
+  stub(() => planFixture());
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  await screen.findByRole("button", { name: "이 예상 길이로 승인" });
+  expect(screen.queryByText(/분할 렌더 계획/)).toBeNull();
+});
