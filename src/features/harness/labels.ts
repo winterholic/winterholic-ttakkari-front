@@ -1,9 +1,10 @@
 import type {
-  HarnessCategory, HarnessEngine, HarnessLayer, HarnessRow, HarnessScope, HarnessSession, HarnessWarningKind, LayerEngine, LayerPhase,
+  HarnessCategory, HarnessEngine, HarnessGroupId, HarnessLayer, HarnessRow, HarnessScope, HarnessSession, HarnessWarningKind, LayerEngine, LayerPhase,
 } from "../../api/harnessTypes";
+import type { IconName } from "../../ui/Icon";
 
 export const ENGINE_LABEL: Record<HarnessEngine, string> = {
-  claude: "Claude", codex: "Codex", antigravity: "Antigravity", muse: "Muse", "qwen-local": "Qwen 로컬", shared: "공용(.agents)", ttakkari: "따까리",
+  claude: "Claude", codex: "Codex", antigravity: "Antigravity", muse: "Muse", "qwen-local": "Qwen", shared: "공용(.agents)", ttakkari: "따까리",
 };
 export const SCOPE_LABEL: Record<HarnessScope, string> = { global: "글로벌", project: "프로젝트", account: "계정", ttakkari: "따까리" };
 export const SESSION_LABEL: Record<HarnessSession, string> = { desk: "접수", lead: "기획", worker: "작업자", orchestrator: "메인(옛)" };
@@ -14,7 +15,7 @@ export const SESSION_HINT: Record<HarnessSession, string> = {
   orchestrator: "부모 없는 옛 메인 오케스트레이터 경로",
 };
 export const LAYER_ENGINE_LABEL: Record<LayerEngine, string> = {
-  claude: "Claude", codex: "Codex", antigravity: "Antigravity", muse: "Muse", "qwen-local": "Qwen 로컬",
+  claude: "Claude", codex: "Codex", antigravity: "Antigravity", muse: "Muse", "qwen-local": "Qwen",
 };
 export const SOURCE_LABEL: Record<HarnessRow["source"], string> = {
   file: "파일", code: "코드 상수", db: "DB", config: "설정(config)", generated: "실행 시 생성",
@@ -85,3 +86,8 @@ export function highlightParts(text: string, query: string): { text: string; hit
   if (cursor < text.length) out.push({ text: text.slice(cursor), hit: false });
   return out;
 }
+
+export const GROUP_ICON: Record<HarnessGroupId, IconName> = {
+  claude: "terminal", codex: "code", muse: "palette", qwen: "gauge", antigravity: "sparkles", ttakkari: "shield", projects: "folder-open",
+};
+export const PHASE_ORDER = ["prompt", "delivery", "guard", "tool"] as const;

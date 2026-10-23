@@ -1,39 +1,30 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, type ReactNode } from "react";
 import { useSearchParams } from "react-router";
 import { getHarnessSummary } from "../api/client";
-import type { HarnessSession, LayerEngine } from "../api/harnessTypes";
+import type { HarnessGroupId, HarnessRow } from "../api/harnessTypes";
 import { Detail } from "../features/harness/Detail";
-import { Filters, ResultList, SearchBar, SummaryBar, failure, type FinderState } from "../features/harness/Finder";
-import { Layers } from "../features/harness/Layers";
+import { ItemList, SearchBar, failure } from "../features/harness/Finder";
+import { GroupView } from "../features/harness/Group";
+import { Home } from "../features/harness/Home";
+import { ProjectList, ProjectView } from "../features/harness/Projects";
+import { GroupTree } from "../features/harness/Tree";
+import { readNav } from "../features/harness/nav";
 import { PageHeader } from "../shell/PageHeader";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
-import { formatTime } from "../features/harness/labels";
 import "../features/harness/harness.css";
 
-type View = "find" | "layers";
-const SESSIONS: HarnessSession[] = ["desk", "lead", "worker", "orchestrator"];
-const LAYER_ENGINES: LayerEngine[] = ["claude", "codex", "antigravity", "muse", "qwen-local"];
-
 /**
- * 부가 기능 > 하네스. 내 Claude Code·Codex·Antigravity 설정과 따까리가 세션에 주입하는 지침을 한 곳에서 읽기만 한다.
- * 백엔드 ADR 0069. 편집 기능은 없고, 값은 서버에서 마스킹된 채로 온다. 상태는 모두 URL 에 둔다.
+ * 부가 기능 > 하네스. 7개 그룹(Claude·Codex·Muse·Qwen Code·Antigravity 메인 하네스, 따까리, 프로젝트별)을 1차 내비게이션으로 두고,
+ * 그룹 안에서 레이어(얹히는 순서)와 관심사별로 읽기만 한다. 백엔드 ADR 0069·0070. 값은 서버에서 마스킹돼 오고, 상태는 모두 URL 에 둔다.
+ * 통합 검색은 머리글의 검색 아이콘으로 여는 보조 기능이다.
  */
 export function HarnessPage() {
   const [params, setParams] = useSearchParams();
   const queryClient = useQueryClient();
   const summary = useQuery({ queryKey: ["harness-summary"], queryFn: () => getHarnessSummary() });
-  const view: View = params.get("view") === "layers" ? "layers" : "find";
-  const selected = params.get("item") || "";
-  const state: FinderState = {
-    q: params.get("q") || "", cat: params.get("cat") || "", engine: params.get("engine") || "", scope: params.get("scope") || "",
-    active: params.get("active") === "1" ? "1" : params.get("active") === "0" ? "0" : "",
-    warn: params.get("warn") === "1", hideMissing: params.get("hide_missing") === "1",
-  };
-  const session = (SESSIONS.find((s) => s === params.get("s")) ?? "lead");
-  const layerEngine = (LAYER_ENGINES.find((e) => e === params.get("le")) ?? "claude");
-  const pool = params.get("pool") === "work" ? "work" : "personal";
+  const nav = readNav(params);
 
   const update = useCallback((values: Record<string, string | null>) => {
     setParams((prev) => {
@@ -42,45 +33,64 @@ export function HarnessPage() {
       return next;
     });
   }, [setParams]);
-  const setQuery = useCallback((q: string) => update({ q: q || null, item: null }), [update]);
-  const openItem = useCallback((id: string) => {
-    update({ view: null, item: id });
+  const setQuery = useCallback((q: string) => update({ q: q || null, item: null, find: "1" }), [update]);
+  const scrollToDetail = () => {
     if (window.matchMedia?.("(max-width: 1023px)").matches) requestAnimationFrame(() => document.querySelector(".hv-detail")?.scrollIntoView({ block: "start" }));
+  };
+  // 항목은 지금 보고 있는 그룹·프로젝트·검색 자리에서 연다(주소의 g·c·p·q 는 그대로 둔다).
+  const select = useCallback((row: HarnessRow) => {
+    update({ item: row.id });
+    scrollToDetail();
   }, [update]);
   const refresh = async () => {
     await getHarnessSummary(true).then((data) => queryClient.setQueryData(["harness-summary"], data));
-    await queryClient.invalidateQueries({ queryKey: ["harness-items"] });
-    await queryClient.invalidateQueries({ queryKey: ["harness-item"] });
-    await queryClient.invalidateQueries({ queryKey: ["harness-layers"] });
+    for (const key of ["harness-items", "harness-item", "harness-layers", "harness-group", "harness-projects", "harness-project"]) await queryClient.invalidateQueries({ queryKey: [key] });
   };
   const data = summary.data;
+  const closeItem = () => update({ item: null });
+  const detail = nav.item
+    ? <Detail key={nav.item} id={nav.item} query={nav.q} back={closeItem} update={update} openSession={(s) => update({ g: "ttakkari", v: "sessions", s, item: null, find: null, q: null })} />
+    : <div className="hv-placeholder"><p>항목을 고르면 출처 경로, 적용 범위, 레이어, 본문이 여기에 보여요.</p><p className="hv-note">따까리 하네스의 “세션별 레이어”에서는 접수·기획·작업자 세션에 어떤 지침이 어떤 순서로 합쳐지는지 볼 수 있어요.</p></div>;
+
+  const browser = (list: ReactNode) => <div className="hv-browser" data-selected={Boolean(nav.item)}><div className="hv-pane">{list}</div>{detail}</div>;
+  let body: ReactNode = null;
+  if (data) {
+    if (nav.find) {
+      body = <div className="hv-find">
+        <div className="hv-top" data-selected={Boolean(nav.item)}>
+          <SearchBar value={nav.q} onSubmit={setQuery} autoFocus />
+          <div className="hv-chips hv-chips--scroll" role="group" aria-label="그룹 범위">
+            <button type="button" className="hv-chip" aria-pressed={!nav.fg} onClick={() => update({ fg: null, item: null })}>전체</button>
+            {data.groups.map((g) => <button key={g.id} type="button" className="hv-chip" aria-pressed={nav.fg === g.id} onClick={() => update({ fg: nav.fg === g.id ? null : g.id, item: null })}>{g.short}</button>)}
+          </div>
+          {nav.warn && <p className="hv-filterbar">경고 있는 항목만 <Button variant="ghost" size="sm" onClick={() => update({ warn: null })}>해제</Button></p>}
+        </div>
+        {browser(<ItemList key={`${nav.q}|${nav.fg}|${nav.warn}`} query={{ q: nav.q || undefined, hgroup: nav.fg || undefined, warned: nav.warn || undefined }} text={nav.q}
+          selected={nav.item} select={select} showCrumb empty="조건에 맞는 항목이 없어요. 검색어를 줄이거나 그룹 범위를 풀어 보세요." />)}
+      </div>;
+    } else if (nav.item && !nav.g) {
+      body = <div className="hv-browser hv-browser--single" data-selected="true">{detail}</div>;
+    } else if (nav.g === "projects") {
+      body = browser(nav.p ? <ProjectView nav={nav} update={update} selected={nav.item} select={select} /> : <ProjectList update={update} />);
+    } else if (nav.g) {
+      body = browser(<GroupView id={nav.g as HarnessGroupId} summary={data} nav={nav} update={update} selected={nav.item} select={select} />);
+    } else {
+      body = <Home summary={data} update={update} />;
+    }
+  }
 
   return <div className="tk-screen">
-    <PageHeader title="하네스" meta="내 하네스를 한 곳에서 · 읽기 전용" actions={
+    <PageHeader title="하네스" meta="내 하네스를 한 곳에서 · 읽기 전용" actions={<>
+      <button type="button" className="tk-icon-button" aria-label="검색" aria-pressed={nav.find} onClick={() => update(nav.find ? { find: null, q: null, fg: null, warn: null, item: null } : { find: "1", item: null })}><Icon name="search" /></button>
       <button type="button" className="tk-icon-button" aria-label="다시 읽기" onClick={() => void refresh()}><Icon name="retry" /></button>
-    } />
-    <div className="tk-screen__body"><div className="tk-container tk-container--lg hv-page" data-selected={Boolean(selected && view === "find")}>
-      <nav className="hv-tabs" aria-label="보기 방식">
-        <button type="button" aria-pressed={view === "find"} onClick={() => update({ view: null })}>찾기</button>
-        <button type="button" aria-pressed={view === "layers"} onClick={() => update({ view: "layers", item: null })}>세션별로 보기</button>
-      </nav>
+    </>} />
+    <div className="tk-screen__body"><div className="tk-container hv-page">
       {summary.isPending && <p className="hv-note" role="status">하네스를 읽는 중</p>}
       {summary.isError && <div className="hv-error"><p className="tk-error" role="alert">{failure(summary.error)}</p><Button variant="ghost" onClick={() => void summary.refetch()}>다시 시도</Button></div>}
-      {data && view === "layers" && <Layers state={{ session, engine: layerEngine, pool }} update={update} openItem={openItem} />}
-      {data && view === "find" && <>
-        <div className="hv-top" data-selected={Boolean(selected)}>
-          <SearchBar value={state.q} onSubmit={setQuery} />
-          <SummaryBar summary={data} state={state} update={update} openItem={openItem} />
-          <Filters summary={data} state={state} update={update} />
-        </div>
-        <div className="hv-browser" data-selected={Boolean(selected)}>
-          <ResultList state={state} selected={selected} select={openItem} />
-          {selected
-            ? <Detail key={selected} id={selected} query={state.q} back={() => update({ item: null })} openSession={(s) => update({ view: "layers", s, item: null })} />
-            : <div className="hv-placeholder"><p>항목을 고르면 출처 경로, 적용 범위, 본문이 여기에 보여요.</p><p className="hv-note">“세션별로 보기”에서는 접수·기획·작업자 세션에 어떤 지침이 어떤 순서로 합쳐지는지 볼 수 있어요.</p></div>}
-        </div>
-        <p className="hv-note hv-foot">읽은 시각 {formatTime(data.generated_at)} · 파일은 수정하지 않고 비밀 값은 서버에서 가려요.</p>
-      </>}
+      {data && <div className="hv-shell" data-item={Boolean(nav.item)}>
+        <GroupTree summary={data} nav={nav} update={update} />
+        <div className="hv-main">{body}</div>
+      </div>}
     </div></div>
   </div>;
 }

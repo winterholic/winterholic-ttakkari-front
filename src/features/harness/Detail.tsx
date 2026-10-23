@@ -3,12 +3,13 @@ import { useLayoutEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getHarnessItem } from "../../api/client";
-import type { HarnessDetail, HarnessSession } from "../../api/harnessTypes";
+import type { HarnessCounterparts, HarnessDetail, HarnessSession } from "../../api/harnessTypes";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
 import { Hl, failure } from "./Finder";
 import { ENGINE_LABEL, SCOPE_LABEL, SESSION_LABEL, SOURCE_LABEL, activeLabel, formatAge, formatSize, formatTime } from "./labels";
+import { concernTarget, contextOf, crumbTarget, type Update } from "./nav";
 
 function Copy({ text, label }: { text: string; label: string }) {
   const [note, setNote] = useState("");
@@ -60,6 +61,34 @@ function Callout({ label, text }: { label: string; text: string }) {
   </blockquote>;
 }
 
+function Breadcrumb({ item, update }: { item: HarnessDetail; update: Update }) {
+  return <nav className="hv-crumbs" aria-label="경로">
+    <ol>
+      {item.crumb.map((c) => <li key={c.kind + "-" + c.id}><button type="button" onClick={() => update(crumbTarget(c, item))}>{c.label}</button></li>)}
+      <li aria-current="page"><span className="hv-crumbs__here">{item.name}</span></li>
+    </ol>
+  </nav>;
+}
+
+function Counterparts({ data, item, update }: { data: HarnessCounterparts; item: HarnessDetail; update: Update }) {
+  if (data.items.length === 0 && data.concerns.length === 0) return null;
+  return <section className="hv-counter" aria-label="같은 레이어의 다른 엔진">
+    <h3 className="tk-heading-4">같은 레이어의 다른 엔진</h3>
+    <p className="hv-note">{item.layer_label} 레이어에서 이 항목과 같은 역할을 하는 다른 엔진의 항목이에요.</p>
+    <ul className="hv-counter__list">
+      {data.items.map((c) => <li key={c.id}>
+        <button type="button" className="hv-chip" data-muted={!c.present || undefined}
+          onClick={() => update(contextOf({ id: c.id, hgroup: c.hgroup, concern: item.concern, project: item.project }))}>
+          {c.label} · {c.name}<span>{c.present ? "열기" : "없음"}</span></button>
+      </li>)}
+      {data.concerns.map((c) => <li key={c.hgroup + "-" + c.engine}>
+        <button type="button" className="hv-chip" onClick={() => update(concernTarget({ hgroup: c.hgroup, concern: c.concern, project: c.project }))}>
+          {c.label} 의 같은 관심사<span>{c.total}개</span></button>
+      </li>)}
+    </ul>
+  </section>;
+}
+
 function Facts({ item, openSession }: { item: HarnessDetail; openSession: (s: HarnessSession) => void }) {
   const state = activeLabel(item);
   return <dl className="hv-facts">
@@ -67,7 +96,8 @@ function Facts({ item, openSession }: { item: HarnessDetail; openSession: (s: Ha
     {item.real_path && <><dt>실제 파일</dt><dd><code className="hv-path hv-path--full">{item.real_path}</code><span className="hv-note">심볼릭 링크를 따라간 위치예요.</span></dd></>}
     <dt>출처</dt><dd>{SOURCE_LABEL[item.source]}</dd>
     <dt>엔진</dt><dd>{ENGINE_LABEL[item.engine]}</dd>
-    <dt>적용 범위</dt><dd>{SCOPE_LABEL[item.scope]}{item.group ? ` · ${item.group}` : ""}</dd>
+    <dt>적용 범위</dt><dd>{SCOPE_LABEL[item.scope]}{item.group ? ` · ${item.group}` : ""}{item.pool === "company" ? " · 회사" : ""}</dd>
+    <dt>레이어</dt><dd>{item.layer_label}</dd>
     <dt>상태</dt><dd><Badge tone={state.tone}>{state.text}</Badge>{item.active_note && <span className="hv-note"> {item.active_note}</span>}</dd>
     <dt>수정 시각</dt><dd>{item.mtime == null ? "해당 없음(코드·DB·생성 값)" : `${formatTime(item.mtime)} · ${formatAge(item.mtime)}`}</dd>
     <dt>크기</dt><dd>{formatSize(item.chars, item.lines)}</dd>
@@ -76,7 +106,9 @@ function Facts({ item, openSession }: { item: HarnessDetail; openSession: (s: Ha
   </dl>;
 }
 
-export function Detail({ id, query, back, openSession }: { id: string; query: string; back: () => void; openSession: (s: HarnessSession) => void }) {
+export function Detail({ id, query, back, openSession, update }: {
+  id: string; query: string; back: () => void; openSession: (s: HarnessSession) => void; update: Update;
+}) {
   const [offset, setOffset] = useState(0);
   const heading = useRef<HTMLHeadingElement>(null);
   const result = useQuery({ queryKey: ["harness-item", id, offset], queryFn: () => getHarnessItem(id, offset) });
@@ -84,6 +116,7 @@ export function Detail({ id, query, back, openSession }: { id: string; query: st
   useLayoutEffect(() => { heading.current?.focus({ preventScroll: true }); }, [id, result.isSuccess]);
   return <section className="hv-detail" aria-label="항목 상세">
     <div className="hv-tools"><Button variant="ghost" onClick={back}><Icon name="back" />목록으로</Button></div>
+    {item && item.crumb.length > 0 && <Breadcrumb item={item} update={update} />}
     {result.isPending && <p role="status" className="hv-note">내용을 읽는 중</p>}
     {result.isError && <div className="hv-error"><p className="tk-error" role="alert">{failure(result.error)}</p><Button variant="ghost" onClick={() => void result.refetch()}>다시 시도</Button></div>}
     {item && <>
@@ -95,6 +128,7 @@ export function Detail({ id, query, back, openSession }: { id: string; query: st
       {item.warnings.length > 0 && <ul className="hv-alerts" aria-label="경고">{item.warnings.map((w) => <li key={w}><Icon name="warning" /><span>{w}</span></li>)}</ul>}
       {item.masked > 0 && <p className="hv-masked" role="note"><Icon name="lock" />비밀로 보이는 값 {item.masked}곳을 가렸어요. 값은 서버에서 지워진 뒤 전달돼요.</p>}
       <Facts item={item} openSession={openSession} />
+      <Counterparts data={item.counterparts} item={item} update={update} />
       {item.frontmatter && Object.keys(item.frontmatter).length > 0 && <details className="hv-disclosure">
         <summary>frontmatter · {Object.keys(item.frontmatter).length}개 항목</summary>
         <dl className="hv-facts">{Object.entries(item.frontmatter).map(([k, v]) => <div key={k} className="hv-facts__row"><dt>{k}</dt><dd className="hv-break">{v}</dd></div>)}</dl>

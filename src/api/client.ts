@@ -1253,11 +1253,17 @@ export const getDesignSystemItem = (system: string, item: string, p: { offset?: 
   json(`/api/design-systems/${encodeURIComponent(system)}/item`, { query: { ...p, item, length: 6000 } });
 
 // ---- 하네스 조회 (백엔드 ADR 0069). 소유자 전용 읽기 API.
-import type { HarnessDetail, HarnessLayers, HarnessList, HarnessQuery, HarnessSession, HarnessSummary, LayerEngine } from "./harnessTypes";
+import type {
+  HarnessDetail, HarnessGroupDetail, HarnessGroupId, HarnessLayers, HarnessList, HarnessProjectDetail, HarnessProjectList, HarnessQuery,
+  HarnessSession, HarnessSummary, LayerEngine,
+} from "./harnessTypes";
 export const getHarnessSummary = (refresh = false): Promise<HarnessSummary> => json("/api/harness", { query: { refresh: refresh || undefined } });
 export const searchHarness = (p: HarnessQuery): Promise<HarnessList> => json("/api/harness/items", { query: { ...p, limit: 30 } });
 export const getHarnessItem = (id: string, offset = 0): Promise<HarnessDetail> =>
   json(`/api/harness/items/${encodeURIComponent(id)}`, { query: { offset, length: 8000 } });
+export const getHarnessGroup = (id: HarnessGroupId): Promise<HarnessGroupDetail> => json("/api/harness/groups/" + encodeURIComponent(id));
+export const getHarnessProjects = (): Promise<HarnessProjectList> => json("/api/harness/projects");
+export const getHarnessProject = (key: string): Promise<HarnessProjectDetail> => json("/api/harness/projects/detail", { query: { key } });
 export const getHarnessLayers = (session: HarnessSession, engine: LayerEngine, pool: "personal" | "work"): Promise<HarnessLayers> =>
   json("/api/harness/layers", { query: { session, engine, pool } });
 
