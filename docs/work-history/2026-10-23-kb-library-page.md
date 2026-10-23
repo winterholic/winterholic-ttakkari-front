@@ -7,3 +7,4 @@
 - 발췌 강조 좌표는 서버가 코드포인트 기준으로 주므로 `Array.from`으로 센다(`splitHighlights`, 이모지 시험 포함).
 - 시험: `KnowledgeLibraryPage.test.tsx` 12개. 기존 `AppShell.test`의 부가 기능 목록 두 곳과 `linkTarget.test`의 APP_ROUTE_ROOTS 대조를 새 항목에 맞췄다.
 - 한계: 브라우저 실제 렌더·320/390px 레이아웃 확인은 하지 않았다(jsdom 시험과 lint만). 검색은 백엔드의 단어 일치 방식이라 의미 검색 품질을 가정하지 않는다.
+- 게시: main `d6d1b7e`, Vercel 배포 7269050794 success. 운영 `https://ttakkari.winterholic.net` index 자산에 `knowledge-library`와 `KnowledgeLibraryPage-BTQkmTeG.js` 청크가 반영됐다. 백엔드 API 배포(예약 38d046c6-5fc1-4d2d-9b18-6352f67a27db)가 활성화되기 전에는 이 화면의 요청이 실패할 수 있다.
