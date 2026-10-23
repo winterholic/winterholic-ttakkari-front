@@ -91,6 +91,7 @@ function productionFixture(overrides: Partial<ProductionView> = {}): ProductionV
     dispatchable: true,
     reasons: [],
     assets: { scenes_total: 3, scenes_with_asset: 0, missing_scene_ids: ["s1", "s2", "s3"], music: null, music_problem: "음악 자산이 없습니다.", complete: false },
+    asset_generation: null,
     engine: null,
     outdated_segments: [],
     segments: [],
@@ -574,7 +575,7 @@ test("a dispatchable approved plan is prepared, then asks for scene images and m
   expect(within(screen.getByLabelText("장면 이미지")).getAllByRole("listitem")).toHaveLength(2);
   expect(screen.getByLabelText("음악 파일")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "렌더 시작" })).toBeNull();
-  expect(screen.getByText(/정지 이미지 슬라이드쇼 하나/)).toBeTruthy();
+  expect(screen.getByText(/현재 v1 FFmpeg 정지 이미지 슬라이드쇼/)).toBeTruthy();
 });
 
 test("uploading a scene image posts multipart form data with the scene id and refreshes the state", async () => {
@@ -596,6 +597,33 @@ test("uploading a scene image posts multipart form data with the scene id and re
   expect(uploads[0].get("kind")).toBe("scene");
   expect(uploads[0].get("scene_id")).toBe("s1");
   expect((uploads[0].get("file") as File).name).toBe("s1.png");
+});
+
+test("R21 offers automatic asset generation and refreshes its execution state", async () => {
+  const r21 = planFixture({ match: { ...planFixture().match, primary_recipe: "R21" } });
+  const plan = { ...r21, approval: approvedGate().approval, render_gate: true };
+  let started = false;
+  const calls = stub((url, init) => {
+    if (url.endsWith("/production/generate-assets") && init?.method === "POST") {
+      started = true;
+      return { plan_id: r21.id, plan_revision: 1, status: "queued" };
+    }
+    if (url.includes("/production")) return productionFixture({
+      state: "awaiting_assets",
+      dispatchable: false,
+      engine: ENGINE,
+      asset_generation: started ? {
+        id: "gen-1", plan_revision: 1, recipe_id: "R21", status: "running",
+        engine: { id: "creative-v2.managed-comfy+supertonic+acestep", version: "real" },
+        assets: { scenes: {}, voices: {}, music: { id: "m", sha256: "sha" } }, receipt: null, error: null,
+      } : null,
+    });
+    return plan;
+  });
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  fireEvent.click(await screen.findByRole("button", { name: "장면 이미지·음성·음악 자동 생성" }));
+  await waitFor(() => expect(calls.some((call) => call.url.endsWith("/production/generate-assets"))).toBe(true));
+  expect(await screen.findByText(/자동 자산 생성: 실행 중/)).toBeTruthy();
 });
 
 test("a ready plan starts the render and shows per-segment engine state", async () => {

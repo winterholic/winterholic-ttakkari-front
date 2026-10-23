@@ -231,6 +231,21 @@ export interface ProductionView {
   dispatchable: boolean;
   reasons: string[];
   assets: ProductionAssets;
+  asset_generation_blockers?: string[];
+  asset_generation: {
+    id: string;
+    plan_revision: number;
+    recipe_id: string;
+    status: "running" | "succeeded" | "failed";
+    engine: { id: string; version: string };
+    assets: {
+      scenes: Record<string, { id: string; sha256: string }>;
+      voices: Record<string, { id: string; sha256: string }>;
+      music: { id: string; sha256: string };
+    };
+    receipt: Record<string, unknown> | null;
+    error: string | null;
+  } | null;
   engine: { adapter: string; version: string | null } | null;
   style?: { style_dna: string | null; applied: Record<string, string>; ignored: string[] };
   outdated_segments: string[];
@@ -356,6 +371,10 @@ export const productionDispatch = (id: string, revision: number) =>
   json<ProductionView>(`${root}/plans/${id}/production`, { method: "POST", json: { revision } });
 export const productionRender = (id: string, revision: number) =>
   json<ProductionView>(`${root}/plans/${id}/production/render`, { method: "POST", json: { revision } });
+export const productionGenerateAssets = (id: string, revision: number) =>
+  json<{ plan_id: string; plan_revision: number; status: "queued" | "running" }>(
+    `${root}/plans/${id}/production/generate-assets`, { method: "POST", json: { revision } },
+  );
 export const productionUpload = (id: string, kind: "scene" | "music", file: File, sceneId?: string) => {
   const form = new FormData();
   form.append("kind", kind);
