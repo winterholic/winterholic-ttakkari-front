@@ -147,4 +147,51 @@ describe("보관함 3개 탭 및 카테고리 필터", () => {
     fireEvent.click(screen.getByRole("button", { name: /표·데이터/ }));
     expect(lastParams()).toMatchObject({ category: "spreadsheet" });
   });
+
+  it("출처가 unknown인 경우 '출처 미확인' 배지가 표시된다", async () => {
+    const unknownArt = art("unknown-file", "agent", { origin: "unknown" as any });
+    h.listArtifacts.mockResolvedValue([unknownArt]);
+    mount("/library?tab=agent");
+    expect(await screen.findByText("unknown-file.bin")).toBeTruthy();
+    expect(screen.getByText("출처 미확인")).toBeTruthy();
+  });
+
+  it("내 보관함 탭에서만 보관 사유 배지가 표시된다", async () => {
+    const keptArt = art("kept-file", "files", { keep_reason: "chat_request" });
+    const agentArt = art("agent-file", "agent", { keep_reason: null });
+    h.listArtifacts.mockImplementation(async (p: { area?: string }) =>
+      p.area === "files" ? [keptArt] : [agentArt]
+    );
+    mount("/library");
+    expect(await screen.findByText("kept-file.bin")).toBeTruthy();
+    expect(screen.getByText("보관 요청")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("radio", { name: "AI 작업 파일" }));
+    expect(await screen.findByText("agent-file.bin")).toBeTruthy();
+    expect(screen.queryByText("보관 요청")).toBeNull();
+  });
+
+  it("상세 더보기 모달에서 출처·보관사유·보관일시·보관지시문·세션링크가 보인다", async () => {
+    const detailedArt = art("detail-file", "files", {
+      origin: "unknown" as any,
+      keep_reason: "chat_request",
+      session_id: "s1",
+      created_at: "2026-10-25T01:00:00Z",
+      keep_evidence: {
+        session_id: "s1",
+        run_id: "r1",
+        instruction: "보관함에 꼭 넣어줘",
+        requested_at: "2026-10-25T01:00:00Z",
+      },
+    });
+    h.getArtifact.mockResolvedValue(detailedArt);
+    mount("/library?artifact=detail-file");
+    fireEvent.click(await screen.findByRole("button", { name: "더보기" }));
+
+    expect(await screen.findByText("출처 미확인")).toBeTruthy();
+    expect(screen.getByText("보관 요청")).toBeTruthy();
+    expect(screen.getByText(/보관함에 꼭 넣어줘/)).toBeTruthy();
+    expect(screen.getByRole("link", { name: "대화 바로가기" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /내 보관함에서 빼기 \(파일은 AI 작업 파일에 남아요\)/ })).toBeTruthy();
+  });
 });

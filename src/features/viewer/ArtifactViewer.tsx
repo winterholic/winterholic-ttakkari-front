@@ -13,8 +13,9 @@ import { ModalDialog } from "./ModalDialog";
 import { useArtifactViewer } from "./useArtifactViewer";
 import { ViewerErrorBoundary } from "./ViewerErrorBoundary";
 import "./viewer.css";
-import { downloadState, extOf, formatSize, PREVIEW_POLL_MS, resolveViewMode, shouldPollPreview, stepZoom, toolsFor } from "./kinds";
+import { downloadState, extOf, formatSize, formatWhen, PREVIEW_POLL_MS, resolveViewMode, shouldPollPreview, stepZoom, toolsFor } from "./kinds";
 import type { ViewMode } from "./kinds";
+import { originLabel, keepReasonLabel } from "./screenStates";
 import { MarkdownView } from "./renderers/MarkdownView";
 import { ErrorBody, LoadingBody, StatePanel } from "./renderers/StatePanel";
 
@@ -336,13 +337,18 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
             <h2 className="tk-dialog__title" id="av-actions-title">{a.filename}</h2>
             <button className="tk-icon-button" type="button" aria-label="닫기" onClick={() => setMenuOpen(false)}><Icon name="x" /></button>
           </div>
-          <div className="tk-dialog__body" style={{ padding: "0.75rem 1rem", fontSize: "0.8125rem", color: "var(--tk-color-muted)", borderBottom: "1px solid var(--tk-color-border)" }}>
-            <div><strong>출처:</strong> {a.origin === "user" ? "직접 올림" : a.origin === "agent" ? "AI 작업" : a.origin === "external" ? "외부 수집" : "출처 미확인"}</div>
+          <div className="tk-dialog__body" style={{ padding: "0.75rem 1rem", fontSize: "0.8125rem", color: "var(--tk-color-muted)", borderBottom: "1px solid var(--tk-color-border)", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+            <div><strong>출처:</strong> {originLabel(a.origin)}</div>
             {a.keep_reason && (
-              <div><strong>보관 사유:</strong> {a.keep_reason === "chat_request" ? "대화 보관 요청" : a.keep_reason === "direct_upload" ? "직접 업로드" : a.keep_reason === "direct_register" ? "직접 등록" : "보관함에 보관됨"}</div>
+              <div><strong>보관 사유:</strong> {keepReasonLabel(a.keep_reason)}</div>
             )}
+            {Boolean(a.keep_evidence && typeof a.keep_evidence === "object" && "requested_at" in a.keep_evidence && a.keep_evidence.requested_at) ? (
+              <div><strong>보관 일시:</strong> {formatWhen(String(a.keep_evidence!.requested_at))}</div>
+            ) : a.keep_reason ? (
+              <div><strong>보관 일시:</strong> {formatWhen(a.created_at)}</div>
+            ) : null}
             {Boolean(a.keep_evidence && typeof a.keep_evidence === "object" && "instruction" in a.keep_evidence && a.keep_evidence.instruction) && (
-              <div><strong>보관 요청:</strong> &quot;{String(a.keep_evidence!.instruction)}&quot;</div>
+              <div><strong>보관 지시문:</strong> &quot;{String(a.keep_evidence!.instruction)}&quot;</div>
             )}
             {a.session_id && (
               <div><strong>세션:</strong> <Link to={`/chat/${a.session_id}`} onClick={() => setMenuOpen(false)} style={{ color: "var(--tk-color-primary)", textDecoration: "underline" }}>대화 바로가기</Link></div>
@@ -357,7 +363,7 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
             {onMove && (
               <li>
                 <button className="tk-menu__item" type="button" onClick={() => { setMenuOpen(false); onMove(a); }}>
-                  <Icon name="folder" />{a.area === "agent" ? "내 보관함에 보관" : "내 보관함에서 빼기"}
+                  <Icon name="folder" />{a.area === "agent" ? "내 보관함에 보관" : "내 보관함에서 빼기 (파일은 AI 작업 파일에 남아요)"}
                 </button>
               </li>
             )}

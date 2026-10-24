@@ -55,7 +55,7 @@ export function ErrorState({ error, onRetry, what, art }: { error: unknown; onRe
   );
 }
 
-function originLabel(origin?: string): string {
+export function originLabel(origin?: string): string {
   switch (origin) {
     case "user":
       return "직접 올림";
@@ -63,12 +63,13 @@ function originLabel(origin?: string): string {
       return "AI 작업";
     case "external":
       return "외부 수집";
+    case "unknown":
     default:
       return "출처 미확인";
   }
 }
 
-function keepReasonLabel(reason?: string): string {
+export function keepReasonLabel(reason?: string): string {
   switch (reason) {
     case "direct_upload":
       return "직접 업로드";

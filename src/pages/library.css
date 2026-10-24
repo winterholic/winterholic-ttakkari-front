@@ -2,3 +2,10 @@
 .library-tabs { margin-top: var(--tk-space-4); }
 /* 필터 줄 → 개수 → 날짜 묶음 사이: 필터 아래 padding(12)이 개수 줄과 묶음 머리 사이에 한 번 더 쌓여 상하가 벌어졌다. 묶음 머리의 기본 margin 은 디자인 시스템(.tk-list__group)에서 걷었다. */
 .library-page .tk-filterbar { padding-bottom: var(--tk-space-1); }
+/* 모바일(390px 등)에서 칩 목록이 화면 폭을 뚫고 나가지 않고 컨테이너 안에서 가로 스크롤되도록 보장 */
+.library-page .tk-chips {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
