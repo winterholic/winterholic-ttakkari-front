@@ -73,12 +73,14 @@
 @media (hover: hover) { .tcanvas__pct:hover { background: var(--tk-color-interactive-hover-overlay); color: var(--tk-color-text-primary); } }
 .tcanvas__pct:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }
 
-/* 홈: 왼쪽 캔버스 + 오른쪽 패널(데스크톱). 패널 폭은 분할 화면 토큰 사이에서 화면에 맞춘다 */
+/* 홈: 왼쪽 캔버스 + 오른쪽 패널(데스크톱). 패널 폭은 분할 화면 토큰 사이에서 화면에 맞춘다.
+   결과물 뷰어를 넓게 끌면 이 홈이 들어간 칸이 패널 폭보다 좁아진다. 패널은 flex-shrink:0 이면 칸 밖으로 넘쳐 뷰어 위에 겹치므로 줄어들 수 있게 둔다 */
 .home { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
-.home__canvas { position: relative; display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; }
+/* 판은 basis 0 으로 남는 폭만 쓴다. 패널이 줄어들어야 할 때 먼저 양보하는 쪽이 판이다 */
+.home__canvas { position: relative; display: flex; flex: 1 1 0; min-width: 0; min-height: 0; }
 .home__loading { margin: auto; }
 .home__panel {
-  display: flex; flex-direction: column; flex: 0 0 clamp(var(--tk-size-layout-pane-min), 32vw, var(--tk-size-layout-workspace)); min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; flex: 0 1 clamp(var(--tk-size-layout-pane-min), 32vw, var(--tk-size-layout-workspace)); min-width: 0; min-height: 0;
   border-left: var(--tk-border-width-hairline) solid var(--tk-color-border-default); background: var(--tk-color-surface-canvas);
 }
 .home__panel-head {
