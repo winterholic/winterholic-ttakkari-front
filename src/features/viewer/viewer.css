@@ -24,6 +24,9 @@
 .tk-code__text { flex: 1 0 auto; min-width: 0; padding: 0 var(--tk-space-4) 0 var(--tk-space-3); }
 .tk-code[data-wrap] .tk-code__text { flex: 1 1 0; }
 
+/* 더보기 메뉴 맨 위의 출처·보관 경위 요약 */
+.tk-viewer__facts { display: flex; flex-direction: column; gap: var(--tk-space-1); border-block-end: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+
 /* 뷰어 오류 화면: 렌더러가 던져도 닫기·다시 시도가 남는다. */
 .tk-viewer-error { display: flex; flex-direction: column; height: 100%; min-height: 0; }
 .tk-viewer-error > .tk-empty { flex: 1 1 auto; }

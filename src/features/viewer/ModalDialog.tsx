@@ -17,7 +17,9 @@ export function ModalDialog({
     if (!open && d.open) d.close();
   }, [open]);
   return (
-    <dialog ref={ref} className={className} tabIndex={-1} aria-labelledby={labelledBy} aria-label={label} onClose={onClose}>
+    <dialog ref={ref} className={className} tabIndex={-1} aria-labelledby={labelledBy} aria-label={label}
+      // React 는 close 도 조상 다이얼로그 핸들러까지 올려 보낸다. 모바일 뷰어 시트 안의 메뉴를 닫을 때 시트까지 닫히지 않게 막는다.
+      onClose={(e) => { e.stopPropagation(); onClose(); }}>
       {open && children}
     </dialog>
   );

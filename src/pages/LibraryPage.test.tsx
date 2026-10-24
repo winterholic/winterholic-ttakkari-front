@@ -149,7 +149,7 @@ describe("보관함 3개 탭 및 카테고리 필터", () => {
   });
 
   it("출처가 unknown인 경우 '출처 미확인' 배지가 표시된다", async () => {
-    const unknownArt = art("unknown-file", "agent", { origin: "unknown" as any });
+    const unknownArt = art("unknown-file", "agent", { origin: "unknown" });
     h.listArtifacts.mockResolvedValue([unknownArt]);
     mount("/library?tab=agent");
     expect(await screen.findByText("unknown-file.bin")).toBeTruthy();
@@ -171,17 +171,20 @@ describe("보관함 3개 탭 및 카테고리 필터", () => {
     expect(screen.queryByText("보관 요청")).toBeNull();
   });
 
-  it("상세 더보기 모달에서 출처·보관사유·보관일시·보관지시문·세션링크가 보인다", async () => {
+  it("상세 더보기 모달에서 출처·보관사유·보관일시·요청 인용·세션링크가 보인다", async () => {
     const detailedArt = art("detail-file", "files", {
-      origin: "unknown" as any,
+      origin: "unknown",
       keep_reason: "chat_request",
       session_id: "s1",
       created_at: "2026-10-25T01:00:00Z",
       keep_evidence: {
         session_id: "s1",
         run_id: "r1",
-        instruction: "보관함에 꼭 넣어줘",
-        requested_at: "2026-10-25T01:00:00Z",
+        message_id: "m1",
+        message_source: "message",
+        quote: "보관함에 꼭 넣어줘",
+        message_at: "2026-10-25T00:59:00Z",
+        kept_at: "2026-10-25T01:00:00Z",
       },
     });
     h.getArtifact.mockResolvedValue(detailedArt);

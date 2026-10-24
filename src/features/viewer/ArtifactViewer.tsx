@@ -337,21 +337,17 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
             <h2 className="tk-dialog__title" id="av-actions-title">{a.filename}</h2>
             <button className="tk-icon-button" type="button" aria-label="닫기" onClick={() => setMenuOpen(false)}><Icon name="x" /></button>
           </div>
-          <div className="tk-dialog__body" style={{ padding: "0.75rem 1rem", fontSize: "0.8125rem", color: "var(--tk-color-muted)", borderBottom: "1px solid var(--tk-color-border)", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+          <div className="tk-dialog__body tk-viewer__facts">
             <div><strong>출처:</strong> {originLabel(a.origin)}</div>
             {a.keep_reason && (
               <div><strong>보관 사유:</strong> {keepReasonLabel(a.keep_reason)}</div>
             )}
-            {Boolean(a.keep_evidence && typeof a.keep_evidence === "object" && "requested_at" in a.keep_evidence && a.keep_evidence.requested_at) ? (
-              <div><strong>보관 일시:</strong> {formatWhen(String(a.keep_evidence!.requested_at))}</div>
-            ) : a.keep_reason ? (
-              <div><strong>보관 일시:</strong> {formatWhen(a.created_at)}</div>
-            ) : null}
-            {Boolean(a.keep_evidence && typeof a.keep_evidence === "object" && "instruction" in a.keep_evidence && a.keep_evidence.instruction) && (
-              <div><strong>보관 지시문:</strong> &quot;{String(a.keep_evidence!.instruction)}&quot;</div>
+            {a.keep_reason && <div><strong>보관 일시:</strong> {formatWhen(evidenceText(a, "kept_at") ?? a.created_at)}</div>}
+            {evidenceText(a, "quote") && (
+              <div><strong>보관 요청 말:</strong> &quot;{evidenceText(a, "quote")}&quot;{evidenceText(a, "message_at") ? ` (${formatWhen(evidenceText(a, "message_at")!)})` : ""}</div>
             )}
             {a.session_id && (
-              <div><strong>세션:</strong> <Link to={`/chat/${a.session_id}`} onClick={() => setMenuOpen(false)} style={{ color: "var(--tk-color-primary)", textDecoration: "underline" }}>대화 바로가기</Link></div>
+              <div><strong>세션:</strong> <Link className="tk-link" to={`/chat/${a.session_id}`} onClick={() => setMenuOpen(false)}>대화 바로가기</Link></div>
             )}
           </div>
           <ul className="dialog-actions" role="list">
@@ -379,6 +375,14 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
       )}
     </section>
   );
+}
+
+/** 대화 보관 요청의 근거(keep_evidence)에서 문자열 필드 하나를 꺼낸다. */
+function evidenceText(a: ArtifactOut, key: string): string | null {
+  const ev = a.keep_evidence;
+  if (!ev || typeof ev !== "object") return null;
+  const v = (ev as Record<string, unknown>)[key];
+  return typeof v === "string" && v ? v : null;
 }
 
 // ---- 본문 렌더러 연결 --------------------------------------------------------
