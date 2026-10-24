@@ -55,6 +55,34 @@ export function ErrorState({ error, onRetry, what, art }: { error: unknown; onRe
   );
 }
 
+function originLabel(origin?: string): string {
+  switch (origin) {
+    case "user":
+      return "직접 올림";
+    case "agent":
+      return "AI 작업";
+    case "external":
+      return "외부 수집";
+    default:
+      return "출처 미확인";
+  }
+}
+
+function keepReasonLabel(reason?: string): string {
+  switch (reason) {
+    case "direct_upload":
+      return "직접 업로드";
+    case "direct_register":
+      return "직접 등록";
+    case "chat_request":
+      return "보관 요청";
+    case "user_button":
+      return "보관됨";
+    default:
+      return reason || "보관됨";
+  }
+}
+
 /** 결과물 한 줄의 안쪽(글리프 · 이름과 메타 · 정책 배지). 보관함·작업 공간이 같은 모양을 쓴다(docs/09 §1). */
 export function ArtifactRowContent({ a, extraMeta }: { a: ArtifactOut; extraMeta?: ReactNode }) {
   const g = KIND_GLYPH[a.kind] ?? KIND_GLYPH.other;
@@ -67,8 +95,12 @@ export function ArtifactRowContent({ a, extraMeta }: { a: ArtifactOut; extraMeta
       <span className="tk-list__body">
         <span className="tk-list__title">{a.filename}</span>
         <span className="tk-list__meta">
-          <span className="tk-ext">{extOf(a.filename).toUpperCase() || a.kind.toUpperCase()}</span>
+          <span className="tk-ext">{extOf(a.filename).toUpperCase() || (a.category ? a.category.toUpperCase() : a.kind.toUpperCase())}</span>
           {extraMeta}
+          <span className="tk-badge tk-badge--muted tk-badge--xs">{originLabel(a.origin)}</span>
+          {a.area === "files" && a.keep_reason && (
+            <span className="tk-badge tk-badge--primary tk-badge--xs">{keepReasonLabel(a.keep_reason)}</span>
+          )}
           <span>{formatSize(a.size_bytes)}</span>
           <span>{formatWhen(a.created_at)}</span>
           {convert && a.preview_status === "ready" && <span>변환 미리보기</span>}

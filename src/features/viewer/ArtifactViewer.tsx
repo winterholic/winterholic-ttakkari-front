@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiUrl, contentBlob, downloadLink, getAccessToken, getArtifact, retryPreview } from "../../api/client";
 import type { ArtifactOut, UUID } from "../../api/types";
@@ -335,6 +336,18 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
             <h2 className="tk-dialog__title" id="av-actions-title">{a.filename}</h2>
             <button className="tk-icon-button" type="button" aria-label="닫기" onClick={() => setMenuOpen(false)}><Icon name="x" /></button>
           </div>
+          <div className="tk-dialog__body" style={{ padding: "0.75rem 1rem", fontSize: "0.8125rem", color: "var(--tk-color-muted)", borderBottom: "1px solid var(--tk-color-border)" }}>
+            <div><strong>출처:</strong> {a.origin === "user" ? "직접 올림" : a.origin === "agent" ? "AI 작업" : a.origin === "external" ? "외부 수집" : "출처 미확인"}</div>
+            {a.keep_reason && (
+              <div><strong>보관 사유:</strong> {a.keep_reason === "chat_request" ? "대화 보관 요청" : a.keep_reason === "direct_upload" ? "직접 업로드" : a.keep_reason === "direct_register" ? "직접 등록" : "보관함에 보관됨"}</div>
+            )}
+            {Boolean(a.keep_evidence && typeof a.keep_evidence === "object" && "instruction" in a.keep_evidence && a.keep_evidence.instruction) && (
+              <div><strong>보관 요청:</strong> &quot;{String(a.keep_evidence!.instruction)}&quot;</div>
+            )}
+            {a.session_id && (
+              <div><strong>세션:</strong> <Link to={`/chat/${a.session_id}`} onClick={() => setMenuOpen(false)} style={{ color: "var(--tk-color-primary)", textDecoration: "underline" }}>대화 바로가기</Link></div>
+            )}
+          </div>
           <ul className="dialog-actions" role="list">
             <li>
               <button className="tk-menu__item" type="button" aria-disabled={!dl.enabled || undefined} onClick={() => { if (dl.enabled) { setMenuOpen(false); void download(); } }}>
@@ -344,14 +357,14 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
             {onMove && (
               <li>
                 <button className="tk-menu__item" type="button" onClick={() => { setMenuOpen(false); onMove(a); }}>
-                  <Icon name="folder" />{a.area === "agent" ? "파일로 옮기기" : "에이전트 파일로 옮기기"}
+                  <Icon name="folder" />{a.area === "agent" ? "내 보관함에 보관" : "내 보관함에서 빼기"}
                 </button>
               </li>
             )}
             {onDelete && (
               <li>
                 <button className="tk-menu__item tk-menu__item--danger" type="button" onClick={() => { setMenuOpen(false); onDelete(a); }}>
-                  <Icon name="trash" />삭제…
+                  <Icon name="trash" />파일 삭제…
                 </button>
               </li>
             )}

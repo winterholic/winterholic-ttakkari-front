@@ -24,8 +24,9 @@ vi.mock("../shell/PageHeader", () => ({
 import { LibraryPage } from "./LibraryPage";
 
 const art = (id: string, area: "files" | "agent", over: Partial<ArtifactOut> = {}): ArtifactOut => ({
-  id, workspace_id: "w1", session_id: "s1", run_id: null, filename: `${id}.bin`, mime_type: "application/octet-stream", kind: "other",
-  source: area === "files" ? "upload" : "agent_output", area, rel_path: `${id}.bin`, storage_mode: "copy", size_bytes: 10, sha256: "0",
+  id, workspace_id: "w1", session_id: "s1", run_id: null, filename: `${id}.bin`, mime_type: "application/octet-stream", kind: "other", category: "other",
+  source: area === "files" ? "upload" : "agent_output", origin: area === "files" ? "user" : "agent", area, keep_reason: area === "files" ? "direct_upload" : null,
+  rel_path: `${id}.bin`, storage_mode: "copy", size_bytes: 10, sha256: "0",
   preview_status: "not_required", preview_mime: null, preview_error: null, export_policy: "allow", downloadable: true, retention_until: null,
   created_at: "2026-10-12T09:00:00Z", ...over,
 });
@@ -55,69 +56,95 @@ beforeEach(() => {
   };
   HTMLDialogElement.prototype.close ??= function (this: HTMLDialogElement) {
     this.removeAttribute("open");
-    this.dispatchEvent(new Event("close"));
   };
   h.listArtifacts.mockReset();
   h.moveArtifact.mockReset();
   h.getArtifact.mockReset();
   h.listArtifacts.mockImplementation(async (p: { area?: string }) =>
-    p.area === "agent" ? [art("work", "agent")] : [art("mine", "files")],
+    p.area === "agent" ? [art("work", "agent")] : p.area === "all" ? [art("mine", "files"), art("work", "agent")] : [art("mine", "files")],
   );
 });
 afterEach(cleanup);
 
-describe("보관함 파일 / 에이전트 파일", () => {
-  it("기본은 파일 탭이고 사용자 파일 목록만 요청한다", async () => {
+describe("보관함 3개 탭 및 카테고리 필터", () => {
+  it("기본은 내 보관함 탭이고 사용자 보관 파일 목록만 요청한다", async () => {
     mount();
     expect(await screen.findByText("mine.bin")).toBeTruthy();
-    expect((screen.getByRole("radio", { name: "파일" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("radio", { name: "내 보관함" }) as HTMLInputElement).checked).toBe(true);
     expect(lastParams()).toMatchObject({ area: "files" });
     expect(lastParams()).not.toHaveProperty("changed", true);
     expect(screen.queryByText("work.bin")).toBeNull();
-    // 예전 "변경된 파일" 칩은 에이전트 파일 탭으로 흡수됐다.
-    expect(screen.queryByRole("button", { name: /변경된 파일/ })).toBeNull();
   });
 
-  it("에이전트 파일 탭을 누르면 에이전트 파일만 보이고 주소가 기억한다", async () => {
+  it("AI 작업 파일 탭을 누르면 AI 작업 파일만 보이고 주소가 기억한다", async () => {
     mount();
     await screen.findByText("mine.bin");
-    fireEvent.click(screen.getByRole("radio", { name: "에이전트 파일" }));
+    fireEvent.click(screen.getByRole("radio", { name: "AI 작업 파일" }));
     expect(await screen.findByText("work.bin")).toBeTruthy();
     expect(lastParams()).toMatchObject({ area: "agent" });
     expect(screen.getByTestId("where").textContent).toBe("/library?tab=agent");
     expect(screen.queryByText("mine.bin")).toBeNull();
   });
 
-  it("?tab=agent 로 들어오면 에이전트 파일 탭이 열려 있다", async () => {
+  it("전체 탭을 누르면 전체 파일이 보이고 주소가 ?tab=all 로 바뀐다", async () => {
+    mount();
+    await screen.findByText("mine.bin");
+    fireEvent.click(screen.getByRole("radio", { name: "전체" }));
+    expect(await screen.findByText("work.bin")).toBeTruthy();
+    expect(lastParams()).toMatchObject({ area: "all" });
+    expect(screen.getByTestId("where").textContent).toBe("/library?tab=all");
+  });
+
+  it("?tab=agent 로 들어오면 AI 작업 파일 탭이 열려 있다", async () => {
     mount("/library?tab=agent");
     expect(await screen.findByText("work.bin")).toBeTruthy();
-    expect((screen.getByRole("radio", { name: "에이전트 파일" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("radio", { name: "AI 작업 파일" }) as HTMLInputElement).checked).toBe(true);
   });
 
   it("비어 있으면 탭마다 맞는 안내를 보여 준다", async () => {
     h.listArtifacts.mockResolvedValue([]);
     mount();
+    expect(await screen.findByText("아직 내 보관함에 보관된 파일이 없어요")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "AI 작업 파일" }));
+    expect(await screen.findByText("AI 작업 파일이 없어요")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "전체" }));
     expect(await screen.findByText("아직 파일이 없어요")).toBeTruthy();
-    fireEvent.click(screen.getByRole("radio", { name: "에이전트 파일" }));
-    expect(await screen.findByText("에이전트 파일이 없어요")).toBeTruthy();
   });
 
-  it("에이전트 파일을 열어 파일로 옮길 수 있다", async () => {
+  it("AI 작업 파일을 열어 내 보관함에 보관할 수 있다", async () => {
     const a = art("work", "agent");
     h.getArtifact.mockResolvedValue(a);
     h.moveArtifact.mockResolvedValue({ ...a, area: "files" });
     mount("/library?tab=agent&artifact=work");
     fireEvent.click(await screen.findByRole("button", { name: "더보기" }));
-    fireEvent.click(await screen.findByRole("button", { name: /^파일로 옮기기/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^내 보관함에 보관/ }));
     await waitFor(() => expect(h.moveArtifact).toHaveBeenCalledWith("work", "files"));
-    expect(await screen.findByText(/work.bin 을\(를\) 파일로 옮겼어요/)).toBeTruthy();
+    expect(await screen.findByText(/work.bin 을\(를\) 내 보관함에 보관했어요/)).toBeTruthy();
   });
 
-  it("파일 탭의 항목은 에이전트 파일로 옮기는 항목이 나온다", async () => {
+  it("내 보관함 항목은 내 보관함에서 빼기 항목이 나온다", async () => {
     const a = art("mine", "files");
     h.getArtifact.mockResolvedValue(a);
+    h.moveArtifact.mockResolvedValue({ ...a, area: "agent" });
     mount("/library?artifact=mine");
     fireEvent.click(await screen.findByRole("button", { name: "더보기" }));
-    expect(await screen.findByRole("button", { name: /에이전트 파일로 옮기기/ })).toBeTruthy();
+    const btn = await screen.findByRole("button", { name: /내 보관함에서 빼기/ });
+    expect(btn).toBeTruthy();
+    fireEvent.click(btn);
+    await waitFor(() => expect(h.moveArtifact).toHaveBeenCalledWith("mine", "agent"));
+    expect(await screen.findByText(/mine.bin 을\(를\) 내 보관함에서 뺐어요/)).toBeTruthy();
+  });
+
+  it("카테고리 칩을 누르면 category 파라미터가 서버에 전달된다", async () => {
+    mount();
+    await screen.findByText("mine.bin");
+    fireEvent.click(screen.getByRole("button", { name: /동영상/ }));
+    expect(lastParams()).toMatchObject({ category: "video" });
+    fireEvent.click(screen.getByRole("button", { name: /오디오/ }));
+    expect(lastParams()).toMatchObject({ category: "audio" });
+    fireEvent.click(screen.getByRole("button", { name: /압축파일/ }));
+    expect(lastParams()).toMatchObject({ category: "archive" });
+    fireEvent.click(screen.getByRole("button", { name: /표·데이터/ }));
+    expect(lastParams()).toMatchObject({ category: "spreadsheet" });
   });
 });

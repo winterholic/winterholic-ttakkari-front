@@ -198,9 +198,13 @@ export interface DeskFeedbackOut extends DeskFeedbackBrief {
 
 // ---- artifacts
 export type ArtifactKind = "markdown" | "html" | "pdf" | "pptx" | "docx" | "sheet" | "image" | "audio" | "video" | "code" | "other";
+export type ArtifactCategory = "document" | "spreadsheet" | "presentation" | "image" | "video" | "audio" | "code" | "archive" | "other";
+export type ArtifactOrigin = "user" | "agent" | "external" | "unknown";
+export type ArtifactKeepReason = "direct_upload" | "direct_register" | "user_button" | "chat_request";
 export type ArtifactSource = "agent_output" | "agent_modified" | "user_registered" | "upload";
-/** 보관함 분류. files 는 사용자가 올렸거나 넘겨받은 결과물, agent 는 에이전트가 작업 중 만든 파일. */
+/** 보관함 분류. files 는 내 보관함, agent 는 AI 작업 파일. */
 export type ArtifactArea = "files" | "agent";
+export type ArtifactTabArea = "files" | "agent" | "all";
 export type PreviewStatus = "not_required" | "pending" | "processing" | "ready" | "failed" | "unavailable";
 export type ExportPolicy = "allow" | "deny" | "sensitive";
 export type ArtifactVariant = "original" | "preview";
@@ -213,8 +217,12 @@ export interface ArtifactOut {
   filename: string;
   mime_type: string;
   kind: ArtifactKind;
+  category?: ArtifactCategory;
   source: ArtifactSource;
+  origin?: ArtifactOrigin;
   area: ArtifactArea;
+  keep_reason?: ArtifactKeepReason | null;
+  keep_evidence?: Record<string, unknown> | null;
   rel_path: string | null;
   storage_mode: string;
   size_bytes: number;
@@ -247,8 +255,10 @@ export interface ArtifactListParams {
   session_id?: UUID;
   run_id?: UUID;
   kind?: ArtifactKind;
-  /** 보관함 탭. 생략하면 모두(세션 화면). */
-  area?: ArtifactArea;
+  category?: ArtifactCategory;
+  origin?: ArtifactOrigin;
+  /** 보관함 탭. files: 내 보관함, agent: AI 작업 파일, all: 전체. */
+  area?: ArtifactTabArea;
   /** true 면 작업이 워크스페이스에서 바꾼 파일(agent_modified)만, false 면 그것을 뺀다. 생략하면 모두. */
   changed?: boolean;
   q?: string;
