@@ -183,6 +183,7 @@ describe("보관함 3개 탭 및 카테고리 필터", () => {
         message_id: "m1",
         message_source: "message",
         quote: "보관함에 꼭 넣어줘",
+        binding: "same_run",
         message_at: "2026-10-25T00:59:00Z",
         kept_at: "2026-10-25T01:00:00Z",
       },
@@ -194,6 +195,7 @@ describe("보관함 3개 탭 및 카테고리 필터", () => {
     expect(await screen.findByText("출처 미확인")).toBeTruthy();
     expect(screen.getByText("보관 요청")).toBeTruthy();
     expect(screen.getByText(/보관함에 꼭 넣어줘/)).toBeTruthy();
+    expect(screen.getByText(/그 요청 뒤 이 대화의 작업이 만든 파일/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "대화 바로가기" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /내 보관함에서 빼기 \(파일은 AI 작업 파일에 남아요\)/ })).toBeTruthy();
   });

@@ -346,6 +346,9 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
             {evidenceText(a, "quote") && (
               <div><strong>보관 요청 말:</strong> &quot;{evidenceText(a, "quote")}&quot;{evidenceText(a, "message_at") ? ` (${formatWhen(evidenceText(a, "message_at")!)})` : ""}</div>
             )}
+            {evidenceText(a, "binding") && (
+              <div><strong>보관 대상 확인:</strong> {bindingLabel(evidenceText(a, "binding")!)}</div>
+            )}
             {a.session_id && (
               <div><strong>세션:</strong> <Link className="tk-link" to={`/chat/${a.session_id}`} onClick={() => setMenuOpen(false)}>대화 바로가기</Link></div>
             )}
@@ -378,6 +381,11 @@ function ViewerInner({ artifactId, initial, onClose, followup, onDelete, onMove,
 }
 
 /** 대화 보관 요청의 근거(keep_evidence)에서 문자열 필드 하나를 꺼낸다. */
+/** 보관 요청 문장이 이 파일을 가리킨다고 본 근거. */
+function bindingLabel(binding: string): string {
+  return binding === "filename" ? "요청 문장에 파일 이름이 있어요" : binding === "same_run" ? "그 요청 뒤 이 대화의 작업이 만든 파일이에요" : binding;
+}
+
 function evidenceText(a: ArtifactOut, key: string): string | null {
   const ev = a.keep_evidence;
   if (!ev || typeof ev !== "object") return null;
