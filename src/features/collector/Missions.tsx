@@ -1,12 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import { collectionMission, collectionMissions, createCollectionMission, previewCollectionPlan } from "../../api/collectionMissions";
+import {
+  cancelCollectionMission,
+  collectionMission,
+  collectionMissions,
+  createCollectionMission,
+  extendCollectionMission,
+  pauseCollectionMission,
+  previewCollectionPlan,
+  rerunCollectionMission,
+  resumeCollectionMission,
+  scheduleCollectionMission,
+} from "../../api/collectionMissions";
 import type { CollectionMission, CollectionPlan } from "../../api/collectionMissions";
 import { Button } from "../../ui/Button";
 import { COLLECT_REASON, failure } from "../kb/labels";
 
-const STATUS: Record<string, string> = { queued: "준비 중", running: "수집 중", discovery_pending: "출처 탐색 대기", waiting_sources: "출처 확인 필요", succeeded: "수집 종료", partial: "일부 수집", cancelled: "중지됨", failed: "복구 필요" };
+const STATUS: Record<string, string> = {
+  queued: "준비 중",
+  running: "수집 중",
+  paused: "일시 중지됨",
+  discovery_pending: "출처 탐색 대기",
+  waiting_sources: "출처 확인 필요",
+  succeeded: "수집 종료",
+  partial: "일부 수집",
+  cancelled: "중지됨",
+  failed: "복구 필요",
+};
 const COUNTS = [["discovered", "발견한 출처"], ["acquired", "확보한 자료"], ["accepted", "품질 통과"], ["imported", "도서관 적재"], ["held", "보류"], ["duplicate", "중복"], ["failed", "실패"], ["blocked", "접근 제한"]];
 
 function Plan({ plan }: { plan: CollectionPlan }) {
@@ -20,8 +41,245 @@ function Plan({ plan }: { plan: CollectionPlan }) {
 }
 
 function Result({ mission }: { mission: CollectionMission }) {
+  const queryClient = useQueryClient();
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [addPages, setAddPages] = useState(50);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduleMinutes, setScheduleMinutes] = useState<number | null>(
+    mission.plan.schedule?.interval_minutes ?? null
+  );
+
+  const invalidate = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["collection-mission", mission.id] });
+    await queryClient.invalidateQueries({ queryKey: ["collection-missions"] });
+  };
+
+  const pauseMut = useMutation({
+    mutationFn: () => pauseCollectionMission(mission.id),
+    onSuccess: invalidate,
+  });
+  const resumeMut = useMutation({
+    mutationFn: () => resumeCollectionMission(mission.id),
+    onSuccess: invalidate,
+  });
+  const cancelMut = useMutation({
+    mutationFn: () => cancelCollectionMission(mission.id),
+    onSuccess: invalidate,
+  });
+  const extendMut = useMutation({
+    mutationFn: () => extendCollectionMission(mission.id, addPages),
+    onSuccess: async () => {
+      setExtendOpen(false);
+      await invalidate();
+    },
+  });
+  const rerunMut = useMutation({
+    mutationFn: () => rerunCollectionMission(mission.id),
+    onSuccess: invalidate,
+  });
+  const scheduleMut = useMutation({
+    mutationFn: () => scheduleCollectionMission(mission.id, scheduleMinutes),
+    onSuccess: async () => {
+      setScheduleOpen(false);
+      await invalidate();
+    },
+  });
+
+  const isPending =
+    pauseMut.isPending ||
+    resumeMut.isPending ||
+    cancelMut.isPending ||
+    extendMut.isPending ||
+    rerunMut.isPending ||
+    scheduleMut.isPending;
+
+  const currentSchedule = mission.plan.schedule?.interval_minutes;
+  const scheduleText = currentSchedule
+    ? currentSchedule >= 1440
+      ? `${Math.round(currentSchedule / 1440)}일마다`
+      : currentSchedule >= 60
+      ? `${Math.round(currentSchedule / 60)}시간마다`
+      : `${currentSchedule}분마다`
+    : "수동";
+
   return <article className="mission-detail" aria-label="선택한 수집 임무">
-    <div className="mission-heading"><h2>{mission.title}</h2><span role="status">{STATUS[mission.status] ?? mission.status}</span></div>
+    <div className="mission-heading">
+      <h2>{mission.title}</h2>
+      <span role="status" className="mission-status-badge">{STATUS[mission.status] ?? mission.status}</span>
+    </div>
+
+    <div className="mission-controls" aria-label="임무 제어">
+      {mission.status === "running" && (
+        <Button
+          type="button"
+          disabled={isPending}
+          busy={pauseMut.isPending}
+          onClick={() => pauseMut.mutate()}
+        >
+          일시정지
+        </Button>
+      )}
+      {mission.status === "paused" && (
+        <Button
+          type="button"
+          variant="primary"
+          disabled={isPending}
+          busy={resumeMut.isPending}
+          onClick={() => resumeMut.mutate()}
+        >
+          수집 재개
+        </Button>
+      )}
+      {(mission.status === "running" || mission.status === "paused" || mission.status === "queued") && (
+        <Button
+          type="button"
+          disabled={isPending}
+          busy={cancelMut.isPending}
+          onClick={() => cancelMut.mutate()}
+        >
+          수집 취소
+        </Button>
+      )}
+      {(mission.status === "succeeded" || mission.status === "partial") && (
+        <>
+          <Button
+            type="button"
+            variant="primary"
+            disabled={isPending}
+            onClick={() => setExtendOpen(prev => !prev)}
+          >
+            더 수집하기
+          </Button>
+          <Button
+            type="button"
+            disabled={isPending}
+            busy={rerunMut.isPending}
+            onClick={() => rerunMut.mutate()}
+          >
+            다시 실행
+          </Button>
+        </>
+      )}
+      {(mission.status === "cancelled" || mission.status === "failed") && (
+        <Button
+          type="button"
+          variant="primary"
+          disabled={isPending}
+          busy={rerunMut.isPending}
+          onClick={() => rerunMut.mutate()}
+        >
+          다시 실행
+        </Button>
+      )}
+      <Button
+        type="button"
+        disabled={isPending}
+        onClick={() => setScheduleOpen(prev => !prev)}
+      >
+        주기 설정 ({scheduleText})
+      </Button>
+    </div>
+
+    {extendOpen && (
+      <form
+        className="mission-extend-form"
+        onSubmit={e => {
+          e.preventDefault();
+          if (addPages > 0) extendMut.mutate();
+        }}
+      >
+        <label htmlFor="mission-add-pages">추가 수집할 쪽수:</label>
+        <input
+          id="mission-add-pages"
+          className="tk-input"
+          type="number"
+          min={1}
+          max={100000}
+          value={addPages}
+          onChange={e => setAddPages(Number(e.target.value))}
+        />
+        <Button type="submit" variant="primary" busy={extendMut.isPending}>
+          추가 수집 시작
+        </Button>
+        <Button type="button" onClick={() => setExtendOpen(false)}>
+          닫기
+        </Button>
+        <p className="kb-note" style={{ width: "100%" }}>
+          이전에 보존된 탐색 목록(frontier)에서 이어서 수집을 진행합니다.
+        </p>
+      </form>
+    )}
+
+    {scheduleOpen && (
+      <div className="mission-schedule-panel" aria-label="수집 주기 설정">
+        <h4>수집 주기 갱신</h4>
+        <div className="mission-schedule-options">
+          {[
+            { label: "수동만", value: null },
+            { label: "1시간마다", value: 60 },
+            { label: "6시간마다", value: 360 },
+            { label: "1일마다", value: 1440 },
+            { label: "1주일마다", value: 10080 },
+          ].map(opt => (
+            <label key={String(opt.value)}>
+              <input
+                type="radio"
+                name="schedule-opt"
+                checked={scheduleMinutes === opt.value}
+                onChange={() => setScheduleMinutes(opt.value)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          <label htmlFor="custom-interval" className="kb-note">
+            직접 입력 (분):
+          </label>
+          <input
+            id="custom-interval"
+            className="tk-input"
+            type="number"
+            min={1}
+            max={43200}
+            value={scheduleMinutes ?? ""}
+            placeholder="직접 입력"
+            style={{ width: "12ch" }}
+            onChange={e => setScheduleMinutes(e.target.value ? Number(e.target.value) : null)}
+          />
+          <Button
+            type="button"
+            variant="primary"
+            busy={scheduleMut.isPending}
+            onClick={() => scheduleMut.mutate()}
+          >
+            주기 저장
+          </Button>
+          <Button type="button" onClick={() => setScheduleOpen(false)}>
+            닫기
+          </Button>
+        </div>
+      </div>
+    )}
+
+    {(pauseMut.isError ||
+      resumeMut.error ||
+      cancelMut.error ||
+      extendMut.error ||
+      rerunMut.error ||
+      scheduleMut.error) && (
+      <p role="alert" className="tk-error mission-control-error">
+        {failure(
+          pauseMut.error ||
+            resumeMut.error ||
+            cancelMut.error ||
+            extendMut.error ||
+            rerunMut.error ||
+            scheduleMut.error
+        )}
+      </p>
+    )}
+
     <ul className="collect-funnel" aria-label="실제 수집 성과">{COUNTS.map(([key, label]) => <li key={key} data-key={key}><strong>{(mission.counts[key] ?? 0).toLocaleString("ko-KR")}</strong><span>{label}</span></li>)}</ul>
     {mission.gaps.length > 0 && <section className="mission-gaps" aria-label="남은 범위"><h3>아직 확보하지 못한 자료</h3><ul>{mission.gaps.map((gap, index) => <li key={`${gap.reason}-${index}`}><p>{gap.message}</p>{gap.url && <a href={gap.url} target="_blank" rel="noreferrer">{gap.url}</a>}</li>)}</ul></section>}
     <details><summary>계획과 조사 범위</summary><Plan plan={mission.plan} /></details>

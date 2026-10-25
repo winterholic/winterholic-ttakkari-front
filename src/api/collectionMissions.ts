@@ -8,6 +8,7 @@ export interface CollectionPlan {
   coverage: { topic: string; state: string }[];
   budget: { pages: number; depth: number; searches: number; seconds: number };
   stop_conditions: string[];
+  schedule?: { interval_minutes: number | null; updated_at?: string };
 }
 export interface CollectionMission {
   id: string; title: string; goal: string; status: string;
@@ -25,3 +26,15 @@ export const collectionMissions = () => json<{ items: CollectionMission[] }>(bas
 export const collectionMission = (id: string) => json<CollectionMission>(`${base}/${encodeURIComponent(id)}`);
 export const createCollectionMission = (input: MissionInput) => json<CollectionMission>(base, { method: "POST", json: input });
 export const previewCollectionPlan = (input: MissionInput) => json<CollectionPlan>(`${base}/plan`, { method: "POST", json: input });
+export const pauseCollectionMission = (id: string) =>
+  json<CollectionMission>(`${base}/${encodeURIComponent(id)}/pause`, { method: "POST" });
+export const resumeCollectionMission = (id: string) =>
+  json<CollectionMission>(`${base}/${encodeURIComponent(id)}/resume`, { method: "POST" });
+export const cancelCollectionMission = (id: string) =>
+  json<CollectionMission>(`${base}/${encodeURIComponent(id)}/cancel`, { method: "POST" });
+export const extendCollectionMission = (id: string, addPages: number) =>
+  json<CollectionMission>(`${base}/${encodeURIComponent(id)}/extend`, { method: "POST", json: { add_pages: addPages } });
+export const rerunCollectionMission = (id: string) =>
+  json<CollectionMission>(`${base}/${encodeURIComponent(id)}/rerun`, { method: "POST" });
+export const scheduleCollectionMission = (id: string, intervalMinutes: number | null) =>
+  json<CollectionMission>(`${base}/${encodeURIComponent(id)}/schedule`, { method: "POST", json: { interval_minutes: intervalMinutes } });

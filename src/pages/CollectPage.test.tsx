@@ -3,8 +3,30 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 
-const api = vi.hoisted(() => ({ list: vi.fn(), create: vi.fn(), detail: vi.fn(), plan: vi.fn() }));
-vi.mock("../api/collectionMissions", () => ({ collectionMissions: api.list, createCollectionMission: api.create, collectionMission: api.detail, previewCollectionPlan: api.plan }));
+const api = vi.hoisted(() => ({
+  list: vi.fn(),
+  create: vi.fn(),
+  detail: vi.fn(),
+  plan: vi.fn(),
+  pause: vi.fn(),
+  resume: vi.fn(),
+  cancel: vi.fn(),
+  extend: vi.fn(),
+  rerun: vi.fn(),
+  schedule: vi.fn(),
+}));
+vi.mock("../api/collectionMissions", () => ({
+  collectionMissions: api.list,
+  createCollectionMission: api.create,
+  collectionMission: api.detail,
+  previewCollectionPlan: api.plan,
+  pauseCollectionMission: api.pause,
+  resumeCollectionMission: api.resume,
+  cancelCollectionMission: api.cancel,
+  extendCollectionMission: api.extend,
+  rerunCollectionMission: api.rerun,
+  scheduleCollectionMission: api.schedule,
+}));
 vi.mock("../features/collector/Overview", () => ({ Overview: () => <p>운영 현황</p>, BudgetCard: () => <p>한도 카드</p> }));
 vi.mock("../features/collector/Review", () => ({ Review: () => <p>검토</p> }));
 vi.mock("../features/collector/Deliveries", () => ({ Deliveries: () => <p>전달 결과</p> }));
@@ -44,4 +66,42 @@ it("임무 목록 오류에는 재시도 경로가 있고 운영 설정은 접�
   expect(await screen.findByText(/연결을 확인/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "다시 불러오기" })).toBeTruthy();
   expect(screen.getByText("운영·고급 설정")).toBeTruthy();
+});
+
+it("진행 중인 임무는 일시정지와 취소를 지원하고 상태에 맞는 버튼을 제공한다", async () => {
+  api.detail.mockResolvedValue({ ...mission, status: "running" });
+  mount("/collect?mission=m1");
+  expect(await screen.findByRole("button", { name: "일시정지" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "수집 취소" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+  await waitFor(() => expect(api.pause).toHaveBeenCalledWith("m1"));
+});
+
+it("일시 중지된 임무는 재개 버튼을 제공한다", async () => {
+  api.detail.mockResolvedValue({ ...mission, status: "paused" });
+  mount("/collect?mission=m1");
+  expect(await screen.findByRole("button", { name: "수집 재개" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "수집 재개" }));
+  await waitFor(() => expect(api.resume).toHaveBeenCalledWith("m1"));
+});
+
+it("종료되거나 일부 수집된 임무는 더 수집하기와 다시 실행을 제공한다", async () => {
+  api.detail.mockResolvedValue({ ...mission, status: "partial" });
+  mount("/collect?mission=m1");
+  expect(await screen.findByRole("button", { name: "더 수집하기" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "다시 실행" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "더 수집하기" }));
+  expect(screen.getByText("추가 수집할 쪽수:")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "추가 수집 시작" }));
+  await waitFor(() => expect(api.extend).toHaveBeenCalledWith("m1", 50));
+});
+
+it("임무의 자동 수집 주기를 설정할 수 있다", async () => {
+  mount("/collect?mission=m1");
+  expect(await screen.findByText(/주기 설정/)).toBeTruthy();
+  fireEvent.click(screen.getByText(/주기 설정/));
+  expect(screen.getByText("수집 주기 갱신")).toBeTruthy();
+  fireEvent.click(screen.getByLabelText("1일마다"));
+  fireEvent.click(screen.getByRole("button", { name: "주기 저장" }));
+  await waitFor(() => expect(api.schedule).toHaveBeenCalledWith("m1", 1440));
 });
