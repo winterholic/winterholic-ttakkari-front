@@ -1,9 +1,51 @@
-// 실험 상세(configurations·runs·measurements)에서 비교 시리즈를 직접 계산한다.
-// 서버 compare-series 는 주요 지표 한 개만 담고 필드 모양이 설계 문서와 달라, 화면은 이 계산을 쓴다.
+// 비교 시리즈는 서버 compare-series 를 우선 쓴다(normalizeSeries). 응답이 없거나 예전 모양이면
+// 실험 상세(configurations·runs·measurements)에서 직접 계산한 deriveSeries 로 같은 모양을 만든다.
 import { fmtValue, type Direction } from './format';
 import type {
   AblationImpact, CompareSeries, ConfigDiff, Configuration, DeltaBarItem, ExperimentDetail, Measurement, MetricBarGroup, ParetoSeries, RepeatDistributionItem, RunSummary, SweepLineSeries,
 } from './types';
+
+type Row = Record<string, unknown>;
+const rowsOf = (v: unknown): Row[] | null => (Array.isArray(v) ? (v as Row[]) : null);
+
+/**
+ * 서버 compare-series 응답을 화면이 쓰는 CompareSeries 로 옮긴다. 설계 계약 모양(지표별 묶음·configuration_id)이 아니면 null 이고,
+ * 호출한 쪽이 deriveSeries 로 되돌아간다. Baseline 행은 막대 차트에 넣지 않으므로 뺀다.
+ */
+export function normalizeSeries(raw: unknown): CompareSeries | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Row;
+  const deltas = rowsOf(r.delta_bars);
+  const bars = rowsOf(r.metric_bars);
+  const dists = rowsOf(r.repeat_distributions);
+  if (!deltas || !bars || !dists) return null;
+  if (!deltas.every(d => 'configuration_id' in d && 'metric_key' in d)) return null;
+  if (!bars.every(b => Array.isArray(b.values) && 'metric_key' in b)) return null;
+  if (!dists.every(d => 'configuration_id' in d && 'n' in d)) return null;
+  const diff = r.config_diff_table as Row | null | undefined;
+  const pareto = r.pareto as (Row & { status?: string }) | null | undefined;
+  const available = !!pareto && pareto.status !== 'unavailable' && Array.isArray(pareto.points);
+  const reason = typeof r.pareto_unavailable_reason === 'string' ? r.pareto_unavailable_reason : typeof pareto?.unavailable_reason === 'string' ? pareto.unavailable_reason : null;
+  return {
+    delta_bars: (deltas as unknown as DeltaBarItem[]).filter(d => !d.is_baseline),
+    metric_bars: bars as unknown as MetricBarGroup[],
+    repeat_distributions: dists as unknown as RepeatDistributionItem[],
+    pareto_points: available ? ((pareto as Row).points as CompareSeries['pareto_points']) : [],
+    pareto: available ? (pareto as unknown as ParetoSeries) : null,
+    pareto_status: available ? 'available' : 'unavailable',
+    pareto_unavailable_reason: available ? null : reason,
+    sweep_lines: (rowsOf(r.sweep_lines) ?? []) as unknown as SweepLineSeries[],
+    ablation_impacts: (rowsOf(r.ablation_impacts) ?? []) as unknown as AblationImpact[],
+    config_diff_table: diff && Array.isArray(diff.keys) && Array.isArray(diff.rows) ? (diff as unknown as ConfigDiff) : null,
+  };
+}
+
+/** 서버 없이 직접 계산했을 때 Pareto 를 그릴 수 없는 이유. 서버가 주는 문구와 같은 뜻이다. */
+export function localParetoReason(metricCount: number, xKey: string, yKey: string): string | null {
+  if (metricCount < 2) return `다목적 Pareto 분석에는 서로 다른 2개 이상의 지표가 필요합니다 (현재 유효 지표: ${metricCount}개). 단일 지표 순위는 위의 비교 차트를 참고하세요.`;
+  if (!xKey || !yKey || xKey === yKey) return '가로축과 세로축을 서로 다른 지표로 고르세요.';
+  return null;
+}
 
 export interface MetricMeta { key: string; label: string; unit: string; direction: Direction; is_proxy: boolean }
 export interface Stat { n: number; mean: number | null; median: number | null; std: number | null; min: number | null; max: number | null; values: number[] }

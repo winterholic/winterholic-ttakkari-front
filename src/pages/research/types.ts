@@ -91,9 +91,10 @@ export interface QuickStart { id: string; title: string; description?: string; v
 /** 대시보드의 최근 실행: 실행 목록과 달리 일부 필드가 없다. */
 export type RecentRun = Partial<RunSummary> & { id: string; experiment_id: string; status: RunStatus };
 export interface Dashboard {
-  counts: { studies: number; methods: number; running_runs: number; completed_runs: number; executable_methods?: number } & Record<string, number>;
+  // executable_methods 는 실행을 시작할 수 있는 방법(일부 지원 포함), fully_executable_methods 는 파라미터가 모두 매핑되는 방법만 센다.
+  counts: { studies: number; methods: number; running_runs: number; completed_runs: number; executable_methods?: number; fully_executable_methods?: number } & Record<string, number>;
   host_readiness: Record<string, AdapterStatus & { lease?: Data }> | AdapterStatus[];
-  gpu_lease?: Data | null;
+  gpu_lease?: { held?: boolean } | null;
   recent_runs: RecentRun[]; best_results: BestResult[]; quick_start_templates?: QuickStart[];
 }
 
@@ -138,6 +139,8 @@ export interface RunSummary {
   id: string; experiment_id: string; configuration_id: string; study_id: string; adapter_id: string; execution_origin: ExecutionOrigin | string;
   repeat_index: number; seed?: number; status: RunStatus; progress: number | null;
   error_code?: string | null; error_message?: string | null; started_at?: string | null; finished_at?: string | null; wall_seconds?: number | null; created_at?: string;
+  // 외부 보고 실행의 결과 출처. 외부 보고가 아니면 없다.
+  provenance?: Provenance | string;
   // 선택: 서버가 목록 편의로 붙일 수 있는 표시용 이름
   experiment_name?: string; configuration_label?: string; study_title?: string;
 }
@@ -170,6 +173,8 @@ export interface ConfigDiff { keys: string[]; rows: ConfigDiffRow[]; changed_key
 export interface CompareSeries {
   delta_bars: DeltaBarItem[]; metric_bars: MetricBarGroup[]; repeat_distributions: RepeatDistributionItem[];
   pareto_points: ParetoPoint[]; pareto?: ParetoSeries | null; sweep_lines: SweepLineSeries[]; ablation_impacts: AblationImpact[]; config_diff_table: ConfigDiff | null;
+  // 서버가 Pareto 를 그릴 수 없으면 pareto 는 null 이고 이유가 여기에 온다(지표가 2개 미만 등). 직접 계산한 시리즈에는 없다.
+  pareto_status?: 'available' | 'unavailable'; pareto_unavailable_reason?: string | null;
 }
 
 // ---- 외부 결과·채택·리포트 -------------------------------------------------------------

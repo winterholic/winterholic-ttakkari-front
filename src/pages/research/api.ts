@@ -1,6 +1,7 @@
 import { researchRequest } from '../../api/client';
+import { normalizeSeries } from './series';
 import type {
-  AdapterStatus, AdoptPayload, AnalysisSnapshot, BestResult, CreateExperimentPayload, Dashboard, Data, Experiment, ExperimentDetail, ExperimentPayload,
+  AdapterStatus, AdoptPayload, AnalysisSnapshot, BestResult, CompareSeries, CreateExperimentPayload, Dashboard, Data, Experiment, ExperimentDetail, ExperimentPayload,
   ExternalReportPayload, Facets, Measurement, Method, MethodDetail, MethodInput, MethodList, MethodQuery, MethodRelation, PromotePayload, RecentRun, ResearchArtifact, ResourceEstimate,
   RunDetail, RunList, RunSummary, Snapshot, Study, Taxonomy, TaxonomyTerm, ValidateResult,
 } from './types';
@@ -25,11 +26,14 @@ function query(params: Record<string, string | number | string[] | undefined | n
 
 const PLURAL_AXIS: Record<string, string> = { targets: 'target', layers: 'layer', goals: 'goal', interventions: 'intervention', research_methods: 'research_method' };
 
-/** facets 는 축별 {코드: 건수} 또는 [{code,count}] 로 오고, 축 이름이 복수형(targets)일 수 있어 단수형 {축: {코드: 건수}} 로 맞춘다. */
+/** facets 는 단수형 축 이름({target: {코드: 건수}})이 계약이다. 예전 서버는 복수형(targets)만 주므로, 단수형이 없는 축에 한해 복수형을 옮긴다. */
 export function normalizeFacets(raw: unknown): Facets {
   const out: Facets = {};
   if (!raw || typeof raw !== 'object') return out;
-  for (const [axis, value] of Object.entries(raw as Data)) {
+  const entries = Object.entries(raw as Data);
+  const axes = new Set(entries.map(([axis]) => axis));
+  for (const [axis, value] of entries) {
+    if (PLURAL_AXIS[axis] && axes.has(PLURAL_AXIS[axis])) continue;
     const counts: Record<string, number> = {};
     if (Array.isArray(value)) {
       for (const row of value as Array<Data>) {
@@ -64,7 +68,7 @@ export const discoverPapers = (q: string) => researchRequest<{ items: { source_k
 type RawRecent = Data & { run_id?: string; id?: string; experiment_title?: string };
 type RawBest = Data & { best_result_id?: string; id?: string };
 
-/** 대시보드 항목은 id 대신 run_id·best_result_id 를 주고 이름을 experiment_title 로 준다. 화면이 쓰는 이름으로 맞춘다. */
+/** 대시보드 항목은 id·experiment_name 을 준다. id 없이 run_id·best_result_id 와 experiment_title 만 주던 예전 응답도 같은 이름으로 맞춘다. */
 export async function getDashboard(studyId?: string | null): Promise<Dashboard> {
   const r = await researchRequest<Omit<Dashboard, 'recent_runs' | 'best_results'> & { recent_runs?: RawRecent[]; best_results?: RawBest[] }>(`/dashboard${query({ study_id: studyId, scope: currentScope })}`);
   const recent_runs = (r.recent_runs ?? []).map(x => ({ ...x, id: x.id ?? x.run_id ?? '', experiment_name: x.experiment_name ?? x.experiment_title }) as unknown as RecentRun);
@@ -86,7 +90,7 @@ export async function listMethods(q: MethodQuery, offset = 0, limit = PAGE): Pro
   return { items: r.items ?? [], total: r.total ?? r.items?.length ?? 0, facets: normalizeFacets(r.facets) };
 }
 
-/** 상세는 이 방법에서 나가는 관계만, 상대 방법을 평평한 필드(to_method_slug 등)로 준다. 화면이 쓰는 관계 모양으로 푼다. */
+/** 관계는 to_method 객체로 온다. to_method 없이 평평한 필드(to_method_slug 등)만 주던 예전 응답도 같은 모양으로 푼다. */
 export async function getMethod(idOrSlug: string): Promise<MethodDetail> {
   const r = await researchRequest<MethodDetail>(`/methods/${encodeURIComponent(idOrSlug)}${query({ scope: currentScope })}`);
   const relations: MethodRelation[] = (r.relations ?? []).map(rel => ({
@@ -121,7 +125,7 @@ export async function validateExperiment(b: ExperimentPayload): Promise<Validate
 }
 
 const DEFAULT_BUDGET = { max_runs: 20, max_total_seconds: 300, max_memory_mb: 4096 };
-/** 서버는 실험 정의를 평평하게 주고 이름을 title 로 준다. 화면이 쓰는 name 으로 맞춘다. */
+/** 실험 정의는 `experiment` 래퍼(name 포함)로 온다. 래퍼 없이 평평한 필드(이름은 title)만 주던 예전 응답도 같은 모양으로 맞춘다. */
 function toExperiment(raw: Data): Experiment {
   return {
     ...(raw as object), name: String(raw.name ?? raw.title ?? ''), adapter_id: String(raw.adapter_id ?? raw.adapter ?? ''), strategy: (raw.strategy ?? 'single') as Experiment['strategy'],
@@ -144,7 +148,7 @@ export async function createExperiment(studyId: string, b: CreateExperimentPaylo
   return { experiment: s.experiment, configurations: s.configurations, runs: s.runs };
 }
 
-// 끝난 실행의 측정값은 바뀌지 않는다. 실험 상세가 측정값을 주지 않으면 실행별로 한 번만 받아 둔다.
+// 실험 상세는 measurements 를 함께 준다. 주지 않는 예전 서버에서만, 끝난 실행의 측정값(바뀌지 않는다)을 실행별로 한 번씩 받아 둔다.
 const finishedMeasurements = new Map<string, Measurement[]>();
 async function measurementsOf(runs: RunSummary[]): Promise<Measurement[]> {
   const ok = runs.filter(r => r.status === 'succeeded');
@@ -164,6 +168,11 @@ export async function getExperiment(id: string): Promise<ExperimentDetail> {
   const s = splitExperiment(raw);
   const measurements = s.measurements ?? await measurementsOf(s.runs);
   return { ...s, measurements };
+}
+/** 서버가 계산한 비교 시리즈(측정된 모든 지표). 계약 모양이 아니면 null 이라 화면이 직접 계산한 시리즈를 쓴다. */
+export async function getCompareSeries(id: string, p: { baselineId?: string | null; paretoX?: string; paretoY?: string }): Promise<CompareSeries | null> {
+  const raw = await researchRequest<unknown>(`/experiments/${id}/compare-series${query({ baseline_config_id: p.baselineId, pareto_x_metric: p.paretoX, pareto_y_metric: p.paretoY })}`);
+  return normalizeSeries(raw);
 }
 export const runExperiment = (id: string, configurationIds: string[] | null) => researchRequest<{ runs: RunSummary[] }>(`/experiments/${id}/run`, { configuration_ids: configurationIds });
 export const listRuns = (p: { study_id?: string | null; experiment_id?: string | null; status?: string | null; limit?: number }) => researchRequest<RunList>(`/runs${query({ ...p, limit: p.limit ?? 50 })}`);

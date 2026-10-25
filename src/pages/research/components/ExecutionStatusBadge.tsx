@@ -1,5 +1,5 @@
 import { Badge, RunBadge } from '../../../ui/Badge';
-import { EXECUTION, LIFECYCLE, EVIDENCE, ORIGIN_LABEL, RUN_STATUS, RUN_BADGE, proxyNote } from '../labels';
+import { EXECUTION, LIFECYCLE, EVIDENCE, ORIGIN_LABEL, PROVENANCE_LABEL, RUN_STATUS, RUN_BADGE, proxyNote } from '../labels';
 import type { EvidenceStatus, ExecutionStatus, LifecycleStatus, RunStatus } from '../types';
 
 /** F축 6단계 실행 가능 상태 배지. 불가·지원 한계 사유는 글자로 같이 적는다(툴팁에만 두지 않는다). */
@@ -31,9 +31,11 @@ export function ProxyBadge({ metricKey }: { metricKey: string }) {
   return <span title={proxyNote(metricKey)}><Badge tone="warning">간접 지표(proxy)</Badge></span>;
 }
 
-export function OriginBadge({ origin }: { origin: string }) {
+/** 실행 출처. 외부 보고는 결과 출처(provenance)를 같이 적는다. */
+export function OriginBadge({ origin, provenance }: { origin: string; provenance?: string | null }) {
   const tone = origin === 'local_measured' ? 'success' : origin === 'external_report' ? 'warning' : undefined;
-  return <Badge tone={tone}>{ORIGIN_LABEL[origin] ?? origin}</Badge>;
+  const label = ORIGIN_LABEL[origin] ?? origin;
+  return <Badge tone={tone}>{provenance ? `${label} · ${PROVENANCE_LABEL[provenance] ?? provenance}` : label}</Badge>;
 }
 
 export function RunStateBadge({ status }: { status: RunStatus | string }) {

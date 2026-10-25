@@ -46,6 +46,17 @@ export const ORIGIN: Record<string, string> = { system_seed: '기본 카탈로�
 export const RUN_STATUS: Record<RunStatus, string> = { queued: '대기', running: '실행 중', succeeded: '성공', failed: '실패', cancelled: '취소' };
 export const RUN_BADGE: Record<RunStatus, 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled'> = { queued: 'queued', running: 'running', succeeded: 'succeeded', failed: 'failed', cancelled: 'cancelled' };
 export const ORIGIN_LABEL: Record<string, string> = { local_measured: '따까리 실측', external_report: '외부 보고', migrated_v1: '이전 버전 이관' };
+// 외부 보고 실행이 어디서 온 값인지(Provenance). 따까리가 직접 측정한 값이 아니라는 점은 출처와 별개로 늘 표시한다.
+export const PROVENANCE_LABEL: Record<string, string> = { external_benchmark: '외부 벤치마크', manual_evaluation: '사람이 직접 평가', imported_log: '로그에서 가져옴' };
+
+// 실행기가 남기는 error_code 중 사용자가 취할 행동이 다른 것. 원문 메시지는 그대로 두고 이 설명을 먼저 보여 준다.
+export const ERROR_CODE_NOTE: Record<string, string> = {
+  GENERATION_REJECTED: '서버가 새 버전으로 바뀌는 중이라 이 실행을 시작하지 못했습니다. 설정이나 실행기의 문제가 아니니 잠시 뒤 같은 설정으로 다시 실행하세요.',
+  cancelled: '사용자가 취소한 실행입니다.',
+};
+// 실행 모니터의 점유 중인 잠금 이름(서버 active_locks[].lock)
+export const LOCK_LABEL: Record<string, string> = { host_gpu_lease: '호스트 GPU 임대', tts_lock: 'TTS 합성 잠금', cpu_lock: 'CPU 평가 잠금' };
+export const errorCodeNote =(code?: string | null) => (code ? ERROR_CODE_NOTE[code] : undefined);
 
 export const STRATEGY: Record<Strategy, { label: string; hint: string; supported: boolean }> = {
   single: { label: '단일 실행', hint: '설정 한 개를 한 번 실행합니다.', supported: true },

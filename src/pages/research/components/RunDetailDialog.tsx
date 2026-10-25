@@ -6,7 +6,7 @@ import { DIRECTION_TEXT, fmtDuration, fmtTime, fmtValue } from '../format';
 import { rk } from '../hooks';
 import { ArtifactList } from './ArtifactList';
 import { OriginBadge, ProxyBadge, RunStateBadge } from './ExecutionStatusBadge';
-import { adapterLabel } from '../labels';
+import { adapterLabel, errorCodeNote } from '../labels';
 import { Callout, FactList, Skeleton } from './parts';
 
 interface Props { runId: string; onClose: () => void; configLabel?: string; onCancel?: (id: string) => void; onRerun?: (configurationId: string) => void }
@@ -22,9 +22,10 @@ export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun
     {q.isPending && <Skeleton rows={4} />}
     {q.error && <Callout kind="caution">{errorText(q.error)}</Callout>}
     {r && <div className="rs-stack">
-      <div className="rs-detail__badges"><RunStateBadge status={r.status} /><OriginBadge origin={r.execution_origin} /><span className="rs-muted">{adapterLabel(r.adapter_id)} · 반복 {r.repeat_index} · 시드 {r.seed ?? '—'}</span></div>
-      {r.status === 'failed' && <Callout kind="caution" title="실패 원인">{r.error_code && <p><code className="tk-mono">{r.error_code}</code></p>}<p>{r.error_message || '실행기가 원인을 남기지 않았습니다.'}</p></Callout>}
-      {r.status === 'cancelled' && <Callout kind="warning" title="취소된 실행">{r.error_message || '사용자가 취소했거나 예산을 넘어 중단되었습니다.'}</Callout>}
+      <div className="rs-detail__badges"><RunStateBadge status={r.status} /><OriginBadge origin={r.execution_origin} provenance={r.provenance} /><span className="rs-muted">{adapterLabel(r.adapter_id)} · 반복 {r.repeat_index} · 시드 {r.seed ?? '—'}</span></div>
+      {r.execution_origin === 'external_report' && <Callout kind="note" title="따까리가 측정한 값이 아닙니다">다른 환경에서 측정해 들여온 보고입니다. 같은 조건의 비교인지 실행 환경 기록으로 확인하세요.</Callout>}
+      {r.status === 'failed' && <Callout kind="caution" title="실패 원인">{errorCodeNote(r.error_code) && <p>{errorCodeNote(r.error_code)}</p>}{r.error_code && <p><code className="tk-mono">{r.error_code}</code></p>}<p>{r.error_message || '실행기가 원인을 남기지 않았습니다.'}</p></Callout>}
+      {r.status === 'cancelled' && <Callout kind="warning" title="취소된 실행">{errorCodeNote(r.error_code) && <p>{errorCodeNote(r.error_code)}</p>}{r.error_code && r.error_code !== 'cancelled' && <p><code className="tk-mono">{r.error_code}</code></p>}<p>{r.error_message || '사용자가 취소했거나 예산을 넘어 중단되었습니다.'}</p></Callout>}
       <dl className="tk-meta">
         <div className="rs-meta-row"><dt>시작</dt><dd>{fmtTime(r.started_at)}</dd></div>
         <div className="rs-meta-row"><dt>끝</dt><dd>{fmtTime(r.finished_at)}</dd></div>

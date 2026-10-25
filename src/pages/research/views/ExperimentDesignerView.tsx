@@ -184,7 +184,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
             {adapterId === 'external_report' ? <Badge tone="warning">직접 실행하지 않음</Badge> : adapter ? (adapter.ready ? <Badge tone="success">준비됨</Badge> : <Badge tone="danger">준비 안 됨</Badge>) : <Badge>상태를 받지 못함</Badge>}
             {adapter?.reason && <p className="rs-reason">{adapter.reason}</p>}
             {!!adapter?.available_models?.length && <p className="rs-muted">사용 가능한 모델: {adapter.available_models.join(', ')}</p>}
-            {dashboard?.gpu_lease && adapterId === 'llm_inference' && <p className="rs-muted">호스트 GPU 점유 상태를 서버가 확인합니다.</p>}
+            {dashboard?.gpu_lease && adapterId === 'llm_inference' && <p className="rs-muted">{dashboard.gpu_lease.held ? '지금 호스트 GPU 를 다른 작업이 쓰고 있습니다. 실행은 그 작업이 끝날 때까지 기다릴 수 있습니다.' : '지금 호스트 GPU 를 쓰는 다른 작업이 없습니다.'}</p>}
           </div>
           <div className="rs-form__grid">
             <div className="tk-field"><label className="tk-label" htmlFor="b-runs">최대 실행 수</label><input id="b-runs" className="tk-input" type="number" min={1} max={adapterId === 'llm_inference' ? 12 : 50} value={design.budget.max_runs} onChange={e => set({ budget: { ...design.budget, max_runs: Number(e.target.value) } })} /><p className="tk-help">상한 {adapterId === 'llm_inference' ? 12 : 50}</p></div>

@@ -12,8 +12,19 @@ import { RunDetailDialog } from '../components/RunDetailDialog';
 import type { ResearchCtx } from '../context';
 import { fmtDuration, fmtTime, shortId } from '../format';
 import { experimentName, KEY, useAdapters, useSnapshot, rk } from '../hooks';
-import { adapterLabel, STRATEGY } from '../labels';
+import { adapterLabel, errorCodeNote, LOCK_LABEL, STRATEGY } from '../labels';
 import type { RunStatus, RunSummary, Strategy } from '../types';
+
+/** 잠금은 문자열이거나 {lock, adapter_id, run_id} 로 온다. */
+const lockName = (l: string | Record<string, unknown>) => { const key = typeof l === 'string' ? l : String(l.lock ?? l.name ?? ''); return LOCK_LABEL[key] ?? (key || '알 수 없는 잠금'); };
+
+/** 실패 원인 칸. 사용자가 취할 행동이 다른 코드는 설명을 먼저, 원문은 마우스를 올리면 보인다. */
+function reasonCell(r: RunSummary) {
+  const note = errorCodeNote(r.error_code);
+  if (note && r.error_code !== 'cancelled') return <span className="rs-reason" title={r.error_message ?? undefined}>{note}</span>;
+  if (!r.error_message) return '—';
+  return <span className="rs-reason" title={r.error_message}>{r.error_code ? `${r.error_code}: ` : ''}{r.error_message.slice(0, 80)}{r.error_message.length > 80 ? '…' : ''}</span>;
+}
 
 const ACTIVE: RunStatus[] = ['queued', 'running'];
 const FILTERS: { id: string; label: string; match: (r: RunSummary) => boolean }[] = [
@@ -79,7 +90,7 @@ export function ExperimentMonitorView({ ctx }: { ctx: ResearchCtx }) {
         <ul className="rs-adapterlist">{adapters.filter(a => a.adapter_id !== 'external_report').map(a => <li key={a.adapter_id}>
           <span>{adapterLabel(a.adapter_id)}</span> {a.ready ? <Badge tone="success">준비됨</Badge> : <Badge tone="danger">사용 불가</Badge>}{a.reason && !a.ready && <span className="rs-reason">{a.reason}</span>}</li>)}
           {!adapters.length && <li className="rs-muted">실행기 상태를 받지 못했습니다.</li>}</ul>
-        {locks.length > 0 ? <p>점유 중인 잠금: {locks.map((l, i) => <Badge key={i} tone="warning">{typeof l === 'string' ? l : String((l as { name?: string }).name ?? JSON.stringify(l))}</Badge>)}<span className="rs-muted"> 다른 작업이 끝나야 실행됩니다.</span></p> : <p className="rs-muted">점유 중인 잠금이 없습니다.</p>}
+        {locks.length > 0 ? <p>점유 중인 잠금: {locks.map((l, i) => <Badge key={i} tone="warning">{lockName(l)}</Badge>)}<span className="rs-muted"> 다른 작업이 끝나야 실행됩니다.</span></p> : <p className="rs-muted">점유 중인 잠금이 없습니다.</p>}
         {host && Object.keys(host).length > 0 && <details className="rs-advanced"><summary>호스트 GPU 상태</summary><FactList data={host} /></details>}
       </Section>
     </div>
@@ -98,9 +109,9 @@ export function ExperimentMonitorView({ ctx }: { ctx: ResearchCtx }) {
               <td className="tk-datatable__num">{r.repeat_index}</td>
               <td>{r.progress === null || r.progress === undefined ? <span className="rs-muted">{ACTIVE.includes(r.status) ? '진행률 없음' : '—'}</span> : <><progress value={r.progress} max={1} aria-label="실행 진행률" /> {Math.round(r.progress * 100)}%</>}</td>
               <td className="tk-datatable__num">{fmtDuration(r.wall_seconds)}</td>
-              <td><OriginBadge origin={r.execution_origin} /></td>
+              <td><OriginBadge origin={r.execution_origin} provenance={r.provenance} /></td>
               <td>{fmtTime(r.started_at)}</td>
-              <td className="rs-wrapcell">{r.error_message ? <span className="rs-reason" title={r.error_message}>{r.error_code ? `${r.error_code}: ` : ''}{r.error_message.slice(0, 80)}{r.error_message.length > 80 ? '…' : ''}</span> : '—'}</td>
+              <td className="rs-wrapcell">{reasonCell(r)}</td>
               <td>{ACTIVE.includes(r.status) ? <Button size="xs" variant="danger" busy={cancel.isPending && cancel.variables === r.id} onClick={() => cancel.mutate(r.id)}>취소</Button>
                 : r.execution_origin === 'local_measured' || r.execution_origin === 'migrated_v1' ? <Button size="xs" onClick={() => start.mutate([r.configuration_id])} disabled={start.isPending || !expId}>다시 실행</Button> : null}</td>
             </tr>)}</tbody></table>

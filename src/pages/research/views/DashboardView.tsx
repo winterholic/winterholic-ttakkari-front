@@ -15,23 +15,27 @@ function runName(r: RecentRun) { return r.experiment_name ?? '실험 ' + r.exper
 /** 대시보드: 열자마자 무엇을 연구 중이고, 어떤 방법을 시도할 수 있으며, 어떤 결과가 나왔는지 본다. */
 export function DashboardView({ ctx }: { ctx: ResearchCtx }) {
   const { adapters, dashboard, isPending, error, refetch } = useAdapters(ctx.studyId);
-  const hypo = useQuery({ queryKey: [...rk(), 'methods', 'dash-hypothesis'], queryFn: () => listMethods({ lifecycle_status: ['hypothesis'] }, 0, 5), staleTime: 60_000 });
-  const all = useQuery({ queryKey: [...rk(), 'methods', 'dash-all'], queryFn: () => listMethods({}, 0, 1), staleTime: 60_000 });
-  const cand = useQuery({ queryKey: [...rk(), 'methods', 'dash-candidate'], queryFn: () => listMethods({ lifecycle_status: ['candidate'] }, 0, 5), staleTime: 60_000 });
   const d = dashboard;
+  const hypo = useQuery({ queryKey: [...rk(), 'methods', 'dash-hypothesis'], queryFn: () => listMethods({ lifecycle_status: ['hypothesis'] }, 0, 5), staleTime: 60_000 });
+  // 실행 가능 방법 수는 대시보드 counts 가 준다. 주지 않는 예전 서버에서만 방법 목록의 facet 으로 센다.
+  const all = useQuery({ queryKey: [...rk(), 'methods', 'dash-all'], queryFn: () => listMethods({}, 0, 1), staleTime: 60_000, enabled: !!d && d.counts.fully_executable_methods === undefined });
+  const cand = useQuery({ queryKey: [...rk(), 'methods', 'dash-candidate'], queryFn: () => listMethods({ lifecycle_status: ['candidate'] }, 0, 5), staleTime: 60_000 });
   const runs = d?.recent_runs ?? [];
   const best = (d?.best_results ?? []).filter(b => b.status === 'adopted');
   const active = ctx.studies.filter(s => s.phase !== 'completed' && s.phase !== 'archived');
   const ok = runs.filter(r => r.status === 'succeeded').length;
   const failed = runs.filter(r => r.status === 'failed');
-  const failReasons = Object.entries(failed.reduce<Record<string, number>>((m, r) => { const k = r.error_code || '원인 미기록'; m[k] = (m[k] ?? 0) + 1; return m; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 3);
+  // 서버 전환으로 시작하지 못한 실행(GENERATION_REJECTED)은 취소로 기록되지만 원인은 실패와 같이 알려야 한다
+  const trouble = runs.filter(r => r.status === 'failed' || r.error_code === 'GENERATION_REJECTED');
+  const failReasons = Object.entries(trouble.reduce<Record<string, number>>((m, r) => { const k = r.error_code || '원인 미기록'; m[k] = (m[k] ?? 0) + 1; return m; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 3);
   const unverified = runs.filter(r => r.status === 'succeeded' && !!r.execution_origin && r.execution_origin !== 'local_measured');
   const experimentsSeen = [...new Map(runs.map(r => [r.experiment_id, r])).values()].slice(0, 6);
   // 서버 템플릿에 화면 이동 정보가 있을 때만 쓰고, 없으면 시나리오 A~D 기본값을 쓴다
   const quick: QuickStart[] = d?.quick_start_templates?.some(t => t.view || t.filters) ? d.quick_start_templates : QUICK_STARTS;
   const execStatus = all.data?.facets.execution_status ?? {};
-  const executable = (execStatus.immediately_executable ?? 0) + (execStatus.tool_integrated ?? 0);
-  const methodTotal = all.data?.total ?? d?.counts.methods;
+  const executable = d?.counts.fully_executable_methods ?? (all.data ? (execStatus.immediately_executable ?? 0) + (execStatus.tool_integrated ?? 0) : undefined);
+  const runnable = d?.counts.executable_methods;
+  const methodTotal = d?.counts.methods ?? all.data?.total;
 
   const startQuick = (q: QuickStart) => {
     if (q.method === 'new') { ctx.go({ view: 'library', method: 'new' }); return; }
@@ -51,7 +55,8 @@ export function DashboardView({ ctx }: { ctx: ResearchCtx }) {
     {isPending ? <Skeleton rows={3} /> : d && <dl className="tk-stats rs-dash__stats" aria-label="연구소 현황">
       <Stat label="진행 중인 연구" value={active.length} />
       <Stat label="등록된 방법" value={methodTotal?.toLocaleString('ko-KR') ?? '—'} />
-      <Stat label="지금 실행 가능한 방법" value={all.data ? executable.toLocaleString('ko-KR') : '—'} delta={all.data && methodTotal ? Math.round((executable / methodTotal) * 100) + '% · 나머지는 일부 지원·가설·어댑터 필요' : undefined} />
+      <Stat label="지금 실행 가능한 방법" value={executable === undefined ? '—' : executable.toLocaleString('ko-KR')}
+        delta={executable !== undefined && methodTotal ? Math.round((executable / methodTotal) * 100) + '% · 파라미터가 모두 지원되는 방법' + (runnable !== undefined && runnable > executable ? ` · 일부 지원 포함 ${runnable.toLocaleString('ko-KR')}개` : '') : undefined} />
       <Stat label="실행 중" value={d.counts.running_runs ?? 0} tone={d.counts.running_runs ? 'warning' : 'neutral'} />
       <Stat label="완료한 실행" value={d.counts.completed_runs ?? 0} />
     </dl>}
