@@ -107,7 +107,9 @@ function CopilotSetup({ account, onChecked }: { account: AccountOut; onChecked: 
     onSuccess: (a) => {
       onChecked(a);
       void qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
-      toast({ message: `${a.name} GitHub Copilot 로그인을 확인했어요.` });
+      toast(a.auth_state === "authenticated"
+        ? { message: `${a.name} GitHub Copilot 로그인을 확인했어요.` }
+        : { message: a.auth_state === "auth_expired" ? "인증이 만료됐어요. 다시 로그인해 주세요." : "인증을 확인하지 못했어요. 마지막 오류를 확인해 주세요.", tone: "danger" });
     },
   });
   const copy = () =>
@@ -117,7 +119,9 @@ function CopilotSetup({ account, onChecked }: { account: AccountOut; onChecked: 
     );
   return (
     <span className="account-login">
-      <span>1. Mac Studio 터미널에서 아래 명령을 실행해 GitHub Copilot 인증을 진행해요.</span>
+      <span>{account.isolation_mode === "system_default"
+        ? "Mac Studio에 이미 로그인했다면 인증 확인을 먼저 눌러 주세요. 다시 로그인할 때 아래 명령을 사용해요."
+        : "1. Mac Studio 터미널에서 아래 명령을 실행해 GitHub Copilot 인증을 진행해요."}</span>
       <span className="account-login__row">
         <code className="tk-mono">{account.login_command}</code>
         <button className="tk-button tk-button--xs" type="button" onClick={copy}>
@@ -125,10 +129,10 @@ function CopilotSetup({ account, onChecked }: { account: AccountOut; onChecked: 
           복사
         </button>
       </span>
-      <span>2. 터미널에 표시된 코드(User Code)를 브라우저(github.com/login/device)에 입력하고 승인한 뒤, 아래 확인 버튼을 눌러요.</span>
+      <span>로그인 명령을 실행했다면 github.com/login/device에서 코드를 승인한 뒤 확인해 주세요. 인증 확인은 짧은 모델 응답을 요청하며 구독 사용량이 소모될 수 있어요.</span>
       <div className="account-login__row">
         <button className="tk-button tk-button--xs tk-button--primary" type="button" aria-busy={check.isPending || undefined}
-          onClick={() => check.mutate()}>
+          disabled={check.isPending} onClick={() => check.mutate()}>
           인증 확인
         </button>
       </div>
@@ -560,7 +564,7 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
             setName(e.target.value);
           }} placeholder="예: 내 클로드, Daddy codex" />
         </div>
-        {engine !== "antigravity" && (
+        {!["antigravity", "opencode", "copilot"].includes(engine) && (
           <div className="tk-field">
             <label className="tk-label" htmlFor={`${id}-cap`}>사용 상한 (%)</label>
             <input id={`${id}-cap`} className="tk-input" type="number" min={50} max={100} step={1} value={maxUsedPercent}
@@ -579,7 +583,7 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
           )}
         </div>
         <p className="tk-help">
-          <span>{engine === "antigravity" ? "첫 Antigravity 계정은 Mac Studio 에 로그인된 agy 를 그대로 연결해요(로그인 상태는 앱에서 확인할 수 없어요). 두 번째부터는 따까리가 전용 보관함을 만들고, 추가한 뒤 목록의 안내대로 로그인과 계정 확인을 마쳐야 작업에 배정돼요." : engine === "opencode" ? "OpenCode 계정은 독립된 전용 보관함을 사용해요. 추가한 뒤 목록의 로그인 명령을 Mac Studio 터미널에서 실행해 GitHub Copilot 계정으로 로그인하면 돼요." : account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
+          <span>{engine === "antigravity" ? "첫 Antigravity 계정은 Mac Studio 에 로그인된 agy 를 그대로 연결해요(로그인 상태는 앱에서 확인할 수 없어요). 두 번째부터는 따까리가 전용 보관함을 만들고, 추가한 뒤 목록의 안내대로 로그인과 계정 확인을 마쳐야 작업에 배정돼요." : engine === "opencode" ? "OpenCode 계정은 독립된 전용 보관함을 사용해요. 추가한 뒤 목록의 로그인 명령으로 GitHub Copilot 계정에 로그인해 주세요. 잔여 사용량은 미확인이며 한도 오류가 발생하면 계정이 대기해요." : engine === "copilot" ? "첫 계정은 Mac Studio의 기존 Copilot 로그인을 연결하고, 추가 계정은 전용 보관함을 사용해요. 인증 확인 뒤 작업에 배정돼요. 잔여 사용량은 미확인이며 한도 오류가 발생하면 계정이 대기해요." : account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
         </p>
         {save.error && (
           <p className="tk-error" role="alert">
