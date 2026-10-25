@@ -6,7 +6,6 @@ import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { Select } from "../../ui/Select";
 import { COLLECT_REASON, failure, formatTime } from "./labels";
-import { useKbScope } from "./scope";
 import { ItemReview, QualityPanel } from "./Quality";
 
 export const STATUS: Record<string, string> = {
@@ -16,7 +15,7 @@ export const STATUS: Record<string, string> = {
   imported: "도서관 적재", exported: "내보내기 준비",
 };
 
-function SourceForm({ scope, close, editing }: { scope: KbScope; close: () => void; editing?: CollectSource }) {
+function SourceForm({ scope, close, editing }: { scope?: KbScope; close: () => void; editing?: CollectSource }) {
   const cache = useQueryClient();
   const [title, setTitle] = useState(editing?.title || "");
   const [url, setUrl] = useState(editing?.seeds[0] || "");
@@ -66,7 +65,7 @@ function SourceForm({ scope, close, editing }: { scope: KbScope; close: () => vo
   </form>;
 }
 
-function JobItems({ id, scope }: { id: string; scope: KbScope }) {
+function JobItems({ id, scope }: { id: string; scope?: KbScope }) {
   const query = useInfiniteQuery({ queryKey: ["kb-collect-items", scope, id], initialPageParam: 0, refetchInterval: 10000,
     queryFn: ({ pageParam }) => collectItems(id, scope, pageParam),
     getNextPageParam: (p) => p.offset + p.items.length < p.total ? p.offset + p.limit : undefined });
@@ -86,7 +85,7 @@ function JobItems({ id, scope }: { id: string; scope: KbScope }) {
   </div>;
 }
 
-function JobRow({ job, scope }: { job: CollectJob; scope: KbScope }) {
+function JobRow({ job, scope }: { job: CollectJob; scope?: KbScope }) {
   const cache = useQueryClient();
   const [expanded, setExpanded] = useState(false);
   const active = ["queued", "running", "retry_wait", "budget_wait"].includes(job.status);
@@ -103,7 +102,7 @@ function JobRow({ job, scope }: { job: CollectJob; scope: KbScope }) {
   </li>;
 }
 
-export function SourcesPanel({ scope }: { scope: KbScope }) {
+export function SourcesPanel({ scope }: { scope?: KbScope } = {}) {
   const cache = useQueryClient();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<CollectSource | undefined>();
@@ -134,7 +133,7 @@ export function SourcesPanel({ scope }: { scope: KbScope }) {
   </section>;
 }
 
-export function RunsPanel({ scope }: { scope: KbScope }) {
+export function RunsPanel({ scope }: { scope?: KbScope } = {}) {
   const jobs = useInfiniteQuery({ queryKey: ["kb-collect-jobs", scope], initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }) => collectJobs(scope, pageParam), getNextPageParam: (p) => p.next_cursor || undefined, refetchInterval: 10000 });
   return <section className="kb-results" aria-label="수집 이력">
@@ -148,12 +147,11 @@ export function RunsPanel({ scope }: { scope: KbScope }) {
 }
 
 export function Collection() {
-  const scope = useKbScope();
   const [qualityOpen, setQualityOpen] = useState(false);
   return <section className="kb-results" aria-label="지식 수집 관리">
-    <SourcesPanel scope={scope} />
-    <RunsPanel scope={scope} />
+    <SourcesPanel />
+    <RunsPanel />
     <Button variant="ghost" aria-expanded={qualityOpen} onClick={() => setQualityOpen(!qualityOpen)}>{qualityOpen ? "품질 모델 관리 닫기" : "품질 모델 관리"}</Button>
-    {qualityOpen && <QualityPanel scope={scope} />}
+    {qualityOpen && <QualityPanel />}
   </section>;
 }

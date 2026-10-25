@@ -25,13 +25,13 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "quality", label: "품질·한도" },
 ];
 
-function QualityAndLimits({ scope }: { scope: "personal" | "work" }) {
-  const budget = useQuery({ queryKey: ["kb-collect-budgets", scope], queryFn: () => collectBudgets(scope), refetchInterval: 30000 });
+function QualityAndLimits() {
+  const budget = useQuery({ queryKey: ["kb-collect-budgets"], queryFn: () => collectBudgets(), refetchInterval: 30000 });
   return <section className="kb-results" aria-label="품질과 한도">
     {budget.isPending && <p role="status">한도를 읽는 중</p>}
     {budget.isError && <div className="kb-error"><p className="tk-error" role="alert">{failure(budget.error)}</p><Button onClick={() => void budget.refetch()}>다시 시도</Button></div>}
     {budget.data && <BudgetCard budget={budget.data} />}
-    <QualityPanel scope={scope} />
+    <QualityPanel />
   </section>;
 }
 
@@ -42,7 +42,6 @@ export function CollectPage() {
   const [params, setParams] = useSearchParams();
   const [operationsOpen, setOperationsOpen] = useState(params.has("view"));
   const queryClient = useQueryClient();
-  const scope = "personal";
   const view: View = VIEWS.find((v) => v.id === params.get("view"))?.id ?? "overview";
   const update = useCallback((values: Record<string, string | null>) => {
     setParams((prev) => {
@@ -63,11 +62,11 @@ export function CollectPage() {
       <nav className="kb-tabs" aria-label="수집 관리 화면">
         {VIEWS.map((v) => <button key={v.id} type="button" aria-pressed={view === v.id} onClick={() => update({ view: v.id === "overview" ? null : v.id })}>{v.label}</button>)}
       </nav>
-      {view === "overview" && <Overview key={scope} scope={scope} />}
-      {view === "sources" && <SourcesPanel key={scope} scope={scope} />}
-      {view === "runs" && <><RunsPanel key={scope} scope={scope} /><Deliveries key={`d-${scope}`} scope={scope} /></>}
-      {view === "review" && <Review key={scope} scope={scope} />}
-      {view === "quality" && <QualityAndLimits key={scope} scope={scope} />}
+      {view === "overview" && <Overview />}
+      {view === "sources" && <SourcesPanel />}
+      {view === "runs" && <><RunsPanel /><Deliveries /></>}
+      {view === "review" && <Review />}
+      {view === "quality" && <QualityAndLimits />}
       </>}
       </details>
     </div></div>
