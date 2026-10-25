@@ -45,6 +45,16 @@ export function mergeSpecs(methods: MethodDetail[], adapterId: string) {
 export interface MetricContext {
   params?: ParamState;
   inputs?: Record<string, unknown>;
+  extra?: Record<string, unknown>;
+}
+
+/** The adapter uses top_k whenever present; search-space values override fixed inputs. */
+function retrievalKSetting(context?: MetricContext): unknown {
+  const { params, inputs, extra } = context ?? {};
+  const setting = (key: string) => params?.sweeps[key]?.length
+    ? params.sweeps[key]
+    : params?.values[key] ?? extra?.[key] ?? inputs?.[key];
+  return setting('top_k') ?? setting('k') ?? 5;
 }
 
 export const TTS_MODE_METRICS: Record<string, string[]> = {
@@ -60,13 +70,11 @@ export const TTS_MODE_METRICS: Record<string, string[]> = {
 
 export function getAdapterMeasurableMetrics(adapterId: string, context?: MetricContext): { measurable: string[]; defaultMetric?: string; isSweepK?: boolean } {
   if (adapterId === 'retrieval_eval') {
-    const p = context?.params;
-    const inp = context?.inputs;
-    const kParam = p?.values?.k ?? p?.values?.top_k ?? inp?.top_k ?? 5;
-    const isSweep = !!(p?.sweeps?.k?.length || p?.sweeps?.top_k?.length);
+    const kParam = retrievalKSetting(context);
+    const isSweep = Array.isArray(kParam) && kParam.length > 0;
     const common = ['query_latency_ms_mean', 'query_latency_ms_p95', 'chunk_count', 'wall_seconds'];
     if (isSweep) {
-      const sweepList = ((p?.sweeps?.k ?? p?.sweeps?.top_k ?? []) as (number | string)[]).map(Number).filter(n => !isNaN(n));
+      const sweepList = kParam.map(Number).filter(Number.isFinite);
       const kList = sweepList.length ? sweepList : [Number(kParam) || 5];
       const dynamicKeys: string[] = [];
       for (const k of kList) {
@@ -78,7 +86,7 @@ export function getAdapterMeasurableMetrics(adapterId: string, context?: MetricC
         isSweepK: true,
       };
     }
-    const kVal = Number(kParam) || 5;
+    const kVal = Number(Array.isArray(kParam) ? kParam[0] : kParam) || 5;
     const dynamicKeys = [`recall_at_${kVal}`, `mrr_at_${kVal}`, `ndcg_at_${kVal}`];
     return {
       measurable: [...dynamicKeys, ...common],
@@ -195,17 +203,14 @@ export function buildPayload(studyId: string, methods: MethodDetail[], s: Design
 
   // retrieval_eval 에서 alias 정규화 (k 값 반영)
   if (s.adapterId === 'retrieval_eval') {
-    const kVal = Number(s.params.values.k ?? s.params.values.top_k ?? inputs.top_k ?? 5) || 5;
-    if (primary === 'recall_at_k') primary = `recall_at_${kVal}`;
-    else if (primary === 'mrr_at_k' || primary === 'mrr') primary = `mrr_at_${kVal}`;
-    else if (primary === 'ndcg_at_k' || primary === 'ndcg') primary = `ndcg_at_${kVal}`;
-
-    secondary = secondary.map(k => {
-      if (k === 'recall_at_k') return `recall_at_${kVal}`;
-      if (k === 'mrr_at_k' || k === 'mrr') return `mrr_at_${kVal}`;
-      if (k === 'ndcg_at_k' || k === 'ndcg') return `ndcg_at_${kVal}`;
-      return k;
-    });
+    const { measurable } = getAdapterMeasurableMetrics(s.adapterId, { params: s.params, inputs, extra: s.extra });
+    const normalizeMetric = (key: string) => {
+      if (measurable.includes(key)) return key;
+      const family = key.match(/^(recall|mrr|ndcg)(?:_at_(?:k|\d+))?$/)?.[1];
+      return family ? measurable.find(k => k.startsWith(`${family}_at_`)) ?? key : key;
+    };
+    primary = normalizeMetric(primary);
+    secondary = secondary.map(normalizeMetric);
   }
 
   // tts_synthesis 에서 mode별 지표 정합 정규화
@@ -218,7 +223,7 @@ export function buildPayload(studyId: string, methods: MethodDetail[], s: Design
   }
 
   if (!primary && s.adapterId !== 'external_report') {
-    const choices = metricChoices(methods, s.adapterId, { params: s.params, inputs: s.inputs });
+    const choices = metricChoices(methods, s.adapterId, { params: s.params, inputs: s.inputs, extra: s.extra });
     primary = choices[0] ?? '';
   }
 

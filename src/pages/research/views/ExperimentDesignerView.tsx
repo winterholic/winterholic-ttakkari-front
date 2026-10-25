@@ -11,7 +11,7 @@ import { MethodPicker } from '../components/MethodPicker';
 import { Callout, Chip, Empty } from '../components/parts';
 import { ValidatePanel } from '../components/ValidatePanel';
 import type { ResearchCtx } from '../context';
-import { adapterNeeds, buildPayload, combinationChecks, initialDesign, localErrors, effectiveBudget, mergeSpecs, metricChoices, suggestAdapter, unmeasurableMetrics, type DesignState } from '../designerModel';
+import { adapterNeeds, buildPayload, combinationChecks, initialDesign, localErrors, effectiveBudget, getAdapterMeasurableMetrics, mergeSpecs, metricChoices, suggestAdapter, unmeasurableMetrics, type DesignState } from '../designerModel';
 import { DIRECTION_TEXT } from '../format';
 import { KEY, useAdapters, useDebounced, rk } from '../hooks';
 import { ADAPTER, STRATEGY, SWEEP_STRATEGIES, adapterLabel, getMetricInfo, metricLabel, resolveMetricKey } from '../labels';
@@ -53,7 +53,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
   const adapterId = design.adapterTouched ? design.adapterId : suggestAdapter(methods, adapterReady) || '';
   const { specs, owners } = useMemo(() => mergeSpecs(methods, adapterId), [methods, adapterId]);
   const params = useMemo(() => ({ values: { ...defaultValues(specs), ...design.params.values }, sweeps: design.params.sweeps }), [specs, design.params]);
-  const metricCtx = useMemo(() => ({ params, inputs: design.inputs }), [params, design.inputs]);
+  const metricCtx = useMemo(() => ({ params, inputs: design.inputs, extra: design.extra }), [params, design.inputs, design.extra]);
   const choices = useMemo(() => metricChoices(methods, adapterId, metricCtx), [methods, adapterId, metricCtx]);
   const unmeasured = useMemo(() => unmeasurableMetrics(methods, adapterId, metricCtx), [methods, adapterId, metricCtx]);
   const matchedPrimary = choices.includes(design.primaryMetric)
@@ -193,7 +193,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
             })}</div>
               <p className="tk-help">속도만 보면 품질 손실을, 메모리만 보면 속도 손실을 놓칩니다. 상충할 수 있는 지표를 같이 고르세요.</p>
               {unmeasured.length > 0 && <p className="tk-help">방법이 권장하지만 이 실행기는 측정하지 않는 지표: {unmeasured.join(', ')}. 필요하면 외부 결과로 따로 등록하세요.</p>}
-              {adapterId === 'retrieval_eval' && !!(params.sweeps.k?.length || params.sweeps.top_k?.length) && (
+              {adapterId === 'retrieval_eval' && getAdapterMeasurableMetrics(adapterId, metricCtx).isSweepK && (
                 <Callout kind="note" title="평가 k 탐색(Sweep) 안내">평가 k를 여러 값으로 탐색하는 경우, 각 k별 지표(Recall@k 등)는 해당 k 실행에만 측정됩니다. 모든 설정을 공통 축에서 비교하려면 질의 지연 시간 등 공통 지표를 보조 지표로 함께 확인하세요.</Callout>
               )}
             </fieldset></>}
