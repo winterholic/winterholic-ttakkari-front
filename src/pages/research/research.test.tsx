@@ -14,7 +14,7 @@ import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, ParamSpec } from './types';
 import { researchRequest } from '../../api/client';
 import { getMethod, listMethods } from './api';
-import { effectiveBudget, initialDesign, metricChoices, unmeasurableMetrics } from './designerModel';
+import { effectiveBudget, initialDesign, mergeSpecs, metricChoices, unmeasurableMetrics } from './designerModel';
 import type { MethodDetail } from './types';
 
 vi.mock('../../shell/PageHeader', () => ({ PageHeader: ({ title }: { title: string }) => <h1>{title}</h1> }));
@@ -166,6 +166,14 @@ describe('실험 설계실', () => {
     await screen.findByLabelText('k1');
     expect(await screen.findByText(/조합 수\(30\)가 최대 허용 예산\(20\)을 초과/, undefined, { timeout: 3000 })).toBeTruthy();
     expect((screen.getByRole('button', { name: '실험만 만들기' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('llm_inference 실행기를 쓰는 방법론은 공통 파라미터로 model을 채택한다', () => {
+    const { specs, owners } = mergeSpecs([], 'llm_inference');
+    const modelSpec = specs.find(s => s.key === 'model');
+    expect(modelSpec).toBeTruthy();
+    expect(modelSpec?.default).toBe('qwen3.5-4b-q4_k_m');
+    expect(owners.model).toBe('실행기 공통');
   });
 });
 

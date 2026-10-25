@@ -15,6 +15,17 @@ export const initialDesign: DesignState = {
 
 /** 방법이 정의하지 않았어도 실행기가 받는 핵심 옵션. 방법 스키마와 같은 키가 있으면 방법 쪽이 우선한다. */
 export const ADAPTER_COMMON: Record<string, ParamSpec[]> = {
+  llm_inference: [
+    {
+      key: 'model',
+      label: '모델 별칭',
+      type: 'enum',
+      default: 'qwen3.5-4b-q4_k_m',
+      options: ['qwen3.5-4b-q4_k_m', 'qwen3.8-flash-next-q2k'],
+      description: '호스트 GPU(llama-server)에서 실행할 사전 양자화 모델 별칭',
+      sweepable: true,
+    },
+  ],
   tts_synthesis: [{ key: 'mode', label: '실행 모드', type: 'enum', default: 'synthesize', options: ['normalize_only', 'synthesize', 'synthesize_and_stt'], description: 'STT 재인식(synthesize_and_stt)은 발음 명료도의 간접 지표만 제공합니다. 청취 품질은 직접 들어야 합니다.', sweepable: true }],
   retrieval_eval: [{ key: 'retriever_mode', label: '검색 방식', type: 'enum', default: 'bm25', options: ['lexical_overlap', 'bm25', 'dense_hash', 'dense_e5', 'hybrid_rrf', 'hybrid_linear'], sweepable: true }, { key: 'k', label: '평가 k', type: 'integer', default: 5, min: 1, max: 50, sweepable: true }],
 };
