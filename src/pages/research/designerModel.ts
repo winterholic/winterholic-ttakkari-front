@@ -1,11 +1,11 @@
 import { buildSearchSpace, paramError, type ParamState } from './components/DynamicParameterForm';
 import { relationOther } from './format';
-import { ADAPTER, METRICS, adapterLabel } from './labels';
+import { ADAPTER, ADAPTER_METRICS, METRICS, adapterLabel } from './labels';
 import type { Budget, ExperimentPayload, MethodDetail, ParamSpec, Strategy } from './types';
 
 export interface DesignState {
   name: string; hypothesis: string; rationale: string; strategy: Strategy; adapterId: string; adapterTouched: boolean;
-  params: ParamState; extra: Record<string, unknown>; inputs: Record<string, unknown>; primaryMetric: string; secondary: string[]; budget: Budget; repeats: number; seed: number; datasetVersion: string;
+  params: ParamState; extra: Record<string, unknown>; inputs: Record<string, unknown>; primaryMetric: string; secondary: string[]; budget: Budget; maxRunsTouched?: boolean; repeats: number; seed: number; datasetVersion: string;
 }
 export const DEFAULT_BUDGET: Budget = { max_runs: 20, max_total_seconds: 300, max_memory_mb: 4096 };
 export const initialDesign: DesignState = {
@@ -35,9 +35,25 @@ export function metricChoices(methods: MethodDetail[], adapterId: string): strin
   const keys = new Set<string>();
   const adapterDefault = ADAPTER[adapterId as keyof typeof ADAPTER]?.metric;
   if (adapterDefault) keys.add(adapterDefault);
-  methods.forEach(m => (m.metrics ?? []).forEach(k => keys.add(k)));
+  const measurable = ADAPTER_METRICS[adapterId as keyof typeof ADAPTER_METRICS];
+  methods.forEach(m => (m.metrics ?? []).forEach(k => { if (!measurable || measurable.includes(k)) keys.add(k); }));
+  measurable?.forEach(k => keys.add(k));
   if (!keys.size) Object.keys(METRICS).forEach(k => keys.add(k));
   return [...keys];
+}
+
+/** 방법이 권장했지만 이 실행기는 측정 결과로 내지 않는 지표. 선택지에 넣으면 비교 화면에 값이 없는 지표를 고르게 된다. */
+export function unmeasurableMetrics(methods: MethodDetail[], adapterId: string): string[] {
+  const measurable = ADAPTER_METRICS[adapterId as keyof typeof ADAPTER_METRICS];
+  if (!measurable) return [];
+  return [...new Set(methods.flatMap(m => m.metrics ?? []).filter(k => !measurable.includes(k)))];
+}
+
+/** llm_inference 는 한 실험의 실행 수 하드 상한이 12 다. 사용자가 실행 수를 손대지 않았다면 상한을 넘는 기본값으로 시작해 첫 검증부터 막히지 않게 한다. */
+export const RUN_CAP: Record<string, number> = { llm_inference: 12 };
+export function effectiveBudget(s: DesignState): Budget {
+  const cap = RUN_CAP[s.adapterId];
+  return !s.maxRunsTouched && cap !== undefined && s.budget.max_runs > cap ? { ...s.budget, max_runs: cap } : s.budget;
 }
 
 export function suggestAdapter(methods: MethodDetail[], ready: (id: string) => boolean): string {

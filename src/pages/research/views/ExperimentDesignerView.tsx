@@ -11,7 +11,7 @@ import { MethodPicker } from '../components/MethodPicker';
 import { Callout, Chip, Empty } from '../components/parts';
 import { ValidatePanel } from '../components/ValidatePanel';
 import type { ResearchCtx } from '../context';
-import { adapterNeeds, buildPayload, combinationChecks, initialDesign, localErrors, mergeSpecs, metricChoices, suggestAdapter, type DesignState } from '../designerModel';
+import { adapterNeeds, buildPayload, combinationChecks, initialDesign, localErrors, effectiveBudget, mergeSpecs, metricChoices, suggestAdapter, unmeasurableMetrics, type DesignState } from '../designerModel';
 import { DIRECTION_TEXT } from '../format';
 import { KEY, useAdapters, useDebounced, rk } from '../hooks';
 import { ADAPTER, METRICS, STRATEGY, SWEEP_STRATEGIES, adapterLabel, metricLabel } from '../labels';
@@ -53,9 +53,11 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
   const adapterId = design.adapterTouched ? design.adapterId : suggestAdapter(methods, adapterReady) || '';
   const { specs, owners } = useMemo(() => mergeSpecs(methods, adapterId), [methods, adapterId]);
   const choices = useMemo(() => metricChoices(methods, adapterId), [methods, adapterId]);
+  const unmeasured = useMemo(() => unmeasurableMetrics(methods, adapterId), [methods, adapterId]);
   const primaryMetric = choices.includes(design.primaryMetric) ? design.primaryMetric : design.adapterId === 'external_report' || adapterId === 'external_report' ? design.primaryMetric : choices[0] ?? '';
   const params = useMemo(() => ({ values: { ...defaultValues(specs), ...design.params.values }, sweeps: design.params.sweeps }), [specs, design.params]);
-  const eff: DesignState = { ...design, adapterId, primaryMetric, params, name: design.name.trim() || (methods[0] ? `${methods[0].name_ko || methods[0].name} · ${STRATEGY[design.strategy].label}` : '') };
+  const budget = effectiveBudget({ ...design, adapterId });
+  const eff: DesignState = { ...design, adapterId, primaryMetric, params, budget, name: design.name.trim() || (methods[0] ? `${methods[0].name_ko || methods[0].name} · ${STRATEGY[design.strategy].label}` : '') };
   const adapter = adapters.find(a => a.adapter_id === adapterId);
   const sweepEnabled = SWEEP_STRATEGIES.includes(design.strategy);
   const checks = useMemo(() => combinationChecks(methods), [methods]);
@@ -175,7 +177,8 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
               <Select id="d-pm" labelledBy="d-pm-l" value={primaryMetric} options={choices.map(k => ({ value: k, label: metricLabel(k) }))} onChange={v => set({ primaryMetric: v })} />
               {METRICS[primaryMetric] && <p className="tk-help">{DIRECTION_TEXT[METRICS[primaryMetric].direction]}{METRICS[primaryMetric].unit ? ` · 단위 ${METRICS[primaryMetric].unit}` : ''} {METRICS[primaryMetric].proxy && <ProxyBadge metricKey={primaryMetric} />}</p>}</div>
             <fieldset className="tk-fieldset"><legend>함께 볼 지표</legend><div className="tk-chips tk-chips--wrap">{choices.filter(k => k !== primaryMetric).map(k => <Chip key={k} pressed={design.secondary.includes(k)} onClick={() => set({ secondary: design.secondary.includes(k) ? design.secondary.filter(x => x !== k) : [...design.secondary, k] })}>{metricLabel(k)}{METRICS[k]?.proxy ? ' (간접)' : ''}</Chip>)}</div>
-              <p className="tk-help">속도만 보면 품질 손실을, 메모리만 보면 속도 손실을 놓칩니다. 상충할 수 있는 지표를 같이 고르세요.</p></fieldset></>}
+              <p className="tk-help">속도만 보면 품질 손실을, 메모리만 보면 속도 손실을 놓칩니다. 상충할 수 있는 지표를 같이 고르세요.</p>
+              {unmeasured.length > 0 && <p className="tk-help">방법이 권장하지만 이 실행기는 측정하지 않는 지표: {unmeasured.join(', ')}. 필요하면 외부 결과로 따로 등록하세요.</p>}</fieldset></>}
         </Step>
 
         <Step n={8} title="실행 환경 확인과 예산" done={adapterReady(adapterId)} hint="조합이 폭발하거나 자원을 넘는 실험은 생성 전에 막습니다.">
@@ -187,9 +190,9 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
             {dashboard?.gpu_lease && adapterId === 'llm_inference' && <p className="rs-muted">{dashboard.gpu_lease.held ? '지금 호스트 GPU 를 다른 작업이 쓰고 있습니다. 실행은 그 작업이 끝날 때까지 기다릴 수 있습니다.' : '지금 호스트 GPU 를 쓰는 다른 작업이 없습니다.'}</p>}
           </div>
           <div className="rs-form__grid">
-            <div className="tk-field"><label className="tk-label" htmlFor="b-runs">최대 실행 수</label><input id="b-runs" className="tk-input" type="number" min={1} max={adapterId === 'llm_inference' ? 12 : 50} value={design.budget.max_runs} onChange={e => set({ budget: { ...design.budget, max_runs: Number(e.target.value) } })} /><p className="tk-help">상한 {adapterId === 'llm_inference' ? 12 : 50}</p></div>
-            <div className="tk-field"><label className="tk-label" htmlFor="b-sec">최대 총 시간 (초)</label><input id="b-sec" className="tk-input" type="number" min={1} max={3600} value={design.budget.max_total_seconds} onChange={e => set({ budget: { ...design.budget, max_total_seconds: Number(e.target.value) } })} /><p className="tk-help">상한 3,600초</p></div>
-            <div className="tk-field"><label className="tk-label" htmlFor="b-mem">메모리 한도 (MB)</label><input id="b-mem" className="tk-input" type="number" min={64} value={design.budget.max_memory_mb} onChange={e => set({ budget: { ...design.budget, max_memory_mb: Number(e.target.value) } })} /></div>
+            <div className="tk-field"><label className="tk-label" htmlFor="b-runs">최대 실행 수</label><input id="b-runs" className="tk-input" type="number" min={1} max={adapterId === 'llm_inference' ? 12 : 50} value={budget.max_runs} onChange={e => set({ budget: { ...budget, max_runs: Number(e.target.value) }, maxRunsTouched: true })} /><p className="tk-help">상한 {adapterId === 'llm_inference' ? 12 : 50}</p></div>
+            <div className="tk-field"><label className="tk-label" htmlFor="b-sec">최대 총 시간 (초)</label><input id="b-sec" className="tk-input" type="number" min={1} max={3600} value={budget.max_total_seconds} onChange={e => set({ budget: { ...budget, max_total_seconds: Number(e.target.value) } })} /><p className="tk-help">상한 3,600초</p></div>
+            <div className="tk-field"><label className="tk-label" htmlFor="b-mem">메모리 한도 (MB)</label><input id="b-mem" className="tk-input" type="number" min={64} value={budget.max_memory_mb} onChange={e => set({ budget: { ...budget, max_memory_mb: Number(e.target.value) } })} /></div>
             <div className="tk-field"><label className="tk-label" htmlFor="b-seed">시드</label><input id="b-seed" className="tk-input" type="number" value={design.seed} onChange={e => set({ seed: Number(e.target.value) })} /><p className="tk-help">같은 시드로 재현합니다</p></div>
           </div>
         </Step>
@@ -198,7 +201,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
 
     <aside className="rs-designer__side" aria-label="검증과 생성">
       <ValidatePanel result={canValidate ? validate.data : undefined} pending={canValidate && validate.isFetching} error={validate.error ? errorText(validate.error) : undefined}
-        budget={design.budget} stale={debounced !== payloadKey} localErrors={errs} />
+        budget={budget} stale={debounced !== payloadKey} localErrors={errs} />
       {error && <Callout kind="caution">{error}</Callout>}
       <div className="rs-actions rs-designer__go">
         <Button variant="primary" busy={create.isPending} disabled={blocked || !canValidate || adapterId === 'external_report'} onClick={() => submit(true)}>만들고 바로 실행</Button>

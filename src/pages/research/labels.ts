@@ -77,6 +77,12 @@ export const ADAPTER: Record<AdapterId, { label: string; hint: string; metric: s
   tts_synthesis: { label: 'TTS 합성', hint: '정규화·발음 처리 후 Supertonic 3 로 합성하고 RTF 와 음성 샘플을 남깁니다.', metric: 'rtf', domains: 'TTS' },
   external_report: { label: '외부 결과 등록', hint: '이 서버에서 실행할 수 없는 방법의 결과를 직접 입력합니다. 실측으로 취급되지 않습니다.', metric: '', domains: '모든 분야' },
 };
+/** 실행기가 측정 결과로 실제 내는 지표. 방법 카탈로그의 권장 지표(tokens_per_sec 등)는 이름이 달라 어댑터가 만들지 않으므로 선택지에서 걸러 낸다. 외부 결과는 사용자가 이름을 정한다. */
+export const ADAPTER_METRICS: Partial<Record<AdapterId, string[]>> = {
+  llm_inference: ['decode_tps', 'prefill_tps', 'approx_prefill_ms', 'wall_seconds', 'swap_peak_growth_mb'],
+  retrieval_eval: ['recall_at_k', 'mrr_at_k', 'ndcg_at_k', 'query_latency_ms_mean', 'query_latency_ms_p95', 'chunk_count', 'wall_seconds'],
+  tts_synthesis: ['rtf', 'synth_seconds', 'audio_seconds', 'load_seconds', 'peak_rss_mb', 'chunk_count', 'normalized_char_delta', 'stt_cer_vs_normalized', 'stt_cer_vs_raw', 'stt_wer_vs_normalized'],
+};
 export const adapterLabel = (id: string) => ADAPTER[id as AdapterId]?.label ?? id;
 
 export const RELATION: Record<string, { label: string; tone?: Tone }> = {

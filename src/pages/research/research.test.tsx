@@ -14,6 +14,8 @@ import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, ParamSpec } from './types';
 import { researchRequest } from '../../api/client';
 import { getMethod, listMethods } from './api';
+import { effectiveBudget, initialDesign, metricChoices, unmeasurableMetrics } from './designerModel';
+import type { MethodDetail } from './types';
 
 vi.mock('../../shell/PageHeader', () => ({ PageHeader: ({ title }: { title: string }) => <h1>{title}</h1> }));
 vi.mock('../../api/client', () => ({ researchRequest: vi.fn(), contentBlob: vi.fn(), downloadLink: vi.fn(), moveArtifact: vi.fn(), apiUrl: (p: string) => p }));
@@ -781,5 +783,35 @@ describe('카탈로그 시드 선택지 형식', () => {
     expect(seen.at(-1)?.sweeps.cache_type_k).toEqual(['f16', 'q8_0']);
     fireEvent.click(screen.getByRole('button', { name: 'q8_0 (8비트 양자화)' }));
     expect(seen.at(-1)?.sweeps.cache_type_k).toEqual(['f16']);
+  });
+});
+
+describe('설계실 지표 선택지와 예산 기본값', () => {
+  const kv = { id: 'm2', slug: 'kv_cache_quantization', name: 'KV', name_ko: 'KV 캐시 양자화', metrics: ['peak_memory_mb', 'tokens_per_sec', 'accuracy'], parameters: [], relations: [] } as unknown as MethodDetail;
+
+  it('LLM 실행기가 실제로 내는 지표만 고르게 하고, 카탈로그 권장 지표 중 못 재는 것은 따로 알려 준다', () => {
+    const choices = metricChoices([kv], 'llm_inference');
+    expect(choices).toEqual(['decode_tps', 'prefill_tps', 'approx_prefill_ms', 'wall_seconds', 'swap_peak_growth_mb']);
+    expect(unmeasurableMetrics([kv], 'llm_inference')).toEqual(['peak_memory_mb', 'tokens_per_sec', 'accuracy']);
+  });
+
+  it('실행기 기본 지표를 맨 앞에 두고, 방법이 권장한 지표 중 잴 수 있는 것을 그 뒤에 둔다', () => {
+    const m = { ...kv, metrics: ['swap_peak_growth_mb', 'decode_tps'] } as MethodDetail;
+    expect(metricChoices([m], 'llm_inference').slice(0, 2)).toEqual(['decode_tps', 'swap_peak_growth_mb']);
+    expect(unmeasurableMetrics([m], 'llm_inference')).toEqual([]);
+  });
+
+  it('외부 결과 등록은 방법이 권장한 지표를 그대로 보여 준다', () => {
+    expect(metricChoices([kv], 'external_report')).toEqual(['peak_memory_mb', 'tokens_per_sec', 'accuracy']);
+    expect(unmeasurableMetrics([kv], 'external_report')).toEqual([]);
+  });
+
+  it('LLM 실행기는 하드 상한 12 를 넘는 기본 실행 수로 시작하지 않는다', () => {
+    expect(effectiveBudget({ ...initialDesign, adapterId: 'llm_inference' }).max_runs).toBe(12);
+    expect(effectiveBudget({ ...initialDesign, adapterId: 'retrieval_eval' }).max_runs).toBe(20);
+  });
+
+  it('사용자가 직접 넣은 실행 수는 상한을 넘어도 그대로 두어 서버 검증이 말하게 한다', () => {
+    expect(effectiveBudget({ ...initialDesign, adapterId: 'llm_inference', budget: { ...initialDesign.budget, max_runs: 30 }, maxRunsTouched: true }).max_runs).toBe(30);
   });
 });
