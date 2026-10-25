@@ -1,6 +1,7 @@
 // 비교 시리즈는 서버 compare-series 를 우선 쓴다(normalizeSeries). 응답이 없거나 예전 모양이면
 // 실험 상세(configurations·runs·measurements)에서 직접 계산한 deriveSeries 로 같은 모양을 만든다.
 import { fmtValue, type Direction } from './format';
+import { resolveMetricKey } from './labels';
 import type {
   AblationImpact, CompareSeries, ConfigDiff, Configuration, DeltaBarItem, ExperimentDetail, Measurement, MetricBarGroup, ParetoSeries, RepeatDistributionItem, RunSummary, SweepLineSeries,
 } from './types';
@@ -241,7 +242,10 @@ export function narrate(detail: ExperimentDetail): Narrative {
   if (!ok) return { text: `${head} 성공한 실행이 없어 비교할 결과가 없습니다.`, ok, bad, total: runs.length };
   const ms = usableMeasurements(detail);
   const metrics = metricsOf(ms);
-  const m = metrics.find(x => x.key === detail.experiment.primary_metric) ?? metrics[0];
+  const primaryKey = detail.experiment.primary_metric;
+  const availableKeys = metrics.map(x => x.key);
+  const resolvedKey = resolveMetricKey(primaryKey, availableKeys);
+  const m = metrics.find(x => x.key === primaryKey) ?? (resolvedKey ? metrics.find(x => x.key === resolvedKey) : undefined) ?? metrics[0];
   if (!m) return { text: `${head} 측정값이 기록되지 않았습니다.`, ok, bad, total: runs.length };
   const byCfg = valuesByConfig(ms);
   const means = detail.configurations.map(c => ({ c, v: stats(byCfg.get(c.id)?.get(m.key) ?? []).mean })).filter((x): x is { c: Configuration; v: number } => x.v !== null);

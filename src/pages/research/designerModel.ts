@@ -42,22 +42,126 @@ export function mergeSpecs(methods: MethodDetail[], adapterId: string) {
   return { specs, owners };
 }
 
-export function metricChoices(methods: MethodDetail[], adapterId: string): string[] {
+export interface MetricContext {
+  params?: ParamState;
+  inputs?: Record<string, unknown>;
+}
+
+export const TTS_MODE_METRICS: Record<string, string[]> = {
+  normalize_only: ['normalized_char_delta', 'chunk_count', 'wall_seconds'],
+  synthesize: ['rtf', 'synth_seconds', 'audio_seconds', 'load_seconds', 'peak_rss_mb', 'chunk_count', 'normalized_char_delta', 'wall_seconds'],
+  synthesize_and_stt: [
+    'rtf', 'synth_seconds', 'audio_seconds', 'load_seconds', 'peak_rss_mb',
+    'chunk_count', 'normalized_char_delta',
+    'stt_cer_vs_normalized', 'stt_cer_vs_raw', 'stt_wer_vs_normalized', 'stt_wer_vs_raw',
+    'wall_seconds',
+  ],
+};
+
+export function getAdapterMeasurableMetrics(adapterId: string, context?: MetricContext): { measurable: string[]; defaultMetric?: string; isSweepK?: boolean } {
+  if (adapterId === 'retrieval_eval') {
+    const p = context?.params;
+    const inp = context?.inputs;
+    const kParam = p?.values?.k ?? p?.values?.top_k ?? inp?.top_k ?? 5;
+    const isSweep = !!(p?.sweeps?.k?.length || p?.sweeps?.top_k?.length);
+    const common = ['query_latency_ms_mean', 'query_latency_ms_p95', 'chunk_count', 'wall_seconds'];
+    if (isSweep) {
+      const sweepList = ((p?.sweeps?.k ?? p?.sweeps?.top_k ?? []) as (number | string)[]).map(Number).filter(n => !isNaN(n));
+      const kList = sweepList.length ? sweepList : [Number(kParam) || 5];
+      const dynamicKeys: string[] = [];
+      for (const k of kList) {
+        dynamicKeys.push(`recall_at_${k}`, `mrr_at_${k}`, `ndcg_at_${k}`);
+      }
+      return {
+        measurable: [...dynamicKeys, ...common],
+        defaultMetric: dynamicKeys[0] ?? 'query_latency_ms_mean',
+        isSweepK: true,
+      };
+    }
+    const kVal = Number(kParam) || 5;
+    const dynamicKeys = [`recall_at_${kVal}`, `mrr_at_${kVal}`, `ndcg_at_${kVal}`];
+    return {
+      measurable: [...dynamicKeys, ...common],
+      defaultMetric: `recall_at_${kVal}`,
+      isSweepK: false,
+    };
+  }
+
+  if (adapterId === 'tts_synthesis') {
+    const p = context?.params;
+    const mode = String(p?.values?.mode ?? 'synthesize');
+    const sweepModes = (p?.sweeps?.mode ?? []) as string[];
+    if (sweepModes.length > 0) {
+      const combined = new Set<string>();
+      for (const m of sweepModes) {
+        (TTS_MODE_METRICS[m] ?? TTS_MODE_METRICS.synthesize).forEach(k => combined.add(k));
+      }
+      return {
+        measurable: [...combined],
+        defaultMetric: combined.has('rtf') ? 'rtf' : combined.has('normalized_char_delta') ? 'normalized_char_delta' : [...combined][0],
+      };
+    }
+    const metrics = TTS_MODE_METRICS[mode] ?? TTS_MODE_METRICS.synthesize;
+    const defaultMetric = mode === 'normalize_only' ? 'normalized_char_delta' : 'rtf';
+    return { measurable: [...metrics], defaultMetric };
+  }
+
+  if (adapterId === 'llm_inference') {
+    const m = ADAPTER_METRICS.llm_inference ?? [];
+    return { measurable: [...m], defaultMetric: ADAPTER.llm_inference.metric };
+  }
+
+  if (adapterId === 'external_report') {
+    return { measurable: [], defaultMetric: '' };
+  }
+
+  const m = ADAPTER_METRICS[adapterId as keyof typeof ADAPTER_METRICS] ?? [];
+  return { measurable: [...m], defaultMetric: ADAPTER[adapterId as keyof typeof ADAPTER]?.metric };
+}
+
+export function metricChoices(methods: MethodDetail[], adapterId: string, context?: MetricContext): string[] {
+  if (adapterId === 'external_report') {
+    const keys = new Set<string>();
+    methods.forEach(m => (m.metrics ?? []).forEach(k => keys.add(k)));
+    if (!keys.size) Object.keys(METRICS).forEach(k => keys.add(k));
+    return [...keys];
+  }
+
+  const { measurable, defaultMetric } = getAdapterMeasurableMetrics(adapterId, context);
   const keys = new Set<string>();
-  const adapterDefault = ADAPTER[adapterId as keyof typeof ADAPTER]?.metric;
-  if (adapterDefault) keys.add(adapterDefault);
-  const measurable = ADAPTER_METRICS[adapterId as keyof typeof ADAPTER_METRICS];
-  methods.forEach(m => (m.metrics ?? []).forEach(k => { if (!measurable || measurable.includes(k)) keys.add(k); }));
-  measurable?.forEach(k => keys.add(k));
+  if (defaultMetric) keys.add(defaultMetric);
+
+  methods.forEach(m => (m.metrics ?? []).forEach(k => {
+    if (k === 'recall_at_k') measurable.filter(x => /^recall_at_\d+$/.test(x)).forEach(x => keys.add(x));
+    else if (k === 'mrr') measurable.filter(x => /^mrr_at_\d+$/.test(x)).forEach(x => keys.add(x));
+    else if (k === 'ndcg') measurable.filter(x => /^ndcg_at_\d+$/.test(x)).forEach(x => keys.add(x));
+    else if (k === 'cer') measurable.filter(x => x.startsWith('stt_cer_')).forEach(x => keys.add(x));
+    else if (k === 'wer') measurable.filter(x => x.startsWith('stt_wer_')).forEach(x => keys.add(x));
+    else if (measurable.includes(k)) keys.add(k);
+  }));
+
+  measurable.forEach(k => keys.add(k));
   if (!keys.size) Object.keys(METRICS).forEach(k => keys.add(k));
   return [...keys];
 }
 
 /** 방법이 권장했지만 이 실행기는 측정 결과로 내지 않는 지표. 선택지에 넣으면 비교 화면에 값이 없는 지표를 고르게 된다. */
-export function unmeasurableMetrics(methods: MethodDetail[], adapterId: string): string[] {
-  const measurable = ADAPTER_METRICS[adapterId as keyof typeof ADAPTER_METRICS];
-  if (!measurable) return [];
-  return [...new Set(methods.flatMap(m => m.metrics ?? []).filter(k => !measurable.includes(k)))];
+export function unmeasurableMetrics(methods: MethodDetail[], adapterId: string, context?: MetricContext): string[] {
+  if (adapterId === 'external_report') return [];
+  const { measurable } = getAdapterMeasurableMetrics(adapterId, context);
+  if (!measurable.length) return [];
+
+  const isMeasurable = (k: string) => {
+    if (k === 'recall_at_k') return measurable.some(x => /^recall_at_\d+$/.test(x) || x === 'recall_at_k');
+    if (k === 'mrr') return measurable.some(x => /^mrr_at_\d+$/.test(x) || x === 'mrr_at_k');
+    if (k === 'ndcg') return measurable.some(x => /^ndcg_at_\d+$/.test(x) || x === 'ndcg_at_k');
+    if (k === 'cer') return measurable.some(x => x.startsWith('stt_cer_'));
+    if (k === 'wer') return measurable.some(x => x.startsWith('stt_wer_'));
+    if (k === 'rtf') return measurable.includes('rtf');
+    return measurable.includes(k);
+  };
+
+  return [...new Set(methods.flatMap(m => m.metrics ?? []).filter(k => !isMeasurable(k)))];
 }
 
 /** llm_inference 는 한 실험의 실행 수 하드 상한이 12 다. 사용자가 실행 수를 손대지 않았다면 상한을 넘는 기본값으로 시작해 첫 검증부터 막히지 않게 한다. */
@@ -85,9 +189,42 @@ export function buildPayload(studyId: string, methods: MethodDetail[], s: Design
   // 서버는 fixed_inputs 를 모든 설정의 파라미터에 합친다. 데이터셋 버전도 여기에 남겨 설정 비교에 같이 보이게 한다.
   if (s.datasetVersion.trim()) inputs.dataset_version = s.datasetVersion.trim();
   const budget = s.strategy === 'repeat' ? { ...s.budget, repetitions: Math.min(10, Math.max(1, s.repeats)) } : s.budget;
+
+  let primary = s.primaryMetric;
+  let secondary = [...s.secondary];
+
+  // retrieval_eval 에서 alias 정규화 (k 값 반영)
+  if (s.adapterId === 'retrieval_eval') {
+    const kVal = Number(s.params.values.k ?? s.params.values.top_k ?? inputs.top_k ?? 5) || 5;
+    if (primary === 'recall_at_k') primary = `recall_at_${kVal}`;
+    else if (primary === 'mrr_at_k' || primary === 'mrr') primary = `mrr_at_${kVal}`;
+    else if (primary === 'ndcg_at_k' || primary === 'ndcg') primary = `ndcg_at_${kVal}`;
+
+    secondary = secondary.map(k => {
+      if (k === 'recall_at_k') return `recall_at_${kVal}`;
+      if (k === 'mrr_at_k' || k === 'mrr') return `mrr_at_${kVal}`;
+      if (k === 'ndcg_at_k' || k === 'ndcg') return `ndcg_at_${kVal}`;
+      return k;
+    });
+  }
+
+  // tts_synthesis 에서 mode별 지표 정합 정규화
+  if (s.adapterId === 'tts_synthesis') {
+    const { measurable, defaultMetric } = getAdapterMeasurableMetrics(s.adapterId, { params: s.params, inputs: s.inputs });
+    if (!measurable.includes(primary) && defaultMetric) {
+      primary = defaultMetric;
+    }
+    secondary = secondary.filter(k => measurable.includes(k));
+  }
+
+  if (!primary && s.adapterId !== 'external_report') {
+    const choices = metricChoices(methods, s.adapterId, { params: s.params, inputs: s.inputs });
+    primary = choices[0] ?? '';
+  }
+
   return {
     study_id: studyId, method_id: methods[0]?.id ?? null, compared_method_ids: methods.slice(1).map(m => m.id), adapter_id: s.adapterId, strategy: s.strategy,
-    search_space: { ...s.extra, ...buildSearchSpace(specs, s.params) }, fixed_inputs: inputs, primary_metric: s.primaryMetric, secondary_metrics: s.secondary.filter(k => k !== s.primaryMetric), budget, seed: s.seed,
+    search_space: { ...s.extra, ...buildSearchSpace(specs, s.params) }, fixed_inputs: inputs, primary_metric: primary, secondary_metrics: secondary.filter(k => k !== primary), budget, seed: s.seed,
   };
 }
 

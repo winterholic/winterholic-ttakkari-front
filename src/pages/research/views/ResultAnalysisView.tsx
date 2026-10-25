@@ -16,7 +16,7 @@ import { SweepLineChart } from '../charts/SweepLineChart';
 import type { ResearchCtx } from '../context';
 import { DIRECTION_TEXT, fmtPct, fmtValue, shortId, stringify, verdictOf, VERDICT_TEXT } from '../format';
 import { experimentName, KEY, useAdapters, useSnapshot, rk } from '../hooks';
-import { adapterLabel, STRATEGY } from '../labels';
+import { adapterLabel, resolveMetricKey, STRATEGY } from '../labels';
 import { comparabilityCaveats, deriveSeries, failedRuns, localParetoReason, metricsOf, paretoFor, pickBaseline, stats, usableMeasurements, valuesByConfig } from '../series';
 import type { Strategy } from '../types';
 
@@ -39,7 +39,11 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
   const metrics = useMemo(() => metricsOf(usable), [usable]);
   const byCfg = useMemo(() => valuesByConfig(usable), [usable]);
   const primary = detail?.experiment.primary_metric ?? '';
-  const metricKey = metricChoice && metrics.some(m => m.key === metricChoice) ? metricChoice : metrics.find(m => m.key === primary)?.key ?? metrics[0]?.key ?? '';
+  const availableKeys = useMemo(() => metrics.map(m => m.key), [metrics]);
+  const resolvedPrimary = useMemo(() => resolveMetricKey(primary, availableKeys), [primary, availableKeys]);
+  const metricKey = metricChoice && metrics.some(m => m.key === metricChoice)
+    ? metricChoice
+    : metrics.find(m => m.key === primary)?.key ?? (resolvedPrimary ? metrics.find(m => m.key === resolvedPrimary)?.key : undefined) ?? metrics[0]?.key ?? '';
   const metric = metrics.find(m => m.key === metricKey);
   const caveats = detail ? comparabilityCaveats(detail, baselineId) : [];
   const bad = detail ? failedRuns(detail.runs) : [];

@@ -14,7 +14,7 @@ import type { ResearchCtx } from '../context';
 import { adapterNeeds, buildPayload, combinationChecks, initialDesign, localErrors, effectiveBudget, mergeSpecs, metricChoices, suggestAdapter, unmeasurableMetrics, type DesignState } from '../designerModel';
 import { DIRECTION_TEXT } from '../format';
 import { KEY, useAdapters, useDebounced, rk } from '../hooks';
-import { ADAPTER, METRICS, STRATEGY, SWEEP_STRATEGIES, adapterLabel, metricLabel } from '../labels';
+import { ADAPTER, STRATEGY, SWEEP_STRATEGIES, adapterLabel, getMetricInfo, metricLabel, resolveMetricKey } from '../labels';
 import { ADAPTER_IDS, STRATEGIES, type MethodDetail, type Strategy } from '../types';
 
 const SWEEP_HINT: Partial<Record<Strategy, string>> = {
@@ -52,10 +52,18 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
   // 파생 값: 사용자가 건드리지 않은 항목은 선택한 방법과 실행기에서 정한다
   const adapterId = design.adapterTouched ? design.adapterId : suggestAdapter(methods, adapterReady) || '';
   const { specs, owners } = useMemo(() => mergeSpecs(methods, adapterId), [methods, adapterId]);
-  const choices = useMemo(() => metricChoices(methods, adapterId), [methods, adapterId]);
-  const unmeasured = useMemo(() => unmeasurableMetrics(methods, adapterId), [methods, adapterId]);
-  const primaryMetric = choices.includes(design.primaryMetric) ? design.primaryMetric : design.adapterId === 'external_report' || adapterId === 'external_report' ? design.primaryMetric : choices[0] ?? '';
   const params = useMemo(() => ({ values: { ...defaultValues(specs), ...design.params.values }, sweeps: design.params.sweeps }), [specs, design.params]);
+  const metricCtx = useMemo(() => ({ params, inputs: design.inputs }), [params, design.inputs]);
+  const choices = useMemo(() => metricChoices(methods, adapterId, metricCtx), [methods, adapterId, metricCtx]);
+  const unmeasured = useMemo(() => unmeasurableMetrics(methods, adapterId, metricCtx), [methods, adapterId, metricCtx]);
+  const matchedPrimary = choices.includes(design.primaryMetric)
+    ? design.primaryMetric
+    : resolveMetricKey(design.primaryMetric, choices);
+  const primaryMetric = matchedPrimary
+    ? matchedPrimary
+    : design.adapterId === 'external_report' || adapterId === 'external_report'
+    ? design.primaryMetric
+    : choices[0] ?? '';
   const budget = effectiveBudget({ ...design, adapterId });
   const eff: DesignState = { ...design, adapterId, primaryMetric, params, budget, name: design.name.trim() || (methods[0] ? `${methods[0].name_ko || methods[0].name} · ${STRATEGY[design.strategy].label}` : '') };
   const adapter = adapters.find(a => a.adapter_id === adapterId);
@@ -175,10 +183,20 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
           {adapterId === 'external_report' ? <p className="rs-muted">외부 결과는 실험을 만든 뒤 측정값과 방향을 직접 입력합니다.</p> : <>
             <div className="tk-field"><label className="tk-label" id="d-pm-l" htmlFor="d-pm">주요 지표</label>
               <Select id="d-pm" labelledBy="d-pm-l" value={primaryMetric} options={choices.map(k => ({ value: k, label: metricLabel(k) }))} onChange={v => set({ primaryMetric: v })} />
-              {METRICS[primaryMetric] && <p className="tk-help">{DIRECTION_TEXT[METRICS[primaryMetric].direction]}{METRICS[primaryMetric].unit ? ` · 단위 ${METRICS[primaryMetric].unit}` : ''} {METRICS[primaryMetric].proxy && <ProxyBadge metricKey={primaryMetric} />}</p>}</div>
-            <fieldset className="tk-fieldset"><legend>함께 볼 지표</legend><div className="tk-chips tk-chips--wrap">{choices.filter(k => k !== primaryMetric).map(k => <Chip key={k} pressed={design.secondary.includes(k)} onClick={() => set({ secondary: design.secondary.includes(k) ? design.secondary.filter(x => x !== k) : [...design.secondary, k] })}>{metricLabel(k)}{METRICS[k]?.proxy ? ' (간접)' : ''}</Chip>)}</div>
+              {(() => {
+                const info = getMetricInfo(primaryMetric);
+                return info ? <p className="tk-help">{DIRECTION_TEXT[info.direction]}{info.unit ? ` · 단위 ${info.unit}` : ''} {info.proxy && <ProxyBadge metricKey={primaryMetric} />}</p> : null;
+              })()}</div>
+            <fieldset className="tk-fieldset"><legend>함께 볼 지표</legend><div className="tk-chips tk-chips--wrap">{choices.filter(k => k !== primaryMetric).map(k => {
+              const info = getMetricInfo(k);
+              return <Chip key={k} pressed={design.secondary.includes(k)} onClick={() => set({ secondary: design.secondary.includes(k) ? design.secondary.filter(x => x !== k) : [...design.secondary, k] })}>{metricLabel(k)}{info?.proxy ? ' (간접)' : ''}</Chip>;
+            })}</div>
               <p className="tk-help">속도만 보면 품질 손실을, 메모리만 보면 속도 손실을 놓칩니다. 상충할 수 있는 지표를 같이 고르세요.</p>
-              {unmeasured.length > 0 && <p className="tk-help">방법이 권장하지만 이 실행기는 측정하지 않는 지표: {unmeasured.join(', ')}. 필요하면 외부 결과로 따로 등록하세요.</p>}</fieldset></>}
+              {unmeasured.length > 0 && <p className="tk-help">방법이 권장하지만 이 실행기는 측정하지 않는 지표: {unmeasured.join(', ')}. 필요하면 외부 결과로 따로 등록하세요.</p>}
+              {adapterId === 'retrieval_eval' && !!(params.sweeps.k?.length || params.sweeps.top_k?.length) && (
+                <Callout kind="note" title="평가 k 탐색(Sweep) 안내">평가 k를 여러 값으로 탐색하는 경우, 각 k별 지표(Recall@k 등)는 해당 k 실행에만 측정됩니다. 모든 설정을 공통 축에서 비교하려면 질의 지연 시간 등 공통 지표를 보조 지표로 함께 확인하세요.</Callout>
+              )}
+            </fieldset></>}
         </Step>
 
         <Step n={8} title="실행 환경 확인과 예산" done={adapterReady(adapterId)} hint="조합이 폭발하거나 자원을 넘는 실험은 생성 전에 막습니다.">
@@ -188,6 +206,20 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
             {adapter?.reason && <p className="rs-reason">{adapter.reason}</p>}
             {!!adapter?.available_models?.length && <p className="rs-muted">사용 가능한 모델: {adapter.available_models.join(', ')}</p>}
             {dashboard?.gpu_lease && adapterId === 'llm_inference' && <p className="rs-muted">{dashboard.gpu_lease.held ? '지금 호스트 GPU 를 다른 작업이 쓰고 있습니다. 실행은 그 작업이 끝날 때까지 기다릴 수 있습니다.' : '지금 호스트 GPU 를 쓰는 다른 작업이 없습니다.'}</p>}
+            {adapterId === 'tts_synthesis' && (() => {
+              const currentMode = String(params.values.mode ?? 'synthesize');
+              const sweepModes = (params.sweeps.mode ?? []) as string[];
+              const hasStt = currentMode === 'synthesize_and_stt' || sweepModes.includes('synthesize_and_stt');
+              if (!hasStt) return null;
+              const sttReady = adapter?.details?.stt_ready;
+              if (sttReady === false) {
+                return <Callout kind="warning" title="로컬 STT(Whisper) 엔진 준비 안 됨">로컬 STT 파이썬 실행기가 감지되지 않았습니다. synthesize_and_stt 실행 시 STT 재인식 단계에서 오류가 발생할 수 있습니다 (텍스트 정규화 및 음성 합성은 정상 실행됩니다).</Callout>;
+              }
+              if (sttReady === undefined) {
+                return <p className="rs-muted">STT 엔진의 세부 준비 상태가 확인되지 않았습니다. STT 재인식 지표는 발음 명료도의 간접 대리 지표이며 사람 청취 품질(MOS)이 아닙니다.</p>;
+              }
+              return <p className="rs-muted">로컬 STT 엔진이 준비되어 발음 명료도 대리 지표(CER/WER)를 산출할 수 있습니다 (청취 품질은 별도 확인 필요).</p>;
+            })()}
           </div>
           <div className="rs-form__grid">
             <div className="tk-field"><label className="tk-label" htmlFor="b-runs">최대 실행 수</label><input id="b-runs" className="tk-input" type="number" min={1} max={adapterId === 'llm_inference' ? 12 : 50} value={budget.max_runs} onChange={e => set({ budget: { ...budget, max_runs: Number(e.target.value) }, maxRunsTouched: true })} /><p className="tk-help">상한 {adapterId === 'llm_inference' ? 12 : 50}</p></div>

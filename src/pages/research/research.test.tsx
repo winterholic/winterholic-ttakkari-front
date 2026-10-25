@@ -14,7 +14,7 @@ import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, ParamSpec } from './types';
 import { researchRequest } from '../../api/client';
 import { getMethod, listMethods } from './api';
-import { buildPayload, effectiveBudget, initialDesign, mergeSpecs, metricChoices, unmeasurableMetrics } from './designerModel';
+import { buildPayload, effectiveBudget, getAdapterMeasurableMetrics, initialDesign, mergeSpecs, metricChoices, unmeasurableMetrics, type DesignState } from './designerModel';
 import type { MethodDetail } from './types';
 
 vi.mock('../../shell/PageHeader', () => ({ PageHeader: ({ title }: { title: string }) => <h1>{title}</h1> }));
@@ -184,6 +184,42 @@ describe('실험 설계실', () => {
   it('retrieval_eval 실행기에서 preset_id와 corpus가 비어있으면 기본 프리셋 ko_tech_docs_v1을 보낸다', () => {
     const payload = buildPayload('s1', [], { ...initialDesign, adapterId: 'retrieval_eval' }, []);
     expect(payload.fixed_inputs.preset_id).toBe('ko_tech_docs_v1');
+  });
+
+  it('tts_synthesis 모드가 synthesize_and_stt 이고 STT 미준비 상태면 STT 경고 Callout 을 띄운다', async () => {
+    setup((path, body) => {
+      if (path.includes('/dashboard')) {
+        const d = defaultHandler(path, body) as Record<string, unknown>;
+        return {
+          ...d,
+          host_readiness: {
+            tts_synthesis: { ready: true, reason: null, details: { stt_ready: false } },
+            retrieval_eval: { ready: true },
+            external_report: { ready: true },
+          },
+        };
+      }
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=designer&study=s1&method=bm25');
+    await screen.findByLabelText('k1');
+    const ttsRadio = await screen.findByRole('radio', { name: /TTS 합성/ });
+    fireEvent.click(ttsRadio);
+    const modeTrigger = await screen.findByRole('combobox', { name: '실행 모드' });
+    fireEvent.click(modeTrigger);
+    const opt = await screen.findByRole('option', { name: /synthesize_and_stt/ });
+    fireEvent.click(opt);
+    expect(await screen.findByText('로컬 STT(Whisper) 엔진 준비 안 됨')).toBeTruthy();
+  });
+
+  it('retrieval_eval 에서 평가 k 탐색(sweep)을 켜면 공통 축 비교 안내 Callout 이 뜬다', async () => {
+    setup();
+    mount('/research?view=designer&study=s1&method=bm25');
+    await screen.findByLabelText('k1');
+    // 평가 k 항목의 '값 여러 개 탐색' 버튼 찾기
+    const kSweepBtns = screen.getAllByRole('button', { name: '값 여러 개 탐색' });
+    fireEvent.click(kSweepBtns[kSweepBtns.length - 1]);
+    expect(await screen.findByText('평가 k 탐색(Sweep) 안내')).toBeTruthy();
   });
 });
 
@@ -833,3 +869,217 @@ describe('설계실 지표 선택지와 예산 기본값', () => {
     expect(effectiveBudget({ ...initialDesign, adapterId: 'llm_inference', budget: { ...initialDesign.budget, max_runs: 30 }, maxRunsTouched: true }).max_runs).toBe(30);
   });
 });
+
+describe('실제 어댑터 측정 계약 정합 (retrieval_eval & tts_synthesis)', () => {
+  const bm25 = {
+    id: 'm_bm25',
+    slug: 'bm25_lexical_retrieval',
+    name: 'BM25',
+    name_ko: 'BM25 어휘 검색',
+    metrics: ['recall_at_k', 'mrr', 'ndcg'],
+    parameters: [{ key: 'k', label: '평가 k', type: 'integer', default: 5, min: 1, max: 50, sweepable: true }],
+    relations: [],
+  } as unknown as MethodDetail;
+
+  const tts = {
+    id: 'm_tts',
+    slug: 'tts_korean_text_normalization',
+    name: 'TTS Normalization',
+    name_ko: 'TTS 한국어 텍스트 정규화',
+    metrics: ['cer', 'rtf', 'quality'],
+    parameters: [],
+    relations: [],
+  } as unknown as MethodDetail;
+
+  // 백엔드 retrieval_eval.to_measurements 계약 모의 함수
+  function mockBackendRetrievalMeasurements(k: number) {
+    return [
+      { metric_key: `recall_at_${k}`, metric_label: `재현율 (Recall@${k})`, direction: 'higher_is_better' },
+      { metric_key: `mrr_at_${k}`, metric_label: `상호 역순위 (MRR@${k})`, direction: 'higher_is_better' },
+      { metric_key: `ndcg_at_${k}`, metric_label: `정규화 할인 누적 이득 (NDCG@${k})`, direction: 'higher_is_better' },
+      { metric_key: 'query_latency_ms_mean', metric_label: '평균 질의 지연 시간', direction: 'lower_is_better' },
+      { metric_key: 'query_latency_ms_p95', metric_label: 'p95 질의 지연 시간', direction: 'lower_is_better' },
+      { metric_key: 'chunk_count', metric_label: '분할된 총 청크 수', direction: 'lower_is_better' },
+      { metric_key: 'wall_seconds', metric_label: '전체 소요 시간', direction: 'lower_is_better' },
+    ];
+  }
+
+  it('retrieval_eval 기본 k=5 설정 시 실제 출력 키 recall_at_5 가 생성되고 create payload 와 백엔드 측정이 일치한다', () => {
+    const choices = metricChoices([bm25], 'retrieval_eval', { params: { values: { k: 5 }, sweeps: {} } });
+    expect(choices).toContain('recall_at_5');
+    expect(choices).not.toContain('recall_at_k');
+
+    const state = { ...initialDesign, adapterId: 'retrieval_eval', primaryMetric: choices[0] };
+    const payload = buildPayload('s1', [bm25], state, bm25.parameters);
+    const backendMs = mockBackendRetrievalMeasurements(5);
+
+    expect(payload.primary_metric).toBe('recall_at_5');
+    expect(backendMs.some(m => m.metric_key === payload.primary_metric)).toBe(true);
+  });
+
+  it('retrieval_eval k=20 설정 시 payload 의 primary_metric 은 recall_at_20 이며 백엔드 측정과 일치한다', () => {
+    const choices = metricChoices([bm25], 'retrieval_eval', { params: { values: { k: 20 }, sweeps: {} } });
+    expect(choices).toContain('recall_at_20');
+    expect(choices).toContain('mrr_at_20');
+
+    const state = {
+      ...initialDesign,
+      adapterId: 'retrieval_eval',
+      primaryMetric: 'recall_at_20',
+      params: { values: { k: 20 }, sweeps: {} },
+    };
+    const payload = buildPayload('s1', [bm25], state, bm25.parameters);
+    const backendMs = mockBackendRetrievalMeasurements(20);
+
+    expect(payload.primary_metric).toBe('recall_at_20');
+    expect(backendMs.some(m => m.metric_key === payload.primary_metric)).toBe(true);
+  });
+
+  it('retrieval_eval k 가 변경되면 이전 k 의 지표가 stale 로 남지 않고 자동 정정된다', () => {
+    const choicesK5 = metricChoices([bm25], 'retrieval_eval', { params: { values: { k: 5 }, sweeps: {} } });
+    expect(choicesK5[0]).toBe('recall_at_5');
+
+    const choicesK20 = metricChoices([bm25], 'retrieval_eval', { params: { values: { k: 20 }, sweeps: {} } });
+    expect(choicesK20[0]).toBe('recall_at_20');
+
+    // legacy alias 또는 이전 k(5) 가 지정된 상태에서 k=20 으로 buildPayload 수행 시 정규화
+    const stateLegacy = {
+      ...initialDesign,
+      adapterId: 'retrieval_eval',
+      primaryMetric: 'recall_at_k',
+      params: { values: { k: 20 }, sweeps: {} },
+    };
+    const payloadLegacy = buildPayload('s1', [bm25], stateLegacy, bm25.parameters);
+    expect(payloadLegacy.primary_metric).toBe('recall_at_20');
+  });
+
+  it('tts_synthesis whitelist 및 choices 에 stt_wer_vs_raw 가 포함된다', () => {
+    const choices = metricChoices([tts], 'tts_synthesis', {
+      params: { values: { mode: 'synthesize_and_stt' }, sweeps: {} },
+    });
+    expect(choices).toContain('stt_wer_vs_raw');
+    expect(choices).toContain('stt_wer_vs_normalized');
+    expect(choices).toContain('stt_cer_vs_raw');
+    expect(choices).toContain('stt_cer_vs_normalized');
+  });
+
+  it('tts normalize_only 모드는 rtf 및 stt 지표가 제외되고 실제 나오는 지표만 제시된다', () => {
+    const choices = metricChoices([tts], 'tts_synthesis', {
+      params: { values: { mode: 'normalize_only' }, sweeps: {} },
+    });
+    expect(choices).toEqual(['normalized_char_delta', 'chunk_count', 'wall_seconds']);
+    expect(choices).not.toContain('rtf');
+    expect(choices).not.toContain('stt_cer_vs_normalized');
+
+    const unmeasured = unmeasurableMetrics([tts], 'tts_synthesis', {
+      params: { values: { mode: 'normalize_only' }, sweeps: {} },
+    });
+    expect(unmeasured).toContain('rtf');
+    expect(unmeasured).toContain('cer');
+  });
+
+  it('tts synthesize 모드는 STT 지표가 제외되고 RTF 등 합성 지표만 제시된다', () => {
+    const choices = metricChoices([tts], 'tts_synthesis', {
+      params: { values: { mode: 'synthesize' }, sweeps: {} },
+    });
+    expect(choices).toContain('rtf');
+    expect(choices).toContain('synth_seconds');
+    expect(choices).not.toContain('stt_cer_vs_normalized');
+    expect(choices).not.toContain('stt_wer_vs_raw');
+
+    const unmeasured = unmeasurableMetrics([tts], 'tts_synthesis', {
+      params: { values: { mode: 'synthesize' }, sweeps: {} },
+    });
+    expect(unmeasured).toContain('cer');
+    expect(unmeasured).not.toContain('rtf');
+  });
+
+  it('과거 recall_at_k 로 저장된 실험도 실제 측정된 recall_at_20 과 호환 매칭되어 분석 화면 및 요약이 깨지지 않는다', () => {
+    const legacyExp = {
+      ...initialDesign,
+      id: 'e_legacy',
+      title: '과거 RAG 실험',
+      strategy: 'ab',
+      primary_metric: 'recall_at_k',
+    };
+    const configs = [
+      { id: 'c1', experiment_id: 'e_legacy', label: 'Baseline', role: 'baseline' },
+      { id: 'c2', experiment_id: 'e_legacy', label: 'Hybrid', role: 'comparison' },
+    ];
+    const runs = [
+      { id: 'r1', experiment_id: 'e_legacy', configuration_id: 'c1', status: 'succeeded' as const, execution_origin: 'local_measured' as const },
+      { id: 'r2', experiment_id: 'e_legacy', configuration_id: 'c2', status: 'succeeded' as const, execution_origin: 'local_measured' as const },
+    ];
+    const measurements = [
+      { id: 'm1', experiment_id: 'e_legacy', run_id: 'r1', configuration_id: 'c1', metric_key: 'recall_at_20', metric_label: 'Recall@20', value: 0.8, unit: '', direction: 'higher_is_better' as const, is_proxy: false },
+      { id: 'm2', experiment_id: 'e_legacy', run_id: 'r2', configuration_id: 'c2', metric_key: 'recall_at_20', metric_label: 'Recall@20', value: 0.95, unit: '', direction: 'higher_is_better' as const, is_proxy: false },
+    ];
+
+    const detail = {
+      experiment: legacyExp,
+      configurations: configs,
+      runs,
+      measurements,
+      artifacts: [],
+    } as unknown as import('./types').ExperimentDetail;
+
+    const n = import('./series').then(m => m.narrate(detail));
+    return n.then(res => {
+      expect(res.text).toContain('Recall@20');
+      expect(res.text).toMatch(/\+18\.[78]%/);
+    });
+  });
+
+  it('retrieval_eval 동적 k sweep 탐색 시 각 k 지표와 공통 지표를 제공하고 isSweepK 를 식별한다', () => {
+    const sweepMetrics = getAdapterMeasurableMetrics('retrieval_eval', {
+      params: { values: { k: 5 }, sweeps: { k: [5, 10, 20] } },
+    });
+    expect(sweepMetrics.isSweepK).toBe(true);
+    expect(sweepMetrics.measurable).toContain('recall_at_5');
+    expect(sweepMetrics.measurable).toContain('recall_at_10');
+    expect(sweepMetrics.measurable).toContain('recall_at_20');
+    expect(sweepMetrics.measurable).toContain('query_latency_ms_mean');
+  });
+
+  it('tts 모드 전환 시 허용되지 않는 지표가 선택되어 있으면 유효 지표로 자동 정정된다', () => {
+    // 1) synthesize_and_stt 모드에서 stt_cer_vs_normalized 를 선택한 상태
+    const stateStt: DesignState = {
+      ...initialDesign,
+      adapterId: 'tts_synthesis',
+      primaryMetric: 'stt_cer_vs_normalized',
+      params: { values: { mode: 'synthesize_and_stt' }, sweeps: {} },
+    };
+    const payloadStt = buildPayload('s1', [tts], stateStt, []);
+    expect(payloadStt.primary_metric).toBe('stt_cer_vs_normalized');
+
+    // 2) normalize_only 로 모드 전환 시 stt_cer_vs_normalized 가 허용되지 않으므로 normalized_char_delta 로 정정
+    const stateNorm: DesignState = {
+      ...stateStt,
+      params: { values: { mode: 'normalize_only' }, sweeps: {} },
+    };
+    const payloadNorm = buildPayload('s1', [tts], stateNorm, []);
+    expect(payloadNorm.primary_metric).toBe('normalized_char_delta');
+
+    // 3) synthesize 모드로 전환 시 stt_cer_vs_normalized 가 rtf 로 정정
+    const stateSynth: DesignState = {
+      ...stateStt,
+      params: { values: { mode: 'synthesize' }, sweeps: {} },
+    };
+    const payloadSynth = buildPayload('s1', [tts], stateSynth, []);
+    expect(payloadSynth.primary_metric).toBe('rtf');
+  });
+
+  it('JSON 고급 탭에서 입력된 legacy alias 및 k 파라미터가 적용되어 최종 payload 가 실제 키로 정규화된다', () => {
+    const jsonImportedState: DesignState = {
+      ...initialDesign,
+      adapterId: 'retrieval_eval',
+      primaryMetric: 'recall_at_k',
+      secondary: ['mrr_at_k'],
+      params: { values: { k: 20 }, sweeps: {} },
+    };
+    const payload = buildPayload('s1', [bm25], jsonImportedState, bm25.parameters);
+    expect(payload.primary_metric).toBe('recall_at_20');
+    expect(payload.secondary_metrics).toEqual(['mrr_at_20']);
+  });
+});
+

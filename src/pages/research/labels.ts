@@ -73,7 +73,7 @@ export const SWEEP_STRATEGIES: Strategy[] = ['grid', 'random', 'bayesian', 'ab',
 
 export const ADAPTER: Record<AdapterId, { label: string; hint: string; metric: string; domains: string }> = {
   llm_inference: { label: '로컬 LLM 추론', hint: '호스트 GPU의 llama-server 로 속도·메모리를 측정합니다. 개인 범위에서만 실행됩니다.', metric: 'decode_tps', domains: 'LLM' },
-  retrieval_eval: { label: '검색 평가', hint: '코퍼스와 질의로 Recall·MRR·nDCG·지연을 측정합니다. CPU 에서 실행됩니다.', metric: 'recall_at_k', domains: 'RAG·임베딩' },
+  retrieval_eval: { label: '검색 평가', hint: '코퍼스와 질의로 Recall·MRR·nDCG·지연을 측정합니다. CPU 에서 실행됩니다.', metric: 'recall_at_5', domains: 'RAG·임베딩' },
   tts_synthesis: { label: 'TTS 합성', hint: '정규화·발음 처리 후 Supertonic 3 로 합성하고 RTF 와 음성 샘플을 남깁니다.', metric: 'rtf', domains: 'TTS' },
   external_report: { label: '외부 결과 등록', hint: '이 서버에서 실행할 수 없는 방법의 결과를 직접 입력합니다. 실측으로 취급되지 않습니다.', metric: '', domains: '모든 분야' },
 };
@@ -81,7 +81,7 @@ export const ADAPTER: Record<AdapterId, { label: string; hint: string; metric: s
 export const ADAPTER_METRICS: Partial<Record<AdapterId, string[]>> = {
   llm_inference: ['decode_tps', 'prefill_tps', 'approx_prefill_ms', 'wall_seconds', 'swap_peak_growth_mb'],
   retrieval_eval: ['recall_at_k', 'mrr_at_k', 'ndcg_at_k', 'query_latency_ms_mean', 'query_latency_ms_p95', 'chunk_count', 'wall_seconds'],
-  tts_synthesis: ['rtf', 'synth_seconds', 'audio_seconds', 'load_seconds', 'peak_rss_mb', 'chunk_count', 'normalized_char_delta', 'stt_cer_vs_normalized', 'stt_cer_vs_raw', 'stt_wer_vs_normalized'],
+  tts_synthesis: ['rtf', 'synth_seconds', 'audio_seconds', 'load_seconds', 'peak_rss_mb', 'chunk_count', 'normalized_char_delta', 'stt_cer_vs_normalized', 'stt_cer_vs_raw', 'stt_wer_vs_normalized', 'stt_wer_vs_raw', 'wall_seconds'],
 };
 export const adapterLabel = (id: string) => ADAPTER[id as AdapterId]?.label ?? id;
 
@@ -114,6 +114,12 @@ export const METRICS: Record<string, MetricInfo> = {
   recall_at_k: { label: 'Recall@k', unit: '', direction: 'higher_is_better' },
   mrr_at_k: { label: 'MRR@k', unit: '', direction: 'higher_is_better' },
   ndcg_at_k: { label: 'nDCG@k', unit: '', direction: 'higher_is_better' },
+  recall_at_5: { label: 'Recall@5', unit: '', direction: 'higher_is_better' },
+  recall_at_20: { label: 'Recall@20', unit: '', direction: 'higher_is_better' },
+  mrr_at_5: { label: 'MRR@5', unit: '', direction: 'higher_is_better' },
+  mrr_at_20: { label: 'MRR@20', unit: '', direction: 'higher_is_better' },
+  ndcg_at_5: { label: 'nDCG@5', unit: '', direction: 'higher_is_better' },
+  ndcg_at_20: { label: 'nDCG@20', unit: '', direction: 'higher_is_better' },
   query_latency_ms_mean: { label: '질의 지연 평균', unit: 'ms', direction: 'lower_is_better' },
   query_latency_ms_p95: { label: '질의 지연 p95', unit: 'ms', direction: 'lower_is_better' },
   chunk_count: { label: '청크 수', unit: '개', direction: 'lower_is_better' },
@@ -126,10 +132,53 @@ export const METRICS: Record<string, MetricInfo> = {
   stt_cer_vs_normalized: { label: 'STT 재인식 CER (정규화 기준)', unit: '', direction: 'lower_is_better', proxy: 'STT 재인식 오류율은 발음 명료도의 간접 지표입니다. 실제 청취 품질·자연스러움이 아닙니다.' },
   stt_cer_vs_raw: { label: 'STT 재인식 CER (원문 기준)', unit: '', direction: 'lower_is_better', proxy: 'STT 재인식 오류율은 발음 명료도의 간접 지표입니다. 실제 청취 품질·자연스러움이 아닙니다.' },
   stt_wer_vs_normalized: { label: 'STT 재인식 WER (정규화 기준)', unit: '', direction: 'lower_is_better', proxy: 'STT 재인식 오류율은 발음 명료도의 간접 지표입니다. 실제 청취 품질·자연스러움이 아닙니다.' },
+  stt_wer_vs_raw: { label: 'STT 재인식 WER (원문 기준)', unit: '', direction: 'lower_is_better', proxy: 'STT 재인식 오류율은 발음 명료도의 간접 지표입니다. 실제 청취 품질·자연스러움이 아닙니다.' },
 };
 export const PROXY_GENERIC = '간접 지표(proxy)입니다. 목표 품질을 직접 측정한 값이 아닙니다.';
-export const metricLabel = (key: string, fallback?: string) => fallback || METRICS[key]?.label || key;
-export const proxyNote = (key: string) => METRICS[key]?.proxy ?? PROXY_GENERIC;
+
+export function getMetricInfo(key: string): MetricInfo | undefined {
+  if (METRICS[key]) return METRICS[key];
+  const m = key.match(/^(recall|mrr|ndcg)_at_(\d+)$/);
+  if (m) {
+    const nameMap: Record<string, string> = { recall: 'Recall', mrr: 'MRR', ndcg: 'nDCG' };
+    const name = nameMap[m[1]] ?? m[1];
+    return {
+      label: `${name}@${m[2]}`,
+      unit: '',
+      direction: 'higher_is_better',
+    };
+  }
+  return undefined;
+}
+
+export const metricLabel = (key: string, fallback?: string) => fallback || getMetricInfo(key)?.label || key;
+export const proxyNote = (key: string) => getMetricInfo(key)?.proxy ?? PROXY_GENERIC;
+
+/** legacy alias(recall_at_k, mrr_at_k, cer 등)를 실제 가용한 측정 키로 매칭 */
+export function resolveMetricKey(targetKey: string, availableKeys: string[]): string | undefined {
+  if (availableKeys.includes(targetKey)) return targetKey;
+  if (targetKey === 'recall_at_k') {
+    const found = availableKeys.find(k => /^recall_at_\d+$/.test(k));
+    if (found) return found;
+  }
+  if (targetKey === 'mrr_at_k' || targetKey === 'mrr') {
+    const found = availableKeys.find(k => /^mrr_at_\d+$/.test(k));
+    if (found) return found;
+  }
+  if (targetKey === 'ndcg_at_k' || targetKey === 'ndcg') {
+    const found = availableKeys.find(k => /^ndcg_at_\d+$/.test(k));
+    if (found) return found;
+  }
+  if (targetKey === 'cer') {
+    const found = availableKeys.find(k => k === 'stt_cer_vs_normalized') ?? availableKeys.find(k => k.startsWith('stt_cer_'));
+    if (found) return found;
+  }
+  if (targetKey === 'wer') {
+    const found = availableKeys.find(k => k === 'stt_wer_vs_normalized') ?? availableKeys.find(k => k.startsWith('stt_wer_'));
+    if (found) return found;
+  }
+  return undefined;
+}
 
 // 빠른 시작 4종(시나리오 A~D). 서버 quick_start_templates 가 없을 때의 기본값.
 export const QUICK_STARTS: QuickStart[] = [
