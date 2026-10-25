@@ -1,4 +1,5 @@
 import { ApiError } from "../../api/client";
+import { KbContractError, isKbUnsupported } from "../../api/kb";
 
 export const KIND_LABEL: Record<string, string> = { upload: "직접 등록", file: "파일", url: "웹 문서", web: "웹 문서" };
 
@@ -24,6 +25,8 @@ const ERROR_TEXT: Record<string, string> = {
 };
 
 export function failure(e: unknown): string {
+  if (isKbUnsupported(e)) return "이 서버는 아직 이 기능을 지원하지 않아요. 백엔드 지식 도서관 v3 가 연결되면 쓸 수 있어요.";
+  if (e instanceof KbContractError) return e.message;
   if (e instanceof ApiError) return ERROR_TEXT[e.message] ?? ERROR_TEXT[e.code] ?? (e.message || "불러오지 못했어요.");
   return e instanceof Error ? e.message : "불러오지 못했어요.";
 }
