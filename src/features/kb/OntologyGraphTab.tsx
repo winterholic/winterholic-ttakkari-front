@@ -28,11 +28,12 @@ const HUB_LIMIT = 30;
 function ConceptCards({ store, selectedId, onSelect }: { store: GraphStore; selectedId: string | null; onSelect: (id: string) => void }) {
   const sorted = [...store.nodes.values()].sort((a, b) => b.document_count - a.document_count || a.name.localeCompare(b.name, "ko"));
   const near = selectedId ? neighborsOf(store, selectedId) : null;
-  const group = (title: string, items: { predicate: string; node: { id: string; name: string; entity_kind: string } }[]) => items.length > 0 && <div className="kb3-tree__group">
+  const group = (title: string, items: { predicate: string; candidate?: boolean; node: { id: string; name: string; entity_kind: string } }[]) => items.length > 0 && <div className="kb3-tree__group">
     <p className="kb-note">{title}</p>
     <ul className="kb3-relations" aria-label={title}>{items.map((x) => <li key={`${x.predicate}-${x.node.id}`}>
       <span className="kb3-chip__pred">{x.predicate}</span>
-      <button type="button" className="kb-chip" onClick={() => onSelect(x.node.id)}>{x.node.name}</button></li>)}</ul>
+      <button type="button" className="kb-chip" onClick={() => onSelect(x.node.id)}>{x.node.name}</button>
+      {x.candidate && <Badge tone="warning">후보</Badge>}</li>)}</ul>
   </div>;
   return <div className="kb3-cards">
     {selectedId && near && <section className="kb3-tree" aria-label="선택한 개념의 이웃">
@@ -50,21 +51,23 @@ function ConceptCards({ store, selectedId, onSelect }: { store: GraphStore; sele
   </div>;
 }
 
-function ExpandableGraph({ seed, selectedId, onSelect, asList }: { seed: KbGraph; selectedId: string | null; onSelect: (id: string | null) => void; asList: boolean }) {
+function ExpandableGraph({ seed, candidates, selectedId, onSelect, asList }: { seed: KbGraph; candidates: boolean; selectedId: string | null; onSelect: (id: string | null) => void; asList: boolean }) {
   const [store, setStore] = useState<GraphStore>(() => seedStore(seed));
   const expand = useMutation({
-    mutationFn: (id: string) => kbGraph({ center_entity_id: id, hops: 1, limit: HUB_LIMIT }),
-    onSuccess: (graph, id) => setStore((prev) => mergeGraph(prev, graph, id)),
+    mutationFn: (v: { id: string; offset?: number }) => kbGraph({ center_entity_id: v.id, hops: 1, limit: HUB_LIMIT, offset: v.offset, include_candidates: candidates }),
+    onSuccess: (graph, v) => setStore((prev) => mergeGraph(prev, graph, v.id)),
   });
   const pick = onSelect;
   // 선택이 어디서 바뀌든(그래프·목록·상세의 관계 칩·주소의 ?ent=) 아직 안 펼친 개념은 이웃을 불러온다.
   const { mutate } = expand;
-  const pendingId = expand.isPending ? expand.variables : null;
-  const failedId = expand.isError ? expand.variables : null;
+  const pendingId = expand.isPending ? expand.variables?.id : null;
+  const failedId = expand.isError ? expand.variables?.id : null;
   useEffect(() => {
-    if (selectedId && !store.expanded.has(selectedId) && pendingId !== selectedId && failedId !== selectedId) mutate(selectedId);
+    if (selectedId && !store.expanded.has(selectedId) && pendingId !== selectedId && failedId !== selectedId) mutate({ id: selectedId });
   }, [selectedId, store.expanded, pendingId, failedId, mutate]);
-  const loadingId = expand.isPending ? (expand.variables ?? null) : null;
+  const loadingId = expand.isPending ? (expand.variables?.id ?? null) : null;
+  const nextOffset = selectedId ? store.more.get(selectedId) : undefined;
+  const nTotal = selectedId ? store.neighborTotal.get(selectedId) : undefined;
   return <div className="kb3-graphwrap">
     {asList ? <ConceptCards store={store} selectedId={selectedId} onSelect={(id) => pick(id)} />
       : <OntologyGraph store={store} selectedId={selectedId} loadingId={loadingId} onSelect={pick} />}
@@ -72,23 +75,28 @@ function ExpandableGraph({ seed, selectedId, onSelect, asList }: { seed: KbGraph
       <p className="tk-error" role="alert">이웃 개념을 불러오지 못했어요. {failure(expand.error)}</p>
       <Button size="sm" variant="ghost" onClick={() => expand.variables && expand.mutate(expand.variables)}>다시 시도</Button>
     </div>}
+    {selectedId && nextOffset !== undefined && <div className="kb3-pager">
+      <p className="kb-note" role="status">{store.nodes.get(selectedId)?.name}의 이웃 {nTotal !== undefined ? `${nTotal.toLocaleString("ko-KR")}개 중 일부만` : "일부만"} 불러왔어요.</p>
+      <Button size="sm" busy={expand.isPending} onClick={() => expand.mutate({ id: selectedId, offset: nextOffset })}>이웃 더 불러오기</Button>
+    </div>}
     <p className="kb-note" role="status">개념 {store.nodes.size.toLocaleString("ko-KR")}개 표시{store.total > store.nodes.size ? ` (전체 ${store.total.toLocaleString("ko-KR")}개 중 허브부터)` : ""} · 관계 {store.edges.size.toLocaleString("ko-KR")}개</p>
   </div>;
 }
 
 /**
  * 개념 그래프 탭. 처음에는 문서 출현·연결이 가장 많은 허브 개념만 그리고, 개념을 누르면 1-hop 이웃을 펼친다(점진 탐색).
- * 노드를 한꺼번에 다 그리면 거미줄이 되어 읽을 수 없다.
+ * 노드를 한꺼번에 다 그리면 거미줄이 되어 읽을 수 없다. 서버는 1-hop 확장만 지원하고 이웃은 페이지로 나눠 준다.
  */
-export function OntologyGraphTab({ filters, selectedId, onSelect, openDocument, onConflicts }: {
+export function OntologyGraphTab({ filters, selectedId, onSelect, openDocument, onConflicts, candidates, onCandidates }: {
   filters: KbFilters; selectedId: string | null; onSelect: (id: string | null) => void;
   openDocument: (documentId: string, revisionId?: string) => void; onConflicts: (entityId: string) => void;
+  candidates: boolean; onCandidates: (on: boolean) => void;
 }) {
   const narrow = useNarrow();
   const [asList, setAsList] = useState(false);
   const [text, setText] = useState("");
   const [term, setTerm] = useState("");
-  const graph = useQuery({ queryKey: ["kb-graph", "view", term, filters.domain], queryFn: () => kbGraph({ q: term, domain: filters.domain || undefined, limit: HUB_LIMIT }) });
+  const graph = useQuery({ queryKey: ["kb-graph", "view", term, filters.domain, candidates], queryFn: () => kbGraph({ q: term, domain: filters.domain || undefined, limit: HUB_LIMIT, include_candidates: candidates }) });
   const list = narrow || asList;
   return <div className="kb3-graphtab" data-selected={Boolean(selectedId)}>
     <div className="kb3-graphmain">
@@ -103,6 +111,8 @@ export function OntologyGraphTab({ filters, selectedId, onSelect, openDocument, 
           <Button size="sm" variant={asList ? "primary" : "ghost"} aria-pressed={asList} onClick={() => setAsList(true)}>목록</Button>
         </div>}
       </div>
+      <label className="kb3-check"><input type="checkbox" checked={candidates} onChange={(e) => onCandidates(e.target.checked)} />
+        <span>후보 관계도 보기 <span className="kb-note">(근거는 있지만 아직 확정되지 않은 관계. 점선·후보 표시)</span></span></label>
       {term && <p className="kb-note">“{term}” 와 관련된 개념만 보고 있어요. <button type="button" className="kb3-linkbtn" onClick={() => { setTerm(""); setText(""); }}>허브 개념으로 돌아가기</button></p>}
       {graph.isPending && <p className="kb-note" role="status">개념 그래프를 읽는 중</p>}
       {graph.isError && <div className="kb-error">
@@ -113,8 +123,8 @@ export function OntologyGraphTab({ filters, selectedId, onSelect, openDocument, 
         <p>{term ? `“${term}” 와 맞는 개념이 없어요.` : "아직 추출된 개념이 없어요."}</p>
         <p className="kb-note">{term ? "다른 이름이나 별칭으로 찾아보세요." : "자료 처리가 끝나면 허브 개념부터 여기에 나타나요."}</p>
       </div>}
-      {graph.data && graph.data.nodes.length > 0 && <ExpandableGraph key={`${graph.dataUpdatedAt}-${term}`} seed={graph.data} selectedId={selectedId} onSelect={onSelect} asList={list} />}
+      {graph.data && graph.data.nodes.length > 0 && <ExpandableGraph key={`${graph.dataUpdatedAt}-${term}-${candidates}`} seed={graph.data} candidates={candidates} selectedId={selectedId} onSelect={onSelect} asList={list} />}
     </div>
-    {selectedId && <EntityDetail id={selectedId} onClose={() => onSelect(null)} onSelect={onSelect} openDocument={openDocument} onConflicts={onConflicts} />}
+    {selectedId && <EntityDetail id={selectedId} candidates={candidates} onClose={() => onSelect(null)} onSelect={onSelect} openDocument={openDocument} onConflicts={onConflicts} />}
   </div>;
 }

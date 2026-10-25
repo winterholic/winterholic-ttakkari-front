@@ -140,6 +140,7 @@ export function OntologyGraph({ store, selectedId, loadingId, onSelect }: {
         </marker>
       </defs>
       <g>{paths.map((p) => p && <g key={p.e.id} className="cl-edge" data-dim={dim(p.e.source) && dim(p.e.target) ? "" : undefined}
+        data-candidate={p.e.candidate ? "" : undefined}
         data-on={selectedId && (p.e.source === selectedId || p.e.target === selectedId) ? "" : undefined}>
         <path d={p.d} markerEnd="url(#kb3-arrow)" />
         {(width >= 520 || view.k >= 1.8 || p.e.source === selectedId || p.e.target === selectedId) && <text x={p.lx} y={p.ly} textAnchor="middle" dy="-3">{p.e.predicate}</text>}
@@ -164,6 +165,7 @@ export function OntologyGraph({ store, selectedId, loadingId, onSelect }: {
     <ul className="kb3-legend" aria-label="범례">
       {kinds.map((k) => <li key={k}><span className="kb3-dot" style={{ background: kindColor(k) }} aria-hidden="true" />{kindLabel(k)}</li>)}
       <li><span className="kb3-dot kb3-dot--conflict" aria-hidden="true" />열린 충돌</li>
+      {edges.some((e) => e.candidate) && <li><span className="kb3-legend__dash" aria-hidden="true" />점선은 근거는 있지만 아직 확정되지 않은 후보 관계</li>}
       <li className="kb-note">크기는 문서·주장 수</li>
     </ul>
     <p className="cl-note cl-graph__help">드래그로 이동, 휠·핀치로 확대·축소. 개념을 누르면 이웃이 펼쳐지고 오른쪽에 상세가 열려요.</p>

@@ -22,6 +22,12 @@ import "../features/kb/kb3.css";
 
 const n = (v: number) => v.toLocaleString("ko-KR");
 
+/** 좁은 머리글에 들어가도록 버튼 글자는 줄이고, 자세한 내역은 접근성 이름으로 준다. */
+function pipelineLabel(c: { running: number; failed: number; held: number; degraded: number } | undefined): string {
+  if (!c) return "처리 현황 열기";
+  return `처리 현황 열기: 진행 ${c.running}건, 실패 ${c.failed}건, 보류 ${c.held}건, 부분 완료 ${c.degraded}건`;
+}
+
 /**
  * 지식 도서관. 자료를 넣으면(상단 추가) 자동으로 처리되고, 그 결과를 탐색·그래프·문서·충돌 네 탭에서 본다.
  * 개인/회사 범위 선택은 없다. 서버가 v3 계약을 지키면 summary 에 v3 숫자가 오고, 아니면 개인 범위만 보일 수 있다고 밝힌다.
@@ -58,13 +64,18 @@ export function KnowledgeLibraryPage() {
   const ent = params.get("ent") || "";
   const mode = modeOf(params.get("mode"));
   const counts = summary.data?.counts;
+  const pipe = summary.data?.pipeline;
+  const v3info = summary.data?.v3;
+  const retrieval = summary.data?.retrieval;
   const v3 = isKbV3Summary(summary.data);
+  const candidates = params.get("cand") === "1";
+  const convStatus = params.get("cs") === "all" ? "all" : "open";
 
   const openDocument = (documentId: string, revisionId?: string) => update({ view: "docs", doc: documentId, rev: revisionId || null, ds: null });
   const toGraph = (id: string | null) => update({ view: "graph", ent: id, doc: null, rev: null });
-  const toConflicts = (entityId?: string) => update({ view: "conflicts", ent: entityId || null, doc: null, rev: null });
+  const toConflicts = (entityId?: string, cs?: string) => update({ view: "conflicts", ent: entityId || null, cs: cs === "all" ? "all" : null, doc: null, rev: null });
   const setConcept = (id: string, name: string) => update({ concept: id, cn: name, q: q || name, view: null });
-  const goTab = (v: KbView) => update({ view: v === "explore" ? null : v, ent: null, doc: null, rev: null, ds: null });
+  const goTab = (v: KbView) => update({ view: v === "explore" ? null : v, ent: null, cs: null, doc: null, rev: null, ds: null });
   const openIngest = (files: File[] = []) => setIngest((s) => ({ open: true, nonce: s.nonce + 1, files }));
 
   const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
@@ -75,20 +86,25 @@ export function KnowledgeLibraryPage() {
     if (e.dataTransfer.files.length) openIngest(Array.from(e.dataTransfer.files));
   };
 
+  // 부분 완료(degraded)는 AI 심층 추출만 빠진 정상 완료다. L2 가 꺼진 서버에서는 모든 문서가 그렇게 끝나므로 "주의"로 세지 않는다.
+  const attention = pipe?.held ?? 0;
   const meta = counts ? `문서 ${n(counts.documents)} · 패시지 ${n(counts.passages)}` : "공식 문서·표준을 원문 근거와 함께";
   const running = counts?.pipeline_running ?? 0;
   const failed = counts?.pipeline_failed ?? 0;
   const metrics = counts ? ([
-    ["문서", counts.documents], ["개념", counts.entities], ["주장", counts.assertions], ["관계", counts.relations], ["열린 충돌", counts.open_conflicts],
+    ["문서", counts.documents], ["개념", counts.entities], ["주장", counts.assertions], ["관계", counts.relations], ["후보 관계", v3info?.relations_candidate], ["열린 충돌", counts.open_conflicts],
   ] as [string, number | undefined][]).filter((m): m is [string, number] => m[1] !== undefined) : [];
 
   return <>
     <div className="tk-screen">
       <PageHeader title="지식 도서관" meta={meta} actions={
         <div className="kb3-header-actions">
-          <Button variant="primary" size="sm" onClick={() => openIngest()}>+ 자료 추가</Button>
-          <button type="button" className="tk-button tk-button--sm kb3-pipeline" data-state={failed > 0 ? "failed" : running > 0 ? "running" : "idle"} onClick={() => setJobsOpen(true)}>
-            <span>{counts?.pipeline_running === undefined && counts?.pipeline_failed === undefined ? "처리 현황" : `처리 ${running > 0 ? `진행 ${running}` : "대기 없음"}${failed > 0 ? ` · 실패 ${failed}` : ""}`}</span>
+          {/* 좁은 머리글에서 제목이 잘리지 않도록 좁은 화면에서는 "자료"와 "처리" 를 줄인다. 접근성 이름은 그대로다. */}
+          <Button variant="primary" size="sm" aria-label="자료 추가" onClick={() => openIngest()}>+ <span className="kb3-wide-only">자료 </span>추가</Button>
+          <button type="button" className="tk-button tk-button--sm kb3-pipeline" data-state={failed > 0 ? "failed" : attention > 0 ? "attention" : running > 0 ? "running" : "idle"}
+            aria-label={pipelineLabel(counts?.pipeline_running === undefined && counts?.pipeline_failed === undefined ? undefined : { running, failed, held: pipe?.held ?? 0, degraded: pipe?.degraded ?? 0 })}
+            onClick={() => setJobsOpen(true)}>
+            <span>{counts?.pipeline_running === undefined && counts?.pipeline_failed === undefined ? "처리 현황" : <><span className="kb3-wide-only">처리 </span>{[running > 0 && `진행 ${running}`, failed > 0 && `실패 ${failed}`, attention > 0 && `보류 ${attention}`].filter(Boolean).join(" · ") || "대기 없음"}</>}</span>
           </button>
           <button type="button" className="tk-icon-button" aria-label="다시 읽기" onClick={() => void queryClient.invalidateQueries({ predicate: (qy) => String(qy.queryKey[0]).startsWith("kb-") })}><Icon name="retry" /></button>
         </div>
@@ -112,14 +128,17 @@ export function KnowledgeLibraryPage() {
           {view === "explore" && <>
             <SearchBox value={q} mode={mode} onSubmit={(next) => update({ q: next || null })} onMode={(m) => update({ mode: m === "hybrid" ? null : m })} />
             <FilterBar filters={filters} update={update} />
-            {mode !== "lexical" && summary.data?.retrieval && summary.data.retrieval.total > summary.data.retrieval.indexed && q &&
-              <p className="kb-note" role="status">의미 검색 준비: {n(summary.data.retrieval.indexed)} / {n(summary.data.retrieval.total)}개 패시지{summary.data.retrieval.last_error ? " · 일부 자료를 처리하지 못했어요. 단어 검색은 계속 이용할 수 있어요." : ""}</p>}
+            {mode !== "lexical" && retrieval && retrieval.enabled === false && q &&
+              <p className="kb-note" role="status">이 서버는 의미 검색이 꺼져 있어요. 단어와 개념 관계로만 찾고{mode === "vector" ? ", 의미만 검색은 쓸 수 없어요." : "요."}</p>}
+            {mode !== "lexical" && retrieval && retrieval.enabled !== false && retrieval.total > retrieval.indexed && q &&
+              <p className="kb-note" role="status">의미 검색 준비: {n(retrieval.indexed)} / {n(retrieval.total)}개 패시지{retrieval.last_error ? " · 일부 자료를 처리하지 못했어요. 단어 검색은 계속 이용할 수 있어요." : ""}</p>}
             {q
               ? <SearchResults q={q} mode={mode} filters={filters} openDocument={openDocument} onConcept={(id, name) => update({ concept: id, cn: name })} onGraph={toGraph} onConflicts={toConflicts} />
-              : <ExploreHome filters={filters} counts={counts} openDocument={openDocument} openJobs={() => setJobsOpen(true)} onConcept={setConcept} onGraph={() => toGraph(null)} onDomain={(d) => update({ domain: d || null })} />}
+              : <ExploreHome filters={filters} summary={summary.data} openDocument={openDocument} openJobs={() => setJobsOpen(true)} onConcept={setConcept} onGraph={() => toGraph(null)} onDomain={(d) => update({ domain: d || null })} />}
           </>}
 
-          {view === "graph" && <OntologyGraphTab filters={filters} selectedId={ent || null} onSelect={(id) => update({ ent: id })} openDocument={openDocument} onConflicts={toConflicts} />}
+          {view === "graph" && <OntologyGraphTab filters={filters} selectedId={ent || null} onSelect={(id) => update({ ent: id })} openDocument={openDocument} onConflicts={(id) => toConflicts(id)}
+            candidates={candidates} onCandidates={(on) => update({ cand: on ? "1" : null })} />}
 
           {view === "docs" && <>
             <div className="kb-top" data-selected={Boolean(doc)}>
@@ -131,12 +150,12 @@ export function KnowledgeLibraryPage() {
               <div className="kb-browser__list"><DocumentList q={dq} filters={filters} selected={doc} select={(id) => update({ doc: id, rev: null, ds: null })} /></div>
               {doc
                 ? <DocumentDetail key={doc} id={doc} revisionId={rev} section={docSectionOf(params.get("ds"))} setSection={(s) => update({ ds: s === "overview" ? null : s })}
-                  selectRevision={(r) => update({ rev: r })} back={() => update({ doc: null, rev: null, ds: null })} openEvidenceOwner={openDocument} onEntity={toGraph} onConflicts={() => toConflicts()} />
+                  selectRevision={(r) => update({ rev: r })} back={() => update({ doc: null, rev: null, ds: null })} openEvidenceOwner={openDocument} onEntity={toGraph} onConflicts={(status) => toConflicts(undefined, status)} />
                 : <div className="kb-placeholder"><p>문서를 고르면 요약, 처리 단계, 개념·주장, 버전 이력, 원문 위치가 여기에 보여요.</p></div>}
             </div>
           </>}
 
-          {view === "conflicts" && <ConflictsQualityTab summary={summary.data} entityId={ent} clearEntity={() => update({ ent: null })} openDocument={openDocument} />}
+          {view === "conflicts" && <ConflictsQualityTab summary={summary.data} entityId={ent} status={convStatus} setStatus={(s) => update({ cs: s === "all" ? "all" : null })} clearEntity={() => update({ ent: null })} openDocument={openDocument} />}
         </div>
       </div>
     </div>

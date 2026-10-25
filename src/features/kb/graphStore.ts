@@ -14,6 +14,10 @@ export interface GraphStore {
   expanded: Set<string>;
   /** 서버가 알려 준 전체 개념 수 */
   total: number;
+  /** 이웃이 한 쪽(limit)보다 많은 노드의 다음 offset. 이 맵에 있으면 아직 못 가져온 이웃이 있다. */
+  more: Map<string, number>;
+  /** 노드별 서버 전체 이웃 수 */
+  neighborTotal: Map<string, number>;
 }
 
 export const edgeId = (e: KbGraphEdge) => e.id ?? `${e.source}|${e.predicate}|${e.target}`;
@@ -22,7 +26,7 @@ export function seedStore(graph: KbGraph): GraphStore {
   const nodes = new Map(graph.nodes.map((n) => [n.id, n]));
   const edges = new Map(graph.edges.filter((e) => nodes.has(e.source) && nodes.has(e.target)).map((e) => [edgeId(e), { ...e, id: edgeId(e) }]));
   const layout = layoutGraph(graph.nodes.map((n) => ({ id: n.id })), [...edges.values()].map((e) => ({ source: e.source, target: e.target })), { width: 720 });
-  return { nodes, edges, pos: new Map(layout.positions), expanded: new Set(), total: graph.total_entities };
+  return { nodes, edges, pos: new Map(layout.positions), expanded: new Set(), total: graph.total_entities, more: new Map(), neighborTotal: new Map() };
 }
 
 const RINGS = [150, 210, 270];
@@ -57,7 +61,11 @@ export function mergeGraph(prev: GraphStore, graph: KbGraph, centerId: string): 
     pos.set(n.id, p);
   }
   for (const e of graph.edges) if (nodes.has(e.source) && nodes.has(e.target)) edges.set(edgeId(e), { ...e, id: edgeId(e) });
-  return { nodes, edges, pos, expanded: new Set(prev.expanded).add(centerId), total: Math.max(prev.total, graph.total_entities) };
+  const more = new Map(prev.more);
+  if (graph.has_more) more.set(centerId, (graph.offset ?? 0) + (graph.limit ?? graph.nodes.length)); else more.delete(centerId);
+  const neighborTotal = new Map(prev.neighborTotal);
+  if (typeof graph.total_neighbors === "number") neighborTotal.set(centerId, graph.total_neighbors);
+  return { nodes, edges, pos, expanded: new Set(prev.expanded).add(centerId), total: Math.max(prev.total, graph.total_entities), more, neighborTotal };
 }
 
 export function bounds(pos: Map<string, Pos>): { x: number; y: number; w: number; h: number } {
@@ -75,11 +83,11 @@ export const nodeRadius = (n: KbGraphNode) => 8 + Math.min(10, Math.sqrt(n.docum
 
 /** 한 노드의 1-hop 관계를 방향별로 모은다(목록 보기·모바일 폴백이 쓴다). */
 export function neighborsOf(store: Pick<GraphStore, "nodes" | "edges">, id: string) {
-  const out: { predicate: string; node: KbGraphNode }[] = [];
-  const into: { predicate: string; node: KbGraphNode }[] = [];
+  const out: { predicate: string; candidate?: boolean; node: KbGraphNode }[] = [];
+  const into: { predicate: string; candidate?: boolean; node: KbGraphNode }[] = [];
   for (const e of store.edges.values()) {
-    if (e.source === id) { const node = store.nodes.get(e.target); if (node) out.push({ predicate: e.predicate, node }); }
-    if (e.target === id) { const node = store.nodes.get(e.source); if (node) into.push({ predicate: e.predicate, node }); }
+    if (e.source === id) { const node = store.nodes.get(e.target); if (node) out.push({ predicate: e.predicate, candidate: e.candidate, node }); }
+    if (e.target === id) { const node = store.nodes.get(e.source); if (node) into.push({ predicate: e.predicate, candidate: e.candidate, node }); }
   }
   return { out, into };
 }

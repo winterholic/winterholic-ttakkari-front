@@ -22,6 +22,10 @@ import { ApiError } from "../../api/client";
 import { KnowledgeLibraryPage } from "../../pages/KnowledgeLibraryPage";
 import { claimConflict, detail, docList, entity, entityConflict, evidence, expansion, graph, summaryV3 } from "./kbFixtures";
 
+// 클라이언트가 서버에 보내는 그래프 요청의 전체 모양(기본값 포함).
+const hub = (over: Record<string, unknown> = {}) => ({ q: "", domain: undefined, limit: 30, include_candidates: false, ...over });
+const near = (id: string, over: Record<string, unknown> = {}) => ({ center_entity_id: id, hops: 1, limit: 30, offset: undefined, include_candidates: false, ...over });
+
 beforeAll(() => {
   HTMLDialogElement.prototype.showModal = function showModal() { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function close() { this.removeAttribute("open"); this.dispatchEvent(new Event("close")); };
@@ -47,8 +51,9 @@ beforeEach(() => {
   h.entity.mockImplementation((id: string) => Promise.resolve({ ...entity, id, name: id === "e-rs" ? "ReplicaSet" : entity.name }));
   h.alias.mockResolvedValue({ alias: { alias: "배포", lang: "ko" }, relinked_count: 2 });
   h.evidence.mockResolvedValue(evidence);
-  h.conflicts.mockResolvedValue({ items: [claimConflict, entityConflict] });
+  h.conflicts.mockResolvedValue({ items: [claimConflict, entityConflict], total: 2, limit: 30, offset: 0 });
   h.resolve.mockResolvedValue({ status: "resolved_a", canonical: { summary: "Valkey 기본 포트는 6379 다.", key_facts: [] } });
+  h.alias.mockResolvedValue({ alias: { alias: "배포", lang: "ko", source: "user_verified" }, relinked_count: 2, created: true });
   narrow(false);
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
@@ -58,16 +63,16 @@ const nodeButton = (name: RegExp) => screen.getByRole("button", { name });
 it("그래프 탭은 허브 개념만 처음에 그리고, 개념을 누르면 1-hop 이웃을 펼치며 상세를 연다", async () => {
   mount("/knowledge-library?view=graph");
   expect(await screen.findByText(/개념 3개 표시 \(전체 40개 중 허브부터\) · 관계 2개/)).toBeTruthy();
-  expect(h.graph).toHaveBeenCalledWith({ q: "", domain: undefined, limit: 30 });
+  expect(h.graph).toHaveBeenCalledWith(hub());
   expect(screen.getByRole("group", { name: /개념 그래프, 개념 3개 관계 2개/ })).toBeTruthy();
   expect(nodeButton(/^Deployment, 기술.*열린 충돌 있음/)).toBeTruthy();
   fireEvent.click(nodeButton(/^ReplicaSet, 기술/));
   expect(where()).toContain("ent=e-rs");
-  await waitFor(() => expect(h.graph).toHaveBeenCalledWith({ center_entity_id: "e-rs", hops: 1, limit: 30 }));
+  await waitFor(() => expect(h.graph).toHaveBeenCalledWith(near("e-rs")));
   expect(await screen.findByText(/개념 4개 표시.* · 관계 3개/)).toBeTruthy();
   expect(nodeButton(/^HorizontalPodAutoscaler, API/)).toBeTruthy();
   expect(await screen.findByRole("complementary", { name: "개념 상세" })).toBeTruthy();
-  expect(h.entity).toHaveBeenCalledWith("e-rs");
+  expect(h.entity).toHaveBeenCalledWith("e-rs", { include_candidates: false });
   // 이미 펼친 개념을 다시 눌러도 같은 이웃을 또 불러오지 않는다.
   const calls = h.graph.mock.calls.length;
   fireEvent.click(nodeButton(/^ReplicaSet, 기술/));
@@ -77,7 +82,7 @@ it("그래프 탭은 허브 개념만 처음에 그리고, 개념을 누르면 1
 
 it("주소로 들어온 개념(?ent=)도 이웃을 펼쳐 둔다", async () => {
   mount("/knowledge-library?view=graph&ent=e-rs");
-  await waitFor(() => expect(h.graph).toHaveBeenCalledWith({ center_entity_id: "e-rs", hops: 1, limit: 30 }));
+  await waitFor(() => expect(h.graph).toHaveBeenCalledWith(near("e-rs")));
   expect(await screen.findByText(/개념 4개 표시/)).toBeTruthy();
 });
 
@@ -114,10 +119,10 @@ it("넓은 화면에서도 목록 보기로 바꿀 수 있고, 개념을 이름�
   expect(await screen.findByRole("list", { name: "핵심 개념 목록" })).toBeTruthy();
   fireEvent.change(screen.getByRole("searchbox", { name: "개념 찾기" }), { target: { value: "쿠버" } });
   fireEvent.click(screen.getByRole("button", { name: "찾기" }));
-  await waitFor(() => expect(h.graph).toHaveBeenCalledWith({ q: "쿠버", domain: undefined, limit: 30 }));
+  await waitFor(() => expect(h.graph).toHaveBeenCalledWith(hub({ q: "쿠버" })));
   expect(await screen.findByText(/“쿠버” 와 관련된 개념만/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "허브 개념으로 돌아가기" }));
-  await waitFor(() => expect(h.graph).toHaveBeenLastCalledWith({ q: "", domain: undefined, limit: 30 }));
+  await waitFor(() => expect(h.graph).toHaveBeenLastCalledWith(hub()));
 });
 
 it("그래프가 비었거나 서버가 미지원이면 그렇게 말하고 가짜 그래프를 그리지 않는다", async () => {
@@ -126,7 +131,7 @@ it("그래프가 비었거나 서버가 미지원이면 그렇게 말하고 가�
   expect(await screen.findByText("아직 추출된 개념이 없어요.")).toBeTruthy();
   expect(screen.queryByRole("group", { name: /개념 그래프, 개념/ })).toBeNull();
   cleanup();
-  h.graph.mockRejectedValue(new ApiError(404, { code: "http_404", message: "Not Found" }));
+  h.graph.mockRejectedValue(new ApiError(404, { code: "not_found", message: "Not Found" }));
   mount("/knowledge-library?view=graph");
   expect((await screen.findByText(/아직 이 기능을 지원하지 않아요/)).getAttribute("role")).toBe("status");
 });
@@ -140,12 +145,12 @@ it("개념 상세: 정본 요약·별칭 추가·지지 주장 원문·관계 �
   fireEvent.change(scope.getByLabelText("별칭 추가"), { target: { value: " 배포 " } });
   fireEvent.click(scope.getByRole("button", { name: "추가" }));
   await waitFor(() => expect(h.alias).toHaveBeenCalledWith("e-dep", "배포", "ko"));
-  expect(await scope.findByText(/문서 2건을 다시 연결했어요/)).toBeTruthy();
+  expect(await scope.findByText(/패시지 2건을 이 개념에 다시 연결했어요/)).toBeTruthy();
   fireEvent.click(scope.getByRole("button", { name: "원문 위치 보기" }));
   expect(await screen.findByText("해시 일치")).toBeTruthy();
   fireEvent.click(scope.getByRole("button", { name: "ReplicaSet" }));
   expect(where()).toContain("ent=e-rs");
-  await waitFor(() => expect(h.graph).toHaveBeenCalledWith({ center_entity_id: "e-rs", hops: 1, limit: 30 }));
+  await waitFor(() => expect(h.graph).toHaveBeenCalledWith(near("e-rs")));
   fireEvent.click(scope.getByRole("button", { name: "Kubernetes Deployment 가이드" }));
   expect(where()).toContain("view=docs");
   expect(where()).toContain("doc=d1");
@@ -177,12 +182,12 @@ it("충돌 탭: 두 주장을 원문 인용·문서·발행일과 함께 비교�
   expect(item.getByRole("button", { name: "B를 정본으로 채택" })).toBeTruthy();
   fireEvent.click(item.getByRole("button", { name: "A를 정본으로 채택" }));
   fireEvent.change(item.getByLabelText("메모 (선택)"), { target: { value: "공식 문서 기준" } });
-  h.conflicts.mockResolvedValue({ items: [entityConflict] });
+  h.conflicts.mockResolvedValue({ items: [entityConflict], total: 1, limit: 30, offset: 0 });
   fireEvent.click(item.getByRole("button", { name: "확정" }));
   await waitFor(() => expect(h.resolve).toHaveBeenCalledWith("c1", "resolved_a", "공식 문서 기준"));
   const done = await screen.findByRole("list", { name: "방금 해결한 충돌" });
-  expect(within(done).getByText(/A를 정본으로 채택 처리를 마쳤어요/)).toBeTruthy();
-  expect(within(done).getByText(/갱신된 정본 요약: Valkey 기본 포트는 6379 다\./)).toBeTruthy();
+  expect(within(done).getByText(/Valkey 기본 포트: A를 정본으로 채택/)).toBeTruthy();
+  expect(within(done).getByText(/갱신된 정본: Valkey 기본 포트는 6379 다\./)).toBeTruthy();
   await waitFor(() => expect(screen.queryByRole("listitem", { name: "Valkey 기본 포트 값이 다른 주장" })).toBeNull());
 });
 
@@ -212,7 +217,7 @@ it("충돌 종류 필터는 서버에 보내고, 개념별 보기는 그 개념�
   mount("/knowledge-library?view=conflicts");
   await screen.findByRole("listitem", { name: /Valkey/ });
   fireEvent.click(screen.getByRole("button", { name: "모호한 개념" }));
-  await waitFor(() => expect(h.conflicts).toHaveBeenLastCalledWith({ status: "open", kind: "ambiguous_entity" }));
+  await waitFor(() => expect(h.conflicts).toHaveBeenLastCalledWith({ status: "open", kind: "ambiguous_entity", limit: 30, offset: 0 }));
   cleanup();
   mount("/knowledge-library?view=conflicts&ent=e-valkey");
   expect(await screen.findByRole("listitem", { name: /Valkey/ })).toBeTruthy();
@@ -222,16 +227,16 @@ it("충돌 종류 필터는 서버에 보내고, 개념별 보기는 그 개념�
 });
 
 it("충돌 탭: 비교할 두 쪽이 없는 항목은 해결 버튼 없이 오류로 알리고, 비었거나 미지원이면 그대로 말한다", async () => {
-  h.conflicts.mockResolvedValue({ items: [{ ...claimConflict, claim_b: undefined }] });
+  h.conflicts.mockResolvedValue({ items: [{ ...claimConflict, claim_b: null }], total: 1 });
   mount("/knowledge-library?view=conflicts");
   expect((await screen.findByRole("alert")).textContent).toContain("비교할 두 쪽");
   expect(screen.queryByRole("button", { name: "A를 정본으로 채택" })).toBeNull();
   cleanup();
-  h.conflicts.mockResolvedValue({ items: [] });
+  h.conflicts.mockResolvedValue({ items: [], total: 0 });
   mount("/knowledge-library?view=conflicts");
   expect(await screen.findByText("열린 충돌이 없어요.")).toBeTruthy();
   cleanup();
-  h.conflicts.mockRejectedValue(new ApiError(404, { code: "http_404", message: "Not Found" }));
+  h.conflicts.mockRejectedValue(new ApiError(404, { code: "not_found", message: "Not Found" }));
   mount("/knowledge-library?view=conflicts");
   expect((await screen.findByText(/아직 이 기능을 지원하지 않아요/)).getAttribute("role")).toBe("status");
 });
@@ -240,10 +245,11 @@ it("품질 진단은 서버가 준 값만 보여 주고 나머지는 미지원�
   mount("/knowledge-library?view=conflicts");
   const quality = within(await screen.findByRole("region", { name: "품질 진단" }));
   expect(await quality.findByText(/80% \(80 \/ 100\)/)).toBeTruthy();
-  expect(quality.getAllByText("서버 미지원").length).toBe(3);
+  expect(quality.getAllByText("서버 미지원").length).toBe(2);
+  expect(quality.getByText("0건", { selector: "span" })).toBeTruthy();
   cleanup();
   h.summary.mockResolvedValue({ counts: summaryV3.counts, last_collected_at: null });
   mount("/knowledge-library?view=conflicts");
   const bare = within(await screen.findByRole("region", { name: "품질 진단" }));
-  await waitFor(() => expect(bare.getAllByText("서버 미지원").length).toBe(4));
+  await waitFor(() => expect(bare.getAllByText("서버 미지원").length).toBe(6));
 });

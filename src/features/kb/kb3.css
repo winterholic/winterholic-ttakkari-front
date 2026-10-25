@@ -5,7 +5,7 @@
 .kb3-dropnote { margin: 0; padding: var(--tk-space-3); border: var(--tk-border-width-strong) dashed var(--tk-color-border-brand); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-brand-subtle); text-align: center; }
 .kb-page[data-dragging="true"] { outline: var(--tk-border-width-strong) dashed var(--tk-color-border-brand); outline-offset: calc(var(--tk-space-1) * -1); }
 
-.kb3-metrics { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--tk-size-container-sm), 1fr)); gap: var(--tk-space-2); margin: 0; padding: 0; }
+.kb3-metrics { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--tk-size-touch-target-min) * 2.5), 1fr)); gap: var(--tk-space-2); margin: 0; padding: 0; }
 .kb3-metrics li { display: flex; flex-direction: column; gap: var(--tk-space-0-5); padding: var(--tk-space-2) var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-default); }
 .kb3-metrics strong { font-size: var(--tk-font-size-lg); font-variant-numeric: tabular-nums; }
 
@@ -136,7 +136,7 @@
 }
 @media (min-width: 768px) {
   .kb3-filters__toggle { display: none; }
-  .kb3-filters__body { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--tk-size-container-sm), 1fr)); }
+  .kb3-filters__body { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(var(--tk-size-touch-target-min) * 4), 1fr)); }
   .kb3-compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kb3-stages { grid-template-columns: repeat(6, minmax(0, 1fr)); }
   .kb3-stage { grid-template-columns: minmax(0, 1fr); justify-items: start; gap: var(--tk-space-0-5); }
@@ -148,3 +148,22 @@
 @media (min-width: 1024px) {
   .kb3-graphtab[data-selected="true"] .kb-detail { position: sticky; top: var(--tk-space-4); max-height: 85dvh; overflow-y: auto; }
 }
+
+/* 처리·보류·후보 표시 */
+.kb3-callout--attention { border-inline-start-color: var(--tk-color-status-warning-border); background: var(--tk-color-status-warning-bg); }
+.kb3-pipeline[data-state="attention"] { border-color: var(--tk-color-status-warning-border); background: var(--tk-color-status-warning-bg); color: var(--tk-color-status-warning-text); }
+.kb3-ingest-result li[data-status="failed"] .kb3-files__name { color: var(--tk-color-text-danger); }
+.cl-edge[data-candidate] path { stroke-dasharray: 5 4; opacity: 0.8; }
+.kb3-legend__dash { display: inline-block; width: var(--tk-space-4); margin-inline-end: var(--tk-space-1-5); border-top: var(--tk-border-width-strong) dashed var(--tk-color-chart-axis); vertical-align: middle; }
+.kb3-relation { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
+.kb3-pager { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); }
+.kb3-attention-list { list-style: none; display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0; padding: 0; }
+.kb3-attention-list li { display: flex; flex-direction: column; align-items: start; gap: var(--tk-space-1); min-width: 0; overflow-wrap: anywhere; }
+.kb3-check { display: flex; align-items: center; gap: var(--tk-space-2); min-height: var(--tk-size-touch-target-min); font-size: var(--tk-font-size-sm); cursor: pointer; }
+.kb3-check input { flex: none; }
+.kb3-stage__error[data-tone="note"] { color: var(--tk-color-text-secondary); }
+/* 값 그대로 보여야 하는 짧은 문자열(별칭·술어·파서 버전). tk-badge--mono 는 대문자로 바꿔서 값을 왜곡한다. */
+.kb3-tag { text-transform: none; font-family: var(--tk-font-family-mono); font-variant-ligatures: none; }
+/* 좁은 머리글에서만 줄이는 글자 */
+.kb3-wide-only { display: none; }
+@media (min-width: 640px) { .kb3-wide-only { display: inline; } }

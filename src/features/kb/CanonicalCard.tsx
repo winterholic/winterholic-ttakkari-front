@@ -1,7 +1,7 @@
 import type { KbMatchedEntity } from "../../api/kbTypes";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
-import { kindLabel } from "./labelsV3";
+import { distinctFacts, kindLabel } from "./labelsV3";
 
 /**
  * 질문과 연결된 개념의 정본 카드. 정본 정의·핵심 사실·1-hop 이웃은 서버가 여러 문서에서 합성해 준 값만 보여 주고,
@@ -26,16 +26,16 @@ export function CanonicalCard({ entity, onConcept, onGraph, onConflicts }: {
       </div>
     </header>
     {aliases.length > 0 && <p className="kb-note">다른 이름: {aliases.join(" · ")}</p>}
-    {canon ? <>
-      <p className="kb3-canon__summary">{canon.summary}</p>
-      {canon.key_facts.length > 0 && <ul className="kb3-facts" aria-label="핵심 사실">{canon.key_facts.map((f) => <li key={f}>{f}</li>)}</ul>}
-    </> : <p className="kb-note">아직 여러 문서를 종합한 정본 요약이 없어요. 아래 근거 패시지를 확인해 주세요.</p>}
+    {canon && (canon.summary || canon.key_facts.length > 0) ? <>
+      {canon.summary && <p className="kb3-canon__summary">{canon.summary}</p>}
+      {distinctFacts(canon).length > 0 && <ul className="kb3-facts" aria-label="핵심 사실">{distinctFacts(canon).map((f) => <li key={f}>{f}</li>)}</ul>}
+    </> : <p className="kb-note">아직 근거로 뒷받침된 정본 요약이 없어요. 아래 근거 패시지를 확인해 주세요.</p>}
     {entity.neighbors && entity.neighbors.length > 0 && <div className="kb3-neighbors">
       <p className="kb-note">연결된 개념</p>
       <ul className="kb3-chiplist" aria-label="연결된 개념">
         {entity.neighbors.map((n) => <li key={`${n.entity_id}-${n.predicate}`}>
           <button type="button" className="kb-chip" onClick={() => onConcept(n.entity_id, n.name)}>
-            <span className="kb3-chip__pred">{n.direction === "in" ? `← ${n.predicate}` : `${n.predicate} →`}</span> {n.name}
+            <span className="kb3-chip__pred">{n.direction === "in" ? `← ${n.predicate}` : `${n.predicate} →`}</span> {n.name}{n.candidate ? " (후보)" : ""}
           </button>
         </li>)}
       </ul>

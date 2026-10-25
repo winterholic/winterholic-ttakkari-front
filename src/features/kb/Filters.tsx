@@ -9,8 +9,9 @@ type Update = (values: Record<string, string | null>) => void;
 
 const DOMAIN_OPTIONS = [{ value: "", label: "모든 주제" }, ...DOMAINS];
 const STATUS_OPTIONS = [
-  { value: "", label: "모든 상태" }, { value: "ready", label: "완료" }, { value: "degraded", label: "부분 완료" },
-  { value: "held", label: "보류" }, { value: "failed", label: "실패" },
+  { value: "", label: "모든 상태" }, { value: "active", label: "진행 중" }, { value: "attention", label: "주의 필요(보류·실패·부분 완료)" },
+  { value: "ready", label: "완료" }, { value: "degraded", label: "부분 완료" }, { value: "held", label: "보류" }, { value: "failed", label: "실패" },
+  { value: "none", label: "처리 기록 없음" },
 ];
 
 /**

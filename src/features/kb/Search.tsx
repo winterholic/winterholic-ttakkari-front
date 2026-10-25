@@ -60,13 +60,16 @@ function Hit({ hit, onEvidence, openDocument, onConflicts }: {
         {hit.source && <Badge>{KIND_LABEL[hit.source.kind] ?? hit.source.kind}</Badge>}
         {hit.document.lang && <Badge mono>{hit.document.lang}</Badge>}
         <Locator hit={hit} />
-        {hit.has_conflict && <button type="button" className="kb3-conflict-badge" onClick={onConflicts}>충돌 있음</button>}
+        {(hit.has_conflict || hit.conflict_warning) && <button type="button" className="kb3-conflict-badge" onClick={onConflicts}>충돌 있음</button>}
       </div>
     </div>
     {path.length > 0 && <nav className="kb3-crumbs" aria-label="문서 안 위치"><ol>{path.map((c, i) => <li key={`${c}-${i}`}>{c}</li>)}</ol></nav>}
     <p className="kb-hit__snippet">{parts.map((p, i) => (p.hit ? <mark key={i} className="kb-mark">{p.text}</mark> : <span key={i}>{p.text}</span>))}</p>
     {assertions.length > 0 && <ul className="kb3-facts" aria-label="이 패시지의 주장">
       {assertions.slice(0, 3).map((a) => <li key={a.id}>{a.text}{a.status && a.status !== "active" ? <> <Badge tone="warning">{a.status === "disputed" ? "다툼" : a.status === "superseded" ? "이전 주장" : a.status}</Badge></> : null}</li>)}
+    </ul>}
+    {(hit.canonical_facts ?? []).length > 0 && <ul className="kb3-facts" aria-label="정본 핵심 사실">
+      {(hit.canonical_facts ?? []).slice(0, 3).map((f, i) => <li key={`${f.entity_id}-${f.predicate}-${i}`}><strong>{f.entity}</strong> {f.predicate}: {f.value}</li>)}
     </ul>}
     {hit.match_paths && hit.match_paths.length > 0 && <div className="kb-badges" aria-label="찾은 경로">
       {hit.match_paths.map((m) => <Badge key={m} mono>{MATCH_LABEL[m] ?? m}</Badge>)}
