@@ -180,6 +180,11 @@ describe('실험 설계실', () => {
     const payload = buildPayload('s1', [], { ...initialDesign, adapterId: 'tts_synthesis' }, []);
     expect(payload.fixed_inputs.preset_id).toBe('ko_mixed_pronunciation_v1');
   });
+
+  it('retrieval_eval 실행기에서 preset_id와 corpus가 비어있으면 기본 프리셋 ko_tech_docs_v1을 보낸다', () => {
+    const payload = buildPayload('s1', [], { ...initialDesign, adapterId: 'retrieval_eval' }, []);
+    expect(payload.fixed_inputs.preset_id).toBe('ko_tech_docs_v1');
+  });
 });
 
 describe('ValidatePanel', () => {
