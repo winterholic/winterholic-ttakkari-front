@@ -12,6 +12,7 @@ import {
   rerunCollectionMission,
   resumeCollectionMission,
   scheduleCollectionMission,
+  unholdCollectionMissionItem,
 } from "../../api/collectionMissions";
 import type { CollectionMission, CollectionPlan } from "../../api/collectionMissions";
 import { Button } from "../../ui/Button";
@@ -29,6 +30,80 @@ const STATUS: Record<string, string> = {
   failed: "복구 필요",
 };
 const COUNTS = [["discovered", "발견한 출처"], ["acquired", "확보한 자료"], ["accepted", "품질 통과"], ["imported", "도서관 적재"], ["held", "보류"], ["duplicate", "중복"], ["failed", "실패"], ["blocked", "접근 제한"]];
+const TRIAGE_STATUS: Record<string, string> = { auto_accepted: "자동 수락", review_needed: "추가 확인 필요", auto_held: "자동 보류" };
+const AXIS_LABEL: Record<string, string> = {
+  relevance_lexical: "임무 관련성 (규칙)", topic_relevance_semantic: "임무 관련성 (의미 모델)",
+  information_value: "정보 가치", explanation_quality: "설명 깊이", content_rules: "정보 구성·설명 신호 (규칙)",
+  low_quality_likelihood: "저품질 징후", novelty: "새로움·중복 신호 (규칙)",
+};
+const AXIS_STATE: Record<string, string> = {
+  measured: "측정됨", evaluated: "평가됨", unmeasured: "미측정", unavailable: "사용할 수 없음",
+  disabled: "사용 중지", not_applicable: "대상 아님", not_run: "실행 전", pending: "대기 중",
+  not_needed: "평가 불필요", failed: "실패", skipped: "건너뜀", budget_denied: "예산으로 보류",
+  budgetdenied: "예산으로 보류", budget_skipped: "예산으로 건너뜀",
+};
+const VALIDATION_STATE: Record<string, string> = { validated: "평가 성능 검증됨", unvalidated: "평가 성능 미검증", partial: "일부 축만 평가 성능 검증됨", unavailable: "검증 이력 없음" };
+const TRIAGE_REASON: Record<string, string> = {
+  "triage:accepted": "기본 판정 기준을 통과함", "triage:high_relevance": "임무와 관련성이 높음",
+  "triage:low_quality": "저품질 가능성 신호가 있음", "triage:irrelevant_to_goal": "임무와 관련성이 낮음",
+  review_needed: "추가 확인이 필요함", exact_duplicate: "같은 본문이 이미 있음",
+};
+
+function axisValue(value: number | null | undefined, scale?: string): string {
+  if (value == null || !Number.isFinite(value)) return "수치 없음";
+  const n = value.toLocaleString("ko-KR", { maximumFractionDigits: 3 });
+  if (scale === "similarity") return `유사도 ${n}`;
+  if (scale === "ordinal") return `순서형 점수 ${n} / 4`;
+  if (scale === "raw_logit") return `원점수 ${n} · 확률값 아님`;
+  if (scale === "rule") return `규칙 신호 ${n}`;
+  return scale ? `${n} · ${scale}` : n;
+}
+
+function deliveryLabel(item: CollectionMission["results"][number]): string {
+  if (item.delivery === "imported") return "도서관에 적재됨";
+  if (item.delivery === "exported") return "원문 보관 · 도서관 미적재";
+  if (item.delivery === "pending") return "도서관 적재 대기";
+  if (item.status === "held") return "보류됨 · 복구할 수 있습니다.";
+  if (item.status === "accepted") return "수락됨 · 도서관 적재 확인 전";
+  return "처리 중";
+}
+
+function unholdFailure(error: unknown): string {
+  if (error instanceof Error && "status" in error) {
+    const status = Number((error as Error & { status?: number }).status);
+    if (status === 401) return "로그인이 만료되어 복구하지 못했습니다. 다시 로그인해 주세요.";
+    if (status === 403) return failure(error);
+    if (status === 404) return "문서를 찾을 수 없거나 현재 임무에서 접근할 수 없습니다.";
+    if (status === 422) {
+      const code = (error as Error).message;
+      if (code === "item_not_importable") return "원문 보관 정보가 부족해 도서관에 적재할 수 없습니다.";
+      return failure(error);
+    }
+    return "보류 복구 요청을 처리하지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
+  }
+  return failure(error);
+}
+
+function QualityDetails({ triage, missionTriage }: { triage: NonNullable<CollectionMission["results"][number]["triage"]>; missionTriage: CollectionMission["triage"] }) {
+  const axes = Object.entries(triage.axes ?? {});
+  const stage2Status = triage.stage2?.status;
+  const preciseState = triage.precise_eval?.state;
+  const engine = missionTriage?.precise_eval?.engine;
+  return <details className="mission-quality">
+    <summary>품질 축과 평가 상태</summary>
+    {axes.length > 0 ? <dl className="mission-quality__axes">{axes.map(([name, axis]) => <div key={name}>
+      <dt>{AXIS_LABEL[name] ?? "기타 품질 신호"}</dt>
+      <dd><span>{axis.status && <>{AXIS_STATE[axis.status] ?? "상태 확인 필요"} · </>}{axisValue(axis.value, axis.scale)}
+        {axis.validation && <> · {VALIDATION_STATE[axis.validation] ?? "검증 이력 확인 필요"}</>}</span>
+        {axis.evidence?.length ? <ul>{axis.evidence.map((evidence, index) => <li key={`${index}-${evidence}`}>{evidence}</li>)}</ul> : null}
+      </dd>
+    </div>)}</dl> : <p className="kb-note">세부 품질 축을 제공하지 않은 결과입니다.</p>}
+    <p className="kb-note">축의 검증 표시는 평가 성능 이력입니다. 문서의 사실 여부를 검증했다는 뜻은 아닙니다.</p>
+    {stage2Status && <p className="kb-note">의미 모델 평가: {AXIS_STATE[stage2Status] ?? "상태 확인 필요"}</p>}
+    {preciseState && <p className="kb-note">정밀 평가: {AXIS_STATE[preciseState] ?? "상태 확인 필요"}</p>}
+    {engine && <p className="kb-note">정밀 평가 엔진: {engine === "unavailable" || engine === "enabled_without_registered_engine" ? "사용할 수 없음" : engine === "enabled" ? "사용 가능" : "상태 확인 필요"}</p>}
+  </details>;
+}
 
 function Plan({ plan }: { plan: CollectionPlan }) {
   return <section className="mission-plan" aria-label="수집 계획">
@@ -81,6 +156,12 @@ function Result({ mission }: { mission: CollectionMission }) {
     mutationFn: () => scheduleCollectionMission(mission.id, scheduleMinutes),
     onSuccess: async () => {
       setScheduleOpen(false);
+      await invalidate();
+    },
+  });
+  const unholdMut = useMutation({
+    mutationFn: (itemId: string) => unholdCollectionMissionItem(mission.id, itemId),
+    onSuccess: async () => {
       await invalidate();
     },
   });
@@ -294,9 +375,27 @@ function Result({ mission }: { mission: CollectionMission }) {
     {mission.gaps.length > 0 && <section className="mission-gaps" aria-label="남은 범위"><h3>아직 확보하지 못한 자료</h3><ul>{mission.gaps.map((gap, index) => <li key={`${gap.reason}-${index}`}><p>{gap.message}</p>{gap.url && <a href={gap.url} target="_blank" rel="noreferrer">{gap.url}</a>}</li>)}</ul></section>}
     <details><summary>계획과 조사 범위</summary><Plan plan={mission.plan} /></details>
     <section className="mission-results" aria-label="수집 결과"><h3>확보한 지식과 출처</h3>
+      {mission.triage && <p className="kb-note" aria-label="품질 판정 집계">
+        판정 집계: 수락 {(mission.triage.accepted ?? 0).toLocaleString("ko-KR")}건 · 추가 확인 {(mission.triage.review_needed ?? 0).toLocaleString("ko-KR")}건 · 보류 {(mission.triage.held ?? 0).toLocaleString("ko-KR")}건 · 판정 기준 {mission.triage.policy?.verified === true ? "검증 이력 있음" : "미검증"}
+      </p>}
       {mission.results.length === 0 ? <p className="kb-note">자료를 확보하면 출처와 판정 이유가 여기에 표시됩니다.</p> : mission.results.map(item => <article className="collect-card" key={item.id}>
         <h4>{item.title}</h4><a className="kb-note" href={item.url} target="_blank" rel="noreferrer">{item.url}</a>
-        <p className="kb-note">{item.delivery === "imported" ? "도서관에 적재됨" : item.delivery === "exported" ? "원문 보관 · 도서관 미적재" : item.status === "held" ? "보류됨" : "처리 중"} · {item.reasons.map(reason => reason === "l0_pass" ? "기본 품질 검사 통과" : COLLECT_REASON[reason] ?? "세부 확인 필요").join(" · ")}</p>
+        <p className="kb-note">{deliveryLabel(item)} · {item.reasons.map(reason => reason === "l0_pass" ? "기본 품질 검사 통과" : COLLECT_REASON[reason] ?? "세부 확인 필요").join(" · ")}</p>
+        {item.triage ? <>
+          <p className="kb-note">판정: {TRIAGE_STATUS[item.triage.status ?? ""] ?? "판정 상태 확인 필요"} · 판정 기준: {item.triage.verified === true ? "검증 이력 있음" : "미검증"}
+            {item.triage.reasons?.length ? <> · {item.triage.reasons.map(reason => TRIAGE_REASON[reason] ?? "추가 확인 필요").join(" · ")}</> : null}
+            {item.triage.mode === "shadow" ? " · 관찰 모드" : ""}
+          </p>
+          <QualityDetails triage={item.triage} missionTriage={mission.triage} />
+        </> : <p className="kb-note">기존 결과에는 품질 판정 정보가 없습니다.</p>}
+        {item.status === "held" && <div className="mission-unhold">
+          <Button type="button" variant="primary" disabled={unholdMut.isPending} busy={unholdMut.isPending && unholdMut.variables === item.id} onClick={() => unholdMut.mutate(item.id)}>보류 복구</Button>
+          {unholdMut.isPending && unholdMut.variables === item.id && <p role="status" className="kb-note">보류 복구를 요청하는 중입니다.</p>}
+          {unholdMut.isError && unholdMut.variables === item.id && <p role="alert" className="tk-error">{unholdFailure(unholdMut.error)}</p>}
+        </div>}
+        {unholdMut.isSuccess && unholdMut.variables === item.id && <p role="status" className="kb-note">{unholdMut.data.status === "accepted"
+          ? "복구 요청이 처리됐습니다. 도서관 적재 완료 여부는 가져오기 확인 후 갱신됩니다."
+          : "이미 보류 상태가 아니어서 바꾸지 않았습니다. 최신 상태를 다시 읽었습니다."}</p>}
         {item.document_id && <Link to={`/knowledge-library?view=docs&doc=${encodeURIComponent(item.document_id)}${item.revision_id ? `&rev=${encodeURIComponent(item.revision_id)}` : ""}`}>도서관에서 보기</Link>}
       </article>)}
     </section>
