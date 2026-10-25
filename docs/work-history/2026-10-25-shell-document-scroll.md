@@ -17,8 +17,10 @@
 - `TTAKKARI_NO_ENV_FILE=1 node node_modules/typescript/bin/tsc -b` 및 `TTAKKARI_NO_ENV_FILE=1 node node_modules/vite/bin/vite.js build`: exit 0, `dist/sw.js` 생성. 기존 큰 청크 경고가 있다.
 - `node node_modules/eslint/bin/eslint.js .`, `node scripts/ui-lint.mjs`, `git diff --check`: exit 0. ui-lint 138/138, baseline 변경 없음.
 - 이 Codex command sandbox의 브라우저 preflight는 mach-register/mach-lookup denied(exit 78)여서 로컬 Chrome은 실행하지 않았다. 브라우저 검사는 별도의 configured MCP 브라우저에서 수행했다.
-- 원본 발생 환경의 최초 넘침 요소, 실기기 Safari·가상 키보드, 로그인된 운영 화면에서의 재발 여부는 미검증이다. 기존 독립 검증의 SPA/문서 뒤로가기·리사이즈 결과는 재사용했으며 이 변경 후의 해당 전이는 별도로 재실행하지 않았다.
+- 게시 후 추가 검사: 실제 합성 API 앱에서 1850×300 → 1850×920 리사이즈, `/chat/s1` → `/tasks` SPA 이동 → 뒤로가기, `/settings` 문서 이동 → 뒤로가기를 각각 실행했다. 모든 단계의 `.tk-app` bounding box는 원점에서 뷰포트 전체(300 또는 920)를 채웠다.
+- 원본 발생 환경의 최초 넘침 요소, 실기기 Safari·가상 키보드, 로그인된 운영 화면에서의 재발 여부는 미검증이다.
 
 ## 게시
 
-- 이 기록의 작성 시점에는 아직 push 전이다. 최종 SHA와 배포 결과는 GitHub main 및 해당 SHA의 Vercel deployment/status를 확인한다.
+- 소스·회귀 fixture 커밋 `bb7bb4616171d512fb91954705da7f3d43675801`을 main에 push했다. GitHub Vercel commit status `success`, Production deployment `7309530357`의 최신 status `success`를 확인했다(2026-10-25T06:24:11Z). 이 성공은 배포 완료 근거이며 로그인된 운영 화면에서 원본 버그가 사라졌다는 직접 측정은 아니다.
+- 임시 API/Vite 서버 종료, configured 브라우저 닫기 완료. 별도 worktree는 재검증 가능한 상태로 보존했다.
