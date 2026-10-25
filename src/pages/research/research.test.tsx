@@ -295,8 +295,44 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     return { promise, resolve, reject };
   }
 
-  function withDelta(value: number) {
-    return { ...fakeServerCompare, delta_bars: fakeServerCompare.delta_bars.map(d => ({ ...d, rel_delta_pct: value })) };
+  function withDelta(value: number, options: { baselineId?: string; experimentId?: string; idPrefix?: string; paretoX?: string; paretoY?: string } = {}) {
+    const mapId = (id: string) => options.idPrefix ? `${options.idPrefix}-${id}` : id;
+    const baselineId = options.baselineId ?? mapId('c1');
+    const treatmentId = baselineId === mapId('c1') ? mapId('c2') : mapId('c1');
+    const treatmentLabel = treatmentId.endsWith('-c1') || treatmentId === 'c1' ? 'Baseline (k1=1.2)' : '#2 (k1=1.8)';
+    const delta = fakeServerCompare.delta_bars[0];
+    const sameParetoAxis = options.paretoX && options.paretoX === options.paretoY;
+    const reason = 'Pareto 분석은 서로 다른 두 지표를 축으로 선택해야 합니다.';
+    return {
+      ...fakeServerCompare,
+      experiment_id: options.experimentId ?? 'e1',
+      baseline_configuration_id: baselineId,
+      delta_bars: [{ ...delta, configuration_id: treatmentId, config_id: treatmentId, label: treatmentLabel, rel_delta_pct: value, abs_delta: treatmentId.endsWith('-c1') || treatmentId === 'c1' ? -0.277 : 0.388 }],
+      metric_bars: fakeServerCompare.metric_bars.map(g => ({ ...g, values: g.values.map(v => ({ ...v, configuration_id: mapId(v.configuration_id) })) })),
+      repeat_distributions: fakeServerCompare.repeat_distributions.map(d => ({ ...d, configuration_id: mapId(d.configuration_id) })),
+      pareto: sameParetoAxis
+        ? { ...fakeServerCompare.pareto, status: 'unavailable', unavailable_reason: reason, x_metric: options.paretoX, y_metric: options.paretoY, points: [] }
+        : { ...fakeServerCompare.pareto, x_metric: options.paretoX ?? fakeServerCompare.pareto.x_metric, y_metric: options.paretoY ?? fakeServerCompare.pareto.y_metric, points: fakeServerCompare.pareto.points.map(p => ({ ...p, configuration_id: mapId(p.configuration_id) })) },
+      pareto_points: sameParetoAxis ? [] : fakeServerCompare.pareto_points.map(p => ({ ...p, configuration_id: mapId(p.configuration_id) })),
+      pareto_status: sameParetoAxis ? 'unavailable' : 'available',
+      pareto_unavailable_reason: sameParetoAxis ? reason : null,
+      config_diff_table: { ...fakeServerCompare.config_diff_table, rows: fakeServerCompare.config_diff_table.rows.map(r => ({ ...r, configuration_id: mapId(r.configuration_id) })) },
+    };
+  }
+
+  function secondExperimentDetail() {
+    const mapId = (id: string) => `e2-${id}`;
+    return {
+      ...experiment,
+      id: 'e2',
+      title: '두 번째 실험',
+      baseline_configuration_id: mapId('c1'),
+      configurations: cfgs.map(c => ({ ...c, id: mapId(c.id), experiment_id: 'e2' })),
+      runs: runs.map(r => ({ ...r, id: mapId(r.id), experiment_id: 'e2', configuration_id: mapId(r.configuration_id) })),
+      measurements: Object.values(runMeasurements).flat().map(m => ({ ...m, run_id: mapId(m.run_id), configuration_id: mapId(m.configuration_id) })),
+      latest_analysis: null,
+      artifacts: [],
+    };
   }
 
   const fakeServerCompare = {
@@ -537,8 +573,8 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     expect(screen.queryByText(/\+77\.7%/)).toBeNull();
     expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
 
-    next.resolve(withDelta(55.5));
-    expect(await screen.findByText(/▲ \+55\.5%/)).toBeTruthy();
+    next.resolve(withDelta(-35.6, { baselineId: 'c2' }));
+    expect(await screen.findByText(/▼ −35\.6%|▼ -35\.6%/)).toBeTruthy();
   });
 
   it('축과 실험 key가 바뀔 때마다 이전 비교를 숨기고 각 새 응답을 기다린다', async () => {
@@ -563,17 +599,18 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     await waitFor(() => expect(calls.some(c => c.includes('pareto_x_metric=recall_at_k'))).toBe(true));
     expect(screen.queryByText(/\+77\.7%/)).toBeNull();
     expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
-    axisResponse.resolve(withDelta(51.1));
+    axisResponse.resolve(withDelta(51.1, { paretoX: 'recall_at_k', paretoY: 'recall_at_k' }));
     expect(await screen.findByText(/▲ \+51\.1%/)).toBeTruthy();
+    expect(screen.getByText('Pareto 분석은 서로 다른 두 지표를 축으로 선택해야 합니다.')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('combobox', { name: '분석할 실험' }));
     fireEvent.click(screen.getByRole('option', { name: '두 번째 실험' }));
-    experimentDetail.resolve({ ...experiment, id: 'e2', title: '두 번째 실험', configurations: cfgs, runs, measurements: [...runMeasurements.r1, ...runMeasurements.r2], latest_analysis: null, artifacts: [] });
+    experimentDetail.resolve(secondExperimentDetail());
     await waitFor(() => expect(calls.some(c => c.includes('/experiments/e2/compare-series'))).toBe(true));
     expect(screen.queryByText(/\+51\.1%/)).toBeNull();
     expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
 
-    experimentSeries.resolve(withDelta(62.2));
+    experimentSeries.resolve(withDelta(62.2, { experimentId: 'e2', idPrefix: 'e2', paretoX: 'recall_at_k', paretoY: 'recall_at_k' }));
     expect(await screen.findByText(/▲ \+62\.2%/)).toBeTruthy();
     await screen.findByRole('heading', { name: '두 번째 실험' });
   });
