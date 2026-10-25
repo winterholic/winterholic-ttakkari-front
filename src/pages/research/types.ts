@@ -21,6 +21,8 @@ export interface ParamSpec {
   default?: unknown; required?: boolean;
   min?: number | null; max?: number | null; step?: number | null;
   options?: string[] | null; unit?: string | null; description?: string;
+  /** 서버 시드가 선택지를 {value,label} 로 줄 때 api.ts 가 값은 options 로, 표시 이름은 여기로 푼다. */
+  option_labels?: Record<string, string> | null;
   advanced?: boolean; sweepable?: boolean;
 }
 

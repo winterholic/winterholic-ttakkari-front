@@ -121,6 +121,8 @@ function ParamField({ spec, id, value, sweep, onValue, onSweep, sweepEnabled, un
   </div>;
 }
 
+const optionLabel = (spec: ParamSpec, o: string) => spec.option_labels?.[o] ?? o;
+
 function rangeHint(s: ParamSpec) {
   if ((s.type === 'number' || s.type === 'integer') && (s.min != null || s.max != null)) return `${s.min ?? '−∞'} ~ ${s.max ?? '∞'}${s.unit ? ` ${s.unit}` : ''}`;
   return '';
@@ -145,7 +147,7 @@ function ValueInput({ spec, id, value, onValue, invalid, describedBy }: { spec: 
       return <label className="tk-switch tk-switch--row rs-switch"><input id={id} type="checkbox" role="switch" checked={value === true} onChange={e => onValue(e.target.checked)} aria-describedby={describedBy} />{value === true ? '켬' : '끔'}</label>;
     case 'multi_enum': {
       const picked = Array.isArray(value) ? (value as string[]) : [];
-      return <div className="tk-chips tk-chips--wrap" id={id} role="group" aria-label={spec.label}>{options.map(o => <Chip key={o} pressed={picked.includes(o)} onClick={() => onValue(picked.includes(o) ? picked.filter(x => x !== o) : [...picked, o])}>{o}</Chip>)}</div>;
+      return <div className="tk-chips tk-chips--wrap" id={id} role="group" aria-label={spec.label}>{options.map(o => <Chip key={o} pressed={picked.includes(o)} onClick={() => onValue(picked.includes(o) ? picked.filter(x => x !== o) : [...picked, o])}>{optionLabel(spec, o)}</Chip>)}</div>;
     }
     case 'enum':
     case 'model':
@@ -153,7 +155,7 @@ function ValueInput({ spec, id, value, onValue, invalid, describedBy }: { spec: 
     case 'environment':
       if (options.length) {
         const cur = value === undefined || value === null || value === '' ? '' : String(value);
-        const opts = [{ value: '', label: spec.required ? '선택하세요' : '서버 기본값' }, ...options.map(o => ({ value: o, label: o }))];
+        const opts = [{ value: '', label: spec.required ? '선택하세요' : '서버 기본값' }, ...options.map(o => ({ value: o, label: optionLabel(spec, o) }))];
         return <Select id={id} value={cur} options={opts} onChange={v => onValue(v === '' ? undefined : v)} invalid={invalid} describedBy={describedBy} />;
       }
       return <input id={id} className="tk-input" type="text" value={value === undefined || value === null ? '' : String(value)} aria-invalid={invalid || undefined} aria-describedby={describedBy}
@@ -184,6 +186,6 @@ function SweepInput({ spec, id, sweep, onSweep }: { spec: ParamSpec; id: string;
   const isPicked = (o: string) => list.some(x => String(x) === o);
   const conv = (o: string) => (spec.type === 'boolean' ? o === 'true' : o);
   return <div className="tk-chips tk-chips--wrap" id={id} role="group" aria-label={`${spec.label} 탐색 후보`}>
-    {options.map(o => <Chip key={o} pressed={isPicked(o)} onClick={() => onSweep(isPicked(o) ? list.filter(x => String(x) !== o) : [...list, conv(o)])}>{o}</Chip>)}
+    {options.map(o => <Chip key={o} pressed={isPicked(o)} onClick={() => onSweep(isPicked(o) ? list.filter(x => String(x) !== o) : [...list, conv(o)])}>{optionLabel(spec, o)}</Chip>)}
   </div>;
 }

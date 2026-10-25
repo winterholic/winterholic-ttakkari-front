@@ -100,7 +100,7 @@ function Params({ m }: { m: MethodDetail }) {
         <tbody>{m.parameters.map(p => <tr key={p.key}>
           <th scope="row"><span className="rs-param-name">{p.label}</span><br /><code className="tk-mono">{p.key}</code>{p.advanced && <> <span className="rs-tag">고급</span></>}{p.sweepable === false && <> <span className="rs-tag">고정만</span></>}</th>
           <td>{p.type}</td><td>{stringify(p.default)}{p.unit ? ` ${p.unit}` : ''}</td>
-          <td>{p.options?.length ? p.options.join(' / ') : p.min != null || p.max != null ? `${p.min ?? '−∞'} ~ ${p.max ?? '∞'}` : '—'}</td>
+          <td>{p.options?.length ? p.options.map(o => p.option_labels?.[o] ?? o).join(' / ') : p.min != null || p.max != null ? `${p.min ?? '−∞'} ~ ${p.max ?? '∞'}` : '—'}</td>
           <td className="rs-wrapcell">{p.description || '—'}</td></tr>)}</tbody></table>
     </div></section>;
 }

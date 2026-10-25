@@ -3,7 +3,7 @@ import { normalizeSeries } from './series';
 import type {
   AdapterStatus, AdoptPayload, AdoptResponse, AnalysisSnapshot, BestResult, CompareSeries, CreateExperimentPayload, Dashboard, Data, Experiment, ExperimentDetail, ExperimentPayload,
   ExternalReportPayload, Facets, Measurement, Method, MethodDetail, MethodInput, MethodList, MethodQuery, MethodRelation, PromotePayload, RecentRun, ResearchArtifact, ResourceEstimate,
-  RunDetail, RunList, RunSummary, Snapshot, Study, Taxonomy, TaxonomyTerm, ValidateResult,
+  ParamSpec, RunDetail, RunList, RunSummary, Snapshot, Study, Taxonomy, TaxonomyTerm, ValidateResult,
 } from './types';
 
 const PAGE = 50;
@@ -82,12 +82,29 @@ export async function getTaxonomy(): Promise<Taxonomy> {
 export const saveTaxonomyTerm = (body: Pick<TaxonomyTerm, 'axis' | 'code' | 'label' | 'label_ko' | 'description'>) => researchRequest<TaxonomyTerm>('/taxonomy', body);
 
 // ---- 방법론 ---------------------------------------------------------------------
+/** 카탈로그 시드는 enum 선택지를 {value,label} 객체로 준다. 폼과 표는 값 문자열 목록(options)과 표시 이름 표(option_labels)로 받는다. */
+export function normalizeParameters(params: ParamSpec[] | undefined): ParamSpec[] {
+  return (params ?? []).map(p => {
+    const raw = p.options as unknown;
+    if (!Array.isArray(raw) || !raw.some(o => o !== null && typeof o === 'object')) return p;
+    const options: string[] = []; const labels: Record<string, string> = {};
+    for (const o of raw as unknown[]) {
+      if (o !== null && typeof o === 'object') {
+        const { value, label } = o as { value?: unknown; label?: unknown };
+        if (value === undefined || value === null) continue;
+        options.push(String(value)); if (typeof label === 'string' && label) labels[String(value)] = label;
+      } else if (o !== undefined && o !== null) options.push(String(o));
+    }
+    return { ...p, options, option_labels: Object.keys(labels).length ? labels : null };
+  });
+}
+const withParameters = <T extends { parameters?: ParamSpec[] }>(m: T): T => ({ ...m, parameters: normalizeParameters(m.parameters) });
 export async function listMethods(q: MethodQuery, offset = 0, limit = PAGE): Promise<MethodList> {
   const r = await researchRequest<{ items: Method[]; total: number; facets?: unknown }>(`/methods${query({
     q: q.q, target: q.target, layer: q.layer, goal: q.goal, intervention: q.intervention, research_method: q.research_method,
     execution_status: q.execution_status, lifecycle_status: q.lifecycle_status, origin: q.origin, scope: currentScope, limit, offset,
   })}`);
-  return { items: r.items ?? [], total: r.total ?? r.items?.length ?? 0, facets: normalizeFacets(r.facets) };
+  return { items: (r.items ?? []).map(withParameters), total: r.total ?? r.items?.length ?? 0, facets: normalizeFacets(r.facets) };
 }
 
 /** 관계는 to_method 객체로 온다. to_method 없이 평평한 필드(to_method_slug 등)만 주던 예전 응답도 같은 모양으로 푼다. */
@@ -99,7 +116,7 @@ export async function getMethod(idOrSlug: string): Promise<MethodDetail> {
   }));
   const lm = r.local_measurements;
   return {
-    ...r, relations, related_experiments: r.related_experiments ?? [],
+    ...withParameters(r), relations, related_experiments: r.related_experiments ?? [],
     local_measurements: lm ? { ...lm, measured_run_count: lm.measured_run_count ?? lm.succeeded_runs ?? 0 } : undefined,
   };
 }

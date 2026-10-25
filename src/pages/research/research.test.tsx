@@ -12,6 +12,8 @@ import { calls, cfgs, defaultHandler, experiment, mount, runs, runMeasurements, 
 import { promotionNotice } from './format';
 import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, ParamSpec } from './types';
+import { researchRequest } from '../../api/client';
+import { getMethod, listMethods } from './api';
 
 vi.mock('../../shell/PageHeader', () => ({ PageHeader: ({ title }: { title: string }) => <h1>{title}</h1> }));
 vi.mock('../../api/client', () => ({ researchRequest: vi.fn(), contentBlob: vi.fn(), downloadLink: vi.fn(), moveArtifact: vi.fn(), apiUrl: (p: string) => p }));
@@ -738,5 +740,46 @@ describe('채택 후 방법 승격 결과 안내', () => {
     await adopt({ requested: false, status: 'not_requested' }, false);
     await waitFor(() => expect(screen.queryByRole('button', { name: '기록' })).toBeNull());
     expect(screen.queryByText(/승격/, { selector: '[role="status"]' })).toBeNull();
+  });
+});
+
+describe('카탈로그 시드 선택지 형식', () => {
+  const seedParam = { key: 'cache_type_k', label: '--cache-type-k', type: 'enum', default: 'f16',
+    options: [{ value: 'f16', label: 'f16 (FP16 기본 정밀도)' }, { value: 'q8_0', label: 'q8_0 (8비트 양자화)' }], sweepable: true };
+  const rawMethod = { id: 'm9', slug: 'kv_cache_quantization', name: 'KV Cache Quantization', name_ko: 'KV 캐시 양자화', parameters: [seedParam], relations: [] };
+
+  it('시드가 {value,label} 객체로 준 선택지를 getMethod 가 값 문자열과 라벨 표로 풀어 준다', async () => {
+    vi.mocked(researchRequest).mockResolvedValueOnce(rawMethod);
+    const d = await getMethod('kv_cache_quantization');
+    expect(d.parameters[0].options).toEqual(['f16', 'q8_0']);
+    expect(d.parameters[0].option_labels).toEqual({ f16: 'f16 (FP16 기본 정밀도)', q8_0: 'q8_0 (8비트 양자화)' });
+  });
+
+  it('목록 응답의 방법도 같은 모양으로 푼다', async () => {
+    vi.mocked(researchRequest).mockResolvedValueOnce({ items: [rawMethod], total: 1, facets: {} });
+    const r = await listMethods({});
+    expect(r.items[0].parameters[0].options).toEqual(['f16', 'q8_0']);
+  });
+
+  it('문자열 선택지는 그대로 두고 라벨 표를 만들지 않는다', async () => {
+    vi.mocked(researchRequest).mockResolvedValueOnce({ ...rawMethod, parameters: [{ ...seedParam, options: ['f16', 'q8_0'] }] });
+    const d = await getMethod('kv_cache_quantization');
+    expect(d.parameters[0].options).toEqual(['f16', 'q8_0']);
+    expect(d.parameters[0].option_labels).toBeUndefined();
+  });
+
+  it('폼은 선택지 라벨을 보이고 값은 코드로 보낸다', () => {
+    const spec: ParamSpec = { key: 'cache_type_k', label: 'K 캐시', type: 'enum', default: 'f16', options: ['f16', 'q8_0'], option_labels: { f16: 'f16 (FP16 기본 정밀도)', q8_0: 'q8_0 (8비트 양자화)' }, sweepable: true };
+    const seen: ParamState[] = [];
+    function H() {
+      const [state, setState] = useState<ParamState>({ values: { cache_type_k: 'f16' }, sweeps: {} });
+      return <DynamicParameterForm specs={[spec]} state={state} sweepEnabled onChange={s => { setState(s); seen.push(s); }} />;
+    }
+    render(<H />);
+    expect(screen.getAllByText('f16 (FP16 기본 정밀도)').length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole('button', { name: '값 여러 개 탐색' }));
+    expect(seen.at(-1)?.sweeps.cache_type_k).toEqual(['f16', 'q8_0']);
+    fireEvent.click(screen.getByRole('button', { name: 'q8_0 (8비트 양자화)' }));
+    expect(seen.at(-1)?.sweeps.cache_type_k).toEqual(['f16']);
   });
 });
