@@ -856,7 +856,7 @@ export interface UsageWindow {
 export interface AccountUsage {
   id: string;
   name: string;
-  engine: "claude" | "codex" | "antigravity" | "muse";
+  engine: "claude" | "codex" | "antigravity" | "muse" | "opencode";
   pool: AccountPool;
   /** 개인 모드 켜기·순위 */
   enabled: boolean;
@@ -980,6 +980,10 @@ export const qwenFlashUsage = (): Promise<QwenFlashUsage> => json("/api/accounts
 /** 전용 HOME 으로 로그인한 Antigravity 추가 계정을 확인한다. confirm 이면 사용자가 입력한 Google 계정으로 격리 확인을 기록한다. */
 export const checkAntigravityAccount = (id: string, body: { principal?: string; confirm?: boolean }): Promise<AccountOut> =>
   json(`/api/accounts/${id}/antigravity/check`, { method: "POST", json: body });
+
+/** 전용 격리 홈으로 로그인한 OpenCode 계정의 인증 상태를 확인한다. */
+export const checkOpencodeAccount = (id: string): Promise<AccountOut> =>
+  json(`/api/accounts/${id}/opencode/check`, { method: "POST" });
 
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });

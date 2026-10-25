@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, checkAntigravityAccount, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
+import { ApiError, checkAntigravityAccount, checkOpencodeAccount, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
 import type { AccountEngine, AccountOut, AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
@@ -15,12 +15,19 @@ import { ErrorState, ListSkeleton } from "../viewer/screenStates";
 
 export const ACCOUNTS_KEY = ["accounts"] as const;
 
-const ENGINE_LABEL: Record<AccountEngine, string> = { claude: "Claude Code", codex: "Codex", antigravity: "Antigravity CLI", muse: "Muse Code" };
+const ENGINE_LABEL: Record<AccountEngine, string> = {
+  claude: "Claude Code",
+  codex: "Codex",
+  antigravity: "Antigravity CLI",
+  muse: "Muse Code",
+  opencode: "OpenCode (GitHub Copilot)",
+};
 const ENGINE_OPTIONS = [
   { value: "claude" as const, label: "Claude Code" },
   { value: "codex" as const, label: "Codex" },
   { value: "antigravity" as const, label: "Antigravity CLI · Gemini 3.8 Flash" },
   { value: "muse" as const, label: "Muse Code · 구독 모델 · 운영 검증 전" },
+  { value: "opencode" as const, label: "OpenCode · GitHub Copilot" },
 ];
 
 function errMessage(e: unknown): string {
@@ -40,7 +47,18 @@ const AGY_STATE_TEXT: Record<string, string> = {
   unsafe_path: "프로필 경로 위험",
 };
 
+const OPENCODE_STATE_TEXT: Record<string, string> = {
+  setup_required: "로그인 필요 · 터미널 명령 실행",
+  authenticated: "GitHub Copilot 인증됨",
+  auth_expired: "인증 만료 · 다시 로그인 필요",
+  unknown: "상태 미확인",
+};
+
 function loginText(a: AccountOut): string {
+  if (a.engine === "opencode") {
+    if (a.login === "ok" || a.auth_state === "authenticated") return a.login_label ? `GitHub Copilot (${a.login_label})` : "GitHub Copilot 인증됨";
+    return OPENCODE_STATE_TEXT[a.auth_state ?? ""] ?? "로그인 필요";
+  }
   if (a.isolation_mode && a.login !== "ok") return AGY_STATE_TEXT[a.auth_state ?? ""] ?? "로그인 상태 미확인";
   if (a.login === "ok") return a.login_label ? a.login_label : "로그인됨";
   if (a.engine === "antigravity") return "로그인 상태 미확인";
@@ -56,7 +74,7 @@ function LoginHint({ engine, command }: { engine: AccountEngine; command: string
     );
   return (
     <span className="account-login">
-      <span>{engine === "claude" ? "Mac Studio 터미널에서 이 명령을 실행하고, 열리면 /login 을 입력해 로그인해요." : engine === "antigravity" ? "Antigravity CLI는 로그인 상태를 앱에서 확인하지 않아요. 이미 로그인한 단일 agy 계정을 연결합니다." : "Mac Studio 터미널에서 이 명령을 실행해 로그인해요."}</span>
+      <span>{engine === "claude" ? "Mac Studio 터미널에서 이 명령을 실행하고, 열리면 /login 을 입력해 로그인해요." : engine === "antigravity" ? "Antigravity CLI는 로그인 상태를 앱에서 확인하지 않아요. 이미 로그인한 단일 agy 계정을 연결합니다." : engine === "opencode" ? "Mac Studio 터미널에서 이 명령을 실행해 GitHub Copilot 계정으로 로그인해요." : "Mac Studio 터미널에서 이 명령을 실행해 로그인해요."}</span>
       <span className="account-login__row">
         <code className="tk-mono">{command}</code>
         <button className="tk-button tk-button--xs" type="button" onClick={copy}>
@@ -64,6 +82,45 @@ function LoginHint({ engine, command }: { engine: AccountEngine; command: string
           복사
         </button>
       </span>
+    </span>
+  );
+}
+
+/** 전용 격리 홈을 쓰는 OpenCode 추가 계정. 터미널 로그인 뒤 확인 버튼을 눌러 인증을 확인한다. */
+function OpencodeSetup({ account, onChecked }: { account: AccountOut; onChecked: (a: AccountOut) => void }) {
+  const qc = useQueryClient();
+  const check = useMutation({
+    mutationFn: () => checkOpencodeAccount(account.id),
+    onSuccess: (a) => {
+      onChecked(a);
+      void qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
+      toast({ message: `${a.name} GitHub Copilot 로그인을 확인했어요.` });
+    },
+  });
+  const copy = () =>
+    void navigator.clipboard?.writeText(account.login_command ?? "").then(
+      () => toast({ message: "명령을 복사했어요. Mac Studio 터미널에 붙여 넣으세요." }),
+      () => toast({ message: "복사하지 못했어요. 길게 눌러 직접 복사해 주세요.", tone: "danger" }),
+    );
+  return (
+    <span className="account-login">
+      <span>1. Mac Studio 터미널에서 아래 명령을 실행해 GitHub Copilot 인증을 진행해요.</span>
+      <span className="account-login__row">
+        <code className="tk-mono">{account.login_command}</code>
+        <button className="tk-button tk-button--xs" type="button" onClick={copy}>
+          <Icon name="copy" />
+          복사
+        </button>
+      </span>
+      <span>2. 터미널에 표시된 코드(User Code)를 브라우저(github.com/login/device)에 입력하고 승인한 뒤, 아래 확인 버튼을 눌러요.</span>
+      <div className="account-login__row">
+        <button className="tk-button tk-button--xs tk-button--primary" type="button" aria-busy={check.isPending || undefined}
+          onClick={() => check.mutate()}>
+          인증 확인
+        </button>
+      </div>
+      {check.error && <span className="tk-error" role="alert">{errMessage(check.error)}</span>}
+      {!check.error && account.auth_error && <span className="account-row__warn">마지막 오류: {account.auth_error}</span>}
     </span>
   );
 }
@@ -286,8 +343,10 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
                     <span className={a.login === "ok" ? undefined : "account-row__warn"}>{loginText(a)}</span>
                     {a.cooldown_seconds > 0 && <span className="tk-badge tk-badge--warning">한도 대기 {minutes(a.cooldown_seconds)}</span>}
                   </span>
-                  {a.login !== "ok" && a.login_command && (a.isolation_mode
+                  {a.login !== "ok" && a.login_command && (a.isolation_mode === "managed_home_keychain"
                     ? <AntigravitySetup account={a} onChecked={replace} />
+                    : a.engine === "opencode"
+                    ? <OpencodeSetup account={a} onChecked={replace} />
                     : <LoginHint engine={a.engine} command={a.login_command} />)}
                 </span>
                 <span className="tk-list__end">
@@ -466,7 +525,7 @@ function AccountDialog({ account, onClose }: { account: AccountOut | null; onClo
           )}
         </div>
         <p className="tk-help">
-          <span>{engine === "antigravity" ? "첫 Antigravity 계정은 Mac Studio 에 로그인된 agy 를 그대로 연결해요(로그인 상태는 앱에서 확인할 수 없어요). 두 번째부터는 따까리가 전용 보관함을 만들고, 추가한 뒤 목록의 안내대로 로그인과 계정 확인을 마쳐야 작업에 배정돼요." : account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
+          <span>{engine === "antigravity" ? "첫 Antigravity 계정은 Mac Studio 에 로그인된 agy 를 그대로 연결해요(로그인 상태는 앱에서 확인할 수 없어요). 두 번째부터는 따까리가 전용 보관함을 만들고, 추가한 뒤 목록의 안내대로 로그인과 계정 확인을 마쳐야 작업에 배정돼요." : engine === "opencode" ? "OpenCode 계정은 독립된 전용 보관함을 사용해요. 추가한 뒤 목록의 로그인 명령을 Mac Studio 터미널에서 실행해 GitHub Copilot 계정으로 로그인하면 돼요." : account ? "이름과 사용 상한을 바꿔요. 로그인과 대화는 그대로 이어져요." : "같은 엔진의 두 번째 계정부터는 따까리가 로그인 보관함을 따로 만들어요. 추가한 뒤 목록에 나오는 명령으로 한 번만 로그인하면 돼요."}</span>
         </p>
         {save.error && (
           <p className="tk-error" role="alert">

@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
   deleteAccount: vi.fn(),
   clearAccountCooldown: vi.fn(),
   checkAntigravityAccount: vi.fn(),
+  checkOpencodeAccount: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
@@ -108,6 +109,23 @@ describe("AccountsSection", () => {
     await waitFor(() => expect(api.checkAntigravityAccount).toHaveBeenCalledWith("agy2", { principal: "b@example.test", confirm: true }));
     expect(await screen.findByText("b@example.test")).toBeTruthy();
     expect(screen.queryByLabelText("로그인한 Google 계정")).toBeNull();
+  });
+
+  it("OpenCode 계정 추가 시 전용 보관함 안내를 보이고, 터미널 로그인 후 확인하면 인증 상태가 된다", async () => {
+    const pending = acc({
+      id: "oc1", name: "Copilot", engine: "opencode", login: "unknown", login_label: null,
+      login_command: "TMPDIR=/tmp XDG_DATA_HOME=/h/data opencode auth login -p github-copilot",
+      auth_state: "setup_required", isolation_mode: "managed_xdg_home", execution_enabled: false,
+    });
+    api.listAccounts.mockResolvedValue([pending]);
+    api.checkOpencodeAccount.mockResolvedValue({
+      ...pending, login: "ok", login_label: "user@github", login_command: null, auth_state: "authenticated", execution_enabled: true,
+    });
+    renderIt();
+    expect(await screen.findByText("로그인 필요 · 터미널 명령 실행")).toBeTruthy();
+    expect(screen.getByText(/opencode auth login -p github-copilot/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "인증 확인" }));
+    await waitFor(() => expect(api.checkOpencodeAccount).toHaveBeenCalledWith("oc1"));
   });
 
   it("우선순위 번호·로그인·한도 대기를 보이고, 스위치로 끈다", async () => {
