@@ -148,6 +148,10 @@ function toExperiment(raw: Data): Experiment {
     ...(raw as object), name: String(raw.name ?? raw.title ?? ''), adapter_id: String(raw.adapter_id ?? raw.adapter ?? ''), strategy: (raw.strategy ?? 'single') as Experiment['strategy'],
     compared_method_ids: (raw.compared_method_ids as string[]) ?? [], secondary_metrics: (raw.secondary_metrics as string[]) ?? [], search_space: (raw.search_space as Data) ?? {},
     fixed_inputs: (raw.fixed_inputs as Data) ?? {}, primary_metric: String(raw.primary_metric ?? ''), budget: { ...DEFAULT_BUDGET, ...((raw.budget as Data) ?? {}) },
+    source_study_id: (raw.source_study_id as string | null) ?? null,
+    source_experiment_id: (raw.source_experiment_id as string | null) ?? null,
+    source_configuration_id: (raw.source_configuration_id as string | null) ?? null,
+    source_run_id: (raw.source_run_id as string | null) ?? null,
   } as Experiment;
 }
 function splitExperiment(raw: Data) {
@@ -160,6 +164,10 @@ export async function createExperiment(studyId: string, b: CreateExperimentPaylo
     name: b.name, hypothesis: b.hypothesis ?? '', rationale: b.rationale ?? '', adapter_id: b.adapter_id, method_id: b.method_id, compared_method_ids: b.compared_method_ids,
     strategy: b.strategy, search_space: b.search_space, fixed_inputs: b.fixed_inputs, primary_metric: b.primary_metric, secondary_metrics: b.secondary_metrics ?? [],
     budget: b.budget, seed: b.seed ?? 42, auto_start: !!b.auto_start,
+    source_study_id: b.source_study_id ?? null,
+    source_experiment_id: b.source_experiment_id ?? null,
+    source_configuration_id: b.source_configuration_id ?? null,
+    source_run_id: b.source_run_id ?? null,
   });
   const s = splitExperiment(raw);
   return { experiment: s.experiment, configurations: s.configurations, runs: s.runs };

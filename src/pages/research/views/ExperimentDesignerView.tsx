@@ -1,9 +1,9 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { keepPreviousData, useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../../ui/Button';
 import { Select } from '../../../ui/Select';
 import { Badge } from '../../../ui/Badge';
-import { createExperiment, errorText, getMethod, validateExperiment } from '../api';
+import { createExperiment, errorText, getExperiment, getMethod, validateExperiment } from '../api';
 import { AdapterInputs } from '../components/AdapterInputs';
 import { defaultValues, DynamicParameterForm } from '../components/DynamicParameterForm';
 import { ProxyBadge } from '../components/ExecutionStatusBadge';
@@ -11,8 +11,8 @@ import { MethodPicker } from '../components/MethodPicker';
 import { Callout, Chip, Empty } from '../components/parts';
 import { ValidatePanel } from '../components/ValidatePanel';
 import type { ResearchCtx } from '../context';
-import { adapterNeeds, buildPayload, combinationChecks, initialDesign, localErrors, effectiveBudget, getAdapterMeasurableMetrics, mergeSpecs, metricChoices, suggestAdapter, unmeasurableMetrics, type DesignState } from '../designerModel';
-import { DIRECTION_TEXT } from '../format';
+import { adapterNeeds, buildPayload, combinationChecks, effectiveBudget, getAdapterMeasurableMetrics, hasShadowedKSweep, hasTopK, initialDesign, localErrors, mergeSpecs, metricChoices, suggestAdapter, unmeasurableMetrics, type DesignState } from '../designerModel';
+import { DIRECTION_TEXT, shortId } from '../format';
 import { KEY, useAdapters, useDebounced, rk } from '../hooks';
 import { ADAPTER, STRATEGY, SWEEP_STRATEGIES, adapterLabel, getMetricInfo, metricLabel, resolveMetricKey } from '../labels';
 import { ADAPTER_IDS, STRATEGIES, type MethodDetail, type Strategy } from '../types';
@@ -43,6 +43,59 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
   const [jsonText, setJsonText] = useState('');
   const [jsonError, setJsonError] = useState('');
   const [error, setError] = useState('');
+
+  const reuseStudyId = ctx.params.get('reuse_study');
+  const reuseExpId = ctx.params.get('reuse_experiment');
+  const reuseConfigId = ctx.params.get('reuse_configuration');
+  const reuseRunId = ctx.params.get('reuse_run');
+
+  const reuseExpQ = useQuery({
+    queryKey: [...rk(), 'experiment', reuseExpId],
+    queryFn: () => getExperiment(reuseExpId as string),
+    enabled: !!reuseExpId,
+  });
+
+  const appliedReuseRef = useRef<string | null>(null);
+  const foundReuseConfig = useMemo(() => {
+    return reuseExpQ.data?.configurations.find(c => c.id === reuseConfigId) ?? null;
+  }, [reuseExpQ.data?.configurations, reuseConfigId]);
+
+  useEffect(() => {
+    if (reuseConfigId && foundReuseConfig && reuseExpQ.data && appliedReuseRef.current !== reuseConfigId) {
+      appliedReuseRef.current = reuseConfigId;
+      const srcExp = reuseExpQ.data.experiment;
+      setDesign(d => ({
+        ...d,
+        name: d.name || `${srcExp.name} (후속)`,
+        adapterId: srcExp.adapter_id,
+        adapterTouched: true,
+        primaryMetric: srcExp.primary_metric,
+        inputs: { ...foundReuseConfig.parameters, ...d.inputs },
+        params: {
+          values: { ...foundReuseConfig.parameters, ...d.params.values },
+          sweeps: d.params.sweeps,
+        },
+        source_study_id: reuseStudyId || ctx.studyId,
+        source_experiment_id: srcExp.id,
+        source_configuration_id: foundReuseConfig.id,
+        source_run_id: reuseRunId || null,
+      }));
+      if (srcExp.method_id) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setSlugs(prev => (prev.includes(srcExp.method_id!) ? prev : [srcExp.method_id!]));
+      }
+    }
+  }, [foundReuseConfig, reuseExpQ.data, reuseConfigId, reuseStudyId, reuseRunId, ctx.studyId]);
+
+  const reuseHasError = !!reuseConfigId && (
+    reuseExpQ.isError ||
+    (reuseExpQ.isSuccess && !foundReuseConfig)
+  );
+  const reuseErrorMessage = reuseExpQ.isError
+    ? `재사용할 원본 실험(ID: ${shortId(reuseExpId || '')})을 조회할 수 없습니다. 원본이 삭제되었거나 연구 범위(scope)가 일치하지 않습니다.`
+    : reuseExpQ.isSuccess && !foundReuseConfig
+    ? `재사용할 원본 설정(ID: ${shortId(reuseConfigId || '')})을 찾을 수 없습니다. 원본 설정이 삭제되었거나 일치하지 않습니다.`
+    : null;
 
   const detailQs = useQueries({ queries: slugs.map(s => ({ queryKey: [...rk(), 'method', s], queryFn: () => getMethod(s), staleTime: 60_000 })) });
   const methods = detailQs.flatMap(q => (q.data ? [q.data] : [])) as MethodDetail[];
@@ -87,7 +140,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
     },
     onSuccess: r => { void cache.invalidateQueries({ queryKey: KEY }); ctx.go({ view: 'monitor', experiment: r.experiment.id, method: null }); },
   });
-  const blocked = errs.length > 0 || (validate.data ? !validate.data.valid : false) || checks.some(c => c.tone === 'danger');
+  const blocked = errs.length > 0 || (validate.data ? !validate.data.valid : false) || checks.some(c => c.tone === 'danger') || reuseHasError;
   const submit = (auto: boolean) => { setError(''); create.mutate(auto, { onError: e => setError(errorText(e)) }); };
 
   function openJson() {
@@ -121,6 +174,77 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
 
   return <div className="rs-designer">
     <div className="rs-designer__main">
+      {reuseHasError && (
+        <Callout kind="caution" title="원본 설정 재사용 오류">
+          <p>{reuseErrorMessage}</p>
+          <div className="rs-actions">
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                ctx.go({
+                  reuse_study: null,
+                  reuse_experiment: null,
+                  reuse_configuration: null,
+                  reuse_run: null,
+                }, { replace: true });
+              }}
+            >
+              재사용 취소하고 새로 작성
+            </Button>
+          </div>
+        </Callout>
+      )}
+
+      {foundReuseConfig && reuseExpQ.data && (
+        <Callout kind="note" title="출처 설정 기반 후속 실험">
+          <p>
+            원본 설정 <strong>{foundReuseConfig.label}</strong>
+            {reuseRunId ? ` (실행 ${shortId(reuseRunId)})` : ''}의 파라미터가 초기값으로 복제되었습니다.
+          </p>
+          <div className="rs-detail__badges">
+            <Badge tone="info">출처 실험: {reuseExpQ.data.experiment.name}</Badge>
+            <Badge>설정: {foundReuseConfig.label}</Badge>
+            {reuseRunId && <Badge>실행: {shortId(reuseRunId)}</Badge>}
+          </div>
+          <div className="rs-actions">
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => ctx.go({
+                view: 'analysis',
+                study: reuseStudyId || ctx.studyId,
+                experiment: reuseExpId,
+              })}
+            >
+              원본 분석 화면 보기
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                appliedReuseRef.current = null;
+                setDesign(d => ({
+                  ...d,
+                  source_study_id: null,
+                  source_experiment_id: null,
+                  source_configuration_id: null,
+                  source_run_id: null,
+                }));
+                ctx.go({
+                  reuse_study: null,
+                  reuse_experiment: null,
+                  reuse_configuration: null,
+                  reuse_run: null,
+                }, { replace: true });
+              }}
+            >
+              출처 연결 해제
+            </Button>
+          </div>
+        </Callout>
+      )}
+
       <div className="tk-segmented rs-designer__tabs" role="radiogroup" aria-label="설계 방식">
         <label><input type="radio" name="dtab" checked={tab === 'form'} onChange={() => setTab('form')} />폼으로 설계</label>
         <label><input type="radio" name="dtab" checked={tab === 'json'} onChange={openJson} />고급 (JSON)</label>
@@ -172,6 +296,16 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
 
         <Step n={5} title="파라미터 튜닝" done={methods.length > 0} hint={sweepEnabled ? SWEEP_HINT[design.strategy] ?? '' : '이 실험 방식은 설정 하나를 쓰므로 고정값만 정합니다.'}>
           <DynamicParameterForm specs={specs} state={params} onChange={p => setDesign(d => ({ ...d, params: p }))} sweepEnabled={sweepEnabled} supported={adapter?.supported_parameters} owners={owners} />
+          {adapterId === 'retrieval_eval' && hasTopK(metricCtx) && (
+            <Callout kind="note" title="검색 수(top_k) 우선 적용 안내">
+              파라미터 중 <code>top_k</code>가 설정되어 있어 공통 평가 <code>k</code> 대신 <code>top_k</code>가 실제 검색 실행 및 지표 기준으로 적용됩니다. 공통 <code>k</code>는 effective 변수로 동작하지 않습니다.
+            </Callout>
+          )}
+          {hasShadowedKSweep(adapterId, metricCtx) && (
+            <Callout kind="caution" title="무시되는 k 탐색(Sweep) 차단">
+              <code>top_k</code>가 설정된 상태에서는 <code>k</code> 탐색(sweep)이 백엔드 우선순위에 의해 무시됩니다. 범위를 탐색하려면 <code>k</code> 대신 <code>top_k</code> 파라미터의 '값 여러 개 탐색'을 사용하세요.
+            </Callout>
+          )}
         </Step>
 
         <Step n={6} title="실험 입력" done={adapterId === 'external_report' || (adapterId !== 'llm_inference' || !!String(design.inputs.prompt ?? '').trim())} hint="모든 설정이 같은 입력으로 측정되어야 비교할 수 있습니다.">

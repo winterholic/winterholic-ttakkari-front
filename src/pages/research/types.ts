@@ -107,7 +107,12 @@ export interface Relation { id: string; from_id: string; to_id: string; predicat
 export interface EvidenceQuote { id: string; quote: string; locator: string; source_key: string; sha256: string; active: boolean }
 export interface TimelineEvent { id: string; kind: string; actor: string; payload: Data; created_at: string }
 // v1 snapshot 의 experiments 와 v2 definition 이 모두 올 수 있다.
-export interface SnapshotExperiment { id: string; title?: string; name?: string; hypothesis?: string; state?: string; adapter?: string; adapter_id?: string; strategy?: string; method_id?: string | null; compared_method_ids?: string[]; primary_metric?: string; hypothesis_node_id?: string | null; receipt?: Data; created_at?: string; started_at?: string | null; finished_at?: string | null }
+export interface SnapshotExperiment {
+  id: string; title?: string; name?: string; hypothesis?: string; state?: string; adapter?: string; adapter_id?: string;
+  strategy?: string; method_id?: string | null; compared_method_ids?: string[]; primary_metric?: string; hypothesis_node_id?: string | null;
+  receipt?: Data; created_at?: string; started_at?: string | null; finished_at?: string | null;
+  source_study_id?: string | null; source_experiment_id?: string | null; source_configuration_id?: string | null; source_run_id?: string | null;
+}
 export interface Snapshot {
   study: Study; nodes: KnowledgeNode[]; relations: Relation[]; experiments: SnapshotExperiment[]; timeline: TimelineEvent[]; evidence: EvidenceQuote[]; truncated: boolean;
   best_results?: BestResult[]; artifacts?: ResearchArtifact[];
@@ -123,6 +128,7 @@ export interface Budget { max_runs: number; max_total_seconds: number; max_memor
 export interface ExperimentPayload {
   study_id: string; method_id: string | null; compared_method_ids: string[]; adapter_id: string; strategy: Strategy;
   search_space: Record<string, unknown>; fixed_inputs: Record<string, unknown>; primary_metric: string; secondary_metrics?: string[]; budget: Budget; seed?: number;
+  source_study_id?: string | null; source_experiment_id?: string | null; source_configuration_id?: string | null; source_run_id?: string | null;
 }
 export interface CreateExperimentPayload extends ExperimentPayload { name: string; hypothesis?: string; rationale?: string; auto_start?: boolean }
 export interface ConfigPreview { label: string; role?: string; parameters: Data; config_hash?: string; ablation_factor?: string | null }
@@ -133,6 +139,7 @@ export interface Experiment {
   method_id?: string | null; compared_method_ids: string[]; adapter_id: string; strategy: Strategy; search_space: Data; fixed_inputs: Data;
   primary_metric: string; secondary_metrics: string[]; budget: Budget; baseline_configuration_id?: string | null;
   started_at?: string | null; finished_at?: string | null; receipt?: Data;
+  source_study_id?: string | null; source_experiment_id?: string | null; source_configuration_id?: string | null; source_run_id?: string | null;
 }
 export interface Configuration { id: string; experiment_id: string; label: string; role: 'baseline' | 'treatment' | 'candidate' | 'ablation_drop' | string; order_index: number; parameters: Data; config_hash: string; ablation_factor?: string | null }
 export type RunStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';

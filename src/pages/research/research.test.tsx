@@ -11,11 +11,10 @@ import { SweepLineChart } from './charts/SweepLineChart';
 import { calls, cfgs, defaultHandler, experiment, mount, runs, runMeasurements, setup, study, validateOk } from './testkit';
 import { promotionNotice } from './format';
 import { deriveSeries, narrate, paretoFor, stats } from './series';
-import type { ExperimentDetail, ParamSpec } from './types';
+import type { ExperimentDetail, KnowledgeNode, MethodDetail, ParamSpec } from './types';
 import { researchRequest } from '../../api/client';
 import { getMethod, listMethods } from './api';
 import { buildPayload, effectiveBudget, getAdapterMeasurableMetrics, initialDesign, mergeSpecs, metricChoices, unmeasurableMetrics, type DesignState } from './designerModel';
-import type { MethodDetail } from './types';
 
 vi.mock('../../shell/PageHeader', () => ({ PageHeader: ({ title }: { title: string }) => <h1>{title}</h1> }));
 vi.mock('../../api/client', () => ({ researchRequest: vi.fn(), contentBlob: vi.fn(), downloadLink: vi.fn(), moveArtifact: vi.fn(), apiUrl: (p: string) => p }));
@@ -1082,4 +1081,151 @@ describe('실제 어댑터 측정 계약 정합 (retrieval_eval & tts_synthesis)
     expect(payload.secondary_metrics).toEqual(['mrr_at_20']);
   });
 });
+
+describe('결과 config → 후속 실험 구조 재사용 UI 및 API 계약', () => {
+  it('분석 화면 설정별 후속 실험 버튼으로 대상 연구 선택 후 설계실로 이동하여 원본 출처를 표시한다', async () => {
+    setup();
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText('설정별 결과')).toBeTruthy();
+
+    const reuseBtns = screen.getAllByRole('button', { name: '이 설정으로 후속 실험' });
+    expect(reuseBtns.length).toBeGreaterThan(0);
+    fireEvent.click(reuseBtns[0]);
+
+    // 대상 연구 선택 다이얼로그 표시
+    expect(await screen.findByRole('dialog', { name: '이 설정으로 후속 실험 설계' })).toBeTruthy();
+    expect(screen.getByText(/의 파라미터와 어댑터 구조를 출처로 복제하여 후속 실험을 설계합니다/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '설계실로 이동' }));
+
+    // 설계실로 이동 후 원본 출처 Callout 표시
+    expect(await screen.findByText(/출처 설정 기반 후속 실험/)).toBeTruthy();
+    expect(screen.getByText(/출처 실험: BM25 k1 스윕/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: '원본 분석 화면 보기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '출처 연결 해제' })).toBeTruthy();
+  });
+
+  it('출처 설정 조회 실패 시 명시적 에러를 표시하고 생성을 차단하며 빈 기본 설정으로 넘어가지 않는다', async () => {
+    setup((path) => {
+      if (path.includes('/experiments/deleted-exp')) {
+        throw new Error('Experiment not found');
+      }
+      return defaultHandler(path);
+    });
+    mount('/research?view=designer&study=s1&reuse_study=s1&reuse_experiment=deleted-exp&reuse_configuration=deleted-cfg');
+
+    // 명시적 에러 Callout 확인
+    expect(await screen.findByText('원본 설정 재사용 오류')).toBeTruthy();
+    expect(screen.getByText(/재사용할 원본 실험.*조회할 수 없습니다/)).toBeTruthy();
+
+    // 생성 버튼 차단 확인
+    const createBtn = screen.getByRole('button', { name: '만들고 바로 실행' });
+    expect(createBtn.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('후속 실험 생성 시 createExperiment payload에 source 4개 필드가 누락 없이 전송된다', async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    setup((path, body) => {
+      if (path === '/studies/s1/experiments' && body) {
+        capturedBody = body as Record<string, unknown>;
+      }
+      return defaultHandler(path, body);
+    });
+
+    mount('/research?view=designer&study=s1&reuse_study=s1&reuse_experiment=e1&reuse_configuration=c1&reuse_run=r1');
+    expect(await screen.findByText(/출처 설정 기반 후속 실험/)).toBeTruthy();
+
+    // 검증 완료 후 생성 버튼 활성화 대기
+    const createBtn = screen.getByRole('button', { name: '만들고 바로 실행' });
+    await waitFor(() => expect(createBtn.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(createBtn);
+
+    await waitFor(() => expect(capturedBody).not.toBeNull());
+    const body = capturedBody as unknown as Record<string, unknown>;
+    expect(body.source_study_id).toBe('s1');
+    expect(body.source_experiment_id).toBe('e1');
+    expect(body.source_configuration_id).toBe('c1');
+    expect(body.source_run_id).toBe('r1');
+    expect((body.fixed_inputs as Record<string, unknown>)?.bm25_k1).toBe(1.2);
+  });
+});
+
+describe('수치 요약과 구분된 연구자 성공/실패 해석 저장 및 표시', () => {
+  it('연구자 해석(노트) 섹션이 수치 요약과 구분되어 노출되고 새 해석을 저장하여 unverified 상태로 보존한다', async () => {
+    let nodeAddedBody: Record<string, unknown> | null = null;
+    const nodesState: KnowledgeNode[] = [];
+    setup((path, body) => {
+      if (path === '/studies/s1/nodes' && body) {
+        const payload = body as Record<string, unknown>;
+        nodeAddedBody = payload;
+        nodesState.push({
+          id: 'node-interp-1',
+          kind: String(payload.kind ?? 'interpretation'),
+          title: String(payload.title ?? ''),
+          summary: String(payload.summary ?? ''),
+          conditions: (payload.conditions as Record<string, unknown>) ?? {},
+          details: (payload.details as Record<string, unknown>) ?? {},
+          epistemic_status: String(payload.epistemic_status ?? 'unverified'),
+          created_at: '2026-10-25T12:00:00Z',
+        });
+        return { id: 'node-interp-1' };
+      }
+      if (path === '/studies/s1/resume') {
+        const res = defaultHandler(path) as { nodes: KnowledgeNode[] };
+        return { ...res, nodes: [...res.nodes, ...nodesState] };
+      }
+      return defaultHandler(path, body);
+    });
+
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText('설정별 결과')).toBeTruthy();
+
+    // 연구자 해석(성공/실패 노트) 섹션 확인
+    expect(screen.getByText('연구자 해석 (성공/실패 노트)')).toBeTruthy();
+    expect(screen.getByText(/수치 요약과 구분된 연구자의 주관적 해석/)).toBeTruthy();
+
+    // 해석 추가 버튼 클릭
+    fireEvent.click(screen.getByRole('button', { name: '해석 추가' }));
+
+    expect(await screen.findByRole('dialog', { name: '성공 요인 해석 (노트)' })).toBeTruthy();
+    expect(screen.getByText(/epistemic_status는 unverified로 보존됩니다/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText(/해석 제목/), { target: { value: 'BM25 희귀어 질의 매칭 성공' } });
+    fireEvent.change(screen.getByLabelText(/관측 조건 및 다음 가설/), { target: { value: 'k1=1.8 조건에서 희귀어 재현율 25% 상승 관측, 다음은 불용어 제거 가설 검증 필요' } });
+
+    fireEvent.click(screen.getByRole('button', { name: '해석 저장' }));
+
+    await waitFor(() => expect(nodeAddedBody).not.toBeNull());
+    const added = nodeAddedBody as unknown as Record<string, unknown>;
+    expect(added.kind).toBe('interpretation');
+    expect(added.title).toBe('BM25 희귀어 질의 매칭 성공');
+    expect(added.epistemic_status).toBe('unverified');
+    expect((added.conditions as Record<string, unknown>)?.experiment_id).toBe('e1');
+
+    // 스냅샷 재조회 후 화면에 표시
+    expect(await screen.findByText('BM25 희귀어 질의 매칭 성공')).toBeTruthy();
+    expect(screen.getByText('성공 요인 해석')).toBeTruthy();
+    expect(screen.getByText('연구자 해석 (미검증)')).toBeTruthy();
+  });
+
+  it('실패한 실행 목록에서 실패 원인 해석 남기기 클릭 시 해당 Run ID가 연결된 채 폼이 열린다', async () => {
+    setup();
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText('설정별 결과')).toBeTruthy();
+
+    // 실패 실행 확인 (oom: 메모리 한도를 넘었습니다)
+    expect(screen.getByText(/oom: 메모리 한도를 넘었습니다/)).toBeTruthy();
+
+    const failInterpBtn = screen.getByRole('button', { name: '실패 원인 해석 남기기' });
+    fireEvent.click(failInterpBtn);
+
+    const dialog = await screen.findByRole('dialog', { name: '실패 원인 해석 (노트)' });
+    expect(dialog).toBeTruthy();
+
+    // 연관 실행 셀렉트에 r3(설정 c3)이 선택되어 있는지 확인
+    const combobox = within(dialog).getByRole('combobox', { name: '연관 실행 (선택)' });
+    expect(combobox.textContent).toContain('#3 (k1=2.4)');
+  });
+});
+
 

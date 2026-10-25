@@ -6,11 +6,13 @@ import type { Budget, ExperimentPayload, MethodDetail, ParamSpec, Strategy } fro
 export interface DesignState {
   name: string; hypothesis: string; rationale: string; strategy: Strategy; adapterId: string; adapterTouched: boolean;
   params: ParamState; extra: Record<string, unknown>; inputs: Record<string, unknown>; primaryMetric: string; secondary: string[]; budget: Budget; maxRunsTouched?: boolean; repeats: number; seed: number; datasetVersion: string;
+  source_study_id?: string | null; source_experiment_id?: string | null; source_configuration_id?: string | null; source_run_id?: string | null;
 }
 export const DEFAULT_BUDGET: Budget = { max_runs: 20, max_total_seconds: 300, max_memory_mb: 4096 };
 export const initialDesign: DesignState = {
   name: '', hypothesis: '', rationale: '', strategy: 'ab', adapterId: '', adapterTouched: false, params: { values: {}, sweeps: {} }, extra: {}, inputs: {}, primaryMetric: '', secondary: [],
   budget: DEFAULT_BUDGET, repeats: 3, seed: 42, datasetVersion: '',
+  source_study_id: null, source_experiment_id: null, source_configuration_id: null, source_run_id: null,
 };
 
 /** 방법이 정의하지 않았어도 실행기가 받는 핵심 옵션. 방법 스키마와 같은 키가 있으면 방법 쪽이 우선한다. */
@@ -46,6 +48,28 @@ export interface MetricContext {
   params?: ParamState;
   inputs?: Record<string, unknown>;
   extra?: Record<string, unknown>;
+}
+
+export function hasTopK(context?: MetricContext): boolean {
+  const { params, inputs, extra } = context ?? {};
+  const setting = (key: string) => params?.sweeps[key]?.length
+    ? params.sweeps[key]
+    : params?.values[key] ?? extra?.[key] ?? inputs?.[key];
+  const tk = setting('top_k');
+  return tk !== undefined && tk !== null && tk !== '';
+}
+
+export function hasShadowedKSweep(adapterId: string, context?: MetricContext): boolean {
+  if (adapterId !== 'retrieval_eval') return false;
+  if (!hasTopK(context)) return false;
+  const { params, extra, inputs } = context ?? {};
+  const kSweep = params?.sweeps.k;
+  if (Array.isArray(kSweep) && kSweep.length > 0) return true;
+  const extraK = extra?.k;
+  if (Array.isArray(extraK) && extraK.length > 1) return true;
+  const inputK = inputs?.k;
+  if (Array.isArray(inputK) && inputK.length > 1) return true;
+  return false;
 }
 
 /** The adapter uses top_k whenever present; search-space values override fixed inputs. */
@@ -230,6 +254,10 @@ export function buildPayload(studyId: string, methods: MethodDetail[], s: Design
   return {
     study_id: studyId, method_id: methods[0]?.id ?? null, compared_method_ids: methods.slice(1).map(m => m.id), adapter_id: s.adapterId, strategy: s.strategy,
     search_space: { ...s.extra, ...buildSearchSpace(specs, s.params) }, fixed_inputs: inputs, primary_metric: primary, secondary_metrics: secondary.filter(k => k !== primary), budget, seed: s.seed,
+    source_study_id: s.source_study_id ?? null,
+    source_experiment_id: s.source_experiment_id ?? null,
+    source_configuration_id: s.source_configuration_id ?? null,
+    source_run_id: s.source_run_id ?? null,
   };
 }
 
@@ -270,6 +298,9 @@ export function localErrors(s: DesignState, specs: ParamSpec[], methods: MethodD
   if (!s.adapterId) errs.push('실행기를 선택하세요.');
   if (!s.primaryMetric && s.adapterId !== 'external_report') errs.push('주요 지표를 선택하세요.');
   if (s.adapterId === 'llm_inference' && !String(s.inputs.prompt ?? '').trim()) errs.push('LLM 추론 실험에는 프롬프트가 필요합니다.');
+  if (hasShadowedKSweep(s.adapterId, { params: s.params, inputs: s.inputs, extra: s.extra })) {
+    errs.push('top_k가 설정된 상태에서는 k 탐색(sweep)이 백엔드 우선순위에 의해 무시됩니다. 파라미터 탐색을 k 대신 top_k로 지정하세요.');
+  }
   for (const sp of specs) { if (s.params.sweeps[sp.key]) continue; const e = paramError(sp, s.params.values[sp.key]); if (e) errs.push(`${sp.label}: ${e}`); }
   return errs;
 }

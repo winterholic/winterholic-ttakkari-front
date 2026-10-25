@@ -3,7 +3,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../../ui/Button';
 import { Badge } from '../../../ui/Badge';
 import { Select } from '../../../ui/Select';
-import { analyzeExperiment, errorText, getCompareSeries, getExperiment } from '../api';
+import { Dialog } from '../../../ui/Dialog';
+import { addNode, analyzeExperiment, errorText, getCompareSeries, getExperiment } from '../api';
 import { ArtifactList } from '../components/ArtifactList';
 import { BestResultPanel } from '../components/BestResultPanel';
 import { OriginBadge, ProxyBadge, RunStateBadge } from '../components/ExecutionStatusBadge';
@@ -14,11 +15,11 @@ import { ParetoScatterPlot } from '../charts/ParetoScatterPlot';
 import { RepeatDistributionPlot } from '../charts/RepeatDistributionPlot';
 import { SweepLineChart } from '../charts/SweepLineChart';
 import type { ResearchCtx } from '../context';
-import { DIRECTION_TEXT, fmtPct, fmtValue, shortId, stringify, verdictOf, VERDICT_TEXT } from '../format';
+import { DIRECTION_TEXT, fmtPct, fmtTime, fmtValue, shortId, stringify, verdictOf, VERDICT_TEXT } from '../format';
 import { experimentName, KEY, useAdapters, useSnapshot, rk } from '../hooks';
 import { adapterLabel, resolveMetricKey, STRATEGY } from '../labels';
 import { comparabilityCaveats, deriveSeries, failedRuns, localParetoReason, metricsOf, paretoFor, pickBaseline, stats, usableMeasurements, valuesByConfig } from '../series';
-import type { Strategy } from '../types';
+import type { Configuration, Strategy } from '../types';
 
 /** 결과 비교·분석: baseline 대비 개선·퇴보, 다지표, 반복 분포, trade-off, 설정 차이, 비교 불가 경고, 실패 실행, 채택까지. 원본 JSON 은 기본 화면에 없다. */
 export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
@@ -34,6 +35,68 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
   const [metricChoice, setMetricChoice] = useState<string | null>(null);
   const [paretoX, setParetoX] = useState('');
   const [paretoY, setParetoY] = useState('');
+
+  const [reuseModalConfig, setReuseModalConfig] = useState<Configuration | null>(null);
+  const [reuseModalRunId, setReuseModalRunId] = useState<string | null>(null);
+
+  const [interpModalOpen, setInterpModalOpen] = useState(false);
+  const [interpType, setInterpType] = useState<'success' | 'failure'>('success');
+  const [interpTitle, setInterpTitle] = useState('');
+  const [interpSummary, setInterpSummary] = useState('');
+  const [interpRunId, setInterpRunId] = useState('');
+  const [interpConfigId, setInterpConfigId] = useState('');
+  const [interpError, setInterpError] = useState('');
+
+  const interpretations = useMemo(() => {
+    return (snap.data?.nodes ?? []).filter(
+      n => n.kind === 'interpretation' && n.conditions?.experiment_id === expId
+    );
+  }, [snap.data?.nodes, expId]);
+
+  const saveInterp = useMutation({
+    mutationFn: async () => {
+      if (!ctx.studyId || !expId) throw new Error('연구 및 실험을 먼저 선택하세요.');
+      if (!interpTitle.trim()) throw new Error('해석 제목(짧은 설명)을 입력하세요.');
+      return addNode(ctx.studyId, {
+        kind: 'interpretation',
+        title: interpTitle.trim(),
+        summary: interpSummary.trim(),
+        conditions: {
+          experiment_id: expId,
+          ...(interpRunId ? { run_id: interpRunId } : {}),
+          ...(interpConfigId ? { configuration_id: interpConfigId } : {}),
+        },
+        details: {
+          interpretation_type: interpType,
+          hypothesis: interpSummary.trim(),
+        },
+        epistemic_status: 'unverified',
+      });
+    },
+    onSuccess: () => {
+      void cache.invalidateQueries({ queryKey: KEY });
+      setInterpModalOpen(false);
+      setInterpTitle('');
+      setInterpSummary('');
+      setInterpError('');
+    },
+    onError: e => setInterpError(errorText(e)),
+  });
+
+  const openReuseModal = (cfg: Configuration, runId?: string | null) => {
+    setReuseModalConfig(cfg);
+    setReuseModalRunId(runId || null);
+  };
+
+  const openInterpModal = (type: 'success' | 'failure', runId?: string | null, cfgId?: string | null) => {
+    setInterpType(type);
+    setInterpRunId(runId || '');
+    setInterpConfigId(cfgId || '');
+    setInterpTitle('');
+    setInterpSummary('');
+    setInterpError('');
+    setInterpModalOpen(true);
+  };
 
   const usable = useMemo(() => (detail ? usableMeasurements(detail) : []), [detail]);
   const metrics = useMemo(() => metricsOf(usable), [usable]);
@@ -107,7 +170,12 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
     {detail && <header className="rs-analysis__head">
         <h2>{detail.experiment.name}</h2>
         <p className="rs-muted">{adapterLabel(detail.experiment.adapter_id)} · {STRATEGY[detail.experiment.strategy as Strategy]?.label ?? detail.experiment.strategy} · 주요 지표 {metrics.find(m => m.key === primary)?.label ?? primary} · 설정 {detail.configurations.length}개 · 실행 {detail.runs.length}개</p>
-        <div className="rs-detail__badges">{[...new Set(detail.runs.map(r => r.execution_origin))].map(o => <OriginBadge key={o} origin={o} />)}</div>
+        <div className="rs-detail__badges">
+          {[...new Set(detail.runs.map(r => r.execution_origin))].map(o => <OriginBadge key={o} origin={o} />)}
+          {detail.experiment.source_configuration_id && (
+            <Badge tone="info">후속 실험: 원본 설정 {shortId(detail.experiment.source_configuration_id)} 기반</Badge>
+          )}
+        </div>
       </header>}
 
     {detail && <>
@@ -118,12 +186,42 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
       {detail.latest_analysis?.recommendation_ko && <Callout kind="tip" title="자동 수치 요약">
         <p>{detail.latest_analysis.recommendation_ko}</p><p className="rs-muted">규칙으로 만든 수치 요약입니다. 원인을 해석한 것이 아니며, 입력·환경이 같은 비교일 때만 의미가 있습니다.</p></Callout>}
 
+      <Section
+        title="연구자 해석 (성공/실패 노트)"
+        hint="수치 요약과 구분된 연구자의 주관적 해석과 다음 가설 노트입니다. 인과가 확정된 사실이 아니며 미검증(unverified)으로 보존됩니다."
+        actions={<Button size="sm" onClick={() => openInterpModal('success')}>해석 추가</Button>}
+      >
+        {interpretations.length > 0 ? (
+          <ul className="rs-rellist">
+            {interpretations.map(n => (
+              <li key={n.id}>
+                <div className="rs-detail__badges">
+                  {n.details?.interpretation_type === 'failure' ? (
+                    <Badge tone="danger">실패 원인 해석</Badge>
+                  ) : (
+                    <Badge tone="success">성공 요인 해석</Badge>
+                  )}
+                  <Badge>연구자 해석 (미검증)</Badge>
+                  {!!n.conditions?.run_id && <Badge>실행 {shortId(String(n.conditions.run_id))}</Badge>}
+                  {!!n.conditions?.configuration_id && <Badge>설정 {cfgLabel(String(n.conditions.configuration_id))}</Badge>}
+                </div>
+                <strong>{n.title}</strong>
+                {n.summary && <p className="rs-prose rs-prewrap">{n.summary}</p>}
+                {n.created_at && <span className="rs-muted">{fmtTime(n.created_at)} 기록</span>}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="rs-muted">아직 등록된 연구자 해석이 없습니다. '해석 추가'로 관찰된 원인과 다음 가설을 기록하세요.</p>
+        )}
+      </Section>
+
       {series ? <>
       {!usable.length ? <Callout kind="warning" title="비교할 측정값이 없습니다">성공한 실행의 측정이 없어 차트를 그리지 않았습니다. {bad.length ? '실패·취소한 실행은 아래에 있습니다.' : '실행을 마친 뒤 다시 확인하세요.'}</Callout> : <>
         <Section title="설정별 결과" hint="평균은 성공한 실행만 센 값입니다. ★ 는 그 지표 하나에서의 최고이며 전면 최적이 아닙니다.">
           <div className="tk-datatable tk-datatable--sticky-col">
             <div className="tk-datatable__scroll" role="region" aria-label="설정별 결과 표 (가로로 스크롤)" tabIndex={0}>
-              <table><thead><tr><th scope="col">설정</th><th scope="col">성공 n</th>{metrics.map(m => <th key={m.key} scope="col" className="tk-datatable__num" title={DIRECTION_TEXT[m.direction]}>{m.label}{m.unit ? ` (${m.unit})` : ''}{m.is_proxy ? ' · 간접' : ''}</th>)}</tr></thead>
+              <table><thead><tr><th scope="col">설정</th><th scope="col">성공 n</th>{metrics.map(m => <th key={m.key} scope="col" className="tk-datatable__num" title={DIRECTION_TEXT[m.direction]}>{m.label}{m.unit ? ` (${m.unit})` : ''}{m.is_proxy ? ' · 간접' : ''}</th>)}<th scope="col">후속 조치</th></tr></thead>
                 <tbody>{detail.configurations.map(c => {
                   const n = detail.runs.filter(r => r.configuration_id === c.id && r.status === 'succeeded').length;
                   const base = c.id === baselineId;
@@ -141,7 +239,10 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
                           {s.n >= 2 && s.std !== null ? <span className="rs-muted"> ±{fmtValue(s.std)}</span> : <span className="rs-muted"> · 변동성 미상</span>}
                           {!base && rel !== null && <span className="rs-delta" data-verdict={v}> {VERDICT_TEXT[v].mark} {fmtPct(rel)} {VERDICT_TEXT[v].word}</span>}
                           {!base && rel === null && isServerSeries && <span className="rs-muted"> —</span>}</>}</td>;
-                    })}</tr>;
+                    })}
+                    <td>
+                      <Button size="xs" variant="ghost" onClick={() => openReuseModal(c)}>이 설정으로 후속 실험</Button>
+                    </td></tr>;
                 })}</tbody></table>
             </div></div>
         </Section>
@@ -204,7 +305,15 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
       <Section title="실패·취소한 실행" hint="결과에서 숨기지 않습니다. 실패 원인도 연구 자산입니다.">
         {bad.length ? <ul className="rs-rellist">{bad.map(r => <li key={r.id}><RunStateBadge status={r.status} /> <strong>{cfgLabel(r.configuration_id)}</strong> <span className="rs-muted">반복 {r.repeat_index}</span>
           <p className="rs-reason">{r.error_code ? `${r.error_code}: ` : ''}{r.error_message || '원인이 기록되지 않았습니다.'}</p>
-          <Button size="xs" variant="ghost" onClick={() => ctx.go({ view: 'monitor', run: r.id })}>실행 상세</Button></li>)}</ul> : <p className="rs-muted">실패하거나 취소된 실행이 없습니다.</p>}
+          <div className="rs-actions">
+            <Button size="xs" variant="ghost" onClick={() => ctx.go({ view: 'monitor', run: r.id })}>실행 상세</Button>
+            <Button size="xs" variant="ghost" onClick={() => {
+              const cfg = detail.configurations.find(c => c.id === r.configuration_id);
+              if (cfg) openReuseModal(cfg, r.id);
+            }}>이 실행 설정으로 후속 실험</Button>
+            <Button size="xs" variant="ghost" onClick={() => openInterpModal('failure', r.id, r.configuration_id)}>실패 원인 해석 남기기</Button>
+          </div>
+        </li>)}</ul> : <p className="rs-muted">실패하거나 취소된 실행이 없습니다.</p>}
       </Section>
 
       {detail.artifacts.length > 0 && <Section title="결과물" hint="음성 샘플은 설정별로 직접 들어 보고 비교하세요. 자동 지표가 청취 품질을 대신하지 않습니다.">
@@ -222,6 +331,170 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
         <Button variant="ghost" onClick={() => ctx.go({ view: 'monitor' })}>실행 모니터로</Button>
         {analyze.error && <span className="rs-reason">{errorText(analyze.error)}</span>}
       </div>
+
+      {reuseModalConfig && (
+        <FollowUpDialog
+          config={reuseModalConfig}
+          runId={reuseModalRunId}
+          currentStudyId={ctx.studyId}
+          studies={ctx.studies.filter(s => s.scope === ctx.scope)}
+          onClose={() => setReuseModalConfig(null)}
+          onOpenStudyForm={ctx.openStudyForm}
+          onProceed={selectedTargetStudyId => {
+            const expId = detail.experiment.id;
+            const cfgId = reuseModalConfig.id;
+            const rId = reuseModalRunId;
+            setReuseModalConfig(null);
+            ctx.go({
+              view: 'designer',
+              study: selectedTargetStudyId,
+              experiment: null,
+              reuse_study: ctx.studyId,
+              reuse_experiment: expId,
+              reuse_configuration: cfgId,
+              reuse_run: rId || null,
+            });
+          }}
+        />
+      )}
+
+      {interpModalOpen && (
+        <Dialog
+          open
+          onClose={() => setInterpModalOpen(false)}
+          size="sm"
+          title={interpType === 'failure' ? '실패 원인 해석 (노트)' : '성공 요인 해석 (노트)'}
+          modal
+          footer={
+            <>
+              <Button variant="ghost" onClick={() => setInterpModalOpen(false)}>닫기</Button>
+              <Button variant="primary" busy={saveInterp.isPending} onClick={() => saveInterp.mutate()}>해석 저장</Button>
+            </>
+          }
+        >
+          <div className="rs-form">
+            <Callout kind="note">
+              연구자의 주관적 해석 노트로 저장됩니다. 확정된 인과가 아니며 epistemic_status는 unverified로 보존됩니다.
+            </Callout>
+            <div className="tk-field">
+              <label className="tk-label" htmlFor="inp-interp-title">해석 제목 (필수 짧은 설명)</label>
+              <input
+                id="inp-interp-title"
+                className="tk-input"
+                value={interpTitle}
+                onChange={e => setInterpTitle(e.target.value)}
+                placeholder="예: BM25 토큰 분절 실패로 한국어 합성어 검색 누락"
+              />
+            </div>
+            <div className="tk-field">
+              <label className="tk-label" htmlFor="inp-interp-summary">관측 조건 및 다음 가설</label>
+              <textarea
+                id="inp-interp-summary"
+                className="tk-textarea"
+                rows={4}
+                value={interpSummary}
+                onChange={e => setInterpSummary(e.target.value)}
+                placeholder="관찰된 현상, 원인 추정, 그리고 다음에 검증해 볼 가설을 작성하세요..."
+              />
+            </div>
+            {detail.runs.length > 0 && (
+              <div className="tk-field">
+                <label className="tk-label" id="lbl-interp-run" htmlFor="sel-interp-run">연관 실행 (선택)</label>
+                <Select
+                  id="sel-interp-run"
+                  labelledBy="lbl-interp-run"
+                  value={interpRunId}
+                  options={[
+                    { value: '', label: '실험 전체' },
+                    ...detail.runs.map(r => ({
+                      value: r.id,
+                      label: `${cfgLabel(r.configuration_id)} · 반복 ${r.repeat_index} (${r.status})`,
+                    })),
+                  ]}
+                  onChange={setInterpRunId}
+                />
+              </div>
+            )}
+            {interpError && <p className="tk-error">{interpError}</p>}
+          </div>
+        </Dialog>
+      )}
     </>}
   </div>;
+}
+
+function FollowUpDialog({
+  config,
+  runId,
+  currentStudyId,
+  studies,
+  onClose,
+  onOpenStudyForm,
+  onProceed,
+}: {
+  config: Configuration;
+  runId: string | null;
+  currentStudyId: string | null;
+  studies: Array<{ id: string; title: string }>;
+  onClose: () => void;
+  onOpenStudyForm: () => void;
+  onProceed: (targetStudyId: string) => void;
+}) {
+  const [selectedStudyId, setSelectedStudyId] = useState<string>(currentStudyId || studies[0]?.id || '');
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      size="sm"
+      title="이 설정으로 후속 실험 설계"
+      modal
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>취소</Button>
+          <Button
+            variant="primary"
+            disabled={!selectedStudyId}
+            onClick={() => onProceed(selectedStudyId)}
+          >
+            설계실로 이동
+          </Button>
+        </>
+      }
+    >
+      <div className="rs-form">
+        <p>
+          설정 <strong>{config.label}</strong>{runId ? ` (실행 ${shortId(runId)})` : ''}의 파라미터와 어댑터 구조를 출처로 복제하여 후속 실험을 설계합니다.
+        </p>
+        <div className="tk-field">
+          <label className="tk-label" id="lbl-target-study" htmlFor="sel-target-study">대상 연구 선택</label>
+          <Select
+            id="sel-target-study"
+            labelledBy="lbl-target-study"
+            value={selectedStudyId}
+            options={studies.map(s => ({
+              value: s.id,
+              label: s.id === currentStudyId ? `${s.title} (현재 연구)` : s.title,
+            }))}
+            onChange={setSelectedStudyId}
+          />
+        </div>
+        <div className="rs-actions">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              onClose();
+              onOpenStudyForm();
+            }}
+          >
+            + 새 연구 만들기
+          </Button>
+        </div>
+        <p className="rs-muted">
+          동일 연구를 계속 진행하거나, 동일 범위(개인/회사)의 다른 연구를 선택할 수 있습니다.
+        </p>
+      </div>
+    </Dialog>
+  );
 }
