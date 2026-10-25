@@ -262,7 +262,7 @@ describe('결과 분석 화면', () => {
     setup();
     mount('/research?view=analysis&study=s1&experiment=e1');
     expect(await screen.findByText('설정별 결과')).toBeTruthy();
-    expect(await screen.findByText(/▲ \+25\.0% 개선/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+25\.0% 개선/)).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Recall@k — Baseline \(k1=1\.2\) 대비 변화/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/변동성 미상/).length).toBeGreaterThan(0);
     // 실패한 실행은 목록에 원인과 함께 남는다
@@ -440,7 +440,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     });
     mount('/research?view=analysis&study=s1&experiment=e1');
     // DeltaBarChart 에 서버의 rel_delta_pct(+77.7%) 가 렌더링되어야 함
-    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+77\.7%/)).length).toBeGreaterThan(0);
     // DeltaBarChart aria-label 에 서버 응답이 반영됨
     expect(screen.getByRole('img', { name: /77\.7% 개선/ })).toBeTruthy();
     // compare-series API 호출 확인
@@ -493,7 +493,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
       return defaultHandler(path, body);
     });
     mount('/research?view=analysis&study=s1&experiment=e1');
-    await screen.findByText(/▲ \+77\.7%/);
+    await screen.findAllByText(/▲ \+77\.7%/);
 
     const pxTrigger = screen.getByRole('combobox', { name: '가로축' });
     fireEvent.click(pxTrigger);
@@ -510,7 +510,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
       return defaultHandler(path, body);
     });
     mount('/research?view=analysis&study=s1&experiment=e1');
-    await screen.findByText(/▲ \+77\.7%/);
+    await screen.findAllByText(/▲ \+77\.7%/);
 
     const baseTrigger = screen.getByRole('combobox', { name: 'Baseline (기준 설정)' });
     fireEvent.click(baseTrigger);
@@ -528,7 +528,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     });
     mount('/research?view=analysis&study=s1&experiment=e1');
     // normalizeSeries({}) 는 null 이므로 로컬 deriveSeries 결과인 +25.0% 가 나와야 함
-    expect(await screen.findByText(/▲ \+25\.0% 개선/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+25\.0% 개선/)).length).toBeGreaterThan(0);
   });
 
   it('compare-series HTTP 실패 시 오류를 조용히 은폐하지 않고 오류 안내를 표시한다', async () => {
@@ -552,7 +552,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     expect(screen.queryByRole('heading', { name: '설정별 결과' })).toBeNull();
 
     response.resolve(fakeServerCompare);
-    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+77\.7%/)).length).toBeGreaterThan(0);
     expect(screen.getByRole('img', { name: /산점도.*점 1개/ })).toBeTruthy();
   });
 
@@ -564,7 +564,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
       return defaultHandler(path, body);
     });
     mount('/research?view=analysis&study=s1&experiment=e1');
-    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+77\.7%/)).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('combobox', { name: 'Baseline (기준 설정)' }));
     fireEvent.click(screen.getByRole('option', { name: '#2 (k1=1.8)' }));
@@ -574,7 +574,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
 
     next.resolve(withDelta(-35.6, { baselineId: 'c2' }));
-    expect(await screen.findByText(/▼ −35\.6%|▼ -35\.6%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▼ −35\.6%|▼ -35\.6%/)).length).toBeGreaterThan(0);
   });
 
   it('축과 실험 key가 바뀔 때마다 이전 비교를 숨기고 각 새 응답을 기다린다', async () => {
@@ -592,7 +592,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
       return defaultHandler(path, body);
     });
     mount('/research?view=analysis&study=s1&experiment=e1');
-    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+77\.7%/)).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('combobox', { name: '가로축' }));
     fireEvent.click(screen.getByRole('option', { name: 'Recall@k' }));
@@ -600,7 +600,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     expect(screen.queryByText(/\+77\.7%/)).toBeNull();
     expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
     axisResponse.resolve(withDelta(51.1, { paretoX: 'recall_at_k', paretoY: 'recall_at_k' }));
-    expect(await screen.findByText(/▲ \+51\.1%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+51\.1%/)).length).toBeGreaterThan(0);
     expect(screen.getByText('Pareto 분석은 서로 다른 두 지표를 축으로 선택해야 합니다.')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('combobox', { name: '분석할 실험' }));
@@ -611,7 +611,7 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
 
     experimentSeries.resolve(withDelta(62.2, { experimentId: 'e2', idPrefix: 'e2', paretoX: 'recall_at_k', paretoY: 'recall_at_k' }));
-    expect(await screen.findByText(/▲ \+62\.2%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+62\.2%/)).length).toBeGreaterThan(0);
     await screen.findByRole('heading', { name: '두 번째 실험' });
   });
 
@@ -645,13 +645,42 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
       return defaultHandler(path, body);
     });
     mount('/research?view=analysis&study=s1&experiment=e1');
-    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+77\.7%/)).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: '분석 스냅샷 갱신' }));
     expect(await screen.findByText(/이전 비교 결과/)).toBeTruthy();
     expect(screen.getByText(/갱신 서버 오류/)).toBeTruthy();
-    expect(screen.getByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect(screen.getAllByText(/▲ \+77\.7%/).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: '비교 데이터 다시 불러오기' })).toBeTruthy();
+  });
+
+  it('설정별 결과 표의 delta 는 서버 값을 쓰고 서버에 없는 칸은 —, 로컬 계산 값은 같은 화면에 없다', async () => {
+    setup((path, body) => path.includes('/compare-series') ? fakeServerCompare : defaultHandler(path, body));
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    const region = await screen.findByRole('region', { name: /설정별 결과 표/ });
+    await waitFor(() => expect(within(region).getByText(/\+77\.7%/)).toBeTruthy());
+    expect(within(region).queryByText(/\+25\.0%/)).toBeNull();
+    // 서버 delta_bars 에 없는 지표(지연)는 로컬 +50.0% 대신 —
+    expect(within(region).queryByText(/\+50\.0%/)).toBeNull();
+    const row = within(region).getByRole('row', { name: /#2 \(k1=1\.8\)/ });
+    expect(within(row).getAllByText('—').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/\+25\.0%/)).toBeNull();
+  });
+
+  it('분석 mutation 한 번에 compare-series 는 한 번만 다시 요청한다', async () => {
+    let compareCount = 0;
+    setup((path, body) => {
+      if (path.includes('/compare-series')) return ++compareCount === 1 ? fakeServerCompare : withDelta(42.4);
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findAllByText(/▲ \+77\.7%/)).not.toHaveLength(0);
+    expect(compareCount).toBe(1);
+
+    fireEvent.click(screen.getByRole('button', { name: '분석 스냅샷 갱신' }));
+    expect((await screen.findAllByText(/▲ \+42\.4%/)).length).toBeGreaterThan(0);
+    await new Promise(r => setTimeout(r, 100));
+    expect(calls.filter(c => c.includes('/compare-series')).length).toBe(2);
   });
 
   it('분석 mutation 성공 뒤 같은 비교 key를 다시 조회해 갱신된 서버 값을 표시한다', async () => {
@@ -661,10 +690,10 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
       return defaultHandler(path, body);
     });
     mount('/research?view=analysis&study=s1&experiment=e1');
-    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+77\.7%/)).length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole('button', { name: '분석 스냅샷 갱신' }));
-    expect(await screen.findByText(/▲ \+42\.4%/)).toBeTruthy();
+    expect((await screen.findAllByText(/▲ \+42\.4%/)).length).toBeGreaterThan(0);
     expect(calls.some(c => c.startsWith('POST /experiments/e1/analyze'))).toBe(true);
     expect(compareCount).toBeGreaterThan(1);
   });

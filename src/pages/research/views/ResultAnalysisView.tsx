@@ -67,12 +67,8 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
 
   const analyze = useMutation({
     mutationFn: () => analyzeExperiment(expId as string, { baseline_configuration_id: baselineId, pareto_x_metric: px || undefined, pareto_y_metric: py || undefined }),
-    onSuccess: () => {
-      void cache.invalidateQueries({ queryKey: KEY });
-      void cache.invalidateQueries({ queryKey: [...rk(), 'compare-series', expId] });
-      void detailQ.refetch();
-      void compareQ.refetch();
-    },
+    // KEY 하나가 detail·compare-series 를 모두 덮는다. 활성 질의는 이 호출에서 한 번만 다시 받는다.
+    onSuccess: () => { void cache.invalidateQueries({ queryKey: KEY }); },
   });
 
   if (!exps.length && !expId) return <Empty title="분석할 실험이 없습니다" action={<Button variant="primary" onClick={() => ctx.go({ view: 'designer' })}>실험 설계하기</Button>}>
@@ -132,12 +128,15 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
                     <td className="tk-datatable__num">{n}</td>
                     {metrics.map(m => {
                       const s = rowsStat(c.id, m.key); const b = baselineId ? rowsStat(baselineId, m.key).mean : null;
-                      const rel = !base && s.mean !== null && b ? ((s.mean - b) / Math.abs(b)) * 100 : null;
+                      // 서버 시리즈가 있으면 서버 delta 만 쓴다(없는 칸은 —). 로컬 계산은 legacy 성공(null) 응답일 때만.
+                      const serverDelta = isServerSeries ? series?.delta_bars.find(d => d.configuration_id === c.id && d.metric_key === m.key) : undefined;
+                      const rel = isServerSeries ? serverDelta?.rel_delta_pct ?? null : !base && s.mean !== null && b ? ((s.mean - b) / Math.abs(b)) * 100 : null;
                       const v = verdictOf(rel, m.direction);
                       return <td key={m.key} className="tk-datatable__num" data-best={bestOf(m.key) === c.id ? 'true' : undefined}>
                         {s.mean === null ? <span className="rs-muted">측정 없음</span> : <>{fmtValue(s.mean)}{bestOf(m.key) === c.id ? ' ★' : ''}
                           {s.n >= 2 && s.std !== null ? <span className="rs-muted"> ±{fmtValue(s.std)}</span> : <span className="rs-muted"> · 변동성 미상</span>}
-                          {!base && rel !== null && <span className="rs-delta" data-verdict={v}> {VERDICT_TEXT[v].mark} {fmtPct(rel)} {VERDICT_TEXT[v].word}</span>}</>}</td>;
+                          {!base && rel !== null && <span className="rs-delta" data-verdict={v}> {VERDICT_TEXT[v].mark} {fmtPct(rel)} {VERDICT_TEXT[v].word}</span>}
+                          {!base && rel === null && isServerSeries && <span className="rs-muted"> —</span>}</>}</td>;
                     })}</tr>;
                 })}</tbody></table>
             </div></div>
