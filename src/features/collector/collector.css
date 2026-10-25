@@ -48,5 +48,14 @@
 .mission-schedule-options { display: flex; flex-wrap: wrap; gap: var(--tk-space-3); align-items: center; }
 .mission-schedule-options label { display: inline-flex; align-items: center; gap: var(--tk-space-1); font-size: var(--tk-font-size-sm); cursor: pointer; }
 .mission-control-error { width: 100%; }
+.mission-quality { width: 100%; border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
+.mission-quality__axes { display: grid; gap: var(--tk-space-3); margin: var(--tk-space-3) 0; }
+.mission-quality__axes > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: var(--tk-space-2); min-width: 0; }
+.mission-quality__axes dt { font-weight: var(--tk-font-weight-medium); overflow-wrap: anywhere; }
+.mission-quality__axes dd { display: grid; gap: var(--tk-space-2); min-width: 0; margin: 0; color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
+.mission-quality__axes ul { margin: 0; padding-inline-start: var(--tk-space-4); }
+.mission-unhold { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); width: 100%; }
+.mission-unhold > p { margin: 0; }
 .mission-status-badge { font-weight: var(--tk-font-weight-medium); padding: var(--tk-space-1) var(--tk-space-2); border-radius: var(--tk-radius-sm); background: var(--tk-color-surface-subtle); }
+@media (max-width: 420px) { .mission-quality__axes > div { grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-1); } }
 @media (min-width: 1024px) { .mission-workspace:has(.mission-selected) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; } }

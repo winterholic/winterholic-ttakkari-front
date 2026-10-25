@@ -14,6 +14,7 @@ const api = vi.hoisted(() => ({
   extend: vi.fn(),
   rerun: vi.fn(),
   schedule: vi.fn(),
+  unhold: vi.fn(),
 }));
 vi.mock("../api/collectionMissions", () => ({
   collectionMissions: api.list,
@@ -26,6 +27,7 @@ vi.mock("../api/collectionMissions", () => ({
   extendCollectionMission: api.extend,
   rerunCollectionMission: api.rerun,
   scheduleCollectionMission: api.schedule,
+  unholdCollectionMissionItem: api.unhold,
 }));
 vi.mock("../features/collector/Overview", () => ({ Overview: () => <p>운영 현황</p>, BudgetCard: () => <p>한도 카드</p> }));
 vi.mock("../features/collector/Review", () => ({ Review: () => <p>검토</p> }));
@@ -38,7 +40,10 @@ import { CollectPage } from "./CollectPage";
 const mission = { id: "m1", title: "하네스 엔지니어링", goal: "하네스 엔지니어링", status: "running", counts: { discovered: 4, acquired: 2, accepted: 1, held: 1, failed: 0, blocked: 0, duplicate: 0, imported: 1, pending_delivery: 0 }, plan: { steps: ["독립 출처 탐색", "지식 도서관 적재"], sources: [], queries: [], coverage: [], budget: { pages: 200, searches: 16, seconds: 1800 }, stop_conditions: ["예산 소진"] }, gaps: [], jobs: [], results: [{ id: "i1", title: "설계 원전", url: "https://example.com/doc", status: "accepted", reasons: ["l0_pass"], document_id: "d1", revision_id: "r1", delivery: "imported" }], knowledge_processing: { storage: "verified", semantic: "unverified" } };
 beforeEach(() => { vi.clearAllMocks(); api.list.mockResolvedValue({ items: [] }); api.create.mockResolvedValue(mission); api.detail.mockResolvedValue(mission); });
 afterEach(cleanup);
-const mount = (url = "/collect") => render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={[url]}><CollectPage /></MemoryRouter></QueryClientProvider>);
+const mount = (url = "/collect", queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) => {
+  render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[url]}><CollectPage /></MemoryRouter></QueryClientProvider>);
+  return queryClient;
+};
 
 it("첫 화면은 자연어 임무 입력이고 범위 토글이나 출처 설정을 요구하지 않는다", async () => {
   mount();
@@ -129,4 +134,91 @@ it("임무 상세에 마지막 갱신 회차와 회차별 수집/적재 성과�
   mount("/collect?mission=m1");
   expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
   expect(screen.getByText(/수집 3건 · 적재 3건/)).toBeTruthy();
+});
+
+it("한 응답의 회차 이력과 결과별 품질 축을 함께 보여주고 점수 단위를 보존한다", async () => {
+  api.detail.mockResolvedValue({
+    ...mission,
+    run_seq: 2,
+    runs: [{ run_seq: 2, trigger: "scheduled", started_at: "2026-10-25T15:00:00Z", page_budget: 10, pages_used: 5, collected: 3, unchanged: 2, imported: 1, in_progress: false }],
+    triage: { accepted: 1, review_needed: 0, held: 0, reasons: {}, policy: { status: "active", verified: false }, ml: { status: "available" }, precise_eval: { engine: "unavailable" } },
+    results: [{ ...mission.results[0], triage: {
+      status: "auto_accepted", reasons: ["triage:accepted"], mode: "active", verified: false,
+      axes: {
+        relevance_lexical: { value: 0.7, scale: "similarity", validation: "unvalidated", evidence: ["제목이 조사 목표와 일치"] },
+        topic_relevance_semantic: { status: "measured", value: 0.8123, scale: "similarity", validation: "unvalidated", reason: "language_not_validated:ko" },
+        information_value: { status: "measured", value: 3.2, scale: "ordinal", validation: "validated" },
+        low_quality_likelihood: { status: "measured", value: -0.4, scale: "raw_logit", validation: "unvalidated" },
+        explanation_quality: { status: "unmeasured", value: null, scale: "none", validation: "unvalidated", reason: "no labelled data" },
+      },
+      validation: { overall: "partial", validated_axes: ["information_value"] },
+      stage2: { status: "unavailable", reason: "engine unavailable" },
+      precise_eval: { state: "pending", reasons: ["review_needed"] },
+    } }],
+  });
+  mount("/collect?mission=m1");
+  expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
+  expect(screen.getByText(/수집 3건 · 적재 1건/)).toBeTruthy();
+  expect(screen.getByLabelText("품질 판정 집계").textContent).toContain("추가 확인 0건");
+  fireEvent.click(screen.getByText("품질 축과 평가 상태"));
+  expect(screen.getByText("임무 관련성 (규칙)")).toBeTruthy();
+  expect(screen.getByText("임무 관련성 (의미 모델)")).toBeTruthy();
+  expect(screen.getByText("정보 가치")).toBeTruthy();
+  expect(screen.getByText("저품질 징후")).toBeTruthy();
+  expect(screen.getByText(/유사도 0\.7/)).toBeTruthy();
+  expect(screen.getByText(/-0\.4.*확률값 아님/)).toBeTruthy();
+  expect(screen.getByText(/도서관에 적재됨/)).toBeTruthy();
+  expect(screen.getByText(/판정 기준: 미검증/)).toBeTruthy();
+  expect(screen.getByText(/정밀 평가 엔진: 사용할 수 없음/)).toBeTruthy();
+  expect(screen.queryByText(/저품질.*%/)).toBeNull();
+});
+
+it("legacy 품질 필드가 없으면 판정 축 부재와 미검증 사실 상태를 안전하게 알린다", async () => {
+  api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], delivery: null }] });
+  mount("/collect?mission=m1");
+  expect(await screen.findByText("기존 결과에는 품질 판정 정보가 없습니다.")).toBeTruthy();
+  expect(screen.getByText(/수락됨 · 도서관 적재 확인 전/)).toBeTruthy();
+});
+
+it("보류 복구는 사용자가 눌렀을 때 실행하고 가져오기 확인 전에는 적재 완료로 표시하지 않는다", async () => {
+  api.detail.mockResolvedValueOnce({ ...mission, results: [{ ...mission.results[0], status: "held", delivery: null }] })
+    .mockResolvedValueOnce({ ...mission, results: [{ ...mission.results[0], status: "accepted", delivery: null }] });
+  api.unhold.mockResolvedValue({ item_id: "i1", status: "accepted", delivery_queued: true, review: { factuality: "unverified" } });
+  const queryClient = mount("/collect?mission=m1");
+  expect(await screen.findByText("설계 원전")).toBeTruthy();
+  expect(await screen.findByText(/보류됨 · 복구할 수 있습니다\./)).toBeTruthy();
+  expect(api.unhold).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "보류 복구" }));
+  await waitFor(() => expect(api.unhold).toHaveBeenCalledWith("m1", "i1"));
+  expect(await screen.findByText(/복구 요청이 처리됐습니다.*가져오기 확인/)).toBeTruthy();
+  expect(await screen.findByText(/수락됨 · 도서관 적재 확인 전/)).toBeTruthy();
+  expect(screen.queryByText(/도서관에 적재됨/)).toBeNull();
+  api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], status: "accepted", delivery: "imported" }] });
+  await queryClient.invalidateQueries({ queryKey: ["collection-mission", "m1"] });
+  expect(await screen.findByText(/도서관에 적재됨/)).toBeTruthy();
+});
+
+it("보류 복구에서 권리 거부를 사용자 문장으로 보여주고 임무 데이터는 보존한다", async () => {
+  const { ApiError } = await import("../api/client");
+  api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], status: "held", delivery: null }] });
+  api.unhold.mockRejectedValue(new ApiError(403, { code: "knowledge_permission_missing", message: "knowledge_permission_missing" }));
+  mount("/collect?mission=m1");
+  expect(await screen.findByText("설계 원전")).toBeTruthy();
+  fireEvent.click(await screen.findByRole("button", { name: "보류 복구" }));
+  expect(await screen.findByText("이 자료를 도서관에 적재할 권리를 확인해 주세요.")).toBeTruthy();
+  expect(screen.queryByText("knowledge_permission_missing")).toBeNull();
+  expect(screen.getByRole("button", { name: "보류 복구" })).toBeTruthy();
+});
+
+it("보류 복구 422 코드와 이미 보류 아님 응답을 내부 코드 없이 알린다", async () => {
+  const { ApiError } = await import("../api/client");
+  api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], status: "held", delivery: null }] });
+  api.unhold.mockRejectedValueOnce(new ApiError(422, { code: "item_not_importable", message: "item_not_importable" }));
+  mount("/collect?mission=m1");
+  fireEvent.click(await screen.findByRole("button", { name: "보류 복구" }));
+  expect(await screen.findByText("원문 보관 정보가 부족해 도서관에 적재할 수 없습니다.")).toBeTruthy();
+  expect(screen.queryByText("item_not_importable")).toBeNull();
+  api.unhold.mockResolvedValueOnce({ item_id: "i1", status: "failed", message: "item_not_held" });
+  fireEvent.click(screen.getByRole("button", { name: "보류 복구" }));
+  expect(await screen.findByText(/이미 보류 상태가 아니어서 바꾸지 않았습니다/)).toBeTruthy();
 });
