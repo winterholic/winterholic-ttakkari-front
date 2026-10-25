@@ -5,6 +5,7 @@
 /* ---- 컨텍스트 바·탭 ---- */
 .rs-context { display: flex; align-items: flex-end; gap: var(--tk-space-3); flex-wrap: wrap; }
 .rs-context__study { flex: 1 1 calc(var(--tk-space-24) * 2); min-width: 0; }
+@media (max-width: 47.99rem) { .rs-context__study { flex-basis: 100%; } }
 .rs-tabs { overflow-x: auto; scrollbar-width: none; }
 .rs-tabs .tk-tab { flex: none; }
 .rs-panel { display: grid; gap: var(--tk-space-5); min-width: 0; padding-top: var(--tk-space-2); }
@@ -29,7 +30,6 @@
 .rs-skeleton--card { height: calc(var(--tk-space-24) * 1.5); }
 .rs-wrapcell { white-space: normal; min-width: calc(var(--tk-space-24) * 2); }
 .rs-pre { margin: 0; padding: var(--tk-space-3); background: var(--tk-color-surface-subtle); border-radius: var(--tk-radius-sm); font-family: var(--tk-font-family-mono); font-size: var(--tk-font-size-xs); white-space: pre-wrap; overflow-wrap: anywhere; max-height: calc(var(--tk-space-24) * 3); overflow: auto; }
-.rs-meta-row { display: contents; }
 .rs-rellist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tk-space-3); }
 .rs-rellist > li { display: grid; gap: var(--tk-space-1); min-width: 0; overflow-wrap: anywhere; padding-bottom: var(--tk-space-3); border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); }
 .rs-rellist > li:last-child { border-bottom: 0; padding-bottom: 0; }
@@ -87,8 +87,6 @@ progress { accent-color: var(--tk-color-text-brand); }
 .rs-detail__sum { margin: 0; font-size: var(--tk-font-size-md); line-height: var(--tk-font-line-height-prose); overflow-wrap: anywhere; }
 .rs-detail__panel { display: grid; gap: var(--tk-space-4); padding-top: var(--tk-space-2); min-width: 0; }
 .rs-detail__panel h4 { margin: 0 0 var(--tk-space-2); font-size: var(--tk-font-size-md); }
-.rs-detail__panel .tk-meta { display: grid; grid-template-columns: minmax(var(--tk-space-16), max-content) minmax(0, 1fr); gap: var(--tk-space-1) var(--tk-space-4); margin: 0; }
-.rs-detail__panel .tk-meta dd, .rs-detail__panel .tk-meta dt { margin: 0; overflow-wrap: anywhere; }
 .rs-param-name { font-weight: var(--tk-font-weight-medium); }
 .rs-evidence { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tk-space-3); }
 .rs-evidence > li { display: grid; gap: var(--tk-space-1); }
@@ -102,6 +100,8 @@ progress { accent-color: var(--tk-color-text-brand); }
 .rs-paramdef { border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); padding: var(--tk-space-3); display: grid; gap: var(--tk-space-3); }
 .rs-paramdef > summary { cursor: pointer; font-weight: var(--tk-font-weight-medium); min-height: var(--tk-size-control-sm); }
 .rs-advanced { border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); padding-top: var(--tk-space-2); }
+.rs-advanced > summary::before { content: "▸"; margin-inline-end: var(--tk-space-2); color: var(--tk-color-text-tertiary); }
+.rs-advanced[open] > summary::before { content: "▾"; }
 .rs-advanced > summary { cursor: pointer; color: var(--tk-color-text-secondary); min-height: var(--tk-size-control-sm); display: flex; align-items: center; }
 .rs-advanced[open] > summary { margin-bottom: var(--tk-space-3); }
 .rs-json { font-size: var(--tk-font-size-sm); }
@@ -145,10 +145,11 @@ progress { accent-color: var(--tk-color-text-brand); }
 .rs-adapter { display: flex; gap: var(--tk-space-3); align-items: flex-start; padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); cursor: pointer; min-width: 0; }
 .rs-adapter:has(input:checked) { border-color: var(--tk-color-border-brand); background: var(--tk-color-interactive-selected-bg); }
 .rs-adapter input { flex: none; position: relative; top: var(--tk-space-1); }
-.rs-adapter > span { display: grid; gap: var(--tk-space-1); min-width: 0; overflow-wrap: anywhere; }
-.rs-adapter__hint { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-sm); }
+.rs-adapter > span { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-1-5) var(--tk-space-2); min-width: 0; overflow-wrap: anywhere; }
+.rs-adapter__hint, .rs-adapter .rs-reason { flex: 1 1 100%; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-sm); }
+.rs-adapter .rs-reason { color: var(--tk-color-status-warning-text); }
 .rs-adapter[data-ready="false"] strong { color: var(--tk-color-text-secondary); }
-.rs-envcheck { padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); overflow-wrap: anywhere; display: grid; gap: var(--tk-space-1); }
+.rs-envcheck { padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); overflow-wrap: anywhere; display: grid; gap: var(--tk-space-1); justify-items: start; }
 .rs-envcheck p { margin: 0; }
 .rs-picker { display: grid; gap: var(--tk-space-3); }
 .rs-picker__selected, .rs-picker__results { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--tk-space-2); }
@@ -177,8 +178,6 @@ th[data-changed="true"], td[data-changed="true"] { background: var(--tk-color-st
 .rs-artifacts__head { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); align-items: center; }
 .rs-artgroup { display: grid; gap: var(--tk-space-2); }
 .rs-facts { display: grid; gap: var(--tk-space-2); }
-.rs-facts .tk-meta { display: grid; grid-template-columns: minmax(var(--tk-space-16), max-content) minmax(0, 1fr); gap: var(--tk-space-1) var(--tk-space-4); margin: 0; }
-.rs-facts dt, .rs-facts dd { margin: 0; overflow-wrap: anywhere; }
 
 /* ---- 분석 ---- */
 .rs-analysis { display: grid; gap: var(--tk-space-4); min-width: 0; }
@@ -244,4 +243,8 @@ th[data-changed="true"], td[data-changed="true"] { background: var(--tk-color-st
 @media (max-width: 47.99rem) {
   .research .tk-button, .research .tk-input { min-height: var(--tk-size-touch-target-min); }
   .rs-step { padding: var(--tk-space-3); }
+}
+@media (pointer: coarse) {
+  .research .tk-chip, .research .tk-link { min-height: var(--tk-size-touch-target-min); }
+  .research .tk-link { display: inline-flex; align-items: center; }
 }

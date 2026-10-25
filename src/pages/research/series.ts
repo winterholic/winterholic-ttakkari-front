@@ -205,6 +205,13 @@ export function narrate(detail: ExperimentDetail): Narrative {
   const means = detail.configurations.map(c => ({ c, v: stats(byCfg.get(c.id)?.get(m.key) ?? []).mean })).filter((x): x is { c: Configuration; v: number } => x.v !== null);
   const baseId = pickBaseline(detail, null);
   const base = means.find(x => x.c.id === baseId);
+  if (detail.experiment.strategy === 'ablation' && base) {
+    // 요소를 뺀 설정은 나빠지는 것이 정상이다. 개선·퇴보가 아니라 요소별 기여를 말한다.
+    const drops = means.filter(x => x.c.role === 'ablation_drop').map(x => ({ ...x, impact: m.direction === 'higher_is_better' ? base.v - x.v : x.v - base.v }));
+    const top = drops.length ? drops.reduce((a, b) => (b.impact > a.impact ? b : a)) : null;
+    const proxyNote = m.is_proxy ? ' (간접 지표)' : '';
+    return { text: top ? `${head} ${m.label}${proxyNote} 기준으로 ‘${top.c.ablation_factor ?? top.c.label}’을(를) 뺐을 때 가장 크게 나빠졌습니다 (${fmtValue(base.v, m.unit)} → ${fmtValue(top.v, m.unit)}). 요소 ${drops.length}개를 하나씩 뺀 비교입니다.` : `${head} ${m.label}${proxyNote}: 전체 설정 ${fmtValue(base.v, m.unit)}. 제거 설정의 측정값이 없습니다.`, ok, bad, total: runs.length, bestLabel: base.c.label, improved: null };
+  }
   const pick = <T extends { v: number }>(a: T, b: T): T => ((m.direction === 'higher_is_better' ? b.v > a.v : b.v < a.v) ? b : a);
   const best = means.length ? means.reduce(pick) : null;
   const proxy = m.is_proxy ? ' (간접 지표)' : '';

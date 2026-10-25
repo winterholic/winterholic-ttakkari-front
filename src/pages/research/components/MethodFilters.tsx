@@ -26,14 +26,14 @@ function options(key: FilterKey, taxonomy: Taxonomy, facets: Facets, labelOf: (a
 
 interface Props {
   query: MethodQuery; facets: Facets; taxonomy: Taxonomy; labelOf: (axis: string, code: string) => string;
-  onToggle: (key: FilterKey, code: string) => void; onClear: () => void;
+  onToggle: (key: FilterKey, code: string) => void; onClear: () => void; hideTitle?: boolean;
 }
 
 /** 축별 다중 선택 + facet 건수. 건수는 서버가 다른 필터를 적용한 결과 기준으로 준다. 0건 항목도 눈에 보이게 두되 흐리게 한다. */
-export function MethodFilters({ query, facets, taxonomy, labelOf, onToggle, onClear }: Props) {
+export function MethodFilters({ query, facets, taxonomy, labelOf, onToggle, onClear, hideTitle }: Props) {
   const n = activeCount(query);
   return <div className="rs-filters" role="group" aria-label="방법론 필터">
-    <div className="rs-filters__head"><strong>필터</strong>{n > 0 && <button type="button" className="tk-button tk-button--ghost tk-button--sm" onClick={onClear}>모두 해제 ({n})</button>}</div>
+    <div className="rs-filters__head">{hideTitle ? <span /> : <strong>필터</strong>}{n > 0 && <button type="button" className="tk-button tk-button--ghost tk-button--sm" onClick={onClear}>모두 해제 ({n})</button>}</div>
     {FILTER_KEYS.map(key => {
       const opts = options(key, taxonomy, facets, labelOf);
       if (!opts.length) return null;

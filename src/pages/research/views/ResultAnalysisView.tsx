@@ -125,7 +125,8 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
 
         <Section title="Baseline 대비 변화" actions={<div className="tk-chips" role="group" aria-label="지표 선택">{metrics.map(m => <Chip key={m.key} pressed={m.key === metricKey} onClick={() => setMetricChoice(m.key)}>{m.label}</Chip>)}</div>}>
           {metric?.is_proxy && <Callout kind="warning" title="간접 지표입니다"><p>{metric.label}은(는) 목표 품질을 직접 재지 않습니다. 예를 들어 STT 재인식 오류율은 발음 명료도의 대리 지표이고, 실제 청취 품질·자연스러움은 직접 들어서 판단해야 합니다. <ProxyBadge metricKey={metric.key} /></p></Callout>}
-          {!baselineId ? <Callout kind="note">위에서 Baseline 을 지정하면 개선·퇴보를 계산합니다.</Callout> : metric && <DeltaBarChart items={deltas} metricLabel={metric.label} direction={metric.direction} baselineLabel={baselineLabel} />}
+          {detail.experiment.strategy === 'ablation' && <Callout kind="note">Ablation 실험입니다. 요소를 뺀 설정이 나빠지는 것은 정상이며, 많이 나빠질수록 그 요소의 기여가 크다는 뜻입니다. 요소별 기여는 아래 ‘Ablation 영향’에서 봅니다.</Callout>}
+          {!baselineId ?<Callout kind="note">위에서 Baseline 을 지정하면 개선·퇴보를 계산합니다.</Callout> : metric && <DeltaBarChart items={deltas} metricLabel={metric.label} direction={metric.direction} baselineLabel={baselineLabel} />}
         </Section>
 
         <Section title="지표별 비교" hint="지표마다 단위와 좋은 방향이 달라 따로 그립니다.">

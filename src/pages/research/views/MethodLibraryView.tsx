@@ -44,6 +44,7 @@ export function MethodLibraryView({ ctx }: { ctx: ResearchCtx }) {
   const total = pages[0]?.total ?? 0;
   const facets = pages[0]?.facets ?? {};
   const n = activeCount(query);
+  const multi = FILTER_KEYS.some(k => ((query[k] as string[] | undefined) ?? []).length > 1);
 
   const toggle = (key: FilterKey, code: string) => {
     const cur = (query[key] as string[] | undefined) ?? [];
@@ -77,14 +78,14 @@ export function MethodLibraryView({ ctx }: { ctx: ResearchCtx }) {
       {result.isPending && <div className="rs-cards" aria-busy="true">{Array.from({ length: 6 }, (_, i) => <div key={i} className="tk-skeleton tk-skeleton--block rs-skeleton rs-skeleton--card" />)}</div>}
       {!result.isPending && !result.error && !items.length && <Empty title={n || query.q ? '조건에 맞는 방법이 없습니다' : '등록된 방법이 없습니다'}
         action={n || query.q ? <Button onClick={clear}>필터 모두 해제</Button> : <Button variant="primary" onClick={() => setCreating(true)}>첫 방법·가설 등록</Button>}>
-        {n || query.q ? '필터를 줄이거나 검색어를 바꿔 보세요. 없는 아이디어는 새 가설로 등록할 수 있습니다.' : '카탈로그가 비어 있습니다. 서버의 카탈로그 동기화를 확인하거나 직접 등록하세요.'}</Empty>}
+        {n || query.q ? (multi ? '한 축에서 여러 값을 고른 결과가 비었습니다. 서버가 한 축의 여러 값 선택(OR)을 지원하지 않는 버전이면 이렇게 보일 수 있으니, 축마다 값을 하나만 골라 보세요. ' : '') + '필터를 줄이거나 검색어를 바꿔 보세요. 없는 아이디어는 새 가설로 등록할 수 있습니다.' : '카탈로그가 비어 있습니다. 서버의 카탈로그 동기화를 확인하거나 직접 등록하세요.'}</Empty>}
       <div className="rs-cards">{items.map(m => <MethodCard key={m.id} method={m} labelOf={label} selected={slug === m.slug} onOpen={() => ctx.go({ method: m.slug })} />)}</div>
       {result.hasNextPage && <div className="rs-more"><Button onClick={() => void result.fetchNextPage()} busy={result.isFetchingNextPage}>더 보기 ({(total - items.length).toLocaleString('ko-KR')}개 남음)</Button></div>}
     </div>
 
     {!wide && drawer && <Dialog kind="drawer" id="lib-filters" label="방법론 필터" open onClose={() => setDrawer(false)}>
       <div className="tk-drawer__header"><strong className="rs-drawer-title">필터 · {total.toLocaleString('ko-KR')}개</strong><IconButton aria-label="닫기" onClick={() => setDrawer(false)}><Icon name="x" /></IconButton></div>
-      <div className="tk-drawer__body rs-drawer-body">{panel}</div>
+      <div className="tk-drawer__body rs-drawer-body"><MethodFilters query={query} facets={facets} taxonomy={taxonomy} labelOf={label} onToggle={toggle} onClear={clear} hideTitle /></div>
       <div className="rs-drawer-foot"><Button variant="primary" block onClick={() => setDrawer(false)}>{total.toLocaleString('ko-KR')}개 방법 보기</Button></div>
     </Dialog>}
     {slug && <MethodDetailDialog slug={slug} onClose={() => ctx.go({ method: null })} onOpenMethod={s => ctx.go({ method: s })}

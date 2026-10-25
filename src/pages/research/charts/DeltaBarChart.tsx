@@ -18,7 +18,7 @@ export function DeltaBarChart({ items, metricLabel, direction, baselineLabel, ti
     summary={summary} height={rows.length * ROW + TOP}
     table={{ columns: ['설정', '변화율', '절대 변화', '판정'], rows: rows.map(r => [r.label, fmtPct(r.rel_delta_pct), r.abs_delta === null ? '—' : `${r.abs_delta > 0 ? '+' : ''}${Number(r.abs_delta.toPrecision(4))}${r.unit ? ` ${r.unit}` : ''}`, VERDICT_TEXT[r.verdict].word]) }}>
     {width => {
-      const labelW = Math.min(Math.round(width * 0.38), 180);
+      const labelW = Math.min(Math.round(width * 0.42), 240);
       const gutter = 76; // 막대 끝 값 글자 자리
       const plotW = Math.max(40, width - labelW - gutter);
       const mid = labelW + plotW / 2;

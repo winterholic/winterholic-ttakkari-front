@@ -5,7 +5,7 @@ import type { ParetoSeries } from '../types';
 import { ChartFrame, niceTicks } from './ChartFrame';
 
 const H = 300;
-const M = { l: 52, r: 16, t: 14, b: 40 };
+const M = { l: 52, r: 30, t: 14, b: 40 };
 
 /**
  * 두 지표의 trade-off 산점도. 파레토 프론티어(두 축 모두에서 다른 점에게 밀리지 않는 점)를 선으로 잇는다.

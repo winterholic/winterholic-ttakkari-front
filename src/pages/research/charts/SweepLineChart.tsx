@@ -3,7 +3,7 @@ import type { SweepLineSeries } from '../types';
 import { ChartFrame, niceTicks } from './ChartFrame';
 
 const H = 240;
-const M = { l: 52, r: 16, t: 14, b: 36 };
+const M = { l: 52, r: 30, t: 14, b: 36 };
 
 /** 파라미터 하나를 바꿀 때 지표가 어떻게 변하는지(민감도). 같은 값이 여러 설정에서 나오면 평균을 점으로 하고 n 을 표시한다. */
 export function SweepLineChart({ series }: { series: SweepLineSeries }) {

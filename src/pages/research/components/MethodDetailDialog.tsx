@@ -76,10 +76,10 @@ function Overview({ m }: { m: MethodDetail }) {
     <div className="rs-two"><div><h4>기대 효과</h4><BulletList items={m.expected_effects ?? []} /></div><div><h4>부작용·트레이드오프</h4><BulletList items={m.side_effects ?? []} empty="알려진 부작용이 기록되지 않았습니다. 없다는 뜻은 아닙니다." /></div></div>
     <div><h4>호환 환경</h4>
       <dl className="tk-meta">
-        <dt>하드웨어</dt><dd>{c.hardware?.length ? c.hardware.join(', ') : '제한 없음(기록 없음)'}</dd>
-        <dt>런타임</dt><dd>{c.runtimes?.length ? c.runtimes.join(', ') : '기록 없음'}</dd>
-        {!!c.requires?.length && <><dt>필요 조건</dt><dd>{c.requires.join(', ')}</dd></>}
-        {c.notes && <><dt>메모</dt><dd>{c.notes}</dd></>}
+        <div><dt>하드웨어</dt><dd>{c.hardware?.length ? c.hardware.join(', ') : '제한 없음(기록 없음)'}</dd></div>
+        <div><dt>런타임</dt><dd>{c.runtimes?.length ? c.runtimes.join(', ') : '기록 없음'}</dd></div>
+        {!!c.requires?.length && <div><dt>필요 조건</dt><dd>{c.requires.join(', ')}</dd></div>}
+        {c.notes && <div><dt>메모</dt><dd>{c.notes}</dd></div>}
       </dl></div>
     <div><h4>분류</h4>
       <dl className="tk-meta">{AXES.map(axis => {

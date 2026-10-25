@@ -9,7 +9,7 @@ import { ParetoScatterPlot } from './charts/ParetoScatterPlot';
 import { MetricComparisonBar } from './charts/MetricComparisonBar';
 import { SweepLineChart } from './charts/SweepLineChart';
 import { calls, cfgs, defaultHandler, experiment, mount, runs, runMeasurements, setup, study, validateOk } from './testkit';
-import { deriveSeries, paretoFor, stats } from './series';
+import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, ParamSpec } from './types';
 
 vi.mock('../../shell/PageHeader', () => ({ PageHeader: ({ title }: { title: string }) => <h1>{title}</h1> }));
@@ -241,6 +241,19 @@ describe('시리즈 계산', () => {
     // 값이 셋 이상 다른 숫자 파라미터만 Sweep 선이 된다. 실패한 설정(c3)은 점이 비어 있다
     expect(s.sweep_lines.find(l => l.parameter === 'bm25_k1' && l.metric_key === 'recall_at_k')?.points.map(p => p.y)).toEqual([0.5, 0.625, null]);
     expect(s.config_diff_table?.changed_keys).toEqual(['bm25_k1']);
+  });
+});
+
+describe('연구 요약 문장', () => {
+  it('Ablation 은 퇴보가 아니라 요소별 기여로 요약한다', () => {
+    const cs = [{ ...cfgs[0], role: 'baseline' }, { ...cfgs[1], role: 'ablation_drop', ablation_factor: 'convert_numbers' }];
+    const rs = [runs[0], runs[1]];
+    const ms = [{ ...runMeasurements.r1[2], metric_key: 'cer', metric_label: 'CER', value: 0.06 }, { ...runMeasurements.r2[2], metric_key: 'cer', metric_label: 'CER', value: 0.19 }];
+    const detail = { experiment: { ...experiment, strategy: 'ablation', primary_metric: 'cer' }, configurations: cs, runs: rs, measurements: ms, artifacts: [] } as unknown as ExperimentDetail;
+    const n = narrate(detail);
+    expect(n.text).toContain('convert_numbers');
+    expect(n.text).toContain('가장 크게 나빠졌습니다');
+    expect(n.improved).toBeNull();
   });
 });
 
