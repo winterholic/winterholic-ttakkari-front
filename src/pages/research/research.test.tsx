@@ -8,7 +8,7 @@ import { RepeatDistributionPlot } from './charts/RepeatDistributionPlot';
 import { ParetoScatterPlot } from './charts/ParetoScatterPlot';
 import { MetricComparisonBar } from './charts/MetricComparisonBar';
 import { SweepLineChart } from './charts/SweepLineChart';
-import { calls, cfgs, defaultHandler, experiment, mount, runs, runMeasurements, setup, study, validateOk } from './testkit';
+import { calls, cfgs, defaultHandler, experiment, methodDetail, mount, runs, runMeasurements, setup, study, validateOk } from './testkit';
 import { promotionNotice } from './format';
 import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, KnowledgeNode, MethodDetail, ParamSpec } from './types';
@@ -1188,7 +1188,7 @@ describe('수치 요약과 구분된 연구자 성공/실패 해석 저장 및 �
     fireEvent.click(screen.getByRole('button', { name: '해석 추가' }));
 
     expect(await screen.findByRole('dialog', { name: '성공 요인 해석 (노트)' })).toBeTruthy();
-    expect(screen.getByText(/epistemic_status는 unverified로 보존됩니다/)).toBeTruthy();
+    expect(screen.getByText(/검증되지 않은 의견이며 확정된 인과로 취급하지 않습니다/)).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText(/해석 제목/), { target: { value: 'BM25 희귀어 질의 매칭 성공' } });
     fireEvent.change(screen.getByLabelText(/관측 조건 및 다음 가설/), { target: { value: 'k1=1.8 조건에서 희귀어 재현율 25% 상승 관측, 다음은 불용어 제거 가설 검증 필요' } });
@@ -1199,7 +1199,8 @@ describe('수치 요약과 구분된 연구자 성공/실패 해석 저장 및 �
     const added = nodeAddedBody as unknown as Record<string, unknown>;
     expect(added.kind).toBe('interpretation');
     expect(added.title).toBe('BM25 희귀어 질의 매칭 성공');
-    expect(added.epistemic_status).toBe('unverified');
+    // NodeIn is strict: the server derives epistemic_status from evidence.
+    expect(added).not.toHaveProperty('epistemic_status');
     expect((added.conditions as Record<string, unknown>)?.experiment_id).toBe('e1');
 
     // 스냅샷 재조회 후 화면에 표시
@@ -1229,3 +1230,36 @@ describe('수치 요약과 구분된 연구자 성공/실패 해석 저장 및 �
 });
 
 
+
+
+it('preserves source cutoff and explicit edits without method defaults on reuse', async () => {
+  let captured: Record<string, unknown> | null = null;
+  setup((path, body) => {
+    if (path.split('?')[0] === '/methods/m1') return { ...methodDetail, parameters: [
+      { key: 'top_k', label: '검색 수', type: 'integer', default: 20 },
+      { key: 'dense_weight', label: '밀집 검색 비중', type: 'number', default: 0.6 },
+    ] };
+    if (path === '/experiments/e1' && !body) return {
+      ...defaultHandler(path) as object,
+      experiment: { ...experiment, method_id: 'm1', primary_metric: 'recall_at_5' },
+      configurations: [{ ...cfgs[0], parameters: { k: 5, preset_id: 'ko_tech_docs_v1', retriever_mode: 'lexical_overlap' } }],
+    };
+    if (path === '/studies/s1/experiments' && body) captured = body as Record<string, unknown>;
+    return defaultHandler(path, body);
+  });
+  mount('/research?view=designer&study=s1&reuse_study=s1&reuse_experiment=e1&reuse_configuration=c1');
+  await screen.findByText('출처 설정 기반 후속 실험');
+  const createBtn = screen.getByRole('button', { name: '실험만 만들기' });
+  await waitFor(() => expect(createBtn.hasAttribute('disabled')).toBe(false));
+  expect(screen.getByLabelText('검색 수')).toHaveProperty('value', '');
+  fireEvent.change(screen.getByLabelText('평가 k'), { target: { value: '7' } });
+  fireEvent.click(createBtn);
+  await waitFor(() => expect(captured).not.toBeNull());
+  const payload = captured as unknown as { fixed_inputs: Record<string, unknown>; search_space: Record<string, unknown>; primary_metric: string };
+  const effective = { ...payload.fixed_inputs, ...payload.search_space };
+  expect(effective.k).toBe(7);
+  expect(effective.retriever_mode).toBe('lexical_overlap');
+  expect(effective).not.toHaveProperty('top_k');
+  expect(effective).not.toHaveProperty('dense_weight');
+  expect(payload.primary_metric).toBe('recall_at_7');
+});

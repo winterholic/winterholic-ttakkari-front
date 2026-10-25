@@ -70,7 +70,6 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
           interpretation_type: interpType,
           hypothesis: interpSummary.trim(),
         },
-        epistemic_status: 'unverified',
       });
     },
     onSuccess: () => {
@@ -374,7 +373,7 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
         >
           <div className="rs-form">
             <Callout kind="note">
-              연구자의 주관적 해석 노트로 저장됩니다. 확정된 인과가 아니며 epistemic_status는 unverified로 보존됩니다.
+              연구자의 주관적 해석 노트로 저장됩니다. 검증되지 않은 의견이며 확정된 인과로 취급하지 않습니다.
             </Callout>
             <div className="tk-field">
               <label className="tk-label" htmlFor="inp-interp-title">해석 제목 (필수 짧은 설명)</label>

@@ -70,10 +70,11 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
         adapterId: srcExp.adapter_id,
         adapterTouched: true,
         primaryMetric: srcExp.primary_metric,
-        inputs: { ...foundReuseConfig.parameters, ...d.inputs },
+        strategy: 'single',
+        inputs: { ...foundReuseConfig.parameters },
         params: {
-          values: { ...foundReuseConfig.parameters, ...d.params.values },
-          sweeps: d.params.sweeps,
+          values: { ...foundReuseConfig.parameters },
+          sweeps: {},
         },
         source_study_id: reuseStudyId || ctx.studyId,
         source_experiment_id: srcExp.id,
@@ -105,7 +106,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
   // 파생 값: 사용자가 건드리지 않은 항목은 선택한 방법과 실행기에서 정한다
   const adapterId = design.adapterTouched ? design.adapterId : suggestAdapter(methods, adapterReady) || '';
   const { specs, owners } = useMemo(() => mergeSpecs(methods, adapterId), [methods, adapterId]);
-  const params = useMemo(() => ({ values: { ...defaultValues(specs), ...design.params.values }, sweeps: design.params.sweeps }), [specs, design.params]);
+  const params = useMemo(() => ({ values: { ...(design.source_configuration_id ? {} : defaultValues(specs)), ...design.params.values }, sweeps: design.params.sweeps }), [specs, design.params, design.source_configuration_id]);
   const metricCtx = useMemo(() => ({ params, inputs: design.inputs, extra: design.extra }), [params, design.inputs, design.extra]);
   const choices = useMemo(() => metricChoices(methods, adapterId, metricCtx), [methods, adapterId, metricCtx]);
   const unmeasured = useMemo(() => unmeasurableMetrics(methods, adapterId, metricCtx), [methods, adapterId, metricCtx]);
@@ -138,7 +139,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
       if (!ctx.studyId || !payload) throw new Error('연구를 먼저 선택하세요.');
       return createExperiment(ctx.studyId, { ...payload, name: eff.name, hypothesis: design.hypothesis.trim(), rationale: design.rationale.trim(), auto_start: autoStart });
     },
-    onSuccess: r => { void cache.invalidateQueries({ queryKey: KEY }); ctx.go({ view: 'monitor', experiment: r.experiment.id, method: null }); },
+    onSuccess: r => { void cache.invalidateQueries({ queryKey: KEY }); ctx.go({ view: 'monitor', experiment: r.experiment.id, method: null, reuse_study: null, reuse_experiment: null, reuse_configuration: null, reuse_run: null }); },
   });
   const blocked = errs.length > 0 || (validate.data ? !validate.data.valid : false) || checks.some(c => c.tone === 'danger') || reuseHasError;
   const submit = (auto: boolean) => { setError(''); create.mutate(auto, { onError: e => setError(errorText(e)) }); };
@@ -301,7 +302,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
               파라미터 중 <code>top_k</code>가 설정되어 있어 공통 평가 <code>k</code> 대신 <code>top_k</code>가 실제 검색 실행 및 지표 기준으로 적용됩니다. 공통 <code>k</code>는 effective 변수로 동작하지 않습니다.
             </Callout>
           )}
-          {hasShadowedKSweep(adapterId, metricCtx) && (
+          {sweepEnabled && hasShadowedKSweep(adapterId, metricCtx) && (
             <Callout kind="caution" title="무시되는 k 탐색(Sweep) 차단">
               <code>top_k</code>가 설정된 상태에서는 <code>k</code> 탐색(sweep)이 백엔드 우선순위에 의해 무시됩니다. 범위를 탐색하려면 <code>k</code> 대신 <code>top_k</code> 파라미터의 '값 여러 개 탐색'을 사용하세요.
             </Callout>

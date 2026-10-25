@@ -1,6 +1,6 @@
 import { buildSearchSpace, paramError, type ParamState } from './components/DynamicParameterForm';
 import { relationOther } from './format';
-import { ADAPTER, ADAPTER_METRICS, METRICS, adapterLabel } from './labels';
+import { ADAPTER, ADAPTER_METRICS, METRICS, SWEEP_STRATEGIES, adapterLabel } from './labels';
 import type { Budget, ExperimentPayload, MethodDetail, ParamSpec, Strategy } from './types';
 
 export interface DesignState {
@@ -62,13 +62,11 @@ export function hasTopK(context?: MetricContext): boolean {
 export function hasShadowedKSweep(adapterId: string, context?: MetricContext): boolean {
   if (adapterId !== 'retrieval_eval') return false;
   if (!hasTopK(context)) return false;
-  const { params, extra, inputs } = context ?? {};
+  const { params, extra } = context ?? {};
   const kSweep = params?.sweeps.k;
-  if (Array.isArray(kSweep) && kSweep.length > 0) return true;
+  if (Array.isArray(kSweep) && kSweep.length > 1) return true;
   const extraK = extra?.k;
   if (Array.isArray(extraK) && extraK.length > 1) return true;
-  const inputK = inputs?.k;
-  if (Array.isArray(inputK) && inputK.length > 1) return true;
   return false;
 }
 
@@ -211,10 +209,10 @@ export function suggestAdapter(methods: MethodDetail[], ready: (id: string) => b
 
 export function buildPayload(studyId: string, methods: MethodDetail[], s: DesignState, specs: ParamSpec[]): ExperimentPayload {
   const inputs = { ...s.inputs } as Record<string, unknown>;
-  if (s.adapterId === 'tts_synthesis' && !inputs.preset_id && !inputs.texts) {
+  if (!s.source_configuration_id && s.adapterId === 'tts_synthesis' && !inputs.preset_id && !inputs.texts) {
     inputs.preset_id = 'ko_mixed_pronunciation_v1';
   }
-  if (s.adapterId === 'retrieval_eval' && !inputs.preset_id && !inputs.corpus) {
+  if (!s.source_configuration_id && s.adapterId === 'retrieval_eval' && !inputs.preset_id && !inputs.corpus) {
     inputs.preset_id = 'ko_tech_docs_v1';
   }
   for (const k of Object.keys(inputs)) if (inputs[k] === '' || inputs[k] === undefined) delete inputs[k];
@@ -298,7 +296,7 @@ export function localErrors(s: DesignState, specs: ParamSpec[], methods: MethodD
   if (!s.adapterId) errs.push('실행기를 선택하세요.');
   if (!s.primaryMetric && s.adapterId !== 'external_report') errs.push('주요 지표를 선택하세요.');
   if (s.adapterId === 'llm_inference' && !String(s.inputs.prompt ?? '').trim()) errs.push('LLM 추론 실험에는 프롬프트가 필요합니다.');
-  if (hasShadowedKSweep(s.adapterId, { params: s.params, inputs: s.inputs, extra: s.extra })) {
+  if (SWEEP_STRATEGIES.includes(s.strategy) && hasShadowedKSweep(s.adapterId, { params: s.params, inputs: s.inputs, extra: s.extra })) {
     errs.push('top_k가 설정된 상태에서는 k 탐색(sweep)이 백엔드 우선순위에 의해 무시됩니다. 파라미터 탐색을 k 대신 top_k로 지정하세요.');
   }
   for (const sp of specs) { if (s.params.sweeps[sp.key]) continue; const e = paramError(sp, s.params.values[sp.key]); if (e) errs.push(`${sp.label}: ${e}`); }
