@@ -5,6 +5,7 @@ import type { IconName } from "../../ui/Icon";
 
 export const ENGINE_LABEL: Record<HarnessEngine, string> = {
   claude: "Claude", codex: "Codex", antigravity: "Antigravity", muse: "Muse", "qwen-local": "Qwen", shared: "공용(.agents)", ttakkari: "따까리",
+  opencode: "OpenCode", copilot: "GitHub Copilot",
 };
 export const SCOPE_LABEL: Record<HarnessScope, string> = { global: "글로벌", project: "프로젝트", account: "계정", ttakkari: "따까리" };
 export const SESSION_LABEL: Record<HarnessSession, string> = { desk: "접수", lead: "기획", worker: "작업자", orchestrator: "메인(옛)" };
@@ -16,6 +17,7 @@ export const SESSION_HINT: Record<HarnessSession, string> = {
 };
 export const LAYER_ENGINE_LABEL: Record<LayerEngine, string> = {
   claude: "Claude", codex: "Codex", antigravity: "Antigravity", muse: "Muse", "qwen-local": "Qwen",
+  opencode: "OpenCode", copilot: "GitHub Copilot",
 };
 export const SOURCE_LABEL: Record<HarnessRow["source"], string> = {
   file: "파일", code: "코드 상수", db: "DB", config: "설정(config)", generated: "실행 시 생성",
@@ -89,5 +91,6 @@ export function highlightParts(text: string, query: string): { text: string; hit
 
 export const GROUP_ICON: Record<HarnessGroupId, IconName> = {
   claude: "terminal", codex: "code", muse: "palette", qwen: "gauge", antigravity: "sparkles", ttakkari: "shield", projects: "folder-open",
+  opencode: "terminal", copilot: "sparkles",
 };
 export const PHASE_ORDER = ["prompt", "delivery", "guard", "tool"] as const;

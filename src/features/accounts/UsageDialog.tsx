@@ -16,7 +16,7 @@ import "./usage.css";
 // ezwork fsw(ezChat) 와 같은 경계: 80% 부터 아끼고, 95% 부터 거의 없다.
 const WARN = 80;
 const DANGER = 95;
-const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준", antigravity_cli: "Antigravity 공식 CLI 기준", muse_cli: "Muse Code 구독 사용량 기준" };
+const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준", antigravity_cli: "Antigravity 공식 CLI 기준", muse_cli: "Muse Code 구독 사용량 기준", opencode_cli: "OpenCode 실행 기록 기준", copilot_cli: "GitHub Copilot CLI 기준" };
 
 function level(p: number): "ok" | "warn" | "danger" {
   return p >= DANGER ? "danger" : p >= WARN ? "warn" : "ok";
