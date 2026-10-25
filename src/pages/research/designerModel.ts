@@ -75,6 +75,9 @@ export function suggestAdapter(methods: MethodDetail[], ready: (id: string) => b
 
 export function buildPayload(studyId: string, methods: MethodDetail[], s: DesignState, specs: ParamSpec[]): ExperimentPayload {
   const inputs = { ...s.inputs } as Record<string, unknown>;
+  if (s.adapterId === 'tts_synthesis' && !inputs.preset_id && !inputs.texts) {
+    inputs.preset_id = 'ko_mixed_pronunciation_v1';
+  }
   for (const k of Object.keys(inputs)) if (inputs[k] === '' || inputs[k] === undefined) delete inputs[k];
   // 서버는 fixed_inputs 를 모든 설정의 파라미터에 합친다. 데이터셋 버전도 여기에 남겨 설정 비교에 같이 보이게 한다.
   if (s.datasetVersion.trim()) inputs.dataset_version = s.datasetVersion.trim();

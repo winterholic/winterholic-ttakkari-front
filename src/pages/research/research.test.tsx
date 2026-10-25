@@ -14,7 +14,7 @@ import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, ParamSpec } from './types';
 import { researchRequest } from '../../api/client';
 import { getMethod, listMethods } from './api';
-import { effectiveBudget, initialDesign, mergeSpecs, metricChoices, unmeasurableMetrics } from './designerModel';
+import { buildPayload, effectiveBudget, initialDesign, mergeSpecs, metricChoices, unmeasurableMetrics } from './designerModel';
 import type { MethodDetail } from './types';
 
 vi.mock('../../shell/PageHeader', () => ({ PageHeader: ({ title }: { title: string }) => <h1>{title}</h1> }));
@@ -174,6 +174,11 @@ describe('실험 설계실', () => {
     expect(modelSpec).toBeTruthy();
     expect(modelSpec?.default).toBe('qwen3.5-4b-q4_k_m');
     expect(owners.model).toBe('실행기 공통');
+  });
+
+  it('tts_synthesis 실행기에서 preset_id와 texts가 비어있으면 기본 프리셋 ko_mixed_pronunciation_v1을 보낸다', () => {
+    const payload = buildPayload('s1', [], { ...initialDesign, adapterId: 'tts_synthesis' }, []);
+    expect(payload.fixed_inputs.preset_id).toBe('ko_mixed_pronunciation_v1');
   });
 });
 
