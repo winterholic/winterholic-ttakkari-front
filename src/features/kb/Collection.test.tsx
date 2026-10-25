@@ -38,7 +38,7 @@ it("선택한 출처만 실행하고 중복 실행 중에는 버튼을 비활성
   mocks.run.mockImplementation(() => new Promise((resolve) => { done = resolve; }));
   mount();
   fireEvent.click(await screen.findByRole("button", { name: "지금 수집" }));
-  await waitFor(() => expect(mocks.run).toHaveBeenCalledWith("s1", "personal"));
+  await waitFor(() => expect(mocks.run).toHaveBeenCalledWith("s1", undefined));
   expect(screen.getByRole("button", { name: "지금 수집" }).hasAttribute("disabled")).toBe(true);
   done({ job_id: "j1" });
   await waitFor(() => expect(screen.getByRole("button", { name: "지금 수집" }).hasAttribute("disabled")).toBe(false));

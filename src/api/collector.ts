@@ -23,20 +23,21 @@ export interface QualityStatus {
     metrics: { train_count: number; validation_count: number; model: { precision: number; recall: number }; majority_baseline: { precision: number; recall: number } } } | null;
 }
 const base = "/api/assistant/collect";
-export const collectSources = (scope: KbScope) => json<{ items: CollectSource[]; runtime_enabled: boolean; daily_page_cap: number }>(`${base}/sources`, { query: { scope } });
-export const createCollectSource = (scope: KbScope, body: Record<string, unknown>) => json<CollectSource>(`${base}/sources`, { method: "POST", query: { scope }, json: body });
-export const updateCollectSource = (id: string, scope: KbScope, enabled: boolean, version: number) => json<CollectSource>(`${base}/sources/${encodeURIComponent(id)}`, { method: "PATCH", query: { scope }, json: { enabled, expected_version: version } });
-export const runCollectSource = (id: string, scope: KbScope) => json<CollectJob>(`${base}/sources/${encodeURIComponent(id)}/run`, { method: "POST", query: { scope } });
-export const collectJobs = (scope: KbScope, cursor?: string) => json<{ jobs: CollectJob[]; next_cursor: string | null }>(`${base}/jobs`, { query: { scope, cursor, limit: 20 } });
-export const collectItems = (id: string, scope: KbScope, offset = 0) => json<{ items: CollectItem[]; total: number; limit: number; offset: number }>(`${base}/jobs/${encodeURIComponent(id)}/items`, { query: { scope, offset } });
-export const retryCollectJob = (id: string, scope: KbScope) => json<CollectJob>(`${base}/jobs/${encodeURIComponent(id)}/retry`, { method: "POST", query: { scope } });
-export const cancelCollectJob = (id: string, scope: KbScope) => json(`${base}/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST", query: { scope } });
-export const collectQuality = (scope: KbScope) => json<QualityStatus>(`${base}/quality`, { query: { scope } });
-export const trainCollectQuality = (scope: KbScope) => json(`${base}/quality/train`, { method: "POST", query: { scope } });
-export const reviewCollectItem = (id: string, scope: KbScope, decision: "accept" | "reject" | "hold", reason: string) => json(`${base}/items/${encodeURIComponent(id)}/reviews`, { method: "POST", query: { scope }, json: { decision, reason } });
-export const importCollectItem = (id: string, scope: KbScope) => json(`${base}/items/${encodeURIComponent(id)}/import`, { method: "POST", query: { scope } });
+const scopeQuery = (scope?: KbScope) => (scope ? { scope } : {});
+export const collectSources = (scope?: KbScope) => json<{ items: CollectSource[]; runtime_enabled: boolean; daily_page_cap: number }>(`${base}/sources`, { query: scopeQuery(scope) });
+export const createCollectSource = (scope: KbScope | undefined, body: Record<string, unknown>) => json<CollectSource>(`${base}/sources`, { method: "POST", query: scopeQuery(scope), json: body });
+export const updateCollectSource = (id: string, scope: KbScope | undefined, enabled: boolean, version: number) => json<CollectSource>(`${base}/sources/${encodeURIComponent(id)}`, { method: "PATCH", query: scopeQuery(scope), json: { enabled, expected_version: version } });
+export const runCollectSource = (id: string, scope?: KbScope) => json<CollectJob>(`${base}/sources/${encodeURIComponent(id)}/run`, { method: "POST", query: scopeQuery(scope) });
+export const collectJobs = (scope?: KbScope, cursor?: string) => json<{ jobs: CollectJob[]; next_cursor: string | null }>(`${base}/jobs`, { query: { ...scopeQuery(scope), cursor, limit: 20 } });
+export const collectItems = (id: string, scope?: KbScope, offset = 0) => json<{ items: CollectItem[]; total: number; limit: number; offset: number }>(`${base}/jobs/${encodeURIComponent(id)}/items`, { query: { ...scopeQuery(scope), offset } });
+export const retryCollectJob = (id: string, scope?: KbScope) => json<CollectJob>(`${base}/jobs/${encodeURIComponent(id)}/retry`, { method: "POST", query: scopeQuery(scope) });
+export const cancelCollectJob = (id: string, scope?: KbScope) => json(`${base}/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST", query: scopeQuery(scope) });
+export const collectQuality = (scope?: KbScope) => json<QualityStatus>(`${base}/quality`, { query: scopeQuery(scope) });
+export const trainCollectQuality = (scope?: KbScope) => json(`${base}/quality/train`, { method: "POST", query: scopeQuery(scope) });
+export const reviewCollectItem = (id: string, scope: KbScope | undefined, decision: "accept" | "reject" | "hold", reason: string) => json(`${base}/items/${encodeURIComponent(id)}/reviews`, { method: "POST", query: scopeQuery(scope), json: { decision, reason } });
+export const importCollectItem = (id: string, scope?: KbScope) => json(`${base}/items/${encodeURIComponent(id)}/import`, { method: "POST", query: scopeQuery(scope) });
 
-export const editCollectSource = (id: string, scope: KbScope, body: Record<string, unknown>) => json<CollectSource>(`${base}/sources/${encodeURIComponent(id)}`, { method: "PATCH", query: { scope }, json: body });
+export const editCollectSource = (id: string, scope: KbScope | undefined, body: Record<string, unknown>) => json<CollectSource>(`${base}/sources/${encodeURIComponent(id)}`, { method: "PATCH", query: scopeQuery(scope), json: body });
 
 export interface CollectSummary {
   funnel: { discovered: number; fetched: number; extracted: number; accepted: number; held: number; blocked: number; failed: number;
@@ -76,15 +77,15 @@ export interface CollectRuntime {
   loop_available: boolean; general_consume_enabled: boolean; paused: boolean; reason: string | null; since: string | null;
   pilot: { seeded: string[]; rights_checked_at: string } | null; pilot_enabled: boolean; ml_spending_enabled: boolean;
 }
-export const collectSummary = (scope: KbScope) => json<CollectSummary>(`${base}/summary`, { query: { scope } });
-export const collectBudgets = (scope: KbScope) => json<CollectBudget>(`${base}/budgets`, { query: { scope } });
-export const collectReviewQueue = (scope: KbScope, offset = 0) => json<{ items: ReviewItem[]; total: number; limit: number; offset: number }>(`${base}/review`, { query: { scope, offset } });
-export const collectItemDetail = (id: string, scope: KbScope) => json<CollectItemDetail>(`${base}/items/${encodeURIComponent(id)}`, { query: { scope } });
-export const reprocessCollectItem = (id: string, scope: KbScope) => json<{ job_id: string; status: string }>(`${base}/items/${encodeURIComponent(id)}/reprocess`, { method: "POST", query: { scope } });
-export const collectDeliveries = (scope: KbScope, status?: string, offset = 0) => json<{ items: CollectDelivery[]; total: number; limit: number; offset: number }>(`${base}/deliveries`, { query: { scope, status, offset } });
-export const reconcileCollectDelivery = (id: string, scope: KbScope) => json<{ state: string; status: string }>(`${base}/deliveries/${encodeURIComponent(id)}/reconcile`, { method: "POST", query: { scope } });
-export const collectRuntime = (scope: KbScope) => json<CollectRuntime>(`${base}/runtime`, { query: { scope } });
-export const setCollectRuntime = (scope: KbScope, paused: boolean, reason: string) => json<{ paused: boolean }>(`${base}/runtime`, { method: "PUT", query: { scope }, json: { paused, reason } });
-export const registerCollectPilot = (scope: KbScope) => json<{ created: string[]; available: string[] }>(`${base}/pilot`, { method: "POST", query: { scope } });
+export const collectSummary = (scope?: KbScope) => json<CollectSummary>(`${base}/summary`, { query: scopeQuery(scope) });
+export const collectBudgets = (scope?: KbScope) => json<CollectBudget>(`${base}/budgets`, { query: scopeQuery(scope) });
+export const collectReviewQueue = (scope?: KbScope, offset = 0) => json<{ items: ReviewItem[]; total: number; limit: number; offset: number }>(`${base}/review`, { query: { ...scopeQuery(scope), offset } });
+export const collectItemDetail = (id: string, scope?: KbScope) => json<CollectItemDetail>(`${base}/items/${encodeURIComponent(id)}`, { query: scopeQuery(scope) });
+export const reprocessCollectItem = (id: string, scope?: KbScope) => json<{ job_id: string; status: string }>(`${base}/items/${encodeURIComponent(id)}/reprocess`, { method: "POST", query: scopeQuery(scope) });
+export const collectDeliveries = (scope?: KbScope, status?: string, offset = 0) => json<{ items: CollectDelivery[]; total: number; limit: number; offset: number }>(`${base}/deliveries`, { query: { ...scopeQuery(scope), status, offset } });
+export const reconcileCollectDelivery = (id: string, scope?: KbScope) => json<{ state: string; status: string }>(`${base}/deliveries/${encodeURIComponent(id)}/reconcile`, { method: "POST", query: scopeQuery(scope) });
+export const collectRuntime = (scope?: KbScope) => json<CollectRuntime>(`${base}/runtime`, { query: scopeQuery(scope) });
+export const setCollectRuntime = (scope: KbScope | undefined, paused: boolean, reason: string) => json<{ paused: boolean }>(`${base}/runtime`, { method: "PUT", query: scopeQuery(scope), json: { paused, reason } });
+export const registerCollectPilot = (scope?: KbScope) => json<{ created: string[]; available: string[] }>(`${base}/pilot`, { method: "POST", query: scopeQuery(scope) });
 export interface HoldAudit { day: string; per_group: number; groups: { source_key: string; reason: string; held: number; sampled: number }[]; items: ReviewItem[] }
-export const collectHoldAudit = (scope: KbScope) => json<HoldAudit>(`${base}/review/audit`, { query: { scope, per_group: 2 } });
+export const collectHoldAudit = (scope?: KbScope) => json<HoldAudit>(`${base}/review/audit`, { query: { ...scopeQuery(scope), per_group: 2 } });
