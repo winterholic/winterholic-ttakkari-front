@@ -90,6 +90,7 @@ export const scheduleCollectionMission = (id: string, intervalMinutes: number | 
 export interface UnholdMissionItemResult {
   item_id: string;
   status: string;
+  message?: string;
   delivery_queued?: boolean;
   reasons?: string[];
   review?: { decision?: string; meaning?: string; factuality?: string };

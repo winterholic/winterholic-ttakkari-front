@@ -222,3 +222,13 @@ it("보류 복구 422 코드와 이미 보류 아님 응답을 내부 코드 없
   fireEvent.click(screen.getByRole("button", { name: "보류 복구" }));
   expect(await screen.findByText(/이미 보류 상태가 아니어서 바꾸지 않았습니다/)).toBeTruthy();
 });
+
+it("이미 수락된 항목의 item_not_held 응답을 복구 처리 완료로 오인하지 않는다", async () => {
+  api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], status: "held", delivery: null }] });
+  // backend returns the item's current status (here already accepted) with message item_not_held
+  api.unhold.mockResolvedValueOnce({ item_id: "i1", status: "accepted", message: "item_not_held" });
+  mount("/collect?mission=m1");
+  fireEvent.click(await screen.findByRole("button", { name: "보류 복구" }));
+  expect(await screen.findByText(/이미 보류 상태가 아니어서 바꾸지 않았습니다/)).toBeTruthy();
+  expect(screen.queryByText(/복구 요청이 처리됐습니다/)).toBeNull();
+});

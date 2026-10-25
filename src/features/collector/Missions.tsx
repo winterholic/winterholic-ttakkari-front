@@ -393,7 +393,7 @@ function Result({ mission }: { mission: CollectionMission }) {
           {unholdMut.isPending && unholdMut.variables === item.id && <p role="status" className="kb-note">보류 복구를 요청하는 중입니다.</p>}
           {unholdMut.isError && unholdMut.variables === item.id && <p role="alert" className="tk-error">{unholdFailure(unholdMut.error)}</p>}
         </div>}
-        {unholdMut.isSuccess && unholdMut.variables === item.id && <p role="status" className="kb-note">{unholdMut.data.status === "accepted"
+        {unholdMut.isSuccess && unholdMut.variables === item.id && <p role="status" className="kb-note">{unholdMut.data.message !== "item_not_held"
           ? "복구 요청이 처리됐습니다. 도서관 적재 완료 여부는 가져오기 확인 후 갱신됩니다."
           : "이미 보류 상태가 아니어서 바꾸지 않았습니다. 최신 상태를 다시 읽었습니다."}</p>}
         {item.document_id && <Link to={`/knowledge-library?view=docs&doc=${encodeURIComponent(item.document_id)}${item.revision_id ? `&rev=${encodeURIComponent(item.revision_id)}` : ""}`}>도서관에서 보기</Link>}
