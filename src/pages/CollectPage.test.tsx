@@ -116,3 +116,17 @@ it("API가 허용하지 않는 15분 미만 직접 주기는 저장할 수 없�
   expect(screen.getByRole("button", { name: "주기 저장" }).hasAttribute("disabled")).toBe(true);
   expect(api.schedule).not.toHaveBeenCalled();
 });
+
+it("임무 상세에 마지막 갱신 회차와 회차별 수집/적재 성과를 표시한다", async () => {
+  api.detail.mockResolvedValue({
+    ...mission,
+    run_seq: 2,
+    runs: [
+      { run_seq: 2, trigger: "scheduled", started_at: "2026-10-25T15:00:00Z", page_budget: 10, pages_used: 5, collected: 3, unchanged: 2, imported: 3, in_progress: false },
+      { run_seq: 1, trigger: "initial", started_at: "2026-10-25T14:00:00Z", page_budget: 10, pages_used: 10, collected: 8, unchanged: 0, imported: 7, in_progress: false },
+    ],
+  });
+  mount("/collect?mission=m1");
+  expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
+  expect(screen.getByText(/수집 3건 · 적재 3건/)).toBeTruthy();
+});

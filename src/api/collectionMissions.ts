@@ -10,11 +10,25 @@ export interface CollectionPlan {
   stop_conditions: string[];
   schedule?: { interval_minutes: number | null; updated_at?: string };
 }
+export interface CollectionMissionRun {
+  run_seq: number;
+  trigger: string;
+  started_at: string;
+  page_budget: number;
+  pages_used: number;
+  collected: number;
+  unchanged: number;
+  imported: number;
+  in_progress: boolean;
+}
+
 export interface CollectionMission {
   id: string; title: string; goal: string; status: string;
   plan: CollectionPlan;
+  run_seq?: number;
+  runs?: CollectionMissionRun[];
   counts: Record<string, number>;
-  jobs: { job_id: string; status: string; stage: string; error: { code?: string; detail?: string } | null }[];
+  jobs: { job_id: string; status: string; stage: string; run_seq?: number; error: { code?: string; detail?: string } | null }[];
   gaps: { url?: string; reason: string; message: string }[];
   results: { id: string; url: string; title: string; status: string; reasons: string[]; document_id: string | null; revision_id: string | null; delivery: string | null }[];
   knowledge_processing: { storage: string; semantic: string };

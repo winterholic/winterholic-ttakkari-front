@@ -110,6 +110,12 @@ function Result({ mission }: { mission: CollectionMission }) {
       <h2>{mission.title}</h2>
       <span role="status" className="mission-status-badge">{STATUS[mission.status] ?? mission.status}</span>
     </div>
+    <p className="kb-note" aria-label="회차 정보">
+      마지막 갱신 회차: {mission.run_seq ?? 1}회차
+      {mission.runs && mission.runs.length > 0 && mission.runs[0].run_seq === (mission.run_seq ?? 1) && (
+        <> (수집 {mission.runs[0].collected ?? 0}건 · 적재 {mission.runs[0].imported ?? 0}건)</>
+      )}
+    </p>
 
     <div className="mission-controls" aria-label="임무 제어">
       {mission.status === "running" && (
