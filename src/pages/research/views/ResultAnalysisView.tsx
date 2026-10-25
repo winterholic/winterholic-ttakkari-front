@@ -59,10 +59,11 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
     enabled: !!expId && !!detail,
   });
 
-  // 서버 최신 유효 응답을 우선하고, 응답이 없거나 구형 형태(null)인 경우에만 로컬 deriveSeries 로 fallback 한다.
-  // 단, HTTP 실패/네트워크 오류(compareQ.isError)는 로컬 계산으로 은폐하지 않는다.
+  // 실제 성공 응답이 구형 형태(null)였던 경우에만 로컬 계산을 대체로 쓴다.
+  // 초기 대기·비활성·새 key 대기·최초 오류는 로컬 비교 결과로 채우지 않는다.
   const isServerSeries = !!compareQ.data;
-  const series = compareQ.data ?? (compareQ.isError ? null : (detail ? deriveSeries(detail, baselineId) : null));
+  const hasSuccessfulLegacyResponse = compareQ.data === null && compareQ.dataUpdatedAt > 0;
+  const series = compareQ.data ?? (hasSuccessfulLegacyResponse && detail ? deriveSeries(detail, baselineId) : null);
 
   const analyze = useMutation({
     mutationFn: () => analyzeExperiment(expId as string, { baseline_configuration_id: baselineId, pareto_x_metric: px || undefined, pareto_y_metric: py || undefined }),
@@ -96,17 +97,20 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
     </div>
 
     {!expId && <Empty title="실험을 고르세요">위에서 실험을 고르면 설정별 결과를 비교합니다.</Empty>}
-    {expId && (detailQ.isPending || (detail && compareQ.isPending && !series)) && <Skeleton rows={4} />}
+    {expId && detailQ.isPending && <Skeleton rows={4} />}
     {detailQ.error && <Callout kind="caution">{errorText(detailQ.error)} <Button size="sm" onClick={() => void detailQ.refetch()}>다시 불러오기</Button></Callout>}
-    {compareQ.error && <Callout kind="caution">{errorText(compareQ.error)} <Button size="sm" onClick={() => void compareQ.refetch()}>비교 데이터 다시 불러오기</Button></Callout>}
+    {compareQ.error && <Callout kind="caution" title={compareQ.dataUpdatedAt > 0 ? '이전 비교 결과' : undefined}>
+      {compareQ.dataUpdatedAt > 0 && <p>아래 비교는 마지막으로 성공한 응답입니다. 최신 결과를 받지 못했습니다.</p>}
+      <p>{errorText(compareQ.error)} <Button size="sm" onClick={() => void compareQ.refetch()}>비교 데이터 다시 불러오기</Button></p>
+    </Callout>}
 
-    {detail && series && <>
-      <header className="rs-analysis__head">
+    {detail && <header className="rs-analysis__head">
         <h2>{detail.experiment.name}</h2>
         <p className="rs-muted">{adapterLabel(detail.experiment.adapter_id)} · {STRATEGY[detail.experiment.strategy as Strategy]?.label ?? detail.experiment.strategy} · 주요 지표 {metrics.find(m => m.key === primary)?.label ?? primary} · 설정 {detail.configurations.length}개 · 실행 {detail.runs.length}개</p>
         <div className="rs-detail__badges">{[...new Set(detail.runs.map(r => r.execution_origin))].map(o => <OriginBadge key={o} origin={o} />)}</div>
-      </header>
+      </header>}
 
+    {detail && <>
       {caveats.length > 0 && <Section title="비교 전에 확인하세요">
         <ul className="rs-checks">{caveats.map((c, i) => <li key={i} data-tone={c.tone === 'danger' ? 'danger' : c.tone === 'warning' ? 'warning' : 'info'}><span className="rs-checks__mark" aria-hidden="true">{c.tone === 'danger' ? '✕' : c.tone === 'warning' ? '!' : 'i'}</span><span>{c.text}</span></li>)}</ul>
       </Section>}
@@ -114,6 +118,7 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
       {detail.latest_analysis?.recommendation_ko && <Callout kind="tip" title="자동 수치 요약">
         <p>{detail.latest_analysis.recommendation_ko}</p><p className="rs-muted">규칙으로 만든 수치 요약입니다. 원인을 해석한 것이 아니며, 입력·환경이 같은 비교일 때만 의미가 있습니다.</p></Callout>}
 
+      {series ? <>
       {!usable.length ? <Callout kind="warning" title="비교할 측정값이 없습니다">성공한 실행의 측정이 없어 차트를 그리지 않았습니다. {bad.length ? '실패·취소한 실행은 아래에 있습니다.' : '실행을 마친 뒤 다시 확인하세요.'}</Callout> : <>
         <Section title="설정별 결과" hint="평균은 성공한 실행만 센 값입니다. ★ 는 그 지표 하나에서의 최고이며 전면 최적이 아닙니다.">
           <div className="tk-datatable tk-datatable--sticky-col">
@@ -191,6 +196,7 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
           </div></div>
         </Section>}
       </>}
+      </> : compareQ.isPending ? <Skeleton rows={4} /> : null}
 
       <Section title="실패·취소한 실행" hint="결과에서 숨기지 않습니다. 실패 원인도 연구 자산입니다.">
         {bad.length ? <ul className="rs-rellist">{bad.map(r => <li key={r.id}><RunStateBadge status={r.status} /> <strong>{cfgLabel(r.configuration_id)}</strong> <span className="rs-muted">반복 {r.repeat_index}</span>

@@ -288,6 +288,17 @@ describe('연구 기록', () => {
 });
 
 describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => {
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  function withDelta(value: number) {
+    return { ...fakeServerCompare, delta_bars: fakeServerCompare.delta_bars.map(d => ({ ...d, rel_delta_pct: value })) };
+  }
+
   const fakeServerCompare = {
     experiment_id: 'e1',
     primary_metric: 'recall_at_k',
@@ -492,5 +503,132 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     mount('/research?view=analysis&study=s1&experiment=e1');
     expect(await screen.findByText(/500 서버 내부 오류/)).toBeTruthy();
     expect(screen.getByText('비교 데이터 다시 불러오기')).toBeTruthy();
+  });
+
+  it('실제 compare 응답 전에는 로컬 비교 차트와 결과 수치를 보여 주지 않고 성공 후 서버 결과를 표시한다', async () => {
+    const response = deferred<unknown>();
+    setup((path, body) => path.includes('/compare-series') ? response.promise : defaultHandler(path, body));
+    mount('/research?view=analysis&study=s1&experiment=e1');
+
+    await screen.findByRole('heading', { name: 'BM25 k1 스윕' });
+    expect(screen.queryByRole('heading', { name: 'Baseline 대비 변화' })).toBeNull();
+    expect(screen.queryByText(/▲ \+25\.0%/)).toBeNull();
+    expect(screen.queryByRole('heading', { name: '설정별 결과' })).toBeNull();
+
+    response.resolve(fakeServerCompare);
+    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect(screen.getByRole('img', { name: /산점도.*점 1개/ })).toBeTruthy();
+  });
+
+  it('baseline key가 바뀌면 이전 서버 시리즈를 새 조건 결과처럼 유지하지 않는다', async () => {
+    const next = deferred<unknown>();
+    let compareCount = 0;
+    setup((path, body) => {
+      if (path.includes('/compare-series')) return ++compareCount === 1 ? fakeServerCompare : next.promise;
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('combobox', { name: 'Baseline (기준 설정)' }));
+    fireEvent.click(screen.getByRole('option', { name: '#2 (k1=1.8)' }));
+    await waitFor(() => expect(calls.some(c => c.includes('baseline_config_id=c2'))).toBe(true));
+    await waitFor(() => expect(compareCount).toBeGreaterThan(1));
+    expect(screen.queryByText(/\+77\.7%/)).toBeNull();
+    expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
+
+    next.resolve(withDelta(55.5));
+    expect(await screen.findByText(/▲ \+55\.5%/)).toBeTruthy();
+  });
+
+  it('축과 실험 key가 바뀔 때마다 이전 비교를 숨기고 각 새 응답을 기다린다', async () => {
+    const axisResponse = deferred<unknown>();
+    const experimentDetail = deferred<unknown>();
+    const experimentSeries = deferred<unknown>();
+    setup((path, body) => {
+      if (path === '/studies/s1/resume') return { ...(defaultHandler(path, body) as object), experiments: [experiment, { ...experiment, id: 'e2', title: '두 번째 실험' }] };
+      if (path === '/experiments/e2') return experimentDetail.promise;
+      if (path.includes('/compare-series')) {
+        if (path.startsWith('/experiments/e2/')) return experimentSeries.promise;
+        if (path.includes('pareto_x_metric=recall_at_k')) return axisResponse.promise;
+        return fakeServerCompare;
+      }
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('combobox', { name: '가로축' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Recall@k' }));
+    await waitFor(() => expect(calls.some(c => c.includes('pareto_x_metric=recall_at_k'))).toBe(true));
+    expect(screen.queryByText(/\+77\.7%/)).toBeNull();
+    expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
+    axisResponse.resolve(withDelta(51.1));
+    expect(await screen.findByText(/▲ \+51\.1%/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('combobox', { name: '분석할 실험' }));
+    fireEvent.click(screen.getByRole('option', { name: '두 번째 실험' }));
+    experimentDetail.resolve({ ...experiment, id: 'e2', title: '두 번째 실험', configurations: cfgs, runs, measurements: [...runMeasurements.r1, ...runMeasurements.r2], latest_analysis: null, artifacts: [] });
+    await waitFor(() => expect(calls.some(c => c.includes('/experiments/e2/compare-series'))).toBe(true));
+    expect(screen.queryByText(/\+51\.1%/)).toBeNull();
+    expect(screen.queryByRole('img', { name: /산점도/ })).toBeNull();
+
+    experimentSeries.resolve(withDelta(62.2));
+    expect(await screen.findByText(/▲ \+62\.2%/)).toBeTruthy();
+    await screen.findByRole('heading', { name: '두 번째 실험' });
+  });
+
+  it('최초 compare 실패여도 detail의 실패 원인·결과물·최선 결과 채택을 조회할 수 있다', async () => {
+    const reason = '실험기 연결이 끊겼습니다';
+    setup((path, body) => {
+      if (path.includes('/compare-series')) throw new Error(reason);
+      if (path === '/experiments/e1') return {
+        ...(defaultHandler(path, body) as object),
+        artifacts: [{ id: 'a1', experiment_id: 'e1', run_id: 'r1', artifact_id: 'file1', role: 'benchmark_table', label: '원본 측정 표' }],
+      };
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+
+    expect(await screen.findByText(reason)).toBeTruthy();
+    expect(screen.getByText(/메모리 한도를 넘었습니다/)).toBeTruthy();
+    expect(screen.getByText('원본 측정 표')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '최선 결과 채택' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: '이 설정 채택' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: '설정별 결과' })).toBeNull();
+  });
+
+  it('동일 key 재조회 실패에는 캐시된 비교를 이전 결과로 표시하고 재시도를 제공한다', async () => {
+    let compareCount = 0;
+    setup((path, body) => {
+      if (path.includes('/compare-series')) {
+        if (++compareCount === 1) return fakeServerCompare;
+        throw new Error('갱신 서버 오류');
+      }
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '분석 스냅샷 갱신' }));
+    expect(await screen.findByText(/이전 비교 결과/)).toBeTruthy();
+    expect(screen.getByText(/갱신 서버 오류/)).toBeTruthy();
+    expect(screen.getByText(/▲ \+77\.7%/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: '비교 데이터 다시 불러오기' })).toBeTruthy();
+  });
+
+  it('분석 mutation 성공 뒤 같은 비교 key를 다시 조회해 갱신된 서버 값을 표시한다', async () => {
+    let compareCount = 0;
+    setup((path, body) => {
+      if (path.includes('/compare-series')) return ++compareCount === 1 ? fakeServerCompare : withDelta(42.4);
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: '분석 스냅샷 갱신' }));
+    expect(await screen.findByText(/▲ \+42\.4%/)).toBeTruthy();
+    expect(calls.some(c => c.startsWith('POST /experiments/e1/analyze'))).toBe(true);
+    expect(compareCount).toBeGreaterThan(1);
   });
 });
