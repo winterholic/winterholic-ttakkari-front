@@ -6,6 +6,7 @@ import { Dialog } from '../../../ui/Dialog';
 import { toast } from '../../../ui/toastStore';
 import { errorText, exportReport, getExperiment, getRun, listMethods } from '../api';
 import { ArtifactList } from '../components/ArtifactList';
+import { RecordArchive } from '../components/RecordArchive';
 import { OriginBadge } from '../components/ExecutionStatusBadge';
 import { Callout, Empty, FactList, Section, Skeleton } from '../components/parts';
 import { DiscoverModal, NodeFormModal, PlanEditModal, RelationFormModal, SourceFormModal } from '../components/RecordForms';
@@ -79,7 +80,7 @@ export function StudyRecordsView({ ctx }: { ctx: ResearchCtx }) {
         {nodes.length > 1 && <Button size="sm" onClick={() => setModal('relation')}>관계 연결</Button>}
         <Button size="sm" variant="primary" disabled={!exps.length} onClick={() => setReport(true)}>리포트 만들기</Button>
       </div>
-      {data.truncated && <Callout kind="warning">이 연구는 일부 기록만 표시됩니다. 전체 기록을 확인한 뒤 재개해 주세요.</Callout>}
+      {data.truncated && <Callout kind="warning">요약에는 일부 기록만 표시됩니다. 아래 ‘전체 기록 찾아보기’에서 이어서 볼 수 있습니다.</Callout>}
     </header>
 
     <Section title="시도한 방법과 결과" hint={`${exps.length}개 실험 · 실패한 시도도 그대로 둡니다`}>
@@ -161,10 +162,11 @@ export function StudyRecordsView({ ctx }: { ctx: ResearchCtx }) {
       {!timeline.length && <p className="rs-muted">기록된 이벤트가 없습니다.</p>}
     </Section>
 
-    {nodes.length > 0 && <details className="rs-ledger"><summary>지식 원장 전체 {nodes.length}개 · 관계 {relations.length}개</summary>
+    {nodes.length > 0 && <details className="rs-ledger"><summary>요약에 포함된 지식 {nodes.length}개 · 관계 {relations.length}개</summary>
       {nodes.map(nodeCard)}
       {relations.map(r => <p key={r.id} className="rs-prose"><strong>{nodeById.get(r.from_id)?.title ?? r.from_id}</strong> <span className="rs-tag">{r.predicate}</span> <strong>{nodeById.get(r.to_id)?.title ?? r.to_id}</strong><br /><span className="rs-muted">{r.rationale} · 조건부 관계 제안, 인과 확정 아님</span></p>)}
     </details>}
+    <RecordArchive key={study.id} studyId={study.id} onExperiment={id => ctx.go({ view: 'analysis', experiment: id })} />
 
     {modal === 'plan' && <PlanEditModal study={study} onClose={() => setModal(null)} />}
     {modal === 'node' && <NodeFormModal studyId={study.id} unitId={lastUnit} onClose={() => setModal(null)} />}

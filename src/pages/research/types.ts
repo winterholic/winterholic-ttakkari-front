@@ -116,6 +116,7 @@ export interface SnapshotExperiment {
 export interface Snapshot {
   study: Study; nodes: KnowledgeNode[]; relations: Relation[]; experiments: SnapshotExperiment[]; timeline: TimelineEvent[]; evidence: EvidenceQuote[]; truncated: boolean;
   best_results?: BestResult[]; artifacts?: ResearchArtifact[];
+  pagination?: { offset: number; limit: number; totals: Record<'nodes' | 'relations' | 'experiments' | 'timeline', number>; has_more: boolean };
 }
 
 // ---- 실험·실행 --------------------------------------------------------------------

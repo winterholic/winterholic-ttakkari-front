@@ -56,7 +56,7 @@ export function normalizeAdapters(raw: Dashboard['host_readiness'] | undefined):
 
 // ---- 연구(기존 엔드포인트 유지) ----------------------------------------------------
 export const listStudies = () => researchRequest<Study[]>('/studies');
-export const getSnapshot = (studyId: string) => researchRequest<Snapshot>(`/studies/${studyId}/resume`);
+export const getSnapshot = (studyId: string, page?: { offset: number; limit: number }) => researchRequest<Snapshot>(`/studies/${studyId}/resume${query(page ?? {})}`);
 export const createStudy = (body: { title: string; goal: string; scope: string; criteria: string[]; environment: Data }) => researchRequest<Study>('/studies', body);
 export const updateStudy = (studyId: string, body: Data) => researchRequest<Study>(`/studies/${studyId}`, body, 'PATCH');
 export const addSource = (studyId: string, body: Data) => researchRequest<{ units: { id: string }[] }>(`/studies/${studyId}/sources`, body);
