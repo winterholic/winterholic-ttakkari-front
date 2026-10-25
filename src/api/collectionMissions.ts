@@ -61,7 +61,7 @@ export interface CollectionMission {
     accepted?: number; review_needed?: number; held?: number; reasons?: Record<string, number>;
     policy?: { mode?: string; model?: string; revision?: string; status?: string; verified?: boolean };
     ml?: { status?: string; [key: string]: unknown };
-    precise_eval?: { engine?: string; [key: string]: unknown };
+    precise_eval?: { engine?: string; pending?: number; processing?: number; unresolved?: number; [key: string]: unknown };
   };
   jobs: { job_id: string; status: string; stage: string; run_seq?: number; error: { code?: string; detail?: string } | null }[];
   gaps: { url?: string; reason: string; message: string }[];

@@ -84,6 +84,36 @@ function unholdFailure(error: unknown): string {
   return failure(error);
 }
 
+function engineLabel(engine: string): string {
+  if (engine === "ready") return "준비됨";
+  if (engine === "busy") return "로컬 모델 사용 중 · 대기";
+  if (engine === "unavailable" || engine === "enabled_without_registered_engine") return "사용할 수 없음";
+  if (engine === "enabled") return "사용 가능";
+  return "확인 필요";
+}
+
+function preciseQueue(mission: CollectionMission): { waiting: number; unresolved: number } {
+  const precise = mission.triage?.precise_eval;
+  const waiting = mission.counts.precise_waiting ?? (precise?.pending ?? 0) + (precise?.processing ?? 0);
+  const unresolved = mission.counts.precise_unresolved ?? precise?.unresolved ?? 0;
+  return { waiting, unresolved };
+}
+
+function preciseSummary(mission: CollectionMission): string {
+  const { waiting, unresolved } = preciseQueue(mission);
+  const parts = [`대기 ${waiting.toLocaleString("ko-KR")}건`];
+  if (unresolved > 0) parts.push(`결과 확인 불가 ${unresolved.toLocaleString("ko-KR")}건`);
+  return parts.join(" · ");
+}
+
+function PreciseNotice({ mission }: { mission: CollectionMission }) {
+  const { waiting, unresolved } = preciseQueue(mission);
+  return <>
+    {waiting > 0 && <p className="kb-note" role="status" aria-label="정밀평가 대기">정밀평가 대기 {waiting.toLocaleString("ko-KR")}건 · 결과에 따라 도서관 적재가 늘 수 있음</p>}
+    {unresolved > 0 && <p className="kb-note" role="status" aria-label="정밀평가 확인 불가">정밀평가 결과 확인 불가 {unresolved.toLocaleString("ko-KR")}건 · 운영자 확인 필요</p>}
+  </>;
+}
+
 function QualityDetails({ triage, missionTriage }: { triage: NonNullable<CollectionMission["results"][number]["triage"]>; missionTriage: CollectionMission["triage"] }) {
   const axes = Object.entries(triage.axes ?? {});
   const stage2Status = triage.stage2?.status;
@@ -101,7 +131,7 @@ function QualityDetails({ triage, missionTriage }: { triage: NonNullable<Collect
     <p className="kb-note">축의 검증 표시는 평가 성능 이력입니다. 문서의 사실 여부를 검증했다는 뜻은 아닙니다.</p>
     {stage2Status && <p className="kb-note">의미 모델 평가: {AXIS_STATE[stage2Status] ?? "상태 확인 필요"}</p>}
     {preciseState && <p className="kb-note">정밀 평가: {AXIS_STATE[preciseState] ?? "상태 확인 필요"}</p>}
-    {engine && <p className="kb-note">정밀 평가 엔진: {engine === "unavailable" || engine === "enabled_without_registered_engine" ? "사용할 수 없음" : engine === "enabled" ? "사용 가능" : "상태 확인 필요"}</p>}
+    {engine && <p className="kb-note">정밀 평가 엔진: {engineLabel(engine)}</p>}
   </details>;
 }
 
@@ -371,12 +401,13 @@ function Result({ mission }: { mission: CollectionMission }) {
       </p>
     )}
 
+    <PreciseNotice mission={mission} />
     <ul className="collect-funnel" aria-label="실제 수집 성과">{COUNTS.map(([key, label]) => <li key={key} data-key={key}><strong>{(mission.counts[key] ?? 0).toLocaleString("ko-KR")}</strong><span>{label}</span></li>)}</ul>
     {mission.gaps.length > 0 && <section className="mission-gaps" aria-label="남은 범위"><h3>아직 확보하지 못한 자료</h3><ul>{mission.gaps.map((gap, index) => <li key={`${gap.reason}-${index}`}><p>{gap.message}</p>{gap.url && <a href={gap.url} target="_blank" rel="noreferrer">{gap.url}</a>}</li>)}</ul></section>}
     <details><summary>계획과 조사 범위</summary><Plan plan={mission.plan} /></details>
     <section className="mission-results" aria-label="수집 결과"><h3>확보한 지식과 출처</h3>
       {mission.triage && <p className="kb-note" aria-label="품질 판정 집계">
-        판정 집계: 수락 {(mission.triage.accepted ?? 0).toLocaleString("ko-KR")}건 · 추가 확인 {(mission.triage.review_needed ?? 0).toLocaleString("ko-KR")}건 · 보류 {(mission.triage.held ?? 0).toLocaleString("ko-KR")}건 · 판정 기준 {mission.triage.policy?.verified === true ? "검증 이력 있음" : "미검증"}
+        판정 집계: 수락 {(mission.triage.accepted ?? 0).toLocaleString("ko-KR")}건 · 추가 확인 {(mission.triage.review_needed ?? 0).toLocaleString("ko-KR")}건 · 보류 {(mission.triage.held ?? 0).toLocaleString("ko-KR")}건 · 정밀평가 {preciseSummary(mission)} · 판정 기준 {mission.triage.policy?.verified === true ? "검증 이력 있음" : "미검증"}
       </p>}
       {mission.results.length === 0 ? <p className="kb-note">자료를 확보하면 출처와 판정 이유가 여기에 표시됩니다.</p> : mission.results.map(item => <article className="collect-card" key={item.id}>
         <h4>{item.title}</h4><a className="kb-note" href={item.url} target="_blank" rel="noreferrer">{item.url}</a>

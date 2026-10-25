@@ -232,3 +232,36 @@ it("이미 수락된 항목의 item_not_held 응답을 복구 처리 완료로 �
   expect(await screen.findByText(/이미 보류 상태가 아니어서 바꾸지 않았습니다/)).toBeTruthy();
   expect(screen.queryByText(/복구 요청이 처리됐습니다/)).toBeNull();
 });
+
+it("정밀평가 대기·확인 불가 건수와 엔진 상태를 정확히 표시하고 내부 상세는 숨긴다", async () => {
+  const item = { ...mission.results[0], triage: { status: "review_needed", axes: {}, precise_eval: { state: "pending" } } };
+  const withEngine = (engine: string) => ({
+    ...mission,
+    counts: { ...mission.counts, precise_waiting: 3, precise_unresolved: 1 },
+    triage: { accepted: 1, review_needed: 1, held: 0, reasons: {}, policy: { status: "active", verified: false }, ml: { status: "available" },
+      precise_eval: { engine, engine_detail: "내부-상세-문구", pending: 2, processing: 1, unresolved: 1 } },
+    results: [item],
+  });
+  api.detail.mockResolvedValue(withEngine("busy"));
+  mount("/collect?mission=m1");
+  expect(await screen.findByText("정밀평가 대기 3건 · 결과에 따라 도서관 적재가 늘 수 있음")).toBeTruthy();
+  expect(screen.getByText("정밀평가 결과 확인 불가 1건 · 운영자 확인 필요")).toBeTruthy();
+  expect(screen.getByLabelText("품질 판정 집계").textContent).toContain("정밀평가 대기 3건 · 결과 확인 불가 1건");
+  fireEvent.click(screen.getByText("품질 축과 평가 상태"));
+  expect(screen.getByText("정밀 평가 엔진: 로컬 모델 사용 중 · 대기")).toBeTruthy();
+  expect(screen.queryByText(/내부-상세-문구/)).toBeNull();
+  expect(document.body.textContent).not.toContain("내부-상세-문구");
+});
+
+it.each([["ready", "준비됨"], ["unavailable", "사용할 수 없음"], ["enabled_without_registered_engine", "사용할 수 없음"], ["surprise", "확인 필요"]])(
+  "정밀평가 엔진 %s 는 %s 로 표시한다", async (engine, label) => {
+    api.detail.mockResolvedValue({
+      ...mission, counts: { ...mission.counts, precise_waiting: 0, precise_unresolved: 0 },
+      triage: { accepted: 1, review_needed: 0, held: 0, reasons: {}, policy: { status: "active", verified: false }, precise_eval: { engine } },
+      results: [{ ...mission.results[0], triage: { status: "auto_accepted", axes: {}, precise_eval: { state: "not_needed" } } }],
+    });
+    mount("/collect?mission=m1");
+    fireEvent.click(await screen.findByText("품질 축과 평가 상태"));
+    expect(screen.getByText("정밀 평가 엔진: " + label)).toBeTruthy();
+    expect(screen.queryByLabelText("정밀평가 대기")).toBeNull();
+  });
