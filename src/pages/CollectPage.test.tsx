@@ -265,3 +265,32 @@ it.each([["ready", "준비됨"], ["unavailable", "사용할 수 없음"], ["enab
     expect(screen.getByText("정밀 평가 엔진: " + label)).toBeTruthy();
     expect(screen.queryByLabelText("정밀평가 대기")).toBeNull();
   });
+
+it("연구 블록이 없는 응답은 자율 조사 영역 없이 기존 품질·회차 표시를 유지한다", async () => {
+  api.detail.mockResolvedValue({ ...mission, run_seq: 2, runs: [{ run_seq: 2, trigger: "scheduled", started_at: "2026-10-25T15:00:00Z", page_budget: 10, pages_used: 5, collected: 3, unchanged: 2, imported: 1, in_progress: false }] });
+  mount("/collect?mission=m1");
+  expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
+  expect(screen.queryByLabelText("자율 조사")).toBeNull();
+  expect(screen.getByLabelText("실제 수집 성과")).toBeTruthy();
+});
+
+it("연구 응답은 요약만 기본으로 보이고 계획 범위와 남은 범위의 상태·원인도 한국어로 풀어 보여준다", async () => {
+  api.detail.mockResolvedValue({
+    ...mission,
+    plan: { ...mission.plan, coverage: [{ topic: "논문·원전", key: "papers", state: "unexplored" }] },
+    research: { round: 1, stop: "search_budget", searches_used: 16, search_budget: 16,
+      coverage: [{ topic: "논문·원전", key: "papers", state: "no_candidates", sources: 0, documents: 0, hosts: 0 }] },
+    gaps: [{ reason: "search_provider_failed", message: "검색 공급자 호출이 실패해 일부 검색어를 실행하지 못했습니다.", queries: 2, codes: ["timeout", "unknown_internal_code"] },
+      { reason: "no_search_candidates", message: "검색에서 수집할 출처를 찾지 못했습니다." }],
+  });
+  mount("/collect?mission=m1");
+  expect(await screen.findByLabelText("자율 조사")).toBeTruthy();
+  expect(screen.getByLabelText("조사 종료 사유").textContent).toContain("검색 예산을 모두 써서");
+  expect(screen.getByText(/실패한 검색 2건 · 원인: 응답 시간 초과/)).toBeTruthy();
+  expect(screen.getByText(/검색은 성공했지만 수집할 출처를 찾지 못했습니다\(검색 실패와 다름\)/)).toBeTruthy();
+  fireEvent.click(screen.getByText("계획과 조사 범위"));
+  const plan = screen.getByLabelText("수집 계획");
+  expect(plan.textContent).toContain("후보 없음");
+  expect(plan.textContent).not.toMatch(/no_candidates|unexplored/);
+  expect(document.body.textContent).not.toContain("unknown_internal_code");
+});
