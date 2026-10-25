@@ -17,6 +17,7 @@ import {
 import type { CollectionMission, CollectionPlan } from "../../api/collectionMissions";
 import { Button } from "../../ui/Button";
 import { COLLECT_REASON, failure } from "../kb/labels";
+import { CoverageTopics, GapDetail, ResearchPanel } from "./ResearchPanel";
 
 const STATUS: Record<string, string> = {
   queued: "준비 중",
@@ -135,13 +136,13 @@ function QualityDetails({ triage, missionTriage }: { triage: NonNullable<Collect
   </details>;
 }
 
-function Plan({ plan }: { plan: CollectionPlan }) {
+function Plan({ plan, coverage = plan.coverage }: { plan: CollectionPlan; coverage?: CollectionPlan["coverage"] }) {
   return <section className="mission-plan" aria-label="수집 계획">
     <h3>이렇게 수집합니다</h3>
     <ol>{plan.steps.map(step => <li key={step}>{step}</li>)}</ol>
     <p className="kb-note">최대 {plan.budget.pages.toLocaleString("ko-KR")}쪽 · 검색 {plan.budget.searches}회 · {Math.round(plan.budget.seconds / 60)}분 예산</p>
     <p className="kb-note">종료 기준: {plan.stop_conditions.join(" · ")}</p>
-    {plan.coverage.length > 0 && <ul className="mission-topics" aria-label="조사 범위">{plan.coverage.map(area => <li key={area.topic}>{area.topic}<span>{area.state === "unexplored" ? "미조사" : area.state}</span></li>)}</ul>}
+    {coverage.length > 0 && <CoverageTopics coverage={coverage} />}
   </section>;
 }
 
@@ -403,8 +404,9 @@ function Result({ mission }: { mission: CollectionMission }) {
 
     <PreciseNotice mission={mission} />
     <ul className="collect-funnel" aria-label="실제 수집 성과">{COUNTS.map(([key, label]) => <li key={key} data-key={key}><strong>{(mission.counts[key] ?? 0).toLocaleString("ko-KR")}</strong><span>{label}</span></li>)}</ul>
-    {mission.gaps.length > 0 && <section className="mission-gaps" aria-label="남은 범위"><h3>아직 확보하지 못한 자료</h3><ul>{mission.gaps.map((gap, index) => <li key={`${gap.reason}-${index}`}><p>{gap.message}</p>{gap.url && <a href={gap.url} target="_blank" rel="noreferrer">{gap.url}</a>}</li>)}</ul></section>}
-    <details><summary>계획과 조사 범위</summary><Plan plan={mission.plan} /></details>
+    {mission.gaps.length > 0 && <section className="mission-gaps" aria-label="남은 범위"><h3>아직 확보하지 못한 자료</h3><ul>{mission.gaps.map((gap, index) => <li key={`${gap.reason}-${index}`}><p>{gap.message}</p><GapDetail gap={gap} />{gap.url && <a href={gap.url} target="_blank" rel="noreferrer">{gap.url}</a>}</li>)}</ul></section>}
+    <ResearchPanel mission={mission} />
+    <details><summary>계획과 조사 범위</summary><Plan plan={mission.plan} coverage={mission.research?.coverage ?? mission.plan.coverage} /></details>
     <section className="mission-results" aria-label="수집 결과"><h3>확보한 지식과 출처</h3>
       {mission.triage && <p className="kb-note" aria-label="품질 판정 집계">
         판정 집계: 수락 {(mission.triage.accepted ?? 0).toLocaleString("ko-KR")}건 · 추가 확인 {(mission.triage.review_needed ?? 0).toLocaleString("ko-KR")}건 · 보류 {(mission.triage.held ?? 0).toLocaleString("ko-KR")}건 · 정밀평가 {preciseSummary(mission)} · 판정 기준 {mission.triage.policy?.verified === true ? "검증 이력 있음" : "미검증"}

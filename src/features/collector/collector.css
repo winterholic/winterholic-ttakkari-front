@@ -37,7 +37,7 @@
 .mission-gaps li + li { margin-top: var(--tk-space-3); }
 .mission-gaps a, .mission-results a, .mission-heading h2 { overflow-wrap: anywhere; }
 .mission-topics { display: flex; flex-direction: column; gap: var(--tk-space-2); list-style: none; margin: 0; padding: 0; }
-.mission-topics li { display: flex; justify-content: space-between; gap: var(--tk-space-2); }
+.mission-topics li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--tk-space-2); overflow-wrap: anywhere; }
 .mission-topics span { color: var(--tk-color-text-secondary); }
 .mission-operations { border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-default); padding-top: var(--tk-space-3); }
 .mission-operations > .kb-tabs { margin-bottom: var(--tk-space-4); }
@@ -57,5 +57,13 @@
 .mission-unhold { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); width: 100%; }
 .mission-unhold > p { margin: 0; }
 .mission-status-badge { font-weight: var(--tk-font-weight-medium); padding: var(--tk-space-1) var(--tk-space-2); border-radius: var(--tk-radius-sm); background: var(--tk-color-surface-subtle); }
+/* 자율 조사 요약과 세부(하위 주제·라운드·논문·사용자 맥락). 기본은 요약 몇 줄만 두고 세부는 details 로 접는다 */
+.mission-research { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; padding: var(--tk-space-4); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.mission-research > p, .mission-research details p { margin: 0; overflow-wrap: anywhere; }
+.mission-research__topics, .mission-research__rounds, .mission-research__papers, .mission-research__claims { display: grid; gap: var(--tk-space-3); margin: 0; padding: 0; list-style: none; }
+.mission-research__topics > li, .mission-research__rounds > li, .mission-research__papers > li, .mission-research__claims > li { display: grid; gap: var(--tk-space-1); min-width: 0; overflow-wrap: anywhere; }
+.mission-research__row { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--tk-space-2); }
+.mission-research ul ul { margin: 0; padding-inline-start: var(--tk-space-4); }
+.mission-research a { overflow-wrap: anywhere; }
 @media (max-width: 420px) { .mission-quality__axes > div { grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-1); } }
 @media (min-width: 1024px) { .mission-workspace:has(.mission-selected) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; } }
