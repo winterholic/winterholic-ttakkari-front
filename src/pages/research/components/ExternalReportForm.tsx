@@ -22,12 +22,15 @@ export function ExternalReportForm({ experimentId, configurations, onDone }: { e
   const [cfg, setCfg] = useState(configurations[0]?.id ?? '');
   const [prov, setProv] = useState<Provenance>('external_benchmark');
   const [env, setEnv] = useState('');
+  const [sourceTitle, setSourceTitle] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
   const [note, setNote] = useState('');
   const [rows, setRows] = useState<Row[]>([blank()]);
   const [error, setError] = useState('');
   const save = useMutation({
     mutationFn: () => addExternalReport(experimentId, {
       configuration_id: cfg, provenance: prov, environment_snapshot: { description: env.trim() },
+      ...(prov === 'external_benchmark' ? { source_title: sourceTitle.trim(), source_url: sourceUrl.trim() } : {}),
       metrics: rows.filter(r => r.key.trim() && r.value.trim() !== '').map<ExternalMetric>(r => ({ metric_key: r.key.trim(), metric_label: r.label.trim() || METRICS[r.key.trim()]?.label || r.key.trim(), value: Number(r.value), unit: r.unit.trim(), direction: r.direction, is_proxy: r.proxy, aggregator: 'single', slice_key: 'overall' })),
       raw_output: { note: note.trim() },
     }),
@@ -35,14 +38,18 @@ export function ExternalReportForm({ experimentId, configurations, onDone }: { e
   });
   const patch = (i: number, v: Partial<Row>) => setRows(l => l.map((r, k) => (k === i ? { ...r, ...v } : r)));
   const pickMetric = (i: number, key: string) => { const m = METRICS[key]; patch(i, { key, ...(m ? { label: m.label, unit: m.unit, direction: m.direction, proxy: !!m.proxy } : {}) }); };
-  const valid = cfg && env.trim() && rows.some(r => r.key.trim() && r.value.trim() !== '' && Number.isFinite(Number(r.value)));
-  function submit(e: FormEvent) { e.preventDefault(); setError(''); save.mutate(undefined, { onError: err => setError(errorText(err)) }); }
+  const valid = cfg && env.trim() && (prov !== 'external_benchmark' || (sourceTitle.trim() && sourceUrl.trim())) && rows.some(r => r.key.trim() && r.value.trim() !== '' && Number.isFinite(Number(r.value)));
+  function submit(e: FormEvent) { e.preventDefault(); if (!valid) return; setError(''); save.mutate(undefined, { onError: err => setError(errorText(err)) }); }
   return <form className="rs-form" onSubmit={submit} noValidate>
     <Callout kind="warning" title="외부 보고로 기록됩니다">직접 측정한 값이 아니므로 ‘따까리 실측’과 구분해 표시하고, 방법을 검증됨으로 승격하는 근거로는 쓸 수 없습니다(후보까지).</Callout>
     <div className="rs-form__grid">
       <div className="tk-field"><label className="tk-label" id="er-c">결과를 붙일 설정</label><Select id="er-cs" labelledBy="er-c" value={cfg} options={configurations.map(c => ({ value: c.id, label: c.label }))} onChange={setCfg} /></div>
       <div className="tk-field"><label className="tk-label" id="er-p">결과의 출처</label><Select id="er-ps" labelledBy="er-p" value={prov} options={PROV} onChange={setProv} /></div>
     </div>
+    {prov === 'external_benchmark' && <div className="rs-form__grid">
+      <div className="tk-field"><label className="tk-label" htmlFor="er-source-title">출처 제목</label><input id="er-source-title" className="tk-input" value={sourceTitle} onChange={e => setSourceTitle(e.target.value)} required /></div>
+      <div className="tk-field"><label className="tk-label" htmlFor="er-source-url">출처 URL 또는 위치</label><input id="er-source-url" className="tk-input" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} placeholder="논문 URL, DOI 또는 보고서 표·페이지 위치" required /></div>
+    </div>}
     <div className="tk-field"><label className="tk-label" htmlFor="er-env">측정 환경</label><textarea id="er-env" className="tk-textarea" rows={2} value={env} onChange={e => setEnv(e.target.value)} placeholder="예: A100 80GB, vLLM 0.6, 2026-10-20 측정, 논문 표 3" /><p className="tk-help">장비·소프트웨어·측정 시점·출처를 적으세요. 재현할 수 있어야 합니다.</p></div>
     <fieldset className="tk-fieldset"><legend>측정값</legend>
       {rows.map((r, i) => <div key={i} className="rs-metricrow">

@@ -108,8 +108,8 @@ export async function listMethods(q: MethodQuery, offset = 0, limit = PAGE): Pro
 }
 
 /** 관계는 to_method 객체로 온다. to_method 없이 평평한 필드(to_method_slug 등)만 주던 예전 응답도 같은 모양으로 푼다. */
-export async function getMethod(idOrSlug: string): Promise<MethodDetail> {
-  const r = await researchRequest<MethodDetail>(`/methods/${encodeURIComponent(idOrSlug)}${query({ scope: currentScope })}`);
+export async function getMethod(idOrSlug: string, scope: ResearchScope = currentScope): Promise<MethodDetail> {
+  const r = await researchRequest<MethodDetail>(`/methods/${encodeURIComponent(idOrSlug)}${query({ scope })}`);
   const relations: MethodRelation[] = (r.relations ?? []).map(rel => ({
     ...rel, from_method_id: rel.from_method_id ?? r.id,
     to_method: rel.to_method ?? (rel.to_method_slug ? { id: rel.to_method_id, slug: rel.to_method_slug, name_ko: rel.to_method_name_ko } : undefined),
@@ -120,9 +120,22 @@ export async function getMethod(idOrSlug: string): Promise<MethodDetail> {
     local_measurements: lm ? { ...lm, measured_run_count: lm.measured_run_count ?? lm.succeeded_runs ?? 0 } : undefined,
   };
 }
-export const createMethod = (body: MethodInput) => researchRequest<Method>(`/methods${query({ scope: currentScope })}`, body);
-export const patchMethod = (id: string, body: Partial<MethodInput> & { create_new_version?: boolean }) => researchRequest<Method>(`/methods/${id}${query({ scope: currentScope })}`, body, 'PATCH');
-export const promoteMethod = (id: string, body: PromotePayload) => researchRequest<Method>(`/methods/${id}/promote`, body);
+// Mutation responses contain the stored definition; readiness is computed by the detail endpoint.
+export async function createMethod(body: MethodInput) {
+  const scope = currentScope;
+  const saved = await researchRequest<Method>(`/methods${query({ scope })}`, body);
+  return getMethod(saved.id, scope);
+}
+export async function patchMethod(id: string, body: Partial<MethodInput> & { create_new_version?: boolean }) {
+  const scope = currentScope;
+  const saved = await researchRequest<Method>(`/methods/${id}${query({ scope })}`, body, 'PATCH');
+  return getMethod(saved.id, scope);
+}
+export async function promoteMethod(id: string, body: PromotePayload) {
+  const scope = currentScope;
+  const saved = await researchRequest<Method>(`/methods/${id}/promote`, body);
+  return getMethod(saved.id, scope);
+}
 export const addMethodRelation = (id: string, body: { to_method_id: string; relation_type: string; conditions?: Data; note?: string }) => researchRequest<MethodRelation>(`/methods/${id}/relations${query({ scope: currentScope })}`, body);
 
 // ---- 실험 설계·실행 ---------------------------------------------------------------
