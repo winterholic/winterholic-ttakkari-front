@@ -37,6 +37,12 @@
   background: color-mix(in srgb, #2ea043 16%, var(--tk-color-surface-raised));
 }
 
+.engine-badge[data-engine="copilot"] {
+  border-color: color-mix(in srgb, #8250df 40%, var(--tk-color-border-subtle));
+  color: #6639ba;
+  background: color-mix(in srgb, #8250df 16%, var(--tk-color-surface-raised));
+}
+
 [data-theme="dark"] .engine-badge[data-engine="claude"] {
   color: #ffc49f;
   background: color-mix(in srgb, #a84a20 27%, var(--tk-color-surface-raised));
@@ -55,6 +61,11 @@
 [data-theme="dark"] .engine-badge[data-engine="opencode"] {
   color: #7ee787;
   background: color-mix(in srgb, #238636 27%, var(--tk-color-surface-raised));
+}
+
+[data-theme="dark"] .engine-badge[data-engine="copilot"] {
+  color: #d2a8ff;
+  background: color-mix(in srgb, #8250df 27%, var(--tk-color-surface-raised));
 }
 
 .engine-badge__mark {

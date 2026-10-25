@@ -856,7 +856,7 @@ export interface UsageWindow {
 export interface AccountUsage {
   id: string;
   name: string;
-  engine: "claude" | "codex" | "antigravity" | "muse" | "opencode";
+  engine: "claude" | "codex" | "antigravity" | "muse" | "opencode" | "copilot";
   pool: AccountPool;
   /** 개인 모드 켜기·순위 */
   enabled: boolean;
@@ -984,6 +984,10 @@ export const checkAntigravityAccount = (id: string, body: { principal?: string; 
 /** 전용 격리 홈으로 로그인한 OpenCode 계정의 인증 상태를 확인한다. */
 export const checkOpencodeAccount = (id: string): Promise<AccountOut> =>
   json(`/api/accounts/${id}/opencode/check`, { method: "POST" });
+
+/** GitHub Copilot CLI 계정의 인증 상태를 확인한다. */
+export const checkCopilotAccount = (id: string): Promise<AccountOut> =>
+  json(`/api/accounts/${id}/copilot/check`, { method: "POST" });
 
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });

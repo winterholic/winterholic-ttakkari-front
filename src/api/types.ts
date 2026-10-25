@@ -4,7 +4,7 @@
 export type UUID = string;
 export type ISODateTime = string;
 
-export type EngineName = "claude" | "codex" | "antigravity" | "muse" | "opencode";
+export type EngineName = "claude" | "codex" | "antigravity" | "muse" | "opencode" | "copilot";
 export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export type CodexSandbox = "read-only" | "workspace-write" | "danger-full-access";
 
@@ -329,7 +329,7 @@ export type RunEvent =
 export type RunEventType = RunEvent["type"];
 
 // ---- engine accounts (ADR 0006)
-export type AccountEngine = "claude" | "codex" | "antigravity" | "muse" | "opencode";
+export type AccountEngine = "claude" | "codex" | "antigravity" | "muse" | "opencode" | "copilot";
 /**
  * 계정이 어느 모드에 쓰이는지. 모든 계정은 개인 목록에 있고, work 는 그중 회사 모드에도 쓰려고 고른 계정이다.
  * 개인·회사 모드는 켜기·순서·임시 순서를 따로 가진다. 세션의 pool 은 그 대화가 쓰는 모드다.

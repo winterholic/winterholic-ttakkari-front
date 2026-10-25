@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, checkAntigravityAccount, checkOpencodeAccount, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
+import { ApiError, checkAntigravityAccount, checkCopilotAccount, checkOpencodeAccount, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
 import type { AccountEngine, AccountOut, AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
@@ -21,6 +21,7 @@ const ENGINE_LABEL: Record<AccountEngine, string> = {
   antigravity: "Antigravity CLI",
   muse: "Muse Code",
   opencode: "OpenCode (GitHub Copilot)",
+  copilot: "GitHub Copilot CLI",
 };
 const ENGINE_OPTIONS = [
   { value: "claude" as const, label: "Claude Code" },
@@ -28,6 +29,7 @@ const ENGINE_OPTIONS = [
   { value: "antigravity" as const, label: "Antigravity CLI · Gemini 3.8 Flash" },
   { value: "muse" as const, label: "Muse Code · 구독 모델 · 운영 검증 전" },
   { value: "opencode" as const, label: "OpenCode · GitHub Copilot" },
+  { value: "copilot" as const, label: "GitHub Copilot CLI · 공식 CLI" },
 ];
 
 function errMessage(e: unknown): string {
@@ -54,7 +56,18 @@ const OPENCODE_STATE_TEXT: Record<string, string> = {
   unknown: "상태 미확인",
 };
 
+const COPILOT_STATE_TEXT: Record<string, string> = {
+  setup_required: "로그인 필요 · 터미널 명령 실행",
+  authenticated: "GitHub Copilot 인증됨",
+  auth_expired: "인증 만료 · 다시 로그인 필요",
+  unknown: "상태 미확인",
+};
+
 function loginText(a: AccountOut): string {
+  if (a.engine === "copilot") {
+    if (a.login === "ok" || a.auth_state === "authenticated") return a.login_label ? `GitHub Copilot (${a.login_label})` : "GitHub Copilot 인증됨";
+    return COPILOT_STATE_TEXT[a.auth_state ?? ""] ?? "로그인 필요";
+  }
   if (a.engine === "opencode") {
     if (a.login === "ok" || a.auth_state === "authenticated") return a.login_label ? `GitHub Copilot (${a.login_label})` : "GitHub Copilot 인증됨";
     return OPENCODE_STATE_TEXT[a.auth_state ?? ""] ?? "로그인 필요";
@@ -82,6 +95,45 @@ function LoginHint({ engine, command }: { engine: AccountEngine; command: string
           복사
         </button>
       </span>
+    </span>
+  );
+}
+
+/** GitHub Copilot CLI 계정. 터미널 로그인 뒤 확인 버튼을 눌러 인증을 확인한다. */
+function CopilotSetup({ account, onChecked }: { account: AccountOut; onChecked: (a: AccountOut) => void }) {
+  const qc = useQueryClient();
+  const check = useMutation({
+    mutationFn: () => checkCopilotAccount(account.id),
+    onSuccess: (a) => {
+      onChecked(a);
+      void qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
+      toast({ message: `${a.name} GitHub Copilot 로그인을 확인했어요.` });
+    },
+  });
+  const copy = () =>
+    void navigator.clipboard?.writeText(account.login_command ?? "").then(
+      () => toast({ message: "명령을 복사했어요. Mac Studio 터미널에 붙여 넣으세요." }),
+      () => toast({ message: "복사하지 못했어요. 길게 눌러 직접 복사해 주세요.", tone: "danger" }),
+    );
+  return (
+    <span className="account-login">
+      <span>1. Mac Studio 터미널에서 아래 명령을 실행해 GitHub Copilot 인증을 진행해요.</span>
+      <span className="account-login__row">
+        <code className="tk-mono">{account.login_command}</code>
+        <button className="tk-button tk-button--xs" type="button" onClick={copy}>
+          <Icon name="copy" />
+          복사
+        </button>
+      </span>
+      <span>2. 터미널에 표시된 코드(User Code)를 브라우저(github.com/login/device)에 입력하고 승인한 뒤, 아래 확인 버튼을 눌러요.</span>
+      <div className="account-login__row">
+        <button className="tk-button tk-button--xs tk-button--primary" type="button" aria-busy={check.isPending || undefined}
+          onClick={() => check.mutate()}>
+          인증 확인
+        </button>
+      </div>
+      {check.error && <span className="tk-error" role="alert">{errMessage(check.error)}</span>}
+      {!check.error && account.auth_error && <span className="account-row__warn">마지막 오류: {account.auth_error}</span>}
     </span>
   );
 }
@@ -347,6 +399,8 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
                     ? <AntigravitySetup account={a} onChecked={replace} />
                     : a.engine === "opencode"
                     ? <OpencodeSetup account={a} onChecked={replace} />
+                    : a.engine === "copilot"
+                    ? <CopilotSetup account={a} onChecked={replace} />
                     : <LoginHint engine={a.engine} command={a.login_command} />)}
                 </span>
                 <span className="tk-list__end">

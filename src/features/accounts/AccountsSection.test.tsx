@@ -18,6 +18,7 @@ const api = vi.hoisted(() => ({
   clearAccountCooldown: vi.fn(),
   checkAntigravityAccount: vi.fn(),
   checkOpencodeAccount: vi.fn(),
+  checkCopilotAccount: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
@@ -126,6 +127,23 @@ describe("AccountsSection", () => {
     expect(screen.getByText(/opencode auth login -p github-copilot/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "인증 확인" }));
     await waitFor(() => expect(api.checkOpencodeAccount).toHaveBeenCalledWith("oc1"));
+  });
+
+  it("Copilot CLI 계정 추가 시 로그인 명령 안내를 보이고, 터미널 로그인 후 확인하면 인증 상태가 된다", async () => {
+    const pending = acc({
+      id: "cp1", name: "Copilot CLI", engine: "copilot", login: "unknown", login_label: null,
+      login_command: "COPILOT_HOME=/h/copilot copilot login --device-code",
+      auth_state: "setup_required", isolation_mode: "managed_copilot_home", execution_enabled: false,
+    });
+    api.listAccounts.mockResolvedValue([pending]);
+    api.checkCopilotAccount.mockResolvedValue({
+      ...pending, login: "ok", login_label: "user@github", login_command: null, auth_state: "authenticated", execution_enabled: true,
+    });
+    renderIt();
+    expect(await screen.findByText("로그인 필요 · 터미널 명령 실행")).toBeTruthy();
+    expect(screen.getByText(/copilot login --device-code/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "인증 확인" }));
+    await waitFor(() => expect(api.checkCopilotAccount).toHaveBeenCalledWith("cp1"));
   });
 
   it("우선순위 번호·로그인·한도 대기를 보이고, 스위치로 끈다", async () => {
