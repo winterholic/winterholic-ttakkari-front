@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '../../../ui/Button';
 import { Badge } from '../../../ui/Badge';
 import { Select } from '../../../ui/Select';
-import { analyzeExperiment, errorText, getExperiment } from '../api';
+import { analyzeExperiment, errorText, getCompareSeries, getExperiment } from '../api';
 import { ArtifactList } from '../components/ArtifactList';
 import { BestResultPanel } from '../components/BestResultPanel';
 import { OriginBadge, ProxyBadge, RunStateBadge } from '../components/ExecutionStatusBadge';
@@ -17,7 +17,7 @@ import type { ResearchCtx } from '../context';
 import { DIRECTION_TEXT, fmtPct, fmtValue, shortId, stringify, verdictOf, VERDICT_TEXT } from '../format';
 import { experimentName, KEY, useAdapters, useSnapshot, rk } from '../hooks';
 import { adapterLabel, STRATEGY } from '../labels';
-import { comparabilityCaveats, deriveSeries, failedRuns, metricsOf, paretoFor, pickBaseline, stats, usableMeasurements, valuesByConfig } from '../series';
+import { comparabilityCaveats, deriveSeries, failedRuns, localParetoReason, metricsOf, paretoFor, pickBaseline, stats, usableMeasurements, valuesByConfig } from '../series';
 import type { Strategy } from '../types';
 
 /** 결과 비교·분석: baseline 대비 개선·퇴보, 다지표, 반복 분포, trade-off, 설정 차이, 비교 불가 경고, 실패 실행, 채택까지. 원본 JSON 은 기본 화면에 없다. */
@@ -38,8 +38,6 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
   const usable = useMemo(() => (detail ? usableMeasurements(detail) : []), [detail]);
   const metrics = useMemo(() => metricsOf(usable), [usable]);
   const byCfg = useMemo(() => valuesByConfig(usable), [usable]);
-  // 비교 시리즈는 실험 상세의 설정·실행·측정값에서 직접 계산한다(서버 compare-series 는 주요 지표 한 개만 담고 모양이 설계와 다르다).
-  const series = useMemo(() => (detail ? deriveSeries(detail, baselineId) : null), [detail, baselineId]);
   const primary = detail?.experiment.primary_metric ?? '';
   const metricKey = metricChoice && metrics.some(m => m.key === metricChoice) ? metricChoice : metrics.find(m => m.key === primary)?.key ?? metrics[0]?.key ?? '';
   const metric = metrics.find(m => m.key === metricKey);
@@ -53,11 +51,27 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
   const defaultX = metrics.find(m => m.key !== defaultY && m.direction === 'lower_is_better')?.key ?? metrics.find(m => m.key !== defaultY)?.key ?? '';
   const px = metrics.some(m => m.key === paretoX) ? paretoX : defaultX;
   const py = metrics.some(m => m.key === paretoY) ? paretoY : defaultY;
-  const pareto = detail && px && py && px !== py ? paretoFor(detail, px, py) : null;
+
+  // 서버 compare-series 연결: experiment / baseline / 두 Pareto 축을 query key 및 질의 파라미터에 모두 포함
+  const compareQ = useQuery({
+    queryKey: [...rk(), 'compare-series', expId, baselineId, px, py],
+    queryFn: () => getCompareSeries(expId as string, { baselineId, paretoX: px || undefined, paretoY: py || undefined }),
+    enabled: !!expId && !!detail,
+  });
+
+  // 서버 최신 유효 응답을 우선하고, 응답이 없거나 구형 형태(null)인 경우에만 로컬 deriveSeries 로 fallback 한다.
+  // 단, HTTP 실패/네트워크 오류(compareQ.isError)는 로컬 계산으로 은폐하지 않는다.
+  const isServerSeries = !!compareQ.data;
+  const series = compareQ.data ?? (compareQ.isError ? null : (detail ? deriveSeries(detail, baselineId) : null));
 
   const analyze = useMutation({
     mutationFn: () => analyzeExperiment(expId as string, { baseline_configuration_id: baselineId, pareto_x_metric: px || undefined, pareto_y_metric: py || undefined }),
-    onSuccess: () => { void cache.invalidateQueries({ queryKey: KEY }); },
+    onSuccess: () => {
+      void cache.invalidateQueries({ queryKey: KEY });
+      void cache.invalidateQueries({ queryKey: [...rk(), 'compare-series', expId] });
+      void detailQ.refetch();
+      void compareQ.refetch();
+    },
   });
 
   if (!exps.length && !expId) return <Empty title="분석할 실험이 없습니다" action={<Button variant="primary" onClick={() => ctx.go({ view: 'designer' })}>실험 설계하기</Button>}>
@@ -82,8 +96,9 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
     </div>
 
     {!expId && <Empty title="실험을 고르세요">위에서 실험을 고르면 설정별 결과를 비교합니다.</Empty>}
-    {expId && detailQ.isPending && <Skeleton rows={4} />}
+    {expId && (detailQ.isPending || (detail && compareQ.isPending && !series)) && <Skeleton rows={4} />}
     {detailQ.error && <Callout kind="caution">{errorText(detailQ.error)} <Button size="sm" onClick={() => void detailQ.refetch()}>다시 불러오기</Button></Callout>}
+    {compareQ.error && <Callout kind="caution">{errorText(compareQ.error)} <Button size="sm" onClick={() => void compareQ.refetch()}>비교 데이터 다시 불러오기</Button></Callout>}
 
     {detail && series && <>
       <header className="rs-analysis__head">
@@ -137,10 +152,26 @@ export function ResultAnalysisView({ ctx }: { ctx: ResearchCtx }) {
           <RepeatDistributionPlot items={series.repeat_distributions.filter(d => d.metric_key === metricKey)} metricLabel={metric.label} unit={metric.unit} direction={metric.direction} />
         </Section>}
 
-        {metrics.length >= 2 && <Section title="Trade-off · Pareto" hint="속도를 얻으면 메모리나 품질을 잃는 식의 상충을 봅니다. 축을 바꿔 보세요."
+        {metrics.length >= 1 && <Section title="Trade-off · Pareto" hint="속도를 얻으면 메모리나 품질을 잃는 식의 상충을 봅니다. 축을 바꿔 보세요."
           actions={<div className="rs-axes"><div className="tk-field"><label className="tk-label" id="px-l" htmlFor="px">가로축</label><Select id="px" labelledBy="px-l" size="sm" value={px} options={metrics.map(m => ({ value: m.key, label: m.label }))} onChange={setParetoX} /></div>
             <div className="tk-field"><label className="tk-label" id="py-l" htmlFor="py">세로축</label><Select id="py" labelledBy="py-l" size="sm" value={py} options={metrics.map(m => ({ value: m.key, label: m.label }))} onChange={setParetoY} /></div></div>}>
-          {pareto && pareto.points.length ? <ParetoScatterPlot series={pareto} /> : <Callout kind="note">두 축을 서로 다른 지표로 고르고, 두 지표가 모두 측정된 설정이 있어야 그릴 수 있습니다.</Callout>}
+          {(() => {
+            if (isServerSeries && series) {
+              if (series.pareto_status === 'unavailable') {
+                return <Callout kind="note">{series.pareto_unavailable_reason || '두 축을 서로 다른 지표로 고르고, 두 지표가 모두 측정된 설정이 있어야 그릴 수 있습니다.'}</Callout>;
+              }
+              if (series.pareto && series.pareto.points.length > 0) {
+                return <ParetoScatterPlot series={series.pareto} />;
+              }
+              return <Callout kind="note">{series.pareto_unavailable_reason || '두 축을 서로 다른 지표로 고르고, 두 지표가 모두 측정된 설정이 있어야 그릴 수 있습니다.'}</Callout>;
+            }
+            const localPareto = detail && px && py && px !== py ? paretoFor(detail, px, py) : null;
+            if (localPareto && localPareto.points.length > 0) {
+              return <ParetoScatterPlot series={localPareto} />;
+            }
+            const fallbackReason = localParetoReason(metrics.length, px, py) || '두 축을 서로 다른 지표로 고르고, 두 지표가 모두 측정된 설정이 있어야 그릴 수 있습니다.';
+            return <Callout kind="note">{fallbackReason}</Callout>;
+          })()}
         </Section>}
 
         {series.sweep_lines.filter(s => s.metric_key === metricKey).length > 0 && <Section title="파라미터 민감도 (Sweep)" hint="파라미터 값을 바꿀 때 지표의 변화입니다. 다른 파라미터가 함께 달라진 설정은 평균으로 묶였습니다.">

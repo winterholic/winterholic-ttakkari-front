@@ -286,3 +286,211 @@ describe('연구 기록', () => {
     expect(screen.getAllByText('k1 을 올리면 개선').length).toBeGreaterThan(0);
   });
 });
+
+describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => {
+  const fakeServerCompare = {
+    experiment_id: 'e1',
+    primary_metric: 'recall_at_k',
+    baseline_configuration_id: 'c1',
+    metrics: [
+      { metric_key: 'recall_at_k', metric_label: 'Recall@k', unit: '', direction: 'higher_is_better', is_proxy: false },
+      { metric_key: 'query_latency_ms_mean', metric_label: '질의 지연 평균', unit: 'ms', direction: 'lower_is_better', is_proxy: false },
+    ],
+    delta_bars: [
+      {
+        configuration_id: 'c2',
+        config_id: 'c2',
+        label: '#2 (k1=1.8)',
+        metric_key: 'recall_at_k',
+        metric_label: 'Recall@k',
+        unit: '',
+        abs_delta: 0.388,
+        rel_delta_pct: 77.7, // 로컬 재계산(+25.0%)과 일부러 다른 값!
+        direction: 'higher_is_better',
+        is_proxy: false,
+        is_baseline: false,
+      },
+    ],
+    metric_bars: [
+      {
+        metric_key: 'recall_at_k',
+        metric_label: 'Recall@k',
+        unit: '',
+        direction: 'higher_is_better',
+        is_proxy: false,
+        values: [
+          { configuration_id: 'c1', label: 'Baseline (k1=1.2)', value: 0.5, n: 1 },
+          { configuration_id: 'c2', label: '#2 (k1=1.8)', value: 0.777, n: 1 },
+        ],
+      },
+    ],
+    repeat_distributions: [
+      {
+        configuration_id: 'c1',
+        label: 'Baseline (k1=1.2)',
+        metric_key: 'recall_at_k',
+        metric_label: 'Recall@k',
+        n: 1,
+        mean: 0.5,
+        median: 0.5,
+        std: null,
+        min: 0.5,
+        max: 0.5,
+        values: [0.5],
+        is_proxy: false,
+      },
+      {
+        configuration_id: 'c2',
+        label: '#2 (k1=1.8)',
+        metric_key: 'recall_at_k',
+        metric_label: 'Recall@k',
+        n: 1,
+        mean: 0.777,
+        median: 0.777,
+        std: null,
+        min: 0.777,
+        max: 0.777,
+        values: [0.777],
+        is_proxy: false,
+      },
+    ],
+    pareto: {
+      status: 'available',
+      unavailable_reason: null,
+      x_metric: 'query_latency_ms_mean',
+      y_metric: 'recall_at_k',
+      x_label: '질의 지연 평균',
+      y_label: 'Recall@k',
+      x_unit: 'ms',
+      y_unit: '',
+      x_direction: 'lower_is_better',
+      y_direction: 'higher_is_better',
+      points: [
+        { configuration_id: 'c2', label: '#2 (k1=1.8)', x: 999, y: 888, is_pareto_optimal: true },
+      ],
+    },
+    pareto_points: [
+      { configuration_id: 'c2', label: '#2 (k1=1.8)', x: 999, y: 888, is_pareto_optimal: true },
+    ],
+    pareto_status: 'available',
+    pareto_unavailable_reason: null,
+    sweep_lines: [],
+    ablation_impacts: [],
+    config_diff_table: {
+      keys: ['bm25_k1'],
+      changed_keys: ['bm25_k1'],
+      rows: [
+        { configuration_id: 'c1', label: 'Baseline', role: 'baseline', values: { bm25_k1: 1.2 } },
+        { configuration_id: 'c2', label: '#2', role: 'candidate', values: { bm25_k1: 1.8 } },
+      ],
+    },
+  };
+
+  it('서버 compare-series 의 값(delta/metric/pareto)이 detail 로컬 계산보다 우선하여 화면을 지배한다', async () => {
+    setup((path, body) => {
+      if (path.includes('/compare-series')) return fakeServerCompare;
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    // DeltaBarChart 에 서버의 rel_delta_pct(+77.7%) 가 렌더링되어야 함
+    expect(await screen.findByText(/▲ \+77\.7%/)).toBeTruthy();
+    // DeltaBarChart aria-label 에 서버 응답이 반영됨
+    expect(screen.getByRole('img', { name: /77\.7% 개선/ })).toBeTruthy();
+    // compare-series API 호출 확인
+    expect(calls.some(c => c.includes('/experiments/e1/compare-series'))).toBe(true);
+    // Pareto 산점도 요약에 서버가 준 1개 점 반영 확인
+    expect(screen.getByRole('img', { name: /산점도.*점 1개/ })).toBeTruthy();
+  });
+
+  it('서로 공통 측정이 없는 두 설정이면 서버의 구체적 unavailable 사유를 그대로 표시한다', async () => {
+    const reasonText = '두 지표(latency, quality)가 모두 측정된 설정이 없어 Pareto 분석을 생성할 수 없습니다.';
+    setup((path, body) => {
+      if (path.includes('/compare-series')) {
+        return {
+          ...fakeServerCompare,
+          pareto: { status: 'unavailable', unavailable_reason: reasonText, points: [] },
+          pareto_points: [],
+          pareto_status: 'unavailable',
+          pareto_unavailable_reason: reasonText,
+        };
+      }
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText(reasonText)).toBeTruthy();
+    // 로컬 기본 안내문으로 덮어쓰지 않았음을 확인
+    expect(screen.queryByText('두 축을 서로 다른 지표로 고르고, 두 지표가 모두 측정된 설정이 있어야 그릴 수 있습니다.')).toBeNull();
+  });
+
+  it('단일 지표인 경우에도 서버의 pareto_unavailable_reason 원문을 표시한다', async () => {
+    const singleReason = '다목적 Pareto 분석에는 서로 다른 2개 이상의 지표가 필요합니다 (현재 유효 지표: 1개). 단일 지표 순위는 위의 비교 차트를 참고하세요.';
+    setup((path, body) => {
+      if (path.includes('/compare-series')) {
+        return {
+          ...fakeServerCompare,
+          pareto: { status: 'unavailable', unavailable_reason: singleReason, points: [] },
+          pareto_points: [],
+          pareto_status: 'unavailable',
+          pareto_unavailable_reason: singleReason,
+        };
+      }
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText(singleReason)).toBeTruthy();
+  });
+
+  it('가로축/세로축 변경 시 쿼리 파라미터가 갱신되어 전송된다', async () => {
+    setup((path, body) => {
+      if (path.includes('/compare-series')) return fakeServerCompare;
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    await screen.findByText(/▲ \+77\.7%/);
+
+    const pxTrigger = screen.getByRole('combobox', { name: '가로축' });
+    fireEvent.click(pxTrigger);
+    const opt = screen.getByRole('option', { name: 'Recall@k' });
+    fireEvent.click(opt);
+    await waitFor(() => {
+      expect(calls.some(c => c.includes('pareto_x_metric=recall_at_k'))).toBe(true);
+    });
+  });
+
+  it('Baseline 변경 시 baseline_config_id 쿼리 파라미터가 전송된다', async () => {
+    setup((path, body) => {
+      if (path.includes('/compare-series')) return fakeServerCompare;
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    await screen.findByText(/▲ \+77\.7%/);
+
+    const baseTrigger = screen.getByRole('combobox', { name: 'Baseline (기준 설정)' });
+    fireEvent.click(baseTrigger);
+    const opt = screen.getByRole('option', { name: '#2 (k1=1.8)' });
+    fireEvent.click(opt);
+    await waitFor(() => {
+      expect(calls.some(c => c.includes('baseline_config_id=c2'))).toBe(true);
+    });
+  });
+
+  it('서버 응답이 빈 객체이거나 구형 형태면 로컬 deriveSeries 로 fallback 한다', async () => {
+    setup((path, body) => {
+      if (path.includes('/compare-series')) return {}; // old-shape / null normalization
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    // normalizeSeries({}) 는 null 이므로 로컬 deriveSeries 결과인 +25.0% 가 나와야 함
+    expect(await screen.findByText(/▲ \+25\.0% 개선/)).toBeTruthy();
+  });
+
+  it('compare-series HTTP 실패 시 오류를 조용히 은폐하지 않고 오류 안내를 표시한다', async () => {
+    setup((path, body) => {
+      if (path.includes('/compare-series')) throw new Error('500 서버 내부 오류');
+      return defaultHandler(path, body);
+    });
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    expect(await screen.findByText(/500 서버 내부 오류/)).toBeTruthy();
+    expect(screen.getByText('비교 데이터 다시 불러오기')).toBeTruthy();
+  });
+});
