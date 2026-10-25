@@ -4,7 +4,7 @@ import { Button } from '../../../ui/Button';
 import { Dialog } from '../../../ui/Dialog';
 import { Select } from '../../../ui/Select';
 import { adoptBestResult, errorText } from '../api';
-import { adoptionBasis, bestLabel, DIRECTION_TEXT, fmtValue } from '../format';
+import { adoptionBasis, bestLabel, DIRECTION_TEXT, fmtValue, promotionNotice, type PromotionNotice } from '../format';
 import { KEY } from '../hooks';
 import { ORIGIN_LABEL } from '../labels';
 import type { MetricMeta } from '../series';
@@ -30,6 +30,7 @@ export function BestResultPanel({ studyId, detail, metrics, primaryMetric, study
   const [promote, setPromote] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState('');
+  const [promotionMsg, setPromotionMsg] = useState<PromotionNotice | null>(null);
   const m = metrics.find(x => x.key === metric);
   const cfgLabel = cfgs.find(c => c.id === cfg)?.label ?? '';
   const value = cfg && m ? valueOf(cfg, m.key) : null;
@@ -44,6 +45,7 @@ export function BestResultPanel({ studyId, detail, metrics, primaryMetric, study
     }),
     onSuccess: r => {
       void cache.invalidateQueries({ queryKey: KEY }); setConfirm(false); setReason('');
+      setPromotionMsg(promotionNotice(r.method_promotion));
       // 서버가 기각을 채택으로 기록하면 사용자가 모르고 지나가지 않게 알린다
       if (r.status && r.status !== status) setError(`서버가 요청한 결정(${status === 'adopted' ? '채택' : '기각'})과 다르게 ‘${r.status}’로 기록했습니다. 연구 기록을 확인하세요.`);
     },
@@ -68,9 +70,10 @@ export function BestResultPanel({ studyId, detail, metrics, primaryMetric, study
     {canPromote && <label className="tk-checkbox"><input type="checkbox" checked={promote} onChange={e => setPromote(e.target.checked)} /> 이 결과를 근거로 방법을 카탈로그에서 승격</label>}
     <p className="rs-sentence" aria-live="polite">{sentence}</p>
     {error && <Callout kind="caution">{error}</Callout>}
+    {promotionMsg && <Callout kind={promotionMsg.kind} role="status">{promotionMsg.text}</Callout>}
     <div className="rs-actions"><Button variant="primary" disabled={!valid} onClick={() => setConfirm(true)}>{status === 'adopted' ? '이 설정 채택' : '기각 기록'}</Button></div>
     {confirm && <Dialog open onClose={() => setConfirm(false)} size="sm" title="연구 기록에 남깁니다" modal
-      footer={<><Button variant="ghost" onClick={() => setConfirm(false)}>취소</Button><Button variant="primary" busy={save.isPending} onClick={() => { setError(''); save.mutate(undefined, { onError: e => { setError(errorText(e)); setConfirm(false); } }); }}>기록</Button></>}>
+      footer={<><Button variant="ghost" onClick={() => setConfirm(false)}>취소</Button><Button variant="primary" busy={save.isPending} onClick={() => { setError(''); setPromotionMsg(null); save.mutate(undefined, { onError: e => { setError(errorText(e)); setConfirm(false); } }); }}>기록</Button></>}>
       <p>{sentence}</p><p className="rs-muted">결정 노드가 연구 타임라인에 남습니다. 나중에 바꾸려면 지우는 것이 아니라 새 결정으로 대체합니다.</p>
     </Dialog>}
   </div>;

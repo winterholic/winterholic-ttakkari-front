@@ -1,4 +1,5 @@
-import type { BestResult, MethodRelation } from './types';
+import { LIFECYCLE } from './labels';
+import type { BestResult, MethodPromotion, MethodRelation } from './types';
 
 export type Direction = 'higher_is_better' | 'lower_is_better';
 export type Verdict = 'improved' | 'regressed' | 'flat' | 'unknown';
@@ -83,4 +84,26 @@ export function adoptionBasis(b: BestResult): string[] {
   const c = b.constraints as { description?: string } | undefined;
   if (c?.description) out.push('제약: ' + c.description);
   return out;
+}
+
+const SKIP_REASON: Record<string, string> = {
+  system_seed_method: '기본 카탈로그 방법이라 승격은 건너뛰었습니다.',
+  result_not_adopted: '채택이 아니라 기각으로 기록해서 승격은 건너뛰었습니다.',
+  experiment_has_no_method: '이 실험에 연결된 방법이 없어 승격은 건너뛰었습니다.',
+};
+
+export interface PromotionNotice { kind: 'tip' | 'note'; text: string }
+
+/** 채택 응답의 method_promotion 을 사용자 문장으로. 승격을 요청하지 않았거나 필드가 없는 응답(예전 서버)은 null 이다. 채택 자체는 이미 저장된 뒤다. */
+export function promotionNotice(p: MethodPromotion | null | undefined): PromotionNotice | null {
+  if (!p || typeof p !== 'object' || p.requested === false || p.status === 'not_requested') return null;
+  if (p.status === 'promoted') {
+    const life = p.lifecycle_status ? (LIFECYCLE[p.lifecycle_status as keyof typeof LIFECYCLE]?.label ?? p.lifecycle_status) : null;
+    return { kind: 'tip', text: '방법을 카탈로그에서 승격했습니다' + (life ? ` (${life})` : '') + '.' };
+  }
+  if (p.status === 'skipped') {
+    const why = (p.reason && SKIP_REASON[p.reason]) ?? '승격은 건너뛰었습니다' + (p.reason ? ` (${p.reason})` : '') + '.';
+    return { kind: 'note', text: why + ' 채택 결과는 저장됐습니다.' };
+  }
+  return null;
 }

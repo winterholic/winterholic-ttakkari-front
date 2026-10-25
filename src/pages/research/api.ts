@@ -1,7 +1,7 @@
 import { researchRequest } from '../../api/client';
 import { normalizeSeries } from './series';
 import type {
-  AdapterStatus, AdoptPayload, AnalysisSnapshot, BestResult, CompareSeries, CreateExperimentPayload, Dashboard, Data, Experiment, ExperimentDetail, ExperimentPayload,
+  AdapterStatus, AdoptPayload, AdoptResponse, AnalysisSnapshot, BestResult, CompareSeries, CreateExperimentPayload, Dashboard, Data, Experiment, ExperimentDetail, ExperimentPayload,
   ExternalReportPayload, Facets, Measurement, Method, MethodDetail, MethodInput, MethodList, MethodQuery, MethodRelation, PromotePayload, RecentRun, ResearchArtifact, ResourceEstimate,
   RunDetail, RunList, RunSummary, Snapshot, Study, Taxonomy, TaxonomyTerm, ValidateResult,
 } from './types';
@@ -184,7 +184,7 @@ export const addExternalReport = (experimentId: string, body: ExternalReportPayl
 export const analyzeExperiment = (id: string, body: { baseline_configuration_id: string | null; pareto_x_metric?: string; pareto_y_metric?: string }) => researchRequest<AnalysisSnapshot>(`/experiments/${id}/analyze`, body);
 
 // ---- 채택·리포트 -----------------------------------------------------------------
-export const adoptBestResult = (studyId: string, body: AdoptPayload) => researchRequest<Data & { status?: string }>(`/studies/${studyId}/best-results`, body);
+export const adoptBestResult = (studyId: string, body: AdoptPayload) => researchRequest<AdoptResponse>(`/studies/${studyId}/best-results`, body);
 export const exportReport = (studyId: string, body: { experiment_ids: string[]; promote_to_library: boolean }) => researchRequest<{ artifact_id?: string; label?: string; promoted_to_library?: boolean; preview?: string }>(`/studies/${studyId}/export-report`, body);
 
 export function errorText(e: unknown) { return e instanceof Error ? e.message : '요청을 처리하지 못했습니다. 다시 시도해 주세요.'; }

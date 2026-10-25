@@ -182,4 +182,7 @@ export type Provenance = 'external_benchmark' | 'manual_evaluation' | 'imported_
 export interface ExternalMetric { metric_key: string; metric_label: string; value: number; unit: string; direction: 'higher_is_better' | 'lower_is_better'; is_proxy?: boolean; aggregator?: string; slice_key?: string }
 export interface ExternalReportPayload { configuration_id: string; provenance: Provenance; environment_snapshot: Data; metrics: ExternalMetric[]; raw_output: Data }
 export interface AdoptPayload { experiment_id: string; configuration_id: string; run_id: string; objective: string; primary_metric: string; constraints: Data; status: 'adopted' | 'rejected'; rationale: string; promote_method: boolean }
+/** 채택 응답의 method_promotion. 승격을 요청하지 않았으면 not_requested, 사용자 방법이면 promoted(method_id·lifecycle_status), 그 밖의 요청은 skipped + reason. */
+export interface MethodPromotion { requested?: boolean; status?: string; reason?: string; method_id?: string; lifecycle_status?: string }
+export type AdoptResponse = Data & { status?: string; method_promotion?: MethodPromotion | null }
 export interface PromotePayload { run_id: string; decision_note: string; target_status: 'candidate' | 'validated' }

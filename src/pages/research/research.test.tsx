@@ -9,6 +9,7 @@ import { ParetoScatterPlot } from './charts/ParetoScatterPlot';
 import { MetricComparisonBar } from './charts/MetricComparisonBar';
 import { SweepLineChart } from './charts/SweepLineChart';
 import { calls, cfgs, defaultHandler, experiment, mount, runs, runMeasurements, setup, study, validateOk } from './testkit';
+import { promotionNotice } from './format';
 import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, ParamSpec } from './types';
 
@@ -696,5 +697,46 @@ describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => 
     expect((await screen.findAllByText(/▲ \+42\.4%/)).length).toBeGreaterThan(0);
     expect(calls.some(c => c.startsWith('POST /experiments/e1/analyze'))).toBe(true);
     expect(compareCount).toBeGreaterThan(1);
+  });
+});
+
+describe('채택 후 방법 승격 결과 안내', () => {
+  it('promotionNotice 는 승격 성공·건너뜀(사유별)·미요청을 구분한다', () => {
+    expect(promotionNotice({ requested: true, status: 'promoted', method_id: 'm1', lifecycle_status: 'validated' })).toEqual({ kind: 'tip', text: '방법을 카탈로그에서 승격했습니다 (검증됨).' });
+    expect(promotionNotice({ requested: true, status: 'skipped', reason: 'system_seed_method' })?.text).toContain('기본 카탈로그 방법이라 승격은 건너뛰었습니다.');
+    expect(promotionNotice({ requested: true, status: 'skipped', reason: 'result_not_adopted' })?.text).toContain('기각');
+    expect(promotionNotice({ requested: true, status: 'skipped', reason: 'experiment_has_no_method' })?.text).toContain('연결된 방법이 없어');
+    expect(promotionNotice({ requested: true, status: 'skipped', reason: 'new_reason' })?.text).toContain('(new_reason)');
+    expect(promotionNotice({ requested: false, status: 'not_requested' })).toBeNull();
+    expect(promotionNotice(undefined)).toBeNull();
+  });
+
+  async function adopt(promotion: unknown, promote: boolean) {
+    setup((path, body) => path.includes('/best-results') ? { id: 'b1', status: 'adopted', ...(promotion === undefined ? {} : { method_promotion: promotion }) } : defaultHandler(path, body));
+    mount('/research?view=analysis&study=s1&experiment=e1');
+    fireEvent.change(await screen.findByLabelText('목표'), { target: { value: 'Recall@5 개선' } });
+    fireEvent.change(screen.getByLabelText('제약·조건'), { target: { value: '이 장비에서만' } });
+    fireEvent.change(screen.getByLabelText('판단 근거'), { target: { value: 'Recall 이 올랐다' } });
+    if (promote) fireEvent.click(screen.getByLabelText(/방법을 카탈로그에서 승격/));
+    fireEvent.click(screen.getByRole('button', { name: '이 설정 채택' }));
+    fireEvent.click(await screen.findByRole('button', { name: '기록' }));
+    await waitFor(() => expect(calls.some(c => c.startsWith('POST /studies/s1/best-results'))).toBe(true));
+  }
+
+  it('system seed 방법 승격 요청은 채택 저장 뒤 "기본 카탈로그 방법이라 승격은 건너뜀"을 보여 준다', async () => {
+    await adopt({ requested: true, status: 'skipped', reason: 'system_seed_method' }, true);
+    const note = await screen.findByText(/기본 카탈로그 방법이라 승격은 건너뛰었습니다/);
+    expect(note.textContent).toContain('채택 결과는 저장됐습니다');
+  });
+
+  it('승격 성공 응답은 승격됐다고 보여 준다', async () => {
+    await adopt({ requested: true, status: 'promoted', method_id: 'm1', lifecycle_status: 'validated' }, true);
+    expect(await screen.findByText(/방법을 카탈로그에서 승격했습니다 \(검증됨\)/)).toBeTruthy();
+  });
+
+  it('승격을 요청하지 않으면 승격 안내를 띄우지 않는다', async () => {
+    await adopt({ requested: false, status: 'not_requested' }, false);
+    await waitFor(() => expect(screen.queryByRole('button', { name: '기록' })).toBeNull());
+    expect(screen.queryByText(/승격/, { selector: '[role="status"]' })).toBeNull();
   });
 });
