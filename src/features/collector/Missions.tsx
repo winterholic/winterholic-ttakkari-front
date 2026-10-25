@@ -94,6 +94,9 @@ function Result({ mission }: { mission: CollectionMission }) {
     scheduleMut.isPending;
 
   const currentSchedule = mission.plan.schedule?.interval_minutes;
+  const scheduleInvalid =
+    scheduleMinutes !== null &&
+    (!Number.isInteger(scheduleMinutes) || scheduleMinutes < 15 || scheduleMinutes > 43_200);
   const scheduleText = currentSchedule
     ? currentSchedule >= 1440
       ? `${Math.round(currentSchedule / 1440)}일마다`
@@ -240,7 +243,7 @@ function Result({ mission }: { mission: CollectionMission }) {
             id="custom-interval"
             className="tk-input"
             type="number"
-            min={1}
+            min={15}
             max={43200}
             value={scheduleMinutes ?? ""}
             placeholder="직접 입력"
@@ -250,6 +253,7 @@ function Result({ mission }: { mission: CollectionMission }) {
           <Button
             type="button"
             variant="primary"
+            disabled={scheduleInvalid}
             busy={scheduleMut.isPending}
             onClick={() => scheduleMut.mutate()}
           >

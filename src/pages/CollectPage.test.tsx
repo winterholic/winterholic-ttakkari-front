@@ -105,3 +105,14 @@ it("임무의 자동 수집 주기를 설정할 수 있다", async () => {
   fireEvent.click(screen.getByRole("button", { name: "주기 저장" }));
   await waitFor(() => expect(api.schedule).toHaveBeenCalledWith("m1", 1440));
 });
+
+it("API가 허용하지 않는 15분 미만 직접 주기는 저장할 수 없다", async () => {
+  mount("/collect?mission=m1");
+  expect(await screen.findByText(/주기 설정/)).toBeTruthy();
+  fireEvent.click(screen.getByText(/주기 설정/));
+  const input = screen.getByLabelText("직접 입력 (분):");
+  fireEvent.change(input, { target: { value: "5" } });
+  expect(input.getAttribute("min")).toBe("15");
+  expect(screen.getByRole("button", { name: "주기 저장" }).hasAttribute("disabled")).toBe(true);
+  expect(api.schedule).not.toHaveBeenCalled();
+});
