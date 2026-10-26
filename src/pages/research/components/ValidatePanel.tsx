@@ -38,7 +38,7 @@ export function ValidatePanel({ result, pending, error, budget, stale, localErro
         {est && <div className="tk-stat"><dt className="tk-stat__label">예상 시간</dt><dd className="tk-stat__value">{fmtDuration(est.estimated_seconds)}</dd>{overTime && <span className="tk-stat__delta" data-tone="negative">▲ 시간 예산 {fmtDuration(budget.max_total_seconds)} 초과</span>}</div>}
         {est && <div className="tk-stat"><dt className="tk-stat__label">예상 메모리</dt><dd className="tk-stat__value">{est.estimated_memory_mb.toLocaleString('ko-KR')}<span className="tk-stat__unit"> MB</span></dd>{overMem && <span className="tk-stat__delta" data-tone="negative">▲ 메모리 예산 초과</span>}</div>}
       </dl>
-      {est && (est.requires_gpu_lease || est.requires_tts_lock || est.requires_cpu_lock) && <p className="rs-muted">실행 중 점유: {[est.requires_gpu_lease && '호스트 GPU', est.requires_tts_lock && 'TTS 작업 잠금', est.requires_cpu_lock && 'CPU 평가 잠금'].filter(Boolean).join(', ')}. 다른 작업이 쓰는 중이면 대기합니다.</p>}
+      {est && (est.requires_gpu_lease || est.requires_tts_lock || est.requires_cpu_lock) && <p className="rs-muted">예상 자원: {[est.requires_gpu_lease && '호스트 GPU', est.requires_tts_lock && 'TTS 합성', est.requires_cpu_lock && 'CPU 평가'].filter(Boolean).join(', ')}. 계획값이며 현재 점유 상태를 나타내지 않습니다.</p>}
       {cfgs.length > 0 && <div className="tk-datatable tk-datatable--sticky-col tk-datatable--compact">
         <div className="tk-datatable__bar">설정 미리보기 {cfgs.length}개{vary.length ? ` · 달라지는 값: ${vary.join(', ')}` : ' · 모든 설정이 같은 값'}</div>
         <div className="tk-datatable__scroll" role="region" aria-label="확장된 설정 표 (가로로 스크롤)" tabIndex={0}>

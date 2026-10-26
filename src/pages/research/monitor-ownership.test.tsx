@@ -1,4 +1,4 @@
-import { cleanup, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { defaultHandler, mount, runs, setup } from './testkit';
 
@@ -27,5 +27,14 @@ describe('실행 소유권 관측', () => {
     expect(screen.getByText('최근 500개 실행까지만 확인한 결과입니다.')).toBeTruthy();
     expect(screen.getByText('GPU·TTS 자원 점유를 확인한 결과는 아닙니다.')).toBeTruthy();
     expect(screen.queryByText('다른 작업이 끝나야 실행됩니다.')).toBeNull();
+  });
+
+  it('설계실에서 GPU 점유 미확인을 빈 자원으로 표시하지 않는다', async () => {
+    setup((path, body) => new URL(path, 'http://x').pathname === '/dashboard'
+      ? { ...defaultHandler(path, body) as object, gpu_lease: { held: null } } : defaultHandler(path, body));
+    mount('/research?view=designer&study=s1');
+    fireEvent.click(await screen.findByRole('radio', { name: /로컬 LLM 추론/ }));
+    expect(await screen.findByText('현재 호스트 GPU 점유 여부를 확인하지 못했습니다.')).toBeTruthy();
+    expect(screen.queryByText('지금 호스트 GPU 를 쓰는 다른 작업이 없습니다.')).toBeNull();
   });
 });

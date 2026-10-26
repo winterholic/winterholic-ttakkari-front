@@ -340,7 +340,7 @@ export function ExperimentDesignerView({ ctx }: { ctx: ResearchCtx }) {
             {adapterId === 'external_report' ? <Badge tone="warning">직접 실행하지 않음</Badge> : adapter ? (adapter.ready ? <Badge tone="success">준비됨</Badge> : <Badge tone="danger">준비 안 됨</Badge>) : <Badge>상태를 받지 못함</Badge>}
             {adapter?.reason && <p className="rs-reason">{adapter.reason}</p>}
             {!!adapter?.available_models?.length && <p className="rs-muted">사용 가능한 모델: {adapter.available_models.join(', ')}</p>}
-            {dashboard?.gpu_lease && adapterId === 'llm_inference' && <p className="rs-muted">{dashboard.gpu_lease.held ? '지금 호스트 GPU 를 다른 작업이 쓰고 있습니다. 실행은 그 작업이 끝날 때까지 기다릴 수 있습니다.' : '지금 호스트 GPU 를 쓰는 다른 작업이 없습니다.'}</p>}
+            {dashboard?.gpu_lease && adapterId === 'llm_inference' && <p className="rs-muted">{dashboard.gpu_lease.held === true ? '지금 호스트 GPU 를 다른 작업이 쓰고 있습니다. 실행은 그 작업이 끝날 때까지 기다릴 수 있습니다.' : dashboard.gpu_lease.held === false ? '지금 호스트 GPU 를 쓰는 다른 작업이 없습니다.' : '현재 호스트 GPU 점유 여부를 확인하지 못했습니다.'}</p>}
             {adapterId === 'tts_synthesis' && (() => {
               const currentMode = String(params.values.mode ?? 'synthesize');
               const sweepModes = (params.sweeps.mode ?? []) as string[];

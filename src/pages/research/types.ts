@@ -96,7 +96,7 @@ export interface Dashboard {
   // executable_methods 는 실행을 시작할 수 있는 방법(일부 지원 포함), fully_executable_methods 는 파라미터가 모두 매핑되는 방법만 센다.
   counts: { studies: number; methods: number; running_runs: number; completed_runs: number; executable_methods?: number; fully_executable_methods?: number } & Record<string, number>;
   host_readiness: Record<string, AdapterStatus & { lease?: Data }> | AdapterStatus[];
-  gpu_lease?: { held?: boolean } | null;
+  gpu_lease?: { held?: boolean | null } | null;
   recent_runs: RecentRun[]; best_results: BestResult[]; quick_start_templates?: QuickStart[];
 }
 
