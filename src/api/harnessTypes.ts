@@ -2,10 +2,10 @@
 export type HarnessCategory =
   | "instruction" | "setting" | "hook" | "skill" | "agent" | "rule" | "memory" | "plugin" | "mcp"
   | "prompt" | "guard" | "policy" | "capability";
-export type HarnessEngine = "claude" | "codex" | "antigravity" | "muse" | "qwen-local" | "shared" | "ttakkari";
+export type HarnessEngine = "claude" | "codex" | "antigravity" | "muse" | "qwen-local" | "shared" | "ttakkari" | "opencode" | "copilot";
 export type HarnessScope = "global" | "project" | "account" | "ttakkari";
 export type HarnessSession = "desk" | "lead" | "worker" | "orchestrator";
-export type HarnessGroupId = "claude" | "codex" | "muse" | "qwen" | "antigravity" | "ttakkari" | "projects";
+export type HarnessGroupId = "claude" | "codex" | "muse" | "qwen" | "antigravity" | "ttakkari" | "projects" | "opencode" | "copilot";
 export type HarnessConcern =
   | "instruction" | "skill" | "hook" | "setting" | "mcp" | "memory" | "agent" | "plugin"
   | "prompt" | "policy" | "guard" | "capability";
@@ -172,7 +172,7 @@ export interface HarnessDetail extends HarnessRow {
   counterparts: HarnessCounterparts;
 }
 
-export type LayerEngine = "claude" | "codex" | "antigravity" | "muse" | "qwen-local";
+export type LayerEngine = "claude" | "codex" | "antigravity" | "muse" | "qwen-local" | "opencode" | "copilot";
 export type LayerPhase = "prompt" | "delivery" | "load" | "tool" | "guard";
 
 export interface HarnessLayer {

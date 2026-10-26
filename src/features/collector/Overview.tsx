@@ -32,7 +32,7 @@ export function BudgetCard({ budget }: { budget: CollectBudget }) {
   </section>;
 }
 
-export function Overview({ scope }: { scope: KbScope }) {
+export function Overview({ scope }: { scope?: KbScope } = {}) {
   const cache = useQueryClient();
   const summary = useQuery({ queryKey: ["kb-collect-summary", scope], queryFn: () => collectSummary(scope), refetchInterval: 10000 });
   const runtime = useQuery({ queryKey: ["kb-collect-runtime", scope], queryFn: () => collectRuntime(scope) });

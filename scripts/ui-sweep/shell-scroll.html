@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Shell document scroll regression</title>
+  <link rel="icon" href="data:,">
+</head>
+<body>
+  <div id="root">
+    <div class="tk-app">
+      <aside class="tk-app__sidebar">
+        <div class="tk-app__brand">Ttakkari</div>
+        <nav class="tk-sidebar" aria-label="탐색"></nav>
+        <div class="app-shell-footer">winterholic</div>
+      </aside>
+      <main class="tk-app__main" style="position:relative">
+        <section class="tk-screen">
+          <header class="tk-header"><div class="tk-header__inner">스크롤 회귀 검사</div></header>
+          <div class="tk-screen__body" tabindex="0"></div>
+        </section>
+        <!-- Synthetic overflow: reproduce document displacement without assuming its original source. -->
+        <button id="overflow-target" tabindex="-1" style="position:absolute;top:calc(100% + 712px);width:1px;height:1px;padding:0;border:0;opacity:0">overflow focus target</button>
+      </main>
+    </div>
+  </div>
+  <output id="result" style="position:fixed;right:0;bottom:0;z-index:99999;background:white;color:black;white-space:pre-wrap"></output>
+  <script type="module">
+    // Use Vite's module CSS path so HMR also invalidates the regression's stylesheet.
+    import '/src/vendor/ttakkari/tokens.css';
+    import '/src/vendor/ttakkari/typography.css';
+    import '/src/vendor/ttakkari/components.css';
+    import '/src/shell/shell.css';
+    const body = document.querySelector('.tk-screen__body');
+    const nav = document.querySelector('.tk-sidebar');
+    for (let i = 0; i < 100; i++) {
+      const p = document.createElement('p'); p.textContent = `긴 한국어 본문과 목록이 들어가는 회귀 검사 ${i}`;
+      body.append(p); nav.append(p.cloneNode(true));
+    }
+    await document.fonts.ready;
+    const tick = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await tick();
+    document.querySelector('#overflow-target').focus();
+    window.scrollTo(0, 713);
+    await tick();
+    const shell = document.querySelector('.tk-app').getBoundingClientRect();
+    const top = shell.top, bottom = shell.bottom, height = shell.height;
+    const shift = window.scrollY;
+    body.scrollTop = 500;
+    nav.scrollTop = 300;
+    await tick();
+    const checks = [
+      ['document stays at origin', shift === 0, `scrollY=${shift}`],
+      ['shell stays in viewport', top === 0 && bottom === innerHeight && height === innerHeight, `top=${top} bottom=${bottom} height=${height} viewport=${innerHeight}`],
+      ['body still scrolls', body.scrollTop === 500, `scrollTop=${body.scrollTop}`],
+      ['sidebar still scrolls', nav.scrollTop === 300, `scrollTop=${nav.scrollTop}`],
+    ];
+    const dialog = document.createElement('dialog');
+    dialog.className = 'tk-dialog'; dialog.textContent = '모달 회귀 검사';
+    document.querySelector('.tk-app').append(dialog); dialog.showModal();
+    const box = dialog.getBoundingClientRect();
+    checks.push(['modal remains visible', box.width > 0 && box.height > 0 && box.top >= 0 && box.bottom <= innerHeight, `top=${box.top} bottom=${box.bottom}`]);
+    dialog.close(); dialog.remove();
+    // Public meeting documents have no app shell and must retain document scrolling.
+    const app = document.querySelector('.tk-app');
+    const root = document.querySelector('#root');
+    app.remove();
+    const publicDoc = document.createElement('article');
+    publicDoc.className = 'mt-public'; publicDoc.style.height = 'calc(100dvh + 1000px)';
+    publicDoc.textContent = '공개 문서 스크롤 검사'; root.append(publicDoc);
+    window.scrollTo(0, 713); await tick();
+    checks.push(['public document still scrolls', window.scrollY === 713, `scrollY=${window.scrollY}`]);
+    publicDoc.remove(); root.append(app); window.scrollTo(0, 0); await tick();
+    const result = checks.map(([name, pass, detail]) => `${pass ? 'PASS' : 'FAIL'} ${name}: ${detail}`).join('\n');
+    document.querySelector('#result').textContent = result;
+    document.documentElement.dataset.result = checks.every(([,pass]) => pass) ? 'passed' : 'failed';
+    console.log(result);
+  </script>
+</body>
+</html>

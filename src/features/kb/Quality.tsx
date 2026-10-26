@@ -5,7 +5,7 @@ import type { KbScope } from "../../api/collector";
 import { Button } from "../../ui/Button";
 import { failure } from "./labels";
 
-export function ItemReview({ id, scope }: { id: string; scope: KbScope }) {
+export function ItemReview({ id, scope }: { id: string; scope?: KbScope }) {
   const cache = useQueryClient();
   const [reason, setReason] = useState("");
   const [approved, setApproved] = useState(false);
@@ -28,7 +28,7 @@ export function ItemReview({ id, scope }: { id: string; scope: KbScope }) {
   </div>;
 }
 
-export function QualityPanel({ scope }: { scope: KbScope }) {
+export function QualityPanel({ scope }: { scope?: KbScope } = {}) {
   const cache = useQueryClient();
   const status = useQuery({ queryKey: ["kb-collect-quality", scope], queryFn: () => collectQuality(scope) });
   const train = useMutation({ mutationFn: () => trainCollectQuality(scope),

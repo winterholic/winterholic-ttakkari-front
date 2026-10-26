@@ -8,7 +8,7 @@ import { failure } from "./Finder";
 import { LAYER_ENGINE_LABEL, ORIGIN_LABEL, PHASE_LABEL, SESSION_HINT, SESSION_LABEL } from "./labels";
 
 const SESSIONS: HarnessSession[] = ["desk", "lead", "worker", "orchestrator"];
-const ENGINES: LayerEngine[] = ["claude", "codex", "antigravity", "muse", "qwen-local"];
+const ENGINES: LayerEngine[] = ["claude", "codex", "antigravity", "muse", "qwen-local", "opencode", "copilot"];
 // 접수는 Qwen 라우터가 1순위이고 codex·claude 가 폴백이다. antigravity·muse 는 접수에 쓰이지 않는다.
 const DESK_ENGINES: LayerEngine[] = ["qwen-local", "codex", "claude"];
 

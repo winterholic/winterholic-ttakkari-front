@@ -8,7 +8,7 @@ import { COLLECT_REASON, failure, formatChars, shortHash } from "../kb/labels";
 import { ItemReview } from "../kb/Quality";
 import { STATUS } from "../kb/Collection";
 
-function Detail({ id, scope }: { id: string; scope: KbScope }) {
+function Detail({ id, scope }: { id: string; scope?: KbScope }) {
   const detail = useQuery({ queryKey: ["kb-collect-item", scope, id], queryFn: () => collectItemDetail(id, scope) });
   if (detail.isPending) return <p role="status">자료 정보를 읽는 중</p>;
   if (detail.isError) return <p className="tk-error" role="alert">{failure(detail.error)}</p>;
@@ -26,7 +26,7 @@ function Detail({ id, scope }: { id: string; scope: KbScope }) {
   </dl>;
 }
 
-function Row({ item, scope }: { item: ReviewItem; scope: KbScope }) {
+function Row({ item, scope }: { item: ReviewItem; scope?: KbScope }) {
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const reprocess = useMutation({
@@ -58,7 +58,7 @@ function Row({ item, scope }: { item: ReviewItem; scope: KbScope }) {
   </li>;
 }
 
-function Audit({ scope }: { scope: KbScope }) {
+function Audit({ scope }: { scope?: KbScope }) {
   const audit = useQuery({ queryKey: ["kb-collect-audit", scope], queryFn: () => collectHoldAudit(scope) });
   if (audit.isPending) return <p role="status">표본을 고르는 중</p>;
   if (audit.isError) return <div className="kb-error"><p className="tk-error" role="alert">{failure(audit.error)}</p><Button onClick={() => void audit.refetch()}>다시 시도</Button></div>;
@@ -73,7 +73,7 @@ function Audit({ scope }: { scope: KbScope }) {
   </section>;
 }
 
-export function Review({ scope }: { scope: KbScope }) {
+export function Review({ scope }: { scope?: KbScope } = {}) {
   const [sample, setSample] = useState(false);
   const query = useInfiniteQuery({ queryKey: ["kb-collect-review", scope], initialPageParam: 0,
     queryFn: ({ pageParam }) => collectReviewQueue(scope, pageParam),

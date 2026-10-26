@@ -14,7 +14,7 @@ const RECONCILE: Record<string, string> = {
   pending: "아직 전달 대기 중이에요.", terminal: "권리나 무결성 문제로 끝난 전달이에요. 출처를 고친 뒤 다시 수집해 주세요.",
 };
 
-function Row({ row, scope }: { row: CollectDelivery; scope: KbScope }) {
+function Row({ row, scope }: { row: CollectDelivery; scope?: KbScope }) {
   const cache = useQueryClient();
   const fix = useMutation({ mutationFn: () => reconcileCollectDelivery(row.outbox_id, scope),
     onSuccess: () => cache.invalidateQueries({ queryKey: ["kb-collect-deliveries", scope] }) });
@@ -28,7 +28,7 @@ function Row({ row, scope }: { row: CollectDelivery; scope: KbScope }) {
   </li>;
 }
 
-export function Deliveries({ scope }: { scope: KbScope }) {
+export function Deliveries({ scope }: { scope?: KbScope } = {}) {
   const [status, setStatus] = useState("all");
   const query = useInfiniteQuery({ queryKey: ["kb-collect-deliveries", scope, status], initialPageParam: 0, refetchInterval: 15000,
     queryFn: ({ pageParam }) => collectDeliveries(scope, status === "all" ? undefined : status, pageParam),

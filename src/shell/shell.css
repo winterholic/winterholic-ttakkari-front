@@ -48,12 +48,13 @@ dialog:focus { outline: none; }
 .dialog-actions .tk-menu__item { min-height: var(--tk-size-control-lg); font-size: var(--tk-font-size-md); }
 .dialog-actions .tk-menu__item > .tk-icon { --tk-_icon: var(--tk-size-icon-md); }
 
-/* 데스크톱 셸 높이. vendor 의 .tk-app 은 height: 100dvh 뿐이라 dvh 가 실제 창 높이와 어긋나면(창 크기를 바꾼 뒤 갱신이 늦거나 화면 배율·모니터가 바뀐 경우)
-   셸이 그 높이에서 잘리고 아래가 빈 배경으로 남는다. 데스크톱은 주소창이 접히지 않아 dvh 가 필요 없으므로 창 높이를 html 부터 비율로 이어 받는다.
-   모바일은 주소창·키보드 때문에 dvh 를 그대로 쓴다. */
+/* 데스크톱 셸은 html 부터 창 높이를 이어 받고 본문·사이드바 안에서만 스크롤한다.
+   넘친 자식이 문서의 스크롤 범위를 늘리면 focus/scrollIntoView 가 셸 전체를 위로 밀 수 있다.
+   clip 은 문서로 새는 넘침을 막으면서 sticky 의 기준이 되는 새 스크롤 상자는 만들지 않는다.
+   모바일은 주소창·키보드에 맞춰 vendor 의 dvh 레이아웃을 그대로 쓴다. */
 @media (min-width: 1024px) {
   html, body, #root { height: 100%; }
-  .tk-app { height: 100%; }
+  .tk-app { height: 100%; overflow: clip; }
 }
 
 /* 하단 여백: 홈 인디케이터 높이(env)를 통째로 비우면 탭바 아래가 휑해서 절반만 비운다(최소 space-2). */

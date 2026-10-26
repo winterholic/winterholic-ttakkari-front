@@ -1,12 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useSearchParams } from "react-router";
 import { BudgetCard, Overview } from "../features/collector/Overview";
 import { Deliveries } from "../features/collector/Deliveries";
 import { Review } from "../features/collector/Review";
+import { Missions } from "../features/collector/Missions";
 import { RunsPanel, SourcesPanel } from "../features/kb/Collection";
 import { QualityPanel } from "../features/kb/Quality";
-import { useKbScope } from "../features/kb/scope";
 import { PageHeader } from "../shell/PageHeader";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
@@ -25,24 +25,23 @@ const VIEWS: { id: View; label: string }[] = [
   { id: "quality", label: "품질·한도" },
 ];
 
-function QualityAndLimits({ scope }: { scope: "personal" | "work" }) {
-  const budget = useQuery({ queryKey: ["kb-collect-budgets", scope], queryFn: () => collectBudgets(scope), refetchInterval: 30000 });
+function QualityAndLimits() {
+  const budget = useQuery({ queryKey: ["kb-collect-budgets"], queryFn: () => collectBudgets(), refetchInterval: 30000 });
   return <section className="kb-results" aria-label="품질과 한도">
     {budget.isPending && <p role="status">한도를 읽는 중</p>}
     {budget.isError && <div className="kb-error"><p className="tk-error" role="alert">{failure(budget.error)}</p><Button onClick={() => void budget.refetch()}>다시 시도</Button></div>}
     {budget.data && <BudgetCard budget={budget.data} />}
-    <QualityPanel scope={scope} />
+    <QualityPanel />
   </section>;
 }
 
 /**
- * 수집 관리. 지식 도서관과 독립된 화면이라 도서관 없이도 출처·실행·검토·한도를 다룬다.
- * 자료 범위(개인/회사)는 도서관과 같은 `scope` 쿼리를 쓰고, 화면 상태는 모두 URL 에 둔다.
+ * Intent is the primary task. Source administration remains available in advanced controls.
  */
 export function CollectPage() {
   const [params, setParams] = useSearchParams();
+  const [operationsOpen, setOperationsOpen] = useState(params.has("view"));
   const queryClient = useQueryClient();
-  const scope = useKbScope();
   const view: View = VIEWS.find((v) => v.id === params.get("view"))?.id ?? "overview";
   const update = useCallback((values: Record<string, string | null>) => {
     setParams((prev) => {
@@ -52,22 +51,24 @@ export function CollectPage() {
     });
   }, [setParams]);
   return <div className="tk-screen">
-    <PageHeader title="수집 관리" meta="출처 등록부터 검토·전달·한도까지" actions={
-      <button type="button" className="tk-icon-button" aria-label="다시 읽기" onClick={() => void queryClient.invalidateQueries({ predicate: (qy) => String(qy.queryKey[0]).startsWith("kb-collect") })}><Icon name="retry" /></button>
+    <PageHeader title="지식 수집" meta="수집 목적에서 지식 도서관까지" actions={
+      <button type="button" className="tk-icon-button" aria-label="다시 읽기" onClick={() => void queryClient.invalidateQueries({ predicate: (qy) => /^(kb-collect|collection-mission)/.test(String(qy.queryKey[0])) })}><Icon name="retry" /></button>
     } />
     <div className="tk-screen__body"><div className="tk-container tk-container--lg kb-page collect-page">
-      <div className="kb-actions" role="group" aria-label="자료 범위">
-        <Button size="sm" variant={scope === "personal" ? "primary" : "ghost"} aria-pressed={scope === "personal"} onClick={() => update({ scope: null })}>개인</Button>
-        <Button size="sm" variant={scope === "work" ? "primary" : "ghost"} aria-pressed={scope === "work"} onClick={() => update({ scope: "work" })}>회사</Button>
-      </div>
+      <Missions />
+      <details className="mission-operations" open={operationsOpen} onToggle={event => setOperationsOpen(event.currentTarget.open)}>
+      <summary>운영·고급 설정</summary>
+      {operationsOpen && <>
       <nav className="kb-tabs" aria-label="수집 관리 화면">
         {VIEWS.map((v) => <button key={v.id} type="button" aria-pressed={view === v.id} onClick={() => update({ view: v.id === "overview" ? null : v.id })}>{v.label}</button>)}
       </nav>
-      {view === "overview" && <Overview key={scope} scope={scope} />}
-      {view === "sources" && <SourcesPanel key={scope} scope={scope} />}
-      {view === "runs" && <><RunsPanel key={scope} scope={scope} /><Deliveries key={`d-${scope}`} scope={scope} /></>}
-      {view === "review" && <Review key={scope} scope={scope} />}
-      {view === "quality" && <QualityAndLimits key={scope} scope={scope} />}
+      {view === "overview" && <Overview />}
+      {view === "sources" && <SourcesPanel />}
+      {view === "runs" && <><RunsPanel /><Deliveries /></>}
+      {view === "review" && <Review />}
+      {view === "quality" && <QualityAndLimits />}
+      </>}
+      </details>
     </div></div>
   </div>;
 }

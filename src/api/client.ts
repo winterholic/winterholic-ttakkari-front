@@ -856,7 +856,7 @@ export interface UsageWindow {
 export interface AccountUsage {
   id: string;
   name: string;
-  engine: "claude" | "codex" | "antigravity" | "muse";
+  engine: "claude" | "codex" | "antigravity" | "muse" | "opencode" | "copilot";
   pool: AccountPool;
   /** 개인 모드 켜기·순위 */
   enabled: boolean;
@@ -872,12 +872,13 @@ export interface AccountUsage {
   login: "ok" | "unknown" | "missing";
   cooldown_seconds: number;
   windows: UsageWindow[];
+  quota_unlimited?: Record<string, string>;
   /** Codex rate-limit 재설정 크레딧 */
   reset_credits?: { available: number; next_expires_at: number | null } | null;
   /** Antigravity AI credits balance. Different unit from Codex rate-limit reset credits. */
   credits_balance?: number | null;
   credits_error?: string | null;
-  source: "api" | "stream" | "session_log" | "antigravity_cli" | "muse_cli" | null;
+  source: "copilot_sdk" | "api" | "stream" | "session_log" | "antigravity_cli" | "muse_cli" | null;
   plan: string | null;
   error: string | null;
   updated_at: number | null;
@@ -980,6 +981,14 @@ export const qwenFlashUsage = (): Promise<QwenFlashUsage> => json("/api/accounts
 /** 전용 HOME 으로 로그인한 Antigravity 추가 계정을 확인한다. confirm 이면 사용자가 입력한 Google 계정으로 격리 확인을 기록한다. */
 export const checkAntigravityAccount = (id: string, body: { principal?: string; confirm?: boolean }): Promise<AccountOut> =>
   json(`/api/accounts/${id}/antigravity/check`, { method: "POST", json: body });
+
+/** 전용 격리 홈으로 로그인한 OpenCode 계정의 인증 상태를 확인한다. */
+export const checkOpencodeAccount = (id: string): Promise<AccountOut> =>
+  json(`/api/accounts/${id}/opencode/check`, { method: "POST" });
+
+/** GitHub Copilot CLI 계정의 인증 상태를 확인한다. */
+export const checkCopilotAccount = (id: string): Promise<AccountOut> =>
+  json(`/api/accounts/${id}/copilot/check`, { method: "POST" });
 
 export const codexReset = (id: string): Promise<{ outcome: string; message: string }> =>
   json(`/api/accounts/${id}/codex-reset`, { method: "POST" });
