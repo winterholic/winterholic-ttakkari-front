@@ -55,7 +55,7 @@ export const ERROR_CODE_NOTE: Record<string, string> = {
   cancelled: '사용자가 취소한 실행입니다.',
 };
 // 실행 모니터의 점유 중인 잠금 이름(서버 active_locks[].lock)
-export const LOCK_LABEL: Record<string, string> = { host_gpu_lease: '호스트 GPU 임대', tts_lock: 'TTS 합성 잠금', cpu_lock: 'CPU 평가 잠금' };
+export const LOCK_LABEL: Record<string, string> = { host_gpu_lease: '호스트 GPU 임대', tts_lock: 'TTS 합성 잠금', cpu_lock: 'CPU 평가 잠금', research_execution_owner: '연구 실행 소유권' };
 export const errorCodeNote =(code?: string | null) => (code ? ERROR_CODE_NOTE[code] : undefined);
 
 export const STRATEGY: Record<Strategy, { label: string; hint: string; supported: boolean }> = {

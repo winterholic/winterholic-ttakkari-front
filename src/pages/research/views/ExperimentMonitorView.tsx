@@ -62,6 +62,8 @@ export function ExperimentMonitorView({ ctx }: { ctx: ResearchCtx }) {
 
   const host = runsQ.data?.host_gpu_status;
   const locks = runsQ.data?.active_locks ?? [];
+  const lockObservations = runsQ.data?.lock_observations;
+  const observedOwners = lockObservations?.basis === 'execution_owner_os_lock';
   const exp = detail.data?.experiment;
   const runDetailId = ctx.runId;
   const runForDialog = runs.find(r => r.id === runDetailId);
@@ -90,7 +92,13 @@ export function ExperimentMonitorView({ ctx }: { ctx: ResearchCtx }) {
         <ul className="rs-adapterlist">{adapters.filter(a => a.adapter_id !== 'external_report').map(a => <li key={a.adapter_id}>
           <span>{adapterLabel(a.adapter_id)}</span> {a.ready ? <Badge tone="success">준비됨</Badge> : <Badge tone="danger">사용 불가</Badge>}{a.reason && !a.ready && <span className="rs-reason">{a.reason}</span>}</li>)}
           {!adapters.length && <li className="rs-muted">실행기 상태를 받지 못했습니다.</li>}</ul>
-        {locks.length > 0 ? <p>점유 중인 잠금: {locks.map((l, i) => <Badge key={i} tone="warning">{lockName(l)}</Badge>)}<span className="rs-muted"> 다른 작업이 끝나야 실행됩니다.</span></p> : <p className="rs-muted">점유 중인 잠금이 없습니다.</p>}
+        {!observedOwners ? <p className="rs-muted">서버에서 실행 소유권 관측 정보를 받지 못했습니다.</p> : <>
+          {locks.length > 0 ? <p>관측된 실행 소유권: {locks.map((l, i) => <Badge key={i} tone="warning">{lockName(l)}</Badge>)}</p>
+            : <p className="rs-muted">조회 범위에서 잠긴 실행 소유권을 관측하지 못했습니다.</p>}
+          {(lockObservations?.unverified_run_ids.length ?? 0) > 0 && <p className="rs-muted">소유권 확인 불가 {lockObservations?.unverified_run_ids.length}건.</p>}
+          {lockObservations?.truncated && <p className="rs-muted">최근 {lockObservations.candidate_limit}개 실행까지만 확인한 결과입니다.</p>}
+          <p className="rs-muted">GPU·TTS 자원 점유를 확인한 결과는 아닙니다.</p>
+        </>}
         {host && Object.keys(host).length > 0 && <details className="rs-advanced"><summary>호스트 GPU 상태</summary><FactList data={host} /></details>}
       </Section>
     </div>

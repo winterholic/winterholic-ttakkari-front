@@ -168,7 +168,8 @@ export interface ExperimentDetail {
   experiment: Experiment; configurations: Configuration[]; runs: RunSummary[]; measurements: Measurement[];
   latest_analysis?: AnalysisSnapshot | null; artifacts: ResearchArtifact[];
 }
-export interface RunList { runs: RunSummary[]; host_gpu_status?: Data | null; active_locks?: Array<string | Data> }
+export interface RunList { runs: RunSummary[]; host_gpu_status?: Data | null; active_locks?: Array<string | Data>;
+  lock_observations?: { basis: string; candidate_limit: number; truncated: boolean; unverified_run_ids: string[]; resource_lock_status: string } }
 
 // ---- compare-series(정규화 시리즈) -----------------------------------------------------
 export interface DeltaBarItem { configuration_id: string; label: string; metric_key: string; metric_label: string; unit?: string; abs_delta: number | null; rel_delta_pct: number | null; direction: 'higher_is_better' | 'lower_is_better'; is_proxy?: boolean; is_baseline?: boolean }
