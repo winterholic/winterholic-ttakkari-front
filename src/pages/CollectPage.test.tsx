@@ -285,6 +285,9 @@ it("연구 응답은 요약만 기본으로 보이고 계획 범위와 남은 �
   });
   mount("/collect?mission=m1");
   expect(await screen.findByLabelText("자율 조사")).toBeTruthy();
+  const results = screen.getByRole("region", { name: "수집 결과" });
+  const gaps = screen.getByRole("region", { name: "남은 범위" });
+  expect(results.compareDocumentPosition(gaps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getByLabelText("조사 종료 사유").textContent).toContain("검색 예산을 모두 써서");
   expect(screen.getByText(/실패한 검색 2건 · 원인: 응답 시간 초과/)).toBeTruthy();
   expect(screen.getByText(/검색은 성공했지만 수집할 출처를 찾지 못했습니다\(검색 실패와 다름\)/)).toBeTruthy();
