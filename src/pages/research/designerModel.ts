@@ -8,7 +8,7 @@ export interface DesignState {
   params: ParamState; extra: Record<string, unknown>; inputs: Record<string, unknown>; primaryMetric: string; secondary: string[]; budget: Budget; maxRunsTouched?: boolean; repeats: number; seed: number; datasetVersion: string;
   source_study_id?: string | null; source_experiment_id?: string | null; source_configuration_id?: string | null; source_run_id?: string | null;
 }
-export const DEFAULT_BUDGET: Budget = { max_runs: 20, max_total_seconds: 300, max_memory_mb: 4096 };
+export const DEFAULT_BUDGET: Budget = { max_runs: 20, max_total_seconds: 300 };
 export const initialDesign: DesignState = {
   name: '', hypothesis: '', rationale: '', strategy: 'ab', adapterId: '', adapterTouched: false, params: { values: {}, sweeps: {} }, extra: {}, inputs: {}, primaryMetric: '', secondary: [],
   budget: DEFAULT_BUDGET, repeats: 3, seed: 42, datasetVersion: '',

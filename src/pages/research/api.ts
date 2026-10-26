@@ -151,10 +151,13 @@ export async function validateExperiment(b: ExperimentPayload): Promise<Validate
     study_id: b.study_id, method_id: b.method_id, compared_method_ids: b.compared_method_ids, adapter_id: b.adapter_id, strategy: b.strategy,
     search_space: b.search_space, fixed_inputs: b.fixed_inputs, primary_metric: b.primary_metric, budget: b.budget, seed: b.seed ?? 42,
   });
-  return { ...r, errors: r.errors ?? [], warnings: r.warnings ?? [], expanded_configurations: r.expanded_configurations ?? [], resource_estimate: normalizeEstimate(r.resource_estimate) };
+  const memoryUnverified = b.budget.max_memory_mb != null && r.resource_estimate?.memory_budget_contract !== 1;
+  return { ...r, valid: r.valid && !memoryUnverified,
+    errors: [...(r.errors ?? []), ...(memoryUnverified ? ['현재 서버의 RSS 감시 지원을 확인할 수 없습니다. 서버 반영 후 다시 검증하거나 RSS 중단 기준을 비우세요.'] : [])],
+    warnings: r.warnings ?? [], expanded_configurations: r.expanded_configurations ?? [], resource_estimate: normalizeEstimate(r.resource_estimate) };
 }
 
-const DEFAULT_BUDGET = { max_runs: 20, max_total_seconds: 300, max_memory_mb: 4096 };
+const DEFAULT_BUDGET = { max_runs: 20, max_total_seconds: 300 };
 /** 실험 정의는 `experiment` 래퍼(name 포함)로 온다. 래퍼 없이 평평한 필드(이름은 title)만 주던 예전 응답도 같은 모양으로 맞춘다. */
 function toExperiment(raw: Data): Experiment {
   return {

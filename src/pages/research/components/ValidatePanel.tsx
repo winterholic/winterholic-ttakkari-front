@@ -23,11 +23,12 @@ export function ValidatePanel({ result, pending, error, budget, stale, localErro
   const vary = varyingKeys(cfgs);
   const est = result?.resource_estimate;
   const overTime = est && est.estimated_seconds > budget.max_total_seconds;
-  const overMem = est && est.estimated_memory_mb > budget.max_memory_mb;
+  const overMem = est && budget.max_memory_mb != null && est.estimated_memory_mb > budget.max_memory_mb;
   return <section className="rs-validate" aria-label="실험 검증 결과" aria-busy={pending}>
     <div className="rs-validate__head"><h3>생성 전 검증</h3>
       {pending ? <Badge>검증 중…</Badge> : error ? <Badge tone="danger">검증 실패</Badge> : result ? (result.valid && !localErrors.length ? <Badge tone="success">실행 가능</Badge> : <Badge tone="danger">고쳐야 할 항목 있음</Badge>) : <Badge>입력 대기</Badge>}
       {stale && !pending && <span className="rs-muted">입력이 바뀌었습니다. 곧 다시 검증합니다.</span>}</div>
+    <p className="rs-muted">{budget.max_memory_mb == null ? '모델 자식 RSS 감시 꺼짐 · 중단 기준을 지정하지 않았습니다.' : `모델 자식 RSS 중단 기준 ${budget.max_memory_mb.toLocaleString('ko-KR')} MiB · TTS 합성/STT만 지원 · 50ms 관측, OS 강제 상한 아님`}</p>
     {error && <Callout kind="caution" title="검증 요청을 처리하지 못했습니다">{error}</Callout>}
     {localErrors.length > 0 && <Callout kind="caution" title="입력을 확인하세요"><ul className="rs-bullets">{localErrors.map((e, i) => <li key={i}>{e}</li>)}</ul></Callout>}
     {result?.errors?.length ? <Callout kind="caution" title="실행할 수 없는 이유"><ul className="rs-bullets">{result.errors.map((e, i) => <li key={i}>{e}</li>)}</ul></Callout> : null}

@@ -79,7 +79,7 @@ export interface AdapterStatus {
   available_models?: string[]; details?: Data; name_ko?: string; version?: string; domains?: string[];
   supported_parameters?: string[]; required_inputs?: string[];
 }
-export interface ResourceEstimate { estimated_seconds: number; estimated_memory_mb: number; total_runs?: number; requires_gpu_lease?: boolean; requires_tts_lock?: boolean; requires_cpu_lock?: boolean }
+export interface ResourceEstimate { memory_budget_contract?: number; estimated_seconds: number; estimated_memory_mb: number; total_runs?: number; requires_gpu_lease?: boolean; requires_tts_lock?: boolean; requires_cpu_lock?: boolean }
 export interface BestResult {
   id: string; study_id: string; decision_node_id?: string | null;
   status: 'adopted' | 'superseded' | 'rejected'; rationale: string; created_at: string;
@@ -125,7 +125,7 @@ export const STRATEGIES: Strategy[] = ['single', 'baseline', 'ab', 'repeat', 'gr
 export type AdapterId = 'llm_inference' | 'retrieval_eval' | 'tts_synthesis' | 'external_report';
 export const ADAPTER_IDS: AdapterId[] = ['llm_inference', 'retrieval_eval', 'tts_synthesis', 'external_report'];
 
-export interface Budget { max_runs: number; max_total_seconds: number; max_memory_mb: number; repetitions?: number }
+export interface Budget { max_runs: number; max_total_seconds: number; max_memory_mb?: number | null; repetitions?: number }
 export interface ExperimentPayload {
   study_id: string; method_id: string | null; compared_method_ids: string[]; adapter_id: string; strategy: Strategy;
   search_space: Record<string, unknown>; fixed_inputs: Record<string, unknown>; primary_metric: string; secondary_metrics?: string[]; budget: Budget; seed?: number;
