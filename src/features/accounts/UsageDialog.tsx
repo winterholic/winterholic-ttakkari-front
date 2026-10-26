@@ -16,7 +16,7 @@ import "./usage.css";
 // ezwork fsw(ezChat) 와 같은 경계: 80% 부터 아끼고, 95% 부터 거의 없다.
 const WARN = 80;
 const DANGER = 95;
-const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준", antigravity_cli: "Antigravity 공식 CLI 기준", muse_cli: "Muse Code 구독 사용량 기준", opencode_cli: "OpenCode 실행 기록 기준", copilot_cli: "GitHub Copilot CLI 기준" };
+const SOURCE: Record<string, string> = { api: "구독 사용량 기준", stream: "따까리 실행 기록 기준", session_log: "Codex 실행 기록 기준", antigravity_cli: "Antigravity 공식 CLI 기준", muse_cli: "Muse Code 구독 사용량 기준", opencode_cli: "OpenCode 실행 기록 기준", copilot_cli: "GitHub Copilot CLI 기준", copilot_sdk: "Copilot 계정 사용량 기준" };
 
 function level(p: number): "ok" | "warn" | "danger" {
   return p >= DANGER ? "danger" : p >= WARN ? "warn" : "ok";
@@ -45,7 +45,7 @@ function ago(ts: number | null, now: number): string {
 }
 
 /** 실제로 관측한 창이 하나라도 있는가. Muse 는 못 읽은 창도 자리표시자로 내려오므로 windows.length 로 판단하면 안 된다. */
-const measured = (a: AccountUsage) => a.windows.some((w) => w.state !== "unavailable");
+const measured = (a: AccountUsage) => a.windows.some((w) => w.state !== "unavailable") || Object.keys(a.quota_unlimited ?? {}).length > 0;
 
 type Status = { tone: "success" | "warning" | "neutral" | "info"; text: string };
 
@@ -325,13 +325,17 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                           <div className="usage-card__windows">
                             {a.engine === "antigravity"
                               ? <p className="usage__note">모델 그룹 quota · 각 그룹이 별도 한도를 공유해요.</p>
+                              : a.source === "copilot_sdk" ? <p className="usage__note">Copilot 구독 계정의 잔여량이에요.</p>
                               : <p className="usage__note">계정 상한 {a.max_used_percent}% · 상한까지 여유 {a.remaining_to_limit_percent == null ? (a.engine === "muse" ? "확인 불가" : "측정 대기") : `${a.remaining_to_limit_percent}%`}</p>}
-                            {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} observedAt={a.updated_at} remaining={a.engine === "antigravity"} />)}
+                            {a.windows.map((w) => <WindowRow key={w.key} w={w} now={now} observedAt={a.updated_at} remaining={a.engine === "antigravity" || a.source === "copilot_sdk"} />)}
                             {a.error && !loading ? <p className="usage__note usage__note--error" role={a.engine === "muse" ? undefined : "alert"}>{a.error}</p> : null}
                           </div>
-                        ) : (
+                        ) : Object.keys(a.quota_unlimited ?? {}).length === 0 ? (
                           <p className="usage__note">{a.error ?? "아직 사용량 기록이 없어요."}</p>
-                        )}
+                        ) : a.error ? <p className="usage__note usage__note--error">{a.error}</p> : null}
+                        {Object.entries(a.quota_unlimited ?? {}).map(([key, label]) => (
+                          <p className="usage__note" key={key}>{label} · 무제한{a.stale ? " · 마지막 관측값" : ""}</p>
+                        ))}
                         {(loading && measured(a)) || (a.refreshing && !failed) ? <p className="usage__note" role="status">새 값을 읽는 중이에요 · 지금은 마지막 관측값이에요</p> : null}
                         {failed && (
                           <p className="usage__note usage-card__retry" role="alert">

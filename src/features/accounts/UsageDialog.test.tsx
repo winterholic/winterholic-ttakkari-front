@@ -464,3 +464,26 @@ describe("측정 실패·오래된 값 (2026-10-19 x3: 20시간 전 값이 0% �
     expect(screen.queryByText(/오래된/)).toBeNull();
   });
 });
+
+
+describe("UsageDialog Copilot 계정 잔여량", () => {
+  it("OpenCode 구독 잔여율과 공급자 출처를 표시한다", async () => {
+    renderUsage({
+      ...account, id: "oc", name: "OpenCode 구독", engine: "opencode", source: "copilot_sdk",
+      windows: [{ key: "copilot_premium_interactions", label: "Copilot 월간 프리미엄", percent: 28,
+        remaining_percent: 72.5, resets_at: Math.floor(Date.now() / 1000) + 86400, state: "current" }],
+    });
+    expect(await screen.findByText("72.5% 남음")).toBeTruthy();
+    expect(screen.getByText(/Copilot 계정 사용량 기준/)).toBeTruthy();
+  });
+
+  it("무제한은 퍼센트 막대 없이 표시한다", async () => {
+    renderUsage({
+      ...account, id: "cp", name: "Copilot 구독", engine: "copilot", source: "copilot_sdk", windows: [],
+      quota_unlimited: { copilot_chat: "Copilot 채팅" },
+    });
+    expect(await screen.findByText("Copilot 채팅 · 무제한")).toBeTruthy();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+    expect(screen.queryByText("아직 사용량 기록이 없어요.")).toBeNull();
+  });
+});

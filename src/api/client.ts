@@ -872,12 +872,13 @@ export interface AccountUsage {
   login: "ok" | "unknown" | "missing";
   cooldown_seconds: number;
   windows: UsageWindow[];
+  quota_unlimited?: Record<string, string>;
   /** Codex rate-limit 재설정 크레딧 */
   reset_credits?: { available: number; next_expires_at: number | null } | null;
   /** Antigravity AI credits balance. Different unit from Codex rate-limit reset credits. */
   credits_balance?: number | null;
   credits_error?: string | null;
-  source: "api" | "stream" | "session_log" | "antigravity_cli" | "muse_cli" | null;
+  source: "copilot_sdk" | "api" | "stream" | "session_log" | "antigravity_cli" | "muse_cli" | null;
   plan: string | null;
   error: string | null;
   updated_at: number | null;
