@@ -64,6 +64,34 @@ export const addNode = (studyId: string, body: Data) => researchRequest<Data>(`/
 export const addRelation = (studyId: string, body: Data) => researchRequest<Data>(`/studies/${studyId}/relations`, body);
 export const discoverPapers = (q: string) => researchRequest<{ items: { source_key: string; title: string; locator: string; body: string }[] }>(`/discover?q=${encodeURIComponent(q)}`);
 
+export interface CatalogCandidate {
+  id: string; method_id: string; slug: string; title: string;
+  eligibility: 'candidate' | 'needs_review' | 'excluded';
+  execution_status: Method['execution_status']; is_executable: boolean; unavailable_reason?: string | null;
+  reason: {
+    conditions: { missing: string[]; mismatches: string[] }; cost_seconds: number | null;
+    research_context: {
+      truncated: boolean; relations: { affects_selection: boolean }[];
+      failures?: { study_id: string; experiment_id: string; run_id: string | null; error_code: string | null; error_message: string | null; affects_selection: boolean }[];
+    };
+  };
+}
+export interface CatalogReviewResult { selection_contract: number; candidate_source: string; truncated: boolean; candidates: CatalogCandidate[] }
+export async function reviewCatalog(studyId: string, q: string, budgetSeconds = 60): Promise<CatalogReviewResult> {
+  let r: CatalogReviewResult;
+  try {
+    r = await researchRequest<CatalogReviewResult>(`/studies/${studyId}/select`, { candidate_source: 'catalog', query: q, budget_seconds: budgetSeconds });
+  } catch (error) {
+    const failure = error as { status?: number; errors?: { loc?: unknown[]; msg?: string }[] } | null;
+    if (failure?.status === 422 && Array.isArray(failure.errors) && failure.errors.some(e => Array.isArray(e.loc) && e.loc.includes('candidate_source') && e.msg === 'Extra inputs are not permitted')) {
+      throw new Error('서버가 카탈로그 검토를 지원하지 않습니다. 서버 업데이트 후 다시 시도해 주세요.', { cause: error });
+    }
+    throw error;
+  }
+  if (r.selection_contract !== 1 || r.candidate_source !== 'catalog' || !Array.isArray(r.candidates)) throw new Error('서버가 카탈로그 검토를 지원하지 않습니다. 서버 업데이트 후 다시 시도해 주세요.');
+  return r;
+}
+
 // ---- 대시보드·분류 ---------------------------------------------------------------
 type RawRecent = Data & { run_id?: string; id?: string; experiment_title?: string };
 type RawBest = Data & { best_result_id?: string; id?: string };

@@ -6,6 +6,7 @@ import { Icon } from '../../../ui/Icon';
 import { useMediaQuery } from '../../../shell/useMediaQuery';
 import { errorText, listMethods } from '../api';
 import { MethodCard } from '../components/MethodCard';
+import { CatalogReview } from '../components/CatalogReview';
 import { MethodDetailDialog } from '../components/MethodDetailDialog';
 import { activeCount, FILTER_KEYS, MethodFilters, readQuery, URL_KEY, type FilterKey } from '../components/MethodFilters';
 import { MethodFormModal } from '../components/MethodFormModal';
@@ -74,6 +75,8 @@ export function MethodLibraryView({ ctx }: { ctx: ResearchCtx }) {
         <p className="tk-filterbar__count" role="status">{result.isPending ? '불러오는 중…' : `방법 ${total.toLocaleString('ko-KR')}개 중 ${items.length.toLocaleString('ko-KR')}개 표시`}{result.isFetching && !result.isPending ? ' · 갱신 중' : ''}</p>
       </div>
 
+      <CatalogReview studyId={ctx.studyId} query={query.q ?? ''} onMethod={s => ctx.go({ method: s })}
+        onFailure={(study, experiment, run) => ctx.go({ view: 'analysis', study, experiment, run, method: null })} />
       {result.error && <Callout kind="caution">{errorText(result.error)} <Button size="sm" onClick={() => void result.refetch()}>다시 불러오기</Button></Callout>}
       {result.isPending && <div className="rs-cards" aria-busy="true">{Array.from({ length: 6 }, (_, i) => <div key={i} className="tk-skeleton tk-skeleton--block rs-skeleton rs-skeleton--card" />)}</div>}
       {!result.isPending && !result.error && !items.length && <Empty title={n || query.q ? '조건에 맞는 방법이 없습니다' : '등록된 방법이 없습니다'}
