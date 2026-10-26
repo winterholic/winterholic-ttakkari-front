@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { detail } from './fixtures-detail.mjs';
 import { collect } from './fixtures-collect.mjs';
 import { github } from './fixtures-github.mjs';
+import { research } from './fixtures-research.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const lib = JSON.parse(readFileSync(join(here, 'fixtures-library.json'), 'utf8'));
@@ -65,6 +66,8 @@ const meeting = (i) => ({
 
 export function body(path, method, search) {
   const q = new URLSearchParams(search ?? '');
+  const rs = research(path, method, search);
+  if (rs !== undefined) return rs;
   const d = detail(path, method);
   if (d !== undefined) return d;
   const g = github(path, search);
