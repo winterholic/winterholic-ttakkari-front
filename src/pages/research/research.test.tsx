@@ -343,6 +343,41 @@ describe('연구 기록', () => {
     expect(screen.getByText('연구를 시작했습니다')).toBeTruthy();
     expect(screen.getAllByText('k1 을 올리면 개선').length).toBeGreaterThan(0);
   });
+
+  it('저장된 채택 설정에서 재진입해 후속 설계를 만들 때 원본 계보를 API에 보낸다', async () => {
+    let capturedBody: Record<string, unknown> | null = null;
+    setup((path, body) => {
+      if (path === '/studies/s1/resume') {
+        return {
+          ...(defaultHandler(path) as object),
+          best_results: [{
+            id: 'best-1', study_id: 's1', status: 'adopted', rationale: '제약 내 Recall 개선',
+            objective: '메모리 6GB 안에서 Recall 최대화', primary_metric: 'recall_at_k',
+            experiment_id: 'e1', configuration_id: 'c2', run_id: 'r2', configuration_label: '#2 (k1=1.8)',
+          }],
+        };
+      }
+      if (path === '/studies/s1/experiments' && body) capturedBody = body as Record<string, unknown>;
+      return defaultHandler(path, body);
+    });
+
+    mount('/research?view=records&study=s1');
+    expect(await screen.findByText('결론과 채택한 설정')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: '채택한 설정으로 후속 실험' }));
+
+    expect(await screen.findByText(/출처 설정 기반 후속 실험/)).toBeTruthy();
+    const createBtn = screen.getByRole('button', { name: '만들고 바로 실행' });
+    await waitFor(() => expect(createBtn.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(createBtn);
+
+    await waitFor(() => expect(capturedBody).not.toBeNull());
+    const posted = capturedBody as unknown as Record<string, unknown>;
+    expect(posted.source_study_id).toBe('s1');
+    expect(posted.source_experiment_id).toBe('e1');
+    expect(posted.source_configuration_id).toBe('c2');
+    expect(posted.source_run_id).toBe('r2');
+    expect((posted.fixed_inputs as Record<string, unknown>)?.bm25_k1).toBe(1.8);
+  });
 });
 
 describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => {

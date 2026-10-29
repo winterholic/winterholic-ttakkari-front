@@ -32,3 +32,11 @@
 - 이 main commit의 GitHub Vercel check가 처음 `pending`이었고, 후속 조회에서 `success`, description `Deployment has completed`로 바뀌었다. Vercel check 대상은 `ttakkari` 프로젝트의 배포 URL `https://vercel.com/winterholics-projects/ttakkari/CWfaqH6phg4c28XDxBQ3d7cGGeii`다. 저장소의 기존 게시 규약에 따라 main push가 자동 배포를 시작하며, 이 결과는 preview 전용이 아닌 main 대상 Vercel 배포 완료로 기록한다.
 - 배포 증거는 Vercel GitHub status에 한정한다. 인증된 실제 Research 화면의 기능 확인은 미검증으로 남긴다.
 - 최종 통합 SHA에는 이 기록 문서가 추가되며, 게시 후 `main`과 원격 tip 일치를 다시 확인한다.
+
+## 추가 제품 단계: 채택 기록에서 후속 설계 재진입
+
+- 기존 분석 화면의 조건 비교, 최선 결과 채택, 설정 재사용 기능은 그대로 사용한다. 재진입 후 연구 기록의 채택 결론에서 해당 `experiment_id`, `configuration_id`, `run_id`를 후속 설계실로 전달하는 버튼을 연결했다.
+- 설계실은 기존 API payload와 typed lineage 저장 계약을 사용한다. 원본 configuration은 초기값으로 복제되고, 새 experiment 생성 시 source Study/Experiment/Configuration/Run 관계를 보존한다.
+- 신규 회귀 `research.test.tsx`는 기록 화면 진입 → 저장된 채택 항목 선택 → 설계실의 원본 설정 확인 → 실험 생성 API payload의 4개 source ID와 파라미터 확인을 검증한다. HTTP 계층은 testkit mock이며 실제 API 증거로 취급하지 않는다.
+- 기존 분석 화면의 채택 실패/결정·일반 후속 설정 재사용 계약도 선택 실행했다. 상세 검증 명령과 backend 저장 증거는 backend `docs/work-history/2026-10-30-research-adopted-followup-lineage.md`에 기록한다.
+- 브라우저·인증된 실제 UI·운영 API·PostgreSQL·배포는 이 topic에서 검증하지 않았다. e24 retry 재구현·재검증도 수행하지 않았다.

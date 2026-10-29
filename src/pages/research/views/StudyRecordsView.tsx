@@ -136,6 +136,16 @@ export function StudyRecordsView({ ctx }: { ctx: ResearchCtx }) {
           <p className="rs-prose rs-prewrap">{b.rationale}</p>
           {cfg && <dl className="tk-meta">{Object.entries(cfg.parameters).map(([k, v]) => <div key={k} className="rs-meta-row"><dt>{k}</dt><dd className="tk-mono">{stringify(v)}</dd></div>)}</dl>}
           <p className="rs-muted">{fmtTime(b.created_at)} 기록 · {d ? d.experiment.name : ''}</p>
+          {b.experiment_id && b.configuration_id && <div className="rs-actions">
+            <Button size="sm" variant="ghost" onClick={() => ctx.go({
+              view: 'designer',
+              study: ctx.studyId,
+              reuse_study: b.study_id || ctx.studyId,
+              reuse_experiment: b.experiment_id ?? null,
+              reuse_configuration: b.configuration_id ?? null,
+              reuse_run: b.run_id || null,
+            })}>채택한 설정으로 후속 실험</Button>
+          </div>}
         </article>;
       })}
     </Section>
