@@ -9,7 +9,7 @@ import { OriginBadge, ProxyBadge, RunStateBadge } from './ExecutionStatusBadge';
 import { adapterLabel, errorCodeNote } from '../labels';
 import { Callout, FactList, Skeleton } from './parts';
 
-interface Props { runId: string; onClose: () => void; configLabel?: string; onCancel?: (id: string) => void; onRerun?: (configurationId: string) => void }
+interface Props { runId: string; onClose: () => void; configLabel?: string; onCancel?: (id: string) => void; onRerun?: (runId: string) => void }
 
 /** 실행 한 건의 전부: 상태·실패 원인·측정값·실행 환경·원본 출력·산출물. 진행률은 실행기가 줄 때만 보인다. */
 export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun }: Props) {
@@ -18,7 +18,7 @@ export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun
   const active = r && (r.status === 'queued' || r.status === 'running');
   return <Dialog open onClose={onClose} size="lg" title={`실행 상세${configLabel ? ` · ${configLabel}` : ''}`}
     footer={r ? <>{active && onCancel && <Button variant="danger" onClick={() => onCancel(r.id)}>이 실행 취소</Button>}
-      {!active && onRerun && <Button variant="primary" onClick={() => onRerun(r.configuration_id)}>같은 설정으로 다시 실행</Button>}</> : undefined}>
+      {!active && onRerun && (r.execution_origin === 'local_measured' || r.execution_origin === 'migrated_v1') && <Button variant="primary" onClick={() => onRerun(r.id)}>원 조건으로 다시 실행</Button>}</> : undefined}>
     {q.isPending && <Skeleton rows={4} />}
     {q.error && <Callout kind="caution">{errorText(q.error)}</Callout>}
     {r && <div className="rs-stack">
