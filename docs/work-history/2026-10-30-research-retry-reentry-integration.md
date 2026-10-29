@@ -28,4 +28,7 @@
 
 ## 통합·게시
 
-- Push 및 Vercel production 결과는 아래 게시 후속 기록/현재 Run 보고에서 원격 SHA와 함께 보존한다. 원격 반영 확인 전에는 게시 또는 운영 배포 완료로 간주하지 않는다.
+- fast-forward 게시: `git push origin HEAD:main` 결과 `7a6e0d0..a120979 HEAD -> main`. `git ls-remote origin refs/heads/main`과 local HEAD가 모두 `a120979e56f24d785009cc72f09301b3d08d32e2`로 일치했다.
+- 이 main commit의 GitHub Vercel check가 처음 `pending`이었고, 후속 조회에서 `success`, description `Deployment has completed`로 바뀌었다. Vercel check 대상은 `ttakkari` 프로젝트의 배포 URL `https://vercel.com/winterholics-projects/ttakkari/CWfaqH6phg4c28XDxBQ3d7cGGeii`다. 저장소의 기존 게시 규약에 따라 main push가 자동 배포를 시작하며, 이 결과는 preview 전용이 아닌 main 대상 Vercel 배포 완료로 기록한다.
+- 배포 증거는 Vercel GitHub status에 한정한다. 인증된 실제 Research 화면의 기능 확인은 미검증으로 남긴다.
+- 최종 통합 SHA에는 이 기록 문서가 추가되며, 게시 후 `main`과 원격 tip 일치를 다시 확인한다.
