@@ -28,7 +28,7 @@ export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun
     {r && <div className="rs-stack">
       <div className="rs-detail__badges"><RunStateBadge status={r.status} /><OriginBadge origin={r.execution_origin} provenance={r.provenance} /><span className="rs-muted">{adapterLabel(r.adapter_id)} · 반복 {r.repeat_index} · 시드 {r.seed ?? '—'}</span></div>
       {originalRunId && <Callout kind="note" title="원 조건 재실행">
-        <p>이 실행은 원본 Run <code className="tk-mono">{originalRunId}</code>과 분리된 새 기록이며, 원본의 설정·반복 번호·시드를 유지합니다.</p>
+        <p>이 실행은 원본 Run <code className="tk-mono">{originalRunId}</code>을 참조하는 별도 기록입니다. 반복 번호와 시드는 원본과 같습니다.</p>
         {onOpenRelatedRun && <Button size="sm" onClick={() => onOpenRelatedRun(originalRunId)}>원본 실행 보기</Button>}
       </Callout>}
       {r.execution_origin === 'external_report' && <Callout kind="note" title="따까리가 측정한 값이 아닙니다">다른 환경에서 측정해 들여온 보고입니다. 같은 조건의 비교인지 실행 환경 기록으로 확인하세요.</Callout>}

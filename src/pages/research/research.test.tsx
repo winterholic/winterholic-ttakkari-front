@@ -1285,6 +1285,7 @@ it('opens the original Run from a retry Run detail after re-entry', async () => 
 
   expect(await screen.findByRole('dialog', { name: /실행 상세/ })).toBeTruthy();
   expect(await screen.findByRole('button', { name: '원본 실행 보기' })).toBeTruthy();
+  expect(screen.getByRole('dialog', { name: /실행 상세/ }).textContent).toContain('이 실행은 원본 Run r3을 참조하는 별도 기록입니다. 반복 번호와 시드는 원본과 같습니다.');
   fireEvent.click(screen.getByRole('button', { name: '원본 실행 보기' }));
 
   await waitFor(() => expect(calls).toContain('GET /runs/r3'));
