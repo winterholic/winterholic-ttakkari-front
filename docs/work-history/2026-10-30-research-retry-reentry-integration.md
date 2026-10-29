@@ -40,3 +40,11 @@
 - 신규 회귀 `research.test.tsx`는 기록 화면 진입 → 저장된 채택 항목 선택 → 설계실의 원본 설정 확인 → 실험 생성 API payload의 4개 source ID와 파라미터 확인을 검증한다. HTTP 계층은 testkit mock이며 실제 API 증거로 취급하지 않는다.
 - 기존 분석 화면의 채택 실패/결정·일반 후속 설정 재사용 계약도 선택 실행했다. 상세 검증 명령과 backend 저장 증거는 backend `docs/work-history/2026-10-30-research-adopted-followup-lineage.md`에 기록한다.
 - 브라우저·인증된 실제 UI·운영 API·PostgreSQL·배포는 이 topic에서 검증하지 않았다. e24 retry 재구현·재검증도 수행하지 않았다.
+
+## 채택 결과 후속 실험 진입 통합·게시 (2026-10-30)
+
+- 새 채택 결과 UI 제품 commit `f610d6652175fcd97b4f69b40fa9d2b52c4c7118`의 부모는 당시 원격 main `345cd35e6fc18e94446d76d414eadec59791f26c`였다. 수정된 파일의 ESLint 명령 `pnpm exec eslint src/pages/research/views/StudyRecordsView.tsx src/pages/research/research.test.tsx`는 exit 0. 원 작성자의 focused UI 테스트 5 passed/65 skipped와 build exit 0은 위 추가 제품 단계의 기존 증거이며 여기서 반복하지 않았다.
+- 정상 fast-forward push 결과 `345cd35..f610d66 HEAD -> main`. `git ls-remote origin refs/heads/main`과 local HEAD 모두 `f610d6652175fcd97b4f69b40fa9d2b52c4c7118`; 작업 트리는 clean이다.
+- GitHub commit status의 Vercel check를 한 번 조회했다: `state=pending`, `description=Vercel is deploying your app`, 대상 `https://vercel.com/winterholics-projects/ttakkari/CawHeFuSh4Nbr2qVf4XyYteoEncm`. 이 시점에는 배포 중이었고 완료/production 활성은 확인되지 않았다.
+- backend main은 이어서 `10874f8c37f2e9ec90876e5a98968c3e8b582ab3`로 fast-forward 게시됐다. backend hook 결과·검증 범위와 배포 예약 상태는 `docs/work-history/2026-10-30-research-adopted-followup-lineage.md`에 기록한다.
+- 제품 UI는 mock 기반 테스트 증거만 있다. 인증된 실제 UI, 운영 API, PostgreSQL 및 backend runtime 활성은 미검증이다. 전체 Research 요구·UX10·PMS 항목 및 native checkpoint·OS 합산·legacy 92 범위는 미완으로 유지한다.
