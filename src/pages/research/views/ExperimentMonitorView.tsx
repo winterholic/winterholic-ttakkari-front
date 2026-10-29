@@ -4,7 +4,7 @@ import { Button } from '../../../ui/Button';
 import { Badge } from '../../../ui/Badge';
 import { Select } from '../../../ui/Select';
 import { toast } from '../../../ui/toastStore';
-import { cancelRun, errorText, getExperiment, listRuns, runExperiment } from '../api';
+import { cancelRun, errorText, getExperiment, listRuns, retryRun, runExperiment } from '../api';
 import { OriginBadge, RunStateBadge } from '../components/ExecutionStatusBadge';
 import { ExternalReportForm } from '../components/ExternalReportForm';
 import { Callout, Chip, Empty, FactList, Section, Skeleton } from '../components/parts';
@@ -59,6 +59,7 @@ export function ExperimentMonitorView({ ctx }: { ctx: ResearchCtx }) {
   const invalidate = () => { void cache.invalidateQueries({ queryKey: KEY }); };
   const cancel = useMutation({ mutationFn: (id: string) => cancelRun(id, '사용자가 모니터에서 취소함'), onSuccess: () => { invalidate(); toast({ message: '취소를 요청했습니다.', tone: 'success' }); }, onError: e => toast({ message: errorText(e), tone: 'danger' }) });
   const start = useMutation({ mutationFn: (cfg: string[] | null) => runExperiment(expId as string, cfg), onSuccess: () => { invalidate(); toast({ message: '실행을 시작했습니다.', tone: 'success' }); }, onError: e => toast({ message: errorText(e), tone: 'danger' }) });
+  const retry = useMutation({ mutationFn: (id: string) => retryRun(id), onSuccess: () => { invalidate(); toast({ message: '원본의 반복 번호와 시드로 새 실행을 만들었습니다.', tone: 'success' }); }, onError: e => toast({ message: errorText(e), tone: 'danger' }) });
 
   const host = runsQ.data?.host_gpu_status;
   const locks = runsQ.data?.active_locks ?? [];
@@ -121,10 +122,10 @@ export function ExperimentMonitorView({ ctx }: { ctx: ResearchCtx }) {
               <td>{fmtTime(r.started_at)}</td>
               <td className="rs-wrapcell">{reasonCell(r)}</td>
               <td>{ACTIVE.includes(r.status) ? <Button size="xs" variant="danger" busy={cancel.isPending && cancel.variables === r.id} onClick={() => cancel.mutate(r.id)}>취소</Button>
-                : r.execution_origin === 'local_measured' || r.execution_origin === 'migrated_v1' ? <Button size="xs" onClick={() => start.mutate([r.configuration_id])} disabled={start.isPending || !expId}>다시 실행</Button> : null}</td>
+                : r.execution_origin === 'local_measured' || r.execution_origin === 'migrated_v1' ? <Button size="xs" onClick={() => retry.mutate(r.id)} busy={retry.isPending && retry.variables === r.id}>원 조건 다시 실행</Button> : null}</td>
             </tr>)}</tbody></table>
         </div></div>}
-      {!expId && shown.some(r => !ACTIVE.includes(r.status)) && <p className="rs-muted">실험을 고르면 ‘다시 실행’을 쓸 수 있습니다.</p>}
+      {!expId && shown.some(r => !ACTIVE.includes(r.status)) && <p className="rs-muted">실행 한 건의 조건을 유지해 다시 돌리려면 행의 ‘원 조건 다시 실행’을 선택하세요.</p>}
     </Section>
 
     {expId && detail.data && exp?.adapter_id === 'external_report' && <Section title="외부 결과 입력" hint="이 서버에서 실행하지 않는 실험입니다. 다른 환경에서 측정한 값을 입력하면 같은 비교 화면에서 볼 수 있습니다.">
@@ -133,6 +134,6 @@ export function ExperimentMonitorView({ ctx }: { ctx: ResearchCtx }) {
 
     {expId && detail.data && runs.some(r => r.status === 'succeeded') && <div className="rs-actions"><Button variant="primary" onClick={() => ctx.go({ view: 'analysis' })}>결과 비교·분석으로 이동</Button></div>}
     {runDetailId && <RunDetailDialog runId={runDetailId} configLabel={runForDialog ? labelOf(runForDialog) : undefined} onClose={() => ctx.go({ run: null })}
-      onCancel={id => cancel.mutate(id)} onRerun={expId ? cfg => { start.mutate([cfg]); ctx.go({ run: null }); } : undefined} />}
+      onCancel={id => cancel.mutate(id)} onRerun={id => { retry.mutate(id); ctx.go({ run: null }); }} />}
   </div>;
 }

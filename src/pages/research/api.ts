@@ -244,6 +244,7 @@ export async function getCompareSeries(id: string, p: { baselineId?: string | nu
   return normalizeSeries(raw);
 }
 export const runExperiment = (id: string, configurationIds: string[] | null) => researchRequest<{ runs: RunSummary[] }>(`/experiments/${id}/run`, { configuration_ids: configurationIds });
+export const retryRun = (id: string) => researchRequest<{ runs: RunSummary[] }>(`/runs/${id}/retry`, {});
 export const listRuns = (p: { study_id?: string | null; experiment_id?: string | null; status?: string | null; limit?: number }) => researchRequest<RunList>(`/runs${query({ ...p, limit: p.limit ?? 50 })}`);
 export const getRun = (id: string) => researchRequest<RunDetail>(`/runs/${id}`);
 export const cancelRun = (id: string, reason: string) => researchRequest<{ cancelled: boolean; run_id: string }>(`/runs/${id}/cancel`, { reason });

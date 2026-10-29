@@ -1263,3 +1263,13 @@ it('preserves source cutoff and explicit edits without method defaults on reuse'
   expect(effective).not.toHaveProperty('dense_weight');
   expect(payload.primary_metric).toBe('recall_at_7');
 });
+
+it('retries one terminal Run through its own ID so the server can preserve its seed and repetition', async () => {
+  setup();
+  mount('/research?view=monitor&study=s1&experiment=e1');
+  const retries = await screen.findAllByRole('button', { name: '원 조건 다시 실행' });
+  expect(retries).toHaveLength(3);
+  const retry = retries[2];
+  fireEvent.click(retry);
+  await waitFor(() => expect(calls).toContain('POST /runs/r3/retry'));
+});
