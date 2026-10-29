@@ -9,13 +9,17 @@ import { OriginBadge, ProxyBadge, RunStateBadge } from './ExecutionStatusBadge';
 import { adapterLabel, errorCodeNote } from '../labels';
 import { Callout, FactList, Skeleton } from './parts';
 
-interface Props { runId: string; onClose: () => void; configLabel?: string; onCancel?: (id: string) => void; onRerun?: (runId: string) => void }
+interface Props { runId: string; onClose: () => void; configLabel?: string; onCancel?: (id: string) => void; onRerun?: (runId: string) => void; onOpenRelatedRun?: (runId: string) => void }
 
 /** 실행 한 건의 전부: 상태·실패 원인·측정값·실행 환경·원본 출력·산출물. 진행률은 실행기가 줄 때만 보인다. */
-export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun }: Props) {
+export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun, onOpenRelatedRun }: Props) {
   const q = useQuery({ queryKey: [...rk(), 'run', runId], queryFn: () => getRun(runId), refetchInterval: query => (['queued', 'running'].includes(query.state.data?.status ?? '') ? 3000 : false) });
   const r = q.data;
   const active = r && (r.status === 'queued' || r.status === 'running');
+  const retry = r?.environment_snapshot?.research_retry;
+  const originalRunId = retry && typeof retry === 'object' && !Array.isArray(retry)
+    && typeof (retry as Record<string, unknown>).retry_of_run_id === 'string'
+    ? (retry as Record<string, string>).retry_of_run_id : null;
   return <Dialog open onClose={onClose} size="lg" title={`실행 상세${configLabel ? ` · ${configLabel}` : ''}`}
     footer={r ? <>{active && onCancel && <Button variant="danger" onClick={() => onCancel(r.id)}>이 실행 취소</Button>}
       {!active && onRerun && (r.execution_origin === 'local_measured' || r.execution_origin === 'migrated_v1') && <Button variant="primary" onClick={() => onRerun(r.id)}>원 조건으로 다시 실행</Button>}</> : undefined}>
@@ -23,6 +27,10 @@ export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun
     {q.error && <Callout kind="caution">{errorText(q.error)}</Callout>}
     {r && <div className="rs-stack">
       <div className="rs-detail__badges"><RunStateBadge status={r.status} /><OriginBadge origin={r.execution_origin} provenance={r.provenance} /><span className="rs-muted">{adapterLabel(r.adapter_id)} · 반복 {r.repeat_index} · 시드 {r.seed ?? '—'}</span></div>
+      {originalRunId && <Callout kind="note" title="원 조건 재실행">
+        <p>이 실행은 원본 Run <code className="tk-mono">{originalRunId}</code>과 분리된 새 기록이며, 원본의 설정·반복 번호·시드를 유지합니다.</p>
+        {onOpenRelatedRun && <Button size="sm" onClick={() => onOpenRelatedRun(originalRunId)}>원본 실행 보기</Button>}
+      </Callout>}
       {r.execution_origin === 'external_report' && <Callout kind="note" title="따까리가 측정한 값이 아닙니다">다른 환경에서 측정해 들여온 보고입니다. 같은 조건의 비교인지 실행 환경 기록으로 확인하세요.</Callout>}
       {r.status === 'failed' && <Callout kind="caution" title="실패 원인">{errorCodeNote(r.error_code) && <p>{errorCodeNote(r.error_code)}</p>}{r.error_code && <p><code className="tk-mono">{r.error_code}</code></p>}<p>{r.error_message || '실행기가 원인을 남기지 않았습니다.'}</p></Callout>}
       {r.status === 'cancelled' && <Callout kind="warning" title="취소된 실행">{errorCodeNote(r.error_code) && <p>{errorCodeNote(r.error_code)}</p>}{r.error_code && r.error_code !== 'cancelled' && <p><code className="tk-mono">{r.error_code}</code></p>}<p>{r.error_message || '사용자가 취소했거나 예산을 넘어 중단되었습니다.'}</p></Callout>}

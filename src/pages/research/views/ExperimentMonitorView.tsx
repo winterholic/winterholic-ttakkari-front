@@ -134,6 +134,7 @@ export function ExperimentMonitorView({ ctx }: { ctx: ResearchCtx }) {
 
     {expId && detail.data && runs.some(r => r.status === 'succeeded') && <div className="rs-actions"><Button variant="primary" onClick={() => ctx.go({ view: 'analysis' })}>결과 비교·분석으로 이동</Button></div>}
     {runDetailId && <RunDetailDialog runId={runDetailId} configLabel={runForDialog ? labelOf(runForDialog) : undefined} onClose={() => ctx.go({ run: null })}
-      onCancel={id => cancel.mutate(id)} onRerun={id => { retry.mutate(id); ctx.go({ run: null }); }} />}
+      onCancel={id => cancel.mutate(id)} onRerun={id => { retry.mutate(id); ctx.go({ run: null }); }}
+      onOpenRelatedRun={id => ctx.go({ run: id })} />}
   </div>;
 }

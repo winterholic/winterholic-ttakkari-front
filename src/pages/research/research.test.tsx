@@ -1273,3 +1273,20 @@ it('retries one terminal Run through its own ID so the server can preserve its s
   fireEvent.click(retry);
   await waitFor(() => expect(calls).toContain('POST /runs/r3/retry'));
 });
+
+it('opens the original Run from a retry Run detail after re-entry', async () => {
+  const retryDetail = {
+    ...runs[2], id: 'r4', status: 'succeeded', seed: 42,
+    environment_snapshot: { research_retry: { contract: 1, retry_of_run_id: 'r3' } },
+    measurements: runMeasurements.r3 ?? [], artifacts: [], raw_output: {},
+  };
+  setup((path, body) => path === '/runs/r4' ? retryDetail : defaultHandler(path, body));
+  mount('/research?view=monitor&study=s1&experiment=e1&run=r4');
+
+  expect(await screen.findByRole('dialog', { name: /실행 상세/ })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: '원본 실행 보기' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '원본 실행 보기' }));
+
+  await waitFor(() => expect(calls).toContain('GET /runs/r3'));
+  expect(await screen.findByText('메모리 한도를 넘었습니다')).toBeTruthy();
+});
