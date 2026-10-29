@@ -1,0 +1,15 @@
+{
+  "note": "실제 API 로 순서대로 올린다(ingest 또는 register). 각 단계 뒤에 파이프라인이 끝나길 기다린다. register 는 같은 source_key 로 두 번 올려 새 버전(리비전)을 만든다.",
+  "steps": [
+    {"id": "k8s-ko", "files": [{"name": "k8s-ko.md", "path": "k8s-ko.md", "type": "text/markdown"}], "domain": "dev-infra"},
+    {"id": "glossary-open", "files": [{"name": "glossary-open.md", "path": "glossary-open.md", "type": "text/markdown"}]},
+    {"id": "glossary-vendor", "files": [{"name": "glossary-vendor.md", "path": "glossary-vendor.md", "type": "text/markdown"}]},
+    {"id": "networking-en", "files": [{"name": "networking-en.md", "path": "networking-en.md", "type": "text/markdown"}]},
+    {"id": "rollout-v1", "register": {"title": "롤아웃 정책", "source_key": "policy/rollout", "text_path": "rollout-v1.md", "lang": "ko"}},
+    {"id": "rollout-v2", "register": {"title": "롤아웃 정책", "source_key": "policy/rollout", "text_path": "rollout-v2.md", "lang": "ko"}},
+    {"id": "html-page", "files": [{"name": "hpa.html", "path": "page.html", "type": "text/html"}]},
+    {"id": "held-xls", "files": [{"name": "legacy-budget.xls", "path": "legacy-budget.xls"}], "settle": false},
+    {"id": "failed-pdf-and-dup", "files": [{"name": "broken.pdf", "path": "broken.pdf", "type": "application/pdf"}, {"name": "k8s-ko-copy.md", "path": "k8s-ko.md", "type": "text/markdown"}], "settle": false},
+    {"id": "failed-url", "urls": ["http://127.0.0.1:9/none"], "settle": false}
+  ]
+}

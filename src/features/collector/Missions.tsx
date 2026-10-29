@@ -353,7 +353,7 @@ function Result({ mission }: { mission: CollectionMission }) {
             </label>
           ))}
         </div>
-        <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+        <div className="mission-controls">
           <label htmlFor="custom-interval" className="kb-note">
             직접 입력 (분):
           </label>

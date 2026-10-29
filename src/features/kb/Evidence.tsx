@@ -1,14 +1,13 @@
-import { useKbScope } from "./scope";
 import { useQuery } from "@tanstack/react-query";
-import { kbEvidence } from "../../api/client";
+import { kbEvidenceV3 } from "../../api/kb";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
+import { Dialog } from "../../ui/Dialog";
 import { KIND_LABEL, failure, formatTime, shortHash } from "./labels";
 
 /** 패시지가 원문(정규화 본문)의 어디에 있는지와 해시 검증 결과. 저장 본문 슬라이스 일치만 뜻하며 내용이 사실이라는 확인은 아니다. */
 export function EvidencePanel({ passageId }: { passageId: string }) {
-  const scope = useKbScope();
-  const q = useQuery({ queryKey: ["kb-evidence", scope, passageId], queryFn: () => scope === "work" ? kbEvidence(passageId, scope) : kbEvidence(passageId) });
+  const q = useQuery({ queryKey: ["kb-evidence", passageId], queryFn: () => kbEvidenceV3(passageId) });
   if (q.isPending) return <p className="kb-note" role="status">원문 위치를 읽는 중</p>;
   if (q.isError) {
     return <div className="kb-error"><p className="tk-error" role="alert">{failure(q.error)}</p><Button variant="ghost" size="sm" onClick={() => void q.refetch()}>다시 시도</Button></div>;
@@ -38,4 +37,17 @@ export function EvidencePanel({ passageId }: { passageId: string }) {
     </dl>
     <p className="kb-note">해시는 저장된 본문 구간이 바뀌지 않았다는 확인이에요. 내용이 사실인지 확인한 것은 아니에요.</p>
   </section>;
+}
+
+/** 근거 보기. 디자인 시스템에 오른쪽 슬라이드오버가 없어 모달로 연다. */
+export function EvidenceDialog({ passageId, onClose, openDocument }: {
+  passageId: string | null; onClose: () => void; openDocument?: (documentId: string, revisionId: string) => void;
+}) {
+  const doc = useQuery({ queryKey: ["kb-evidence", passageId], queryFn: () => kbEvidenceV3(passageId!), enabled: Boolean(passageId) });
+  return <Dialog open={Boolean(passageId)} onClose={onClose} size="lg" title="근거 원문">
+    {passageId && <div className="kb3-evidence-body">
+      <EvidencePanel passageId={passageId} />
+      {openDocument && doc.data && <Button size="sm" onClick={() => { onClose(); openDocument(doc.data.document.id, doc.data.revision.id); }}>이 문서 열기</Button>}
+    </div>}
+  </Dialog>;
 }

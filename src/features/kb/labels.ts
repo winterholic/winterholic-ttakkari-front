@@ -1,4 +1,5 @@
 import { ApiError } from "../../api/client";
+import { KbContractError, isKbUnsupported } from "../../api/kb";
 
 export const KIND_LABEL: Record<string, string> = { upload: "직접 등록", file: "파일", url: "웹 문서", web: "웹 문서" };
 
@@ -21,9 +22,31 @@ const ERROR_TEXT: Record<string, string> = {
   kb_document_not_found: "문서를 찾을 수 없어요.",
   kb_revision_not_found: "이 문서의 해당 버전을 찾을 수 없어요.",
   kb_passage_not_found: "패시지를 찾을 수 없어요.",
+  kb_job_not_found: "처리 작업을 찾을 수 없어요. 이미 지워졌을 수 있어요.",
+  kb_entity_not_found: "개념을 찾을 수 없어요. 접근할 수 없는 개념이거나 지워졌을 수 있어요.",
+  kb_conflict_not_found: "충돌을 찾을 수 없어요. 이미 정리됐을 수 있어요.",
+  kb_pipeline_status_invalid: "처리 상태 값이 올바르지 않아요.",
+  kb_job_status_invalid: "처리 상태 값이 올바르지 않아요.",
+  kb_resolution_not_applicable: "이 종류의 충돌에는 그 해결 방식을 쓸 수 없어요. 목록을 다시 읽어 주세요.",
+  kb_alias_belongs_to_other_entity: "다른 개념이 이미 이 표기를 쓰고 있어요. 같은 표기가 두 개념을 가리키면 검색이 모호해져서 자동으로 옮기지 않아요.",
+  alias_invalid: "별칭이 올바르지 않아요.",
+  alias_too_short: "별칭이 너무 짧아요(두 글자 이상).",
+  job_running: "지금 처리 중인 작업이에요. 끝난 뒤에 다시 시도해 주세요.",
+  unknown_stage: "알 수 없는 처리 단계예요.",
+  job_not_found: "처리 작업을 찾을 수 없어요.",
+  // 파일이 20개를 넘으면 Starlette 가 앱 오류 모양이 아닌 {detail: "..."} 400 을 준다(화면은 보내기 전에 막지만 다른 클라이언트 대비).
+  "Too many files. Maximum number of files is 20.": "한 번에 20건까지만 올릴 수 있어요. 나눠서 올려 주세요.",
+  ingest_empty: "올릴 파일·주소·글이 없어요.",
+  ingest_too_many_items: "한 번에 20건까지만 올릴 수 있어요. 나눠서 올려 주세요.",
+  ingest_unsupported_content_type: "요청 형식이 올바르지 않아요.",
+  ingest_invalid_title: "제목이 올바르지 않아요(500자 이하).",
+  ingest_invalid_domain: "주제 값이 올바르지 않아요.",
+  ingest_invalid_urls: "웹 주소 목록이 올바르지 않아요.",
 };
 
 export function failure(e: unknown): string {
+  if (isKbUnsupported(e)) return "이 서버는 아직 이 기능을 지원하지 않아요. 백엔드 지식 도서관 v3 가 연결되면 쓸 수 있어요.";
+  if (e instanceof KbContractError) return e.message;
   if (e instanceof ApiError) return ERROR_TEXT[e.message] ?? ERROR_TEXT[e.code] ?? (e.message || "불러오지 못했어요.");
   return e instanceof Error ? e.message : "불러오지 못했어요.";
 }
