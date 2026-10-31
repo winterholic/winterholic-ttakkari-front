@@ -11,6 +11,7 @@ const acc = (o: Partial<AccountOut>): AccountOut => ({
 });
 const api = vi.hoisted(() => ({
   listAccounts: vi.fn(),
+  getAccountStatus: vi.fn(),
   patchAccount: vi.fn(),
   reorderAccounts: vi.fn(),
   createAccount: vi.fn(),
@@ -44,6 +45,44 @@ function renderIt() {
 }
 
 describe("AccountsSection", () => {
+  it("인증 확인 후 목록을 다시 받아도 예전 로그인 상태로 돌아가지 않는다", async () => {
+    const a = acc({ engine: "copilot", login: "unknown", status_pending: true, login_label: null });
+    api.listAccounts.mockResolvedValue([a]);
+    api.getAccountStatus.mockResolvedValue({ login: "unknown", login_label: null, login_command: "copilot login", auth_state: "setup_required" });
+    api.checkCopilotAccount.mockResolvedValue({ ...a, status_pending: false, login: "ok", login_label: "new@example.test", auth_state: "authenticated", login_command: null });
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: "인증 확인" }));
+    await waitFor(() => expect(api.listAccounts).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("GitHub Copilot (new@example.test)")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "인증 확인" })).toBeNull();
+  });
+
+  it("느린 계정의 상태를 기다리지 않고 목록과 다른 계정 상태를 보이고 요청을 모드 간 공유한다", async () => {
+    const slow = acc({ id: "slow", name: "느린 계정", pool: "work", status_pending: true, login: "unknown" });
+    const fast = acc({ id: "fast", name: "빠른 계정", pool: "work", status_pending: true, login: "unknown" });
+    api.listAccounts.mockResolvedValue([slow, fast]);
+    api.getAccountStatus.mockImplementation((id: string) => id === "slow" ? new Promise(() => {}) : Promise.resolve({ login: "ok", login_label: "fast@example.test" }));
+    renderIt();
+    await screen.findAllByText("빠른 계정");
+    expect(screen.getAllByRole("switch", { name: /느린 계정.*사용/ })).toHaveLength(2);
+    expect(await screen.findAllByText("fast@example.test")).toHaveLength(2);
+    expect(screen.getAllByText("로그인 상태 확인 중")).toHaveLength(2);
+    expect(screen.queryByText("로그인 필요")).toBeNull();
+    expect(api.getAccountStatus).toHaveBeenCalledTimes(2);
+    expect(api.listAccounts).toHaveBeenCalledTimes(1);
+  });
+
+  it("계정 상태 조회 실패를 해당 행에서 재시도하며 목록 조작을 유지한다", async () => {
+    api.listAccounts.mockResolvedValue([acc({ status_pending: true })]);
+    api.getAccountStatus.mockRejectedValueOnce(new Error("offline")).mockResolvedValue({ login: "ok", login_label: "recovered@example.test" });
+    api.patchAccount.mockResolvedValue(acc({ enabled: false }));
+    renderIt();
+    fireEvent.click(await screen.findByRole("button", { name: "claude 상태 다시 확인" }));
+    expect(await screen.findByText("recovered@example.test")).toBeTruthy();
+    fireEvent.click(screen.getByRole("switch", { name: "claude 사용" }));
+    await waitFor(() => expect(api.patchAccount).toHaveBeenCalledWith("a", { enabled: false }));
+  });
+
   it("계정별 사용 상한을 설정한다", async () => {
     api.listAccounts.mockResolvedValue([acc({})]);
     api.patchAccount.mockResolvedValue(acc({ max_used_percent: 90 }));

@@ -2,6 +2,7 @@ import type {
   AccountIn,
   AccountPool,
   AccountOut,
+  AccountStatus,
   AccountPatch,
   ApiErrorBody,
   ArtifactArea,
@@ -379,7 +380,8 @@ export const setQwenWorker = (enabled: boolean): Promise<QwenWorkerStatus> =>
 export const stopAll = (): Promise<StopAllOut> => json("/api/system/stop-all", { method: "POST" });
 
 // ---- engine accounts
-export const listAccounts = (): Promise<AccountOut[]> => json("/api/accounts");
+export const listAccounts = (signal?: AbortSignal): Promise<AccountOut[]> => json("/api/accounts", { query: { details: false }, signal });
+export const getAccountStatus = (id: string, signal?: AbortSignal): Promise<AccountStatus> => json(`/api/accounts/${id}/status`, { signal });
 export const createAccount = (body: AccountIn): Promise<AccountOut> => json("/api/accounts", { method: "POST", json: body });
 export const patchAccount = (id: UUID, body: AccountPatch): Promise<AccountOut> =>
   json(`/api/accounts/${id}`, { method: "PATCH", json: body });
