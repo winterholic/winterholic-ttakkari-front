@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError, checkAntigravityAccount, checkCopilotAccount, checkOpencodeAccount, clearAccountCooldown, createAccount, deleteAccount, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { ApiError, checkAntigravityAccount, checkCopilotAccount, checkOpencodeAccount, clearAccountCooldown, createAccount, deleteAccount, getAccountStatus, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
 import type { AccountEngine, AccountOut, AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
@@ -239,12 +239,46 @@ function minutes(sec: number): string {
  * 켜기·순서·임시 순서는 개인과 회사가 서로 독립이다(같은 계정을 개인에선 끄고 회사에선 켤 수 있다).
  */
 export function AccountsSection() {
+  const q = useQuery({ queryKey: ACCOUNTS_KEY, queryFn: ({ signal }) => listAccounts(signal), staleTime: 30_000, refetchInterval: 30_000 });
   return (
     <>
-      <AccountModeSection pool="personal" />
-      <AccountModeSection pool="work" />
+      <AccountModeSection pool="personal" q={q} />
+      <AccountModeSection pool="work" q={q} />
     </>
   );
+}
+
+/** Shared status cache, independent errors and only one poller per account (personal mode). */
+function AccountIdentity({ account, onChecked, poll }: { account: AccountOut; onChecked: (a: AccountOut) => void; poll: boolean }) {
+  const q = useQuery({
+    queryKey: ["account-status", account.id],
+    queryFn: ({ signal }) => getAccountStatus(account.id, signal),
+    enabled: account.status_pending === true,
+    staleTime: 30_000,
+    refetchInterval: poll ? 30_000 : false,
+    retry: false,
+  });
+  const a = account.status_pending ? { ...account, ...q.data } : account;
+  if (account.status_pending && !q.data) {
+    return <span className="tk-list__meta" role="status">
+      {q.isError ? <>
+        <span className="account-row__warn">로그인 상태를 확인하지 못했어요.</span>
+        <button className="tk-button tk-button--xs" type="button" aria-label={`${a.name} 상태 다시 확인`} onClick={() => void q.refetch()}>다시 확인</button>
+      </> : <span>로그인 상태 확인 중</span>}
+    </span>;
+  }
+  return <>
+    <span className="tk-list__meta"><span className={a.login === "ok" ? undefined : "account-row__warn"}>{loginText(a)}</span></span>
+    {account.status_pending && q.isError && <span className="tk-list__meta">
+      <span className="account-row__warn">상태 갱신 실패 · 마지막 확인값</span>
+      <button className="tk-button tk-button--xs" type="button" aria-label={`${a.name} 상태 다시 확인`} onClick={() => void q.refetch()}>다시 확인</button>
+    </span>}
+    {a.login !== "ok" && a.login_command && (a.isolation_mode === "managed_home_keychain"
+      ? <AntigravitySetup account={a} onChecked={onChecked} />
+      : a.engine === "opencode" ? <OpencodeSetup account={a} onChecked={onChecked} />
+      : a.engine === "copilot" ? <CopilotSetup account={a} onChecked={onChecked} />
+      : <LoginHint engine={a.engine} command={a.login_command} />)}
+  </>;
 }
 
 const MODE_TEXT: Record<AccountPool, { title: string; help: string[]; empty: string }> = {
@@ -266,11 +300,10 @@ const MODE_TEXT: Record<AccountPool, { title: string; help: string[]; empty: str
 };
 
 /** 한 모드(개인·회사)의 계정 목록. 위에서부터 차례로 쓰고, 사용량 한도면 다음 계정으로 넘어간다(ADR 0006). */
-function AccountModeSection({ pool }: { pool: AccountPool }) {
+function AccountModeSection({ pool, q }: { pool: AccountPool; q: UseQueryResult<AccountOut[], Error> }) {
   const qc = useQueryClient();
   const id = useId();
   const personal = pool === "personal";
-  const q = useQuery({ queryKey: ACCOUNTS_KEY, queryFn: listAccounts, refetchInterval: 30_000 });
   const [editing, setEditing] = useState<AccountOut | "new" | null>(null);
   const [removing, setRemoving] = useState<AccountOut | null>(null);
   // 계정 ⋮ 는 드롭다운이 아니라 가운데 모달로 연다.
@@ -280,7 +313,13 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
   const rows = modeRows(all, pool);
   // 캐시는 두 섹션이 함께 쓴다. 이 섹션은 자기 모드의 값만 바꾼다.
   const setAll = (next: AccountOut[]) => qc.setQueryData(ACCOUNTS_KEY, next);
-  const replace = (a: AccountOut) => setAll(all.map((x) => (x.id === a.id ? a : x)));
+  const replace = (a: AccountOut) => {
+    // Authentication checks and mutations must update the independent status cache too.
+    void qc.cancelQueries({ queryKey: ["account-status", a.id] });
+    const { login, login_label, login_command, auth_state, auth_error, isolation_mode, execution_enabled } = a;
+    qc.setQueryData(["account-status", a.id], { login, login_label, login_command, auth_state, auth_error, isolation_mode, execution_enabled });
+    qc.setQueryData<AccountOut[]>(ACCOUNTS_KEY, (current) => current?.map((x) => x.id === a.id ? a : x));
+  };
 
   const toggle = useMutation({
     mutationFn: (a: AccountOut) => patchAccount(a.id, personal ? { enabled: !a.enabled } : { work_enabled: !a.work_enabled }),
@@ -368,7 +407,7 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
       {q.isSuccess && rows.length === 0 && <p className="tk-fieldset__help">{text.empty}</p>}
       {q.isPending && <ListSkeleton rows={2} label="계정을 불러오는 중" />}
       {q.isError && <ErrorState error={q.error} what="계정" onRetry={() => void q.refetch()} />}
-      {q.isSuccess && rows.length > 0 && enabledCount === 0 && (
+      {q.data && rows.length > 0 && enabledCount === 0 && (
         <aside className="tk-callout tk-callout--warning" role="status">
           <Icon name="warning" className="tk-callout__icon" />
           <div className="tk-callout__body"><p>켜진 {personal ? "개인" : "회사"} 계정이 없어요. 하나 이상 켜야 {personal ? "채팅" : "회사 업무"} 탭에서 지시를 실행할 수 있어요.</p></div>
@@ -379,14 +418,14 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
           {errMessage(rowError)}
         </p>
       )}
-      {q.isSuccess && (
+      {q.data && (
         <SortableList
           items={rows}
           label={`${text.title} 우선순위`}
           disabled={reorder.isPending}
           onReorder={saveOrder}
           render={(a, i, handle) => (
-              <div className="tk-list__item account-row" aria-disabled={!isOn(a, pool) || undefined}>
+              <div className="tk-list__item account-row" data-disabled={!isOn(a, pool) || undefined}>
                 {handle}
                 <span className="account-row__rank" aria-label={`${i + 1}순위`}>{i + 1}</span>
                 <span className="tk-list__body">
@@ -396,16 +435,9 @@ function AccountModeSection({ pool }: { pool: AccountPool }) {
                   </span>
                   <span className="tk-list__meta">
                     <span>{ENGINE_LABEL[a.engine]}</span>
-                    <span className={a.login === "ok" ? undefined : "account-row__warn"}>{loginText(a)}</span>
                     {a.cooldown_seconds > 0 && <span className="tk-badge tk-badge--warning">한도 대기 {minutes(a.cooldown_seconds)}</span>}
                   </span>
-                  {a.login !== "ok" && a.login_command && (a.isolation_mode === "managed_home_keychain"
-                    ? <AntigravitySetup account={a} onChecked={replace} />
-                    : a.engine === "opencode"
-                    ? <OpencodeSetup account={a} onChecked={replace} />
-                    : a.engine === "copilot"
-                    ? <CopilotSetup account={a} onChecked={replace} />
-                    : <LoginHint engine={a.engine} command={a.login_command} />)}
+                  <AccountIdentity account={a} onChecked={replace} poll={personal} />
                 </span>
                 <span className="tk-list__end">
                   <OrderButtons name={a.name} index={i} count={rows.length} disabled={reorder.isPending}

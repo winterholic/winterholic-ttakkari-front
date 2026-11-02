@@ -8,7 +8,7 @@
   background: var(--tk-color-surface-muted); color: var(--tk-color-text-secondary);
   font: var(--tk-font-weight-semibold) var(--tk-font-size-xs) / 1 var(--tk-font-family-mono);
 }
-.account-row[aria-disabled="true"] .tk-list__title { color: var(--tk-color-text-tertiary); }
+.account-row[data-disabled="true"] .tk-list__title { color: var(--tk-color-text-tertiary); }
 .account-group { margin-left: var(--tk-space-1-5); vertical-align: text-bottom; }
 .account-row__warn { color: var(--tk-color-text-warning); }
 .account-form__cmd {

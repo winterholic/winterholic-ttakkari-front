@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router";
+import { Navigate, useLocation } from "react-router";
 import { ApiError, patchWorkspace } from "../api/client";
 import type { WorkspaceOut } from "../api/types";
 import { errorText } from "../features/viewer/api";
@@ -23,30 +23,44 @@ const ROOT_ERRORS: Record<string, string> = {
   bad_path: "절대 경로로 적어 주세요. 예: /Users/me/docs",
 };
 
-export function SettingsPage() {
-  const ws = useDefaultWorkspace();
+export function AccountsPage() {
   const { hash } = useLocation();
-  // 사용자 메뉴의 '계정 관리'는 #accounts 로 온다.
+  // 기존 섹션 링크도 통합 화면에서 유지한다.
   useEffect(() => {
     if (hash) document.getElementById(hash.slice(1))?.scrollIntoView({ block: "start" });
   }, [hash]);
   return (
     <div className="tk-screen">
-      <PageHeader title="설정" />
+      <PageHeader title="계정 관리" />
       <div className="tk-screen__body">
         <div className="tk-container tk-container--md">
-          {ws.isPending && <ListSkeleton rows={3} label="설정을 불러오는 중" />}
-          {ws.isError && <ErrorState error={ws.error} what="작업 공간" onRetry={() => void ws.refetch()} />}
           <AccountsSection />
           <QwenWorkerSection />
           <GoogleAccountSection />
           <TtsSection />
           <ShortcutSection />
-          {ws.data && <WritableRoots ws={ws.data} />}
+          <WritableRootsSection />
         </div>
       </div>
     </div>
   );
+}
+
+/** Old bookmarks keep their section and query; the duplicate Settings page is retired. */
+export function LegacySettingsRedirect() {
+  const { search, hash } = useLocation();
+  return <Navigate replace to={`/accounts${search}${hash}`} />;
+}
+
+function WritableRootsSection() {
+  const ws = useDefaultWorkspace();
+  const id = useId();
+  if (ws.data) return <WritableRoots ws={ws.data} />;
+  return <section className="tk-section" aria-labelledby={`${id}-title`}>
+    <div className="tk-section__head"><h2 className="tk-section__title" id={`${id}-title`}>권한 폴더</h2></div>
+    {ws.isPending && <ListSkeleton rows={2} label="권한 폴더를 불러오는 중" />}
+    {ws.isError && <ErrorState error={ws.error} what="권한 폴더" onRetry={() => void ws.refetch()} />}
+  </section>;
 }
 
 function WritableRoots({ ws }: { ws: WorkspaceOut }) {

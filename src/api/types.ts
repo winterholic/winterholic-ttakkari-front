@@ -336,6 +336,8 @@ export type AccountEngine = "claude" | "codex" | "antigravity" | "muse" | "openc
  */
 export type AccountPool = "personal" | "work";
 export interface AccountOut {
+  /** 목록은 먼저 표시하고 로그인 상태는 계정별로 조회한다. */
+  status_pending?: boolean;
   id: UUID;
   name: string;
   engine: AccountEngine;
@@ -591,3 +593,5 @@ export interface TaskHit {
   field: "title" | "prompt" | "result";
   snippet: string;
 }
+
+export type AccountStatus = Pick<AccountOut, "login" | "login_label" | "login_command" | "auth_state" | "auth_error" | "isolation_mode" | "execution_enabled">;

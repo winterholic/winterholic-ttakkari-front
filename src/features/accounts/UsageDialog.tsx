@@ -362,7 +362,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
             );
           })}
           <p className="usage__note">
-            순서와 켜기는 <Link to="/settings#accounts" onClick={onClose}>계정 관리</Link>에서 바꿔요. 한도에 걸린 계정은 자동으로 건너뛰어요.
+            순서와 켜기는 <Link to="/accounts#accounts" onClick={onClose}>계정 관리</Link>에서 바꿔요. 한도에 걸린 계정은 자동으로 건너뛰어요.
             {rows.length > 0 ? ` · 켜진 계정 개인 ${onCount}개${workOnCount || groups.length > 1 ? ` · 회사 ${workOnCount}개` : ""}` : ""}
           </p>
         </section>

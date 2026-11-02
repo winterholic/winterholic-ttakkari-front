@@ -5,7 +5,7 @@ import { ChatPage } from "./pages/ChatPage";
 import { WorkspacePage } from "./pages/WorkspacePage";
 import { LibraryPage } from "./pages/LibraryPage";
 import { FilesPage } from "./pages/FilesPage";
-import { SettingsPage } from "./pages/SettingsPage";
+import { AccountsPage, LegacySettingsRedirect } from "./pages/AccountsPage";
 import { AssistantPage } from "./pages/AssistantPage";
 import { MeetingDetailPage } from "./pages/MeetingDetailPage";
 import { MeetingNewPage } from "./pages/MeetingNewPage";
@@ -101,7 +101,8 @@ export function App() {
         />
         <Route path="/context-library/items/:kind/:id" element={<Suspense fallback={<RouteFallback />}><ContextLibraryItemPage /></Suspense>} />
         <Route path="/files" element={<FilesPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/accounts" element={<AccountsPage />} />
+        <Route path="/settings" element={<LegacySettingsRedirect />} />
         <Route path="/assistant" element={<AssistantPage />} />
         <Route path="/more" element={<MorePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />

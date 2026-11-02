@@ -145,7 +145,7 @@ export function AuthStatusCard({ status }: { status: NlmAuthStatus }) {
           </>
         }
       />
-      <p className="nlm-note">이 로그인은 Google 계정 단위라 다른 기능과 함께 써요. <Link to="/settings#google-accounts">Google 계정 설정</Link>에서 같은 상태를 볼 수 있어요.</p>
+      <p className="nlm-note">이 로그인은 Google 계정 단위라 다른 기능과 함께 써요. <Link to="/accounts#google-accounts">Google 계정 설정</Link>에서 같은 상태를 볼 수 있어요.</p>
 
       {status.last_error && (
         <aside className="tk-callout tk-callout--caution nlm-notice" role="status" data-testid="nlm-last-error">
