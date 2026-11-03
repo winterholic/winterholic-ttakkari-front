@@ -142,15 +142,16 @@ export function ConflictsQualityTab({ summary, entityId, status, setStatus, clea
   const [kind, setKind] = useState<"" | KbConflictKind>("");
   const [done, setDone] = useState<{ id: string; title: string; outcome: KbConflict; canonical: string | null }[]>([]);
   const q = useInfiniteQuery({
-    queryKey: ["kb-conflicts", status, kind],
-    queryFn: ({ pageParam }) => kbConflicts({ status, kind: kind || undefined, limit: PAGE, offset: pageParam }),
+    queryKey: ["kb-conflicts", status, kind, entityId || undefined],
+    queryFn: ({ pageParam }) => kbConflicts({ status, kind: kind || undefined, entity_id: entityId || undefined, limit: PAGE, offset: pageParam }),
     initialPageParam: 0,
     getNextPageParam: (last) => ((last.offset ?? 0) + last.items.length < last.total ? (last.offset ?? 0) + (last.limit ?? PAGE) : undefined),
   });
   const all = q.data?.pages.flatMap((p) => p.items) ?? [];
   const total = q.data?.pages[0]?.total ?? 0;
-  // 서버 /conflicts 에는 개념 필터가 없어서 불러온 목록 안에서만 거른다.
-  const items = entityId ? all.filter((c) => c.entity_id === entityId) : all;
+  // 서버 /conflicts 에 entity_id 를 보내고, 목업이나 구형 서버가 전체를 돌려준 경우에도 클라이언트에서 한 번 더 거른다.
+  const items = entityId ? all.filter((c) => c.entity_id === entityId || c.entity_a?.id === entityId || c.entity_b?.id === entityId) : all;
+  const entityLabel = items[0]?.entity_name;
   return <div className="kb3-conflicts">
     <section className="kb3-panel" aria-label="충돌">
       <h2 className="kb3-panel__title">충돌과 모호한 개념</h2>
@@ -160,7 +161,7 @@ export function ConflictsQualityTab({ summary, entityId, status, setStatus, clea
       <div className="kb-revisions" role="group" aria-label="충돌 종류">
         {KIND_FILTERS.map((f) => <button key={f.id} type="button" className="kb-chip" aria-pressed={kind === f.id} onClick={() => setKind(f.id)}>{f.label}</button>)}
       </div>
-      {entityId && <p className="kb-note">한 개념의 충돌만 보고 있어요(불러온 {all.length}건 안에서 거름). <button type="button" className="kb3-linkbtn" onClick={clearEntity}>전체 보기</button></p>}
+      {entityId && <p className="kb-note">{entityLabel ? `“${entityLabel}” 개념의 충돌만 보고 있어요.` : "선택한 개념의 충돌만 보고 있어요."} <button type="button" className="kb3-linkbtn" onClick={clearEntity}>전체 보기</button></p>}
       {done.length > 0 && <ul className="kb3-done" aria-label="방금 해결한 충돌">{done.map((d) => <li key={d.id} className="kb-callout" role="status">
         <p>{d.title}: {conflictStatusText(d.outcome).label}</p>{d.canonical && <p className="kb-note">갱신된 정본: {d.canonical}</p>}</li>)}</ul>}
       {q.isPending && <p className="kb-note" role="status">충돌 목록을 읽는 중</p>}
@@ -169,11 +170,11 @@ export function ConflictsQualityTab({ summary, entityId, status, setStatus, clea
         {!isKbUnsupported(q.error) && <Button variant="ghost" onClick={() => void q.refetch()}>다시 시도</Button>}
       </div>}
       {q.data && items.length === 0 && <div className="kb-empty">
-        <p>{entityId ? "불러온 충돌 중 이 개념의 것이 없어요." : status === "open" ? "열린 충돌이 없어요." : "충돌이 없어요."}</p>
+        <p>{entityId ? "이 개념에 해당하는 충돌이 없어요." : status === "open" ? "열린 충돌이 없어요." : "충돌이 없어요."}</p>
         <p className="kb-note">문서끼리 다른 값을 말하거나 같은 이름의 개념이 애매하면 여기에 올라와요.</p>
       </div>}
       {items.length > 0 && <>
-        <p className="kb-note" role="status">{entityId ? `불러온 ${all.length}건 중 ${items.length}건` : `${total.toLocaleString("ko-KR")}건 중 ${all.length.toLocaleString("ko-KR")}건`}</p>
+        <p className="kb-note" role="status">{all.length !== items.length ? `불러온 ${all.length}건 중 ${items.length}건` : `${total.toLocaleString("ko-KR")}건 중 ${items.length.toLocaleString("ko-KR")}건`}</p>
         <ul className="kb3-conflictlist" aria-label="충돌 목록">{items.map((c) => <ConflictItem key={c.id} conflict={c} openDocument={openDocument}
           onDone={(cf, outcome, canonical) => setDone((prev) => [{ id: cf.id, title: cf.entity_name ?? CONFLICT_KIND_TEXT[cf.kind] ?? cf.kind, outcome, canonical }, ...prev])} />)}</ul>
       </>}

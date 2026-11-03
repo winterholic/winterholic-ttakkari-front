@@ -10,7 +10,7 @@ import { hasClientFilter, matchDocument } from "./kbState";
 import type { KbFilters } from "./kbState";
 import { KIND_LABEL, failure, formatChars, formatTime, shortHash } from "./labels";
 import {
-  CONFLICT_KIND_TEXT, SUMMARY_SOURCE_LABEL, chunkKindLabel, codeText, conflictStatusText, crumbs, domainLabel, jobStatusLabel, jobTone, kindLabel, reasonText, timecode,
+  CONFLICT_KIND_TEXT, SUMMARY_SOURCE_LABEL, chunkKindLabel, codeText, conflictStatusText, crumbs, domainLabel, isSystemResolution, jobStatusLabel, jobTone, kindLabel, reasonText, timecode,
 } from "./labelsV3";
 import { JobCard } from "./PipelineStatusDrawer";
 
@@ -220,11 +220,17 @@ function Knowledge({ doc, onEntity, onConflicts, openEvidence }: { doc: KbDocume
         : conflicts.length === 0 ? <p className="kb-note">이 버전의 주장이 걸린 충돌이 없어요.</p>
           : <div className="kb-results">
             <ul className="kb3-claims" aria-label="문서와 관련된 충돌">{conflicts.map((c) => {
-              const st = conflictStatusText({ kind: c.kind, status: c.status });
-              return <li key={c.id}>
-                <div className="kb-badges"><Badge tone={st.tone}>{st.label}</Badge><Badge>{CONFLICT_KIND_TEXT[c.kind] ?? c.kind}</Badge></div>
+              const st = conflictStatusText({ kind: c.kind, status: c.status, resolved_by: c.resolved_by });
+              const system = isSystemResolution(c.resolved_by);
+              return <li key={c.id} data-status={c.status}>
+                <div className="kb-badges">
+                  <Badge tone={st.tone}>{st.label}</Badge>
+                  {system && <Badge mono>자동 종결</Badge>}
+                  <Badge>{CONFLICT_KIND_TEXT[c.kind] ?? c.kind}</Badge>
+                </div>
                 {c.entity_name && <p>{c.entity_name}</p>}
                 {st.detail && <p className="kb-note">{st.detail}</p>}
+                {!system && c.note && <p className="kb-note">{c.status === "open" ? "서버 메모" : "메모"}: {c.note}</p>}
               </li>;
             })}</ul>
             <Button size="sm" onClick={() => onConflicts(openCount > 0 ? undefined : "all")}>{openCount > 0 ? `열린 충돌 ${openCount}건 비교하러 가기` : "해결 이력 보러 가기"}</Button>

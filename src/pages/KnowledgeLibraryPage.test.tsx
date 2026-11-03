@@ -158,8 +158,19 @@ it("통합 검색: 정본 개념 카드, 구조·위치 배지, 충돌 경고, �
   expect(h.evidence).toHaveBeenCalledWith("p1");
 });
 
-it("정본 카드의 이웃 개념을 누르면 그 개념으로 좁혀 다시 검색하고, 충돌 배지는 충돌 탭으로 보낸다", async () => {
+it("정본 카드의 이웃 개념을 누르면 그 개념으로 좁혀 다시 검색하고, 후보 이웃과 충돌 배지를 표시한다", async () => {
+  h.search.mockResolvedValue(searchResult({
+    matched_entities: [{
+      ...searchResult().matched_entities![0],
+      neighbors: [
+        { entity_id: "e-rs", name: "ReplicaSet", predicate: "manages", direction: "out" },
+        { entity_id: "e-pod", name: "Pod", predicate: "part_of", direction: "in", candidate: true },
+      ],
+    }],
+  }));
   mount("/knowledge-library?q=%EB%94%94");
+  const card = await screen.findByRole("article", { name: "개념 Deployment" });
+  expect(within(card).getByText(/\(후보\)/)).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: /manages → ReplicaSet/ }));
   expect(where()).toContain("concept=e-rs");
   expect(where()).toContain("cn=ReplicaSet");

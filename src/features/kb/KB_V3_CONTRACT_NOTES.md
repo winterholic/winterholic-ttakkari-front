@@ -15,9 +15,9 @@
 | 재시도 응답 | 쓰지 않음 | 갱신된 작업 + `retry{requeued, from_stage, reason, reset_stages}`. 실행 중 409 `job_running`, `requeued=false` 가 있을 수 있다 | `requeued=false` 는 "다시 넣지 않았어요: 사유". 필터된 목록에서는 재시도한 작업이 카드째 사라지므로 결과를 드로어 위쪽에도 남긴다(실서버 E2E 에서 발견) |
 | 부분 완료 사유 | 사유 코드 없음 | `degraded` 작업의 `hold_reason` 과 단계 `error_message` 에 `l2_disabled` 같은 코드가 그대로 온다 | `codeText`/`stageNote` 로 문장화. 부분 완료는 오류 목록·헤더 "주의"에서 뺐다(L2 가 꺼진 서버에서는 모든 문서의 정상 결과) |
 | 보류 재시도 | 모든 보류에 재시도 | 영구 사유(`ocr_required`, `unsupported_*`, `stt_runtime_unavailable`)는 재시도해도 같은 사유로 다시 보류(실서버 확인: requeued=true → held, 패시지 0) | 영구 사유는 재시도 버튼 대신 안내 |
-| 문서 상세 | 개념·주장·충돌·요약 정도 | `relations[]`(확정·후보, 근거 인용), `history[]`(처리 이력), `summary_source`, `domain_source`, `source`, `pipeline_status`, 리비전별 `pipeline_status`·`published_at`. `conflicts[]` 는 해결된 것도 오고 `resolved_by` 는 없다 | 관계·근거, 처리 이력, 요약 출처("AI 요약 아님"), 자동 분류 표시, 보류 문서 안내, 충돌 상태 라벨 |
+| 문서 상세 | 개념·주장·충돌·요약 정도 | `relations[]`(확정·후보, 근거 인용), `history[]`(처리 이력), `summary_source`, `domain_source`, `source`, `pipeline_status`, 리비전별 `pipeline_status`·`published_at`. `conflicts[]` 는 해결된 것도 오고 `resolved_by`·`note` 가 함께 온다 | 관계·근거, 처리 이력, 요약 출처("AI 요약 아님"), 자동 분류 표시, 보류 문서 안내, 시스템 자동 종결·사용자 해결 메모 구분 |
 | 요약 | 모델 요약일 수 있음 | 정본 정의 또는 본문 첫 문단 앞부분(extractive) | "AI 가 쓴 요약이 아니에요" + 출처 라벨 |
-| 충돌 상태 | `open` 만 다룸 | 상태 6종, `resolved_by`(`system:revision_supersession` 등), `kept_separate` 는 상충 주장에서 "어느 쪽도 채택하지 않고 종결"(시스템이 새 버전으로 양쪽을 대체한 경우 포함) | `conflictStatusText`: kept_separate+시스템 종결을 "양쪽 모두 옳음"으로 읽히지 않게 표시, 자동 종결 배지, 열린 것만/해결된 것 포함 전환, 더 보기 |
+| 충돌 상태 | `open` 만 다룸 | 상태 6종, `resolved_by`(`system:revision_supersession` 등), `entity_id` 서버 필터, `kept_separate` 는 상충 주장에서 "어느 쪽도 채택하지 않고 종결"(시스템이 새 버전으로 양쪽을 대체한 경우 포함) | `conflictStatusText`: kept_separate+시스템 종결을 "양쪽 모두 옳음"으로 읽히지 않게 표시, 자동 종결 배지, 개념별 서버 필터(`entity_id`), 열린 것만/해결된 것 포함 전환, 더 보기 |
 | 충돌 종류 | 3종 | `version_divergence` 추가. 모호 개념은 병합/분리, 상충 주장은 A/B/둘 다 유효만 허용(그 밖은 422 `kb_resolution_not_applicable`) | 종류 필터·라벨, 종류별 해결 선택지 |
 | 그래프 | 이웃은 한 번에 30개 | `offset`/`has_more`/`total_neighbors` 로 페이지, `hops>1` 은 1로 응답, 후보 관계는 `include_candidates=true` 일 때만(`candidate`, 낮은 가중치) | 이웃 더 불러오기, 후보 관계 토글(점선·후보 배지, 주소 `cand=1`) |
 | 개념 상세 | 관계 근거 없음 | 관계에는 근거 개수만 있고 인용은 1-hop 그래프 에지의 대표 근거에 있다 | 같은 개념의 1-hop 그래프(limit 100)에서 근거 인용을 가져와 관계마다 표시, 원문 위치·문서 이동 |
@@ -31,8 +31,6 @@
 
 - 원본 파일 다운로드(서버 응답에 `source.locator` 뿐). 웹 문서는 원래 주소 링크만 보여 준다.
 - 품질 진단 중 해시 무결성 일괄 검증과 E0/v3 평가 요약(API 없음): "서버 미지원" 배지로 둔다. 개별 근거의 해시 일치는 원문 위치 보기에서 확인한다.
-- `GET /conflicts` 에 개념 필터가 없어서 개념별 충돌 보기는 불러온 목록 안에서만 거른다(그렇다고 화면에 밝힌다).
-- 문서 상세 `conflicts[]` 에는 `resolved_by` 가 없어서, 문서 안에서는 시스템 종결과 사람 종결을 구분하지 못한다. 중립 문구("양쪽이 옳다는 뜻은 아니에요")만 쓴다.
 
 ## 3. scope(개인/회사) 처리
 

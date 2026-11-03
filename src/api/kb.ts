@@ -3,7 +3,7 @@
 import { ApiError, json } from "./client";
 import type {
   KbAliasOut, KbConflictList, KbConflictsQuery, KbDocumentDetailV3, KbDocumentListV3, KbDocumentsQuery, KbEntityDetail, KbEvidence,
-  KbGraph, KbGraphQuery, KbIngestInput, KbIngestOut, KbJobList, KbJobsQuery, KbResolution, KbResolveOut, KbRetryOut,
+  KbGraph, KbGraphQuery, KbIngestInput, KbIngestOut, KbJobList, KbJobsQuery, KbPipelineJob, KbResolution, KbResolveOut, KbRetryOut,
   KbSearchQuery, KbSearchResultV3, KbSummaryV3,
 } from "./kbTypes";
 
@@ -71,6 +71,10 @@ export const kbJobs = async (q: KbJobsQuery = {}): Promise<KbJobList> => {
   need("jobs", "items", isList(out), out);
   return need("jobs", "total", typeof out.total === "number", out);
 };
+export const kbJob = async (jobId: string): Promise<KbPipelineJob> => {
+  const out = await json<KbPipelineJob>(`${BASE}/jobs/${encodeURIComponent(jobId)}`);
+  return need("jobs/{id}", "stages", typeof out?.id === "string" && typeof out?.status === "string" && Array.isArray(out?.stages), out);
+};
 export const kbRetryJob = async (jobId: string, fromStage: string | null): Promise<KbRetryOut> => {
   const out = await json<KbRetryOut>(`${BASE}/jobs/${encodeURIComponent(jobId)}/retry`, { method: "POST", json: { from_stage: fromStage } });
   return need("jobs/{id}/retry", "retry", typeof out?.retry?.requeued === "boolean", out);
@@ -78,7 +82,10 @@ export const kbRetryJob = async (jobId: string, fromStage: string | null): Promi
 
 export const kbSearchV3 = async (p: KbSearchQuery): Promise<KbSearchResultV3> => {
   const out = await json<KbSearchResultV3>(`${BASE}/search`, {
-    query: { q: p.q, mode: p.mode ?? "hybrid", domain: p.domain, entity_id: p.entity_id, limit: p.limit ?? 20, offset: p.offset ?? 0 },
+    query: {
+      q: p.q, mode: p.mode ?? "hybrid", domain: p.domain, entity_id: p.entity_id,
+      include_candidates: p.include_candidates || undefined, limit: p.limit ?? 20, offset: p.offset ?? 0,
+    },
   });
   return need("search", "items", isList(out), out);
 };
@@ -114,7 +121,9 @@ export const kbAddAlias = (entityId: string, alias: string, lang?: string): Prom
   json(`${BASE}/ontology/entities/${encodeURIComponent(entityId)}/aliases`, { method: "POST", json: { alias, lang } });
 
 export const kbConflicts = async (q: KbConflictsQuery = {}): Promise<KbConflictList> => {
-  const out = await json<KbConflictList>(`${BASE}/conflicts`, { query: { status: q.status ?? "open", kind: q.kind, limit: q.limit ?? 50, offset: q.offset ?? 0 } });
+  const out = await json<KbConflictList>(`${BASE}/conflicts`, {
+    query: { status: q.status ?? "open", kind: q.kind, entity_id: q.entity_id || undefined, limit: q.limit ?? 50, offset: q.offset ?? 0 },
+  });
   need("conflicts", "items", isList(out), out);
   return need("conflicts", "total", typeof out.total === "number", out);
 };

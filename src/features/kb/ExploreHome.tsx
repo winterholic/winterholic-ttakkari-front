@@ -46,7 +46,7 @@ export function ExploreHome({ filters, summary, openDocument, openJobs, onConcep
   const graph = useQuery({ queryKey: ["kb-graph", "hubs", filters.domain], queryFn: () => kbGraph({ domain: filters.domain || undefined, limit: 12 }) });
   // 실패와 보류만 올린다. 부분 완료(AI 심층 추출만 빠진 완료)는 L2 가 꺼진 서버에서 모든 문서의 정상 결과라 오류 목록에 섞으면 묻힌다.
   const problemQueries = useQueries({ queries: ["failed", "held"].map((status) => ({ queryKey: ["kb-jobs", "home", status], queryFn: () => kbJobs({ status, limit: 5 }) })) });
-  const problemItems = problemQueries.flatMap((q) => q.data?.items ?? []).slice(0, 5);
+  const problemItems = [...new Map(problemQueries.flatMap((q) => q.data?.items ?? []).map((j) => [j.id, j])).values()].slice(0, 5);
   const problemTotal = problemQueries.reduce((sum, q) => sum + (q.data?.total ?? 0), 0);
   const attention = {
     isPending: problemQueries.some((q) => q.isPending), isError: problemQueries.every((q) => q.isError), error: problemQueries.find((q) => q.error)?.error,

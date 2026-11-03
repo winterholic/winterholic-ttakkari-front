@@ -213,17 +213,31 @@ it("충돌 해결이 실패하면 확인 창을 유지한 채 오류를 보이�
   await waitFor(() => expect(h.resolve).toHaveBeenCalledTimes(2));
 });
 
-it("충돌 종류 필터는 서버에 보내고, 개념별 보기는 그 개념의 충돌만 남긴다", async () => {
+it("충돌 종류와 개념별 필터는 서버에 보내고, 개념별 보기는 그 개념의 충돌만 남긴다", async () => {
   mount("/knowledge-library?view=conflicts");
   await screen.findByRole("listitem", { name: /Valkey/ });
   fireEvent.click(screen.getByRole("button", { name: "모호한 개념" }));
-  await waitFor(() => expect(h.conflicts).toHaveBeenLastCalledWith({ status: "open", kind: "ambiguous_entity", limit: 30, offset: 0 }));
+  await waitFor(() => expect(h.conflicts).toHaveBeenLastCalledWith({ status: "open", kind: "ambiguous_entity", entity_id: undefined, limit: 30, offset: 0 }));
   cleanup();
   mount("/knowledge-library?view=conflicts&ent=e-valkey");
+  await waitFor(() => expect(h.conflicts).toHaveBeenLastCalledWith({ status: "open", kind: undefined, entity_id: "e-valkey", limit: 30, offset: 0 }));
   expect(await screen.findByRole("listitem", { name: /Valkey/ })).toBeTruthy();
+  expect(screen.getByText(/“Valkey 기본 포트” 개념의 충돌만 보고 있어요/)).toBeTruthy();
   expect(screen.queryByRole("listitem", { name: /Service/ })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "전체 보기" }));
+  await waitFor(() => expect(h.conflicts).toHaveBeenLastCalledWith({ status: "open", kind: undefined, entity_id: undefined, limit: 30, offset: 0 }));
   expect(await screen.findByRole("listitem", { name: /Service/ })).toBeTruthy();
+});
+
+it("개념 상세에 열린 충돌이 있으면 충돌 탭의 그 개념 필터로 바로 이어진다", async () => {
+  h.entity.mockResolvedValueOnce({ ...entity, conflicts: [claimConflict] });
+  mount("/knowledge-library?view=graph&ent=e-dep");
+  const panel = within(await screen.findByRole("complementary", { name: "개념 상세" }));
+  expect(await panel.findByRole("list", { name: "개념의 충돌" })).toBeTruthy();
+  fireEvent.click(panel.getByRole("button", { name: "충돌 1건 비교하기" }));
+  expect(where()).toContain("view=conflicts");
+  expect(where()).toContain("ent=e-dep");
+  await waitFor(() => expect(h.conflicts).toHaveBeenLastCalledWith({ status: "open", kind: undefined, entity_id: "e-dep", limit: 30, offset: 0 }));
 });
 
 it("충돌 탭: 비교할 두 쪽이 없는 항목은 해결 버튼 없이 오류로 알리고, 비었거나 미지원이면 그대로 말한다", async () => {

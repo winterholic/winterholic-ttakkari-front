@@ -101,7 +101,7 @@ export function SearchResults({ q, mode, filters, openDocument, onConcept, onGra
     return <div className="kb-error"><p className="tk-error" role="alert">{failure(query.error)}</p><Button variant="ghost" onClick={() => void query.refetch()}>다시 시도</Button></div>;
   }
   const first = query.data.pages[0];
-  const all = query.data.pages.flatMap((p) => p.items);
+  const all = [...new Map(query.data.pages.flatMap((p) => p.items).map((h) => [h.passage_id, h])).values()];
   const hits = all.filter((h) => matchHit(h, filters));
   const entities = first.matched_entities ?? [];
   const coverage = first.coverage;

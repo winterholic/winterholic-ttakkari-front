@@ -308,6 +308,7 @@ export interface KbSearchQuery {
   mode?: "hybrid" | "lexical" | "vector";
   domain?: string;
   entity_id?: string;
+  include_candidates?: boolean;
   offset?: number;
   limit?: number;
 }
@@ -363,8 +364,15 @@ export interface KbDocEntity {
   mention_count?: number;
   defined_here?: boolean;
 }
-/** 문서 상세의 충돌 요약. 열린 충돌만이 아니라 해결된 것도 오고, 누가 어떻게 닫았는지(resolved_by)는 오지 않는다. */
-export interface KbConflictRef { id: string; kind: KbConflictKind; status: string; entity_name?: string | null }
+/** 문서 상세의 충돌 요약. 열린 충돌만이 아니라 해결된 것도 오고, 해결 주체(resolved_by)와 메모(note)가 함께 온다. */
+export interface KbConflictRef {
+  id: string;
+  kind: KbConflictKind;
+  status: string;
+  entity_name?: string | null;
+  resolved_by?: string | null;
+  note?: string | null;
+}
 export interface KbDocRelation {
   id: string;
   predicate: string;
@@ -528,7 +536,7 @@ export interface KbConflict {
   resolved_at?: string | null;
 }
 export interface KbConflictList { items: KbConflict[]; total: number; limit?: number; offset?: number }
-export interface KbConflictsQuery { status?: string; kind?: string; limit?: number; offset?: number }
+export interface KbConflictsQuery { status?: string; kind?: string; entity_id?: string; limit?: number; offset?: number }
 export interface KbResolveOut {
   status: string;
   conflict?: KbConflict;

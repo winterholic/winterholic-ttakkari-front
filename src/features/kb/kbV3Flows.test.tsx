@@ -92,13 +92,24 @@ it("충돌 탭: 열린 것만/해결된 것 포함 전환이 서버 status 와 �
   expect(where()).not.toContain("cs=all");
 });
 
-it("문서 상세의 충돌: 해결된 것은 해결 상태로 보이고, 열린 것이 없으면 해결 이력으로 보낸다", async () => {
-  h.doc.mockResolvedValue({ ...detail, conflicts: [{ id: "c3", kind: "value_contradiction", status: "kept_separate", entity_name: "Valkey" }] });
+it("문서 상세의 충돌: 시스템 대체 종결·사용자 해결·메모를 구분해 보이고, 열린 것이 없으면 해결 이력으로 보낸다", async () => {
+  h.doc.mockResolvedValue({
+    ...detail,
+    conflicts: [
+      { id: "c3", kind: "value_contradiction", status: "kept_separate", entity_name: "Valkey", resolved_by: "system:revision_supersession", note: "both_parties_superseded_by_newer_revision" },
+      { id: "c4", kind: "value_contradiction", status: "resolved_both_valid", entity_name: "Deployment", resolved_by: "user", note: "버전별로 다름" },
+      { id: "c5", kind: "polarity_contradiction", status: "kept_separate", entity_name: "ReplicaSet" },
+    ],
+  });
   mount("/knowledge-library?view=docs&doc=d1&ds=knowledge");
   const list = await screen.findByRole("list", { name: "문서와 관련된 충돌" });
+  expect(within(list).getByText("새 버전이 양쪽 주장을 대체해 종결")).toBeTruthy();
+  expect(within(list).getByText("자동 종결")).toBeTruthy();
+  expect(within(list).queryByText(/both_parties_superseded/)).toBeNull();
+  expect(within(list).getByText(/둘 다 유효\(적용 조건 차이\)/)).toBeTruthy();
+  expect(within(list).getByText("메모: 버전별로 다름")).toBeTruthy();
   expect(within(list).getByText("어느 쪽도 채택하지 않고 종결")).toBeTruthy();
   expect(within(list).getByText(/양쪽이 옳다는 뜻은 아니에요/)).toBeTruthy();
-  expect(within(list).queryByText(/둘 다 유효/)).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "해결 이력 보러 가기" }));
   expect(where()).toContain("view=conflicts");
   expect(where()).toContain("cs=all");

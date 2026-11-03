@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ApiError } from "./client";
-import { KbContractError, isKbUnsupported, isKbV3Summary, kbConflicts, kbEntity, kbGraph, kbIngest, kbJobs, kbResolveConflict, kbRetryJob, kbSearchV3, kbSummaryV3 } from "./kb";
+import { KbContractError, isKbUnsupported, isKbV3Summary, kbConflicts, kbEntity, kbGraph, kbIngest, kbJob, kbJobs, kbResolveConflict, kbRetryJob, kbSearchV3, kbSummaryV3 } from "./kb";
 
 const fetchMock = vi.fn();
 beforeEach(() => vi.stubGlobal("fetch", fetchMock));
@@ -17,6 +17,9 @@ it("어떤 조회도 scope 를 보내지 않는다(생략 = 통합 도서관, �
   reply({ items: [], query: "q", terms: [], limit: 20, offset: 0, has_more: false });
   await kbSearchV3({ q: "디플로이먼트", domain: "dev-infra", entity_id: "e1" });
   expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ q: "디플로이먼트", mode: "hybrid", domain: "dev-infra", entity_id: "e1", limit: "20", offset: "0" });
+  reply({ items: [], query: "q", terms: [], limit: 20, offset: 0, has_more: false });
+  await kbSearchV3({ q: "디플로이먼트", include_candidates: true });
+  expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ q: "디플로이먼트", mode: "hybrid", include_candidates: "true", limit: "20", offset: "0" });
 });
 
 it("ingest 는 multipart 로 files[]·urls[]·text·title·domain 을 보낸다", async () => {
@@ -93,11 +96,14 @@ it("재시도·충돌 해결·그래프 확장은 계약의 본문과 파라미�
   await kbEntity("e1", { include_candidates: true });
   expect(lastUrl().searchParams.get("include_candidates")).toBe("true");
   reply({ items: [], total: 0 });
-  await kbConflicts({ status: "all", kind: "version_divergence", offset: 30 });
-  expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ status: "all", kind: "version_divergence", limit: "50", offset: "30" });
+  await kbConflicts({ status: "all", kind: "version_divergence", entity_id: "e-valkey", offset: 30 });
+  expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ status: "all", kind: "version_divergence", entity_id: "e-valkey", limit: "50", offset: "30" });
   reply({ items: [], total: 0 });
   await kbJobs({ status: "attention", limit: 5 });
   expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ status: "attention", limit: "5", offset: "0" });
+  reply({ id: "j1", status: "degraded", stages: [] });
+  expect((await kbJob("j1")).id).toBe("j1");
+  expect(lastUrl().pathname).toBe("/api/assistant/kb/jobs/j1");
 });
 
 it("summary 에 v3 숫자가 있어야 v3 서버로 본다", () => {

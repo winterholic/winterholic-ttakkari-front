@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
 import recorded from "./liveFixtures/recorded.json";
 import {
-  KbContractError, isKbUnsupported, kbConflicts, kbDocumentV3, kbDocumentsV3, kbEntity, kbEvidenceV3, kbGraph, kbIngest, kbJobs, kbRetryJob, kbSearchV3, kbSummaryV3,
+  KbContractError, isKbUnsupported, kbConflicts, kbDocumentV3, kbDocumentsV3, kbEntity, kbEvidenceV3, kbGraph, kbIngest, kbJob, kbJobs, kbRetryJob, kbSearchV3, kbSummaryV3,
 } from "../../api/kb";
 import { ApiError } from "../../api/client";
 import { KnowledgeLibraryPage } from "../../pages/KnowledgeLibraryPage";
@@ -52,6 +52,8 @@ function route(input: RequestInfo | URL, init?: RequestInit) {
     if (s === "failed") return emptyList();
     return rec("jobs");
   }
+  const jobOne = p.match(/^\/jobs\/([^/]+)$/);
+  if (method === "GET" && jobOne) return jobOne[1] === body("job_one").id ? rec("job_one") : rec("job_missing");
   if (method === "POST" && /^\/jobs\/[^/]+\/retry$/.test(p)) return rec("job_retry_extracting");
   if (method === "GET" && p === "/search") {
     const mode = q.get("mode");
@@ -109,6 +111,7 @@ it("실제 응답이 모두 클라이언트 계약 검사(KbContractError)를 �
   expect((await kbDocumentV3(body("document_detail_held").id)).pipeline_status).toBe("held");
   expect((await kbJobs()).total).toBe(body("jobs").total);
   expect((await kbJobs({ status: "attention", limit: 2 })).items.length).toBeGreaterThan(0);
+  expect((await kbJob(body("job_one").id)).id).toBe(body("job_one").id);
   for (const mode of ["hybrid", "lexical", "vector"] as const) expect((await kbSearchV3({ q: "디플로이먼트", mode })).items.length).toBeGreaterThan(0);
   expect((await kbGraph({ limit: 12 })).nodes.length).toBeGreaterThan(0);
   expect((await kbGraph({ q: "Deployment" })).nodes.length).toBeGreaterThan(0);
