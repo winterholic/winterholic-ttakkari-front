@@ -5,7 +5,11 @@ import { DEFAULT_CONNECTION } from "./ShellContext";
 import type { ConnectionState } from "./ShellContext";
 
 const HEALTH_POLL_MS = 30_000;
-const HEALTH_TIMEOUT_MS = 8_000;
+// 한 번의 확인 실패로 "끊김"이라고 하지 않는다. 큰 파일을 올리는 동안 연결이 잠깐 막히거나 터널이 한 번 흔들려도(8초 안에 응답이
+// 없으면) 최대 30초 동안 끊김이 떴다. 2초 뒤 한 번 더 확인하고, 둘 다 실패해야 끊긴 것으로 본다.
+export const HEALTH_TIMEOUT_MS = 10_000;
+export const HEALTH_RETRIES = 1;
+export const HEALTH_RETRY_DELAY_MS = 2_000;
 
 function subscribeOnline(cb: () => void) {
   window.addEventListener("online", cb);
@@ -36,7 +40,8 @@ export function useConnection(enabled: boolean): ConnectionState {
     enabled: enabled && online,
     refetchInterval: HEALTH_POLL_MS,
     refetchOnReconnect: true,
-    retry: false,
+    retry: HEALTH_RETRIES,
+    retryDelay: HEALTH_RETRY_DELAY_MS,
   });
   if (!enabled) return DEFAULT_CONNECTION;
   const mac = q.isError ? "offline" : q.isSuccess ? "online" : "checking";
