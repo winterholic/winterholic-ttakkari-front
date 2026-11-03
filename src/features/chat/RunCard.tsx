@@ -109,7 +109,8 @@ export function RunCard({ run, view, onStop, onRetry }: { run: RunOut; view: Run
 
   const meta = (
     <p className="tk-run__meta">
-      <span className="tk-run__elapsed">{formatElapsed(run.started_at ?? run.created_at, run.finished_at, now)}</span>
+      {/* 한도 대기 중에는 시작부터 흘러간 시간이 "일한 시간"처럼 보이지 않게 대기라고 밝힌다(29시간 1분 같은 값이 일한 시간으로 읽혔다). */}
+      <span className="tk-run__elapsed">{view.state === "waiting" ? "대기 " : ""}{formatElapsed(run.started_at ?? run.created_at, run.finished_at, now)}</span>
       {run.profile && <span className="run-account-label">사용 계정 <AccountBadge account={run.profile} /></span>}
       {view.steps.length > 0 && <span>단계 {view.steps.length}개</span>}
       {writes > 0 && <span>파일 {writes}번 수정</span>}

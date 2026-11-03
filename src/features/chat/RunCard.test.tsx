@@ -34,6 +34,18 @@ describe("RunCard 한도 대기·전환", () => {
     expect(screen.getByRole("button", { name: "멈추기" })).toBeTruthy();
   });
 
+  it("대기 중에는 경과 시간 앞에 '대기'를 붙이고, 일하는 중에는 붙이지 않는다", () => {
+    const queued: RunOut = { ...run, status: "queued", error: null, finished_at: null, started_at: "2026-10-10T00:00:00Z" };
+    const waiting = buildRunView(queued, [
+      ev("run.waiting", { until: "2099-01-01T05:20:00Z", accounts: [{ name: "claude", engine: "claude", resets_at: "2099-01-01T05:20:00Z" }] }),
+    ]);
+    const { container, rerender } = render(<RunCard run={queued} view={waiting} />);
+    expect(container.querySelector(".tk-run__elapsed")?.textContent).toMatch(/^대기 \d+시간 \d+분$/);
+    const running: RunOut = { ...queued, status: "running" };
+    rerender(<RunCard run={running} view={buildRunView(running, [])} />);
+    expect(container.querySelector(".tk-run__elapsed")?.textContent).not.toMatch(/^대기/);
+  });
+
   it("계정 전환 이력을 카드에 보여 준다", () => {
     const view = buildRunView({ ...run, status: "succeeded", error: null }, [
       ev("engine.fallback", { from: "claude", to: "codex", reason: "usage_limit", detail: "limit", reset_at: null, mode: "handoff" }),
