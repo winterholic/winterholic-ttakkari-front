@@ -67,3 +67,33 @@
 .mission-research a { overflow-wrap: anywhere; }
 @media (max-width: 420px) { .mission-quality__axes > div { grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-1); } }
 @media (min-width: 1024px) { .mission-workspace:has(.mission-selected) { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; } }
+
+/* 임무 진행 추적: 지시문, 단계, 요구 충족, 절차 준수, 기록. */
+.mission-trace { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; }
+.trace-card { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; padding: var(--tk-space-4); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.trace-card h3 small { margin-inline-start: var(--tk-space-2); color: var(--tk-color-text-secondary); font-weight: var(--tk-font-weight-regular); }
+.trace-card--alert { border: var(--tk-border-width-hairline) solid var(--tk-color-border-danger, var(--tk-color-border-default)); }
+.trace-card--alert li { display: flex; flex-direction: column; gap: var(--tk-space-1); overflow-wrap: anywhere; }
+.trace-goal { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: var(--tk-font-size-sm); max-height: 24rem; overflow: auto; }
+.trace-stages { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--tk-space-2); }
+.trace-stages li { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.trace-stages strong { font-size: var(--tk-font-size-lg); font-variant-numeric: tabular-nums; }
+.trace-stages span { font-weight: var(--tk-font-weight-medium); }
+.trace-stages small, .trace-rules small, .trace-events small, .trace-onto small { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); overflow-wrap: anywhere; }
+@media (min-width: 640px) { .trace-stages { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.trace-group { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.trace-group h4 { margin: 0; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
+.trace-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--tk-space-2); }
+.trace-chips li { display: inline-flex; align-items: center; gap: var(--tk-space-2); padding: var(--tk-space-1) var(--tk-space-3); border-radius: var(--tk-radius-full); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
+.trace-chips li span { font-variant-numeric: tabular-nums; color: var(--tk-color-text-secondary); }
+.trace-chips li[data-status="met"] { border-color: var(--tk-color-border-brand); background: var(--tk-color-surface-brand-subtle); }
+.trace-chips li[data-status="partial"], .trace-chips li[data-status="active"] { border-style: dashed; border-color: var(--tk-color-border-brand); }
+.trace-chips li[data-status="blocked"], .trace-chips li[data-status="empty"] { opacity: .7; text-decoration: line-through; text-decoration-thickness: var(--tk-border-width-hairline); }
+.trace-rules, .trace-events, .trace-onto ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.trace-rules li, .trace-events li, .trace-onto li { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; overflow-wrap: anywhere; }
+.trace-rules li strong { font-size: var(--tk-font-size-xs); color: var(--tk-color-text-secondary); }
+.trace-rules li[data-status="met"] strong { color: var(--tk-color-text-brand); }
+.trace-rules li[data-status="unmet"] strong { color: var(--tk-color-text-danger, var(--tk-color-text-primary)); }
+.trace-events li time { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); font-variant-numeric: tabular-nums; }
+.trace-events li[data-failed="true"] span { color: var(--tk-color-text-danger, var(--tk-color-text-primary)); }
+.trace-onto h4 { margin: var(--tk-space-3) 0 var(--tk-space-2); font-size: var(--tk-font-size-sm); }

@@ -15,6 +15,7 @@ const api = vi.hoisted(() => ({
   rerun: vi.fn(),
   schedule: vi.fn(),
   unhold: vi.fn(),
+  trace: vi.fn(),
 }));
 vi.mock("../api/collectionMissions", () => ({
   collectionMissions: api.list,
@@ -28,6 +29,7 @@ vi.mock("../api/collectionMissions", () => ({
   rerunCollectionMission: api.rerun,
   scheduleCollectionMission: api.schedule,
   unholdCollectionMissionItem: api.unhold,
+  collectionMissionTrace: api.trace,
 }));
 vi.mock("../features/collector/Overview", () => ({ Overview: () => <p>운영 현황</p>, BudgetCard: () => <p>한도 카드</p> }));
 vi.mock("../features/collector/Review", () => ({ Review: () => <p>검토</p> }));
@@ -37,8 +39,23 @@ vi.mock("../features/kb/Quality", () => ({ QualityPanel: () => <p>품질 설정<
 vi.mock("../api/collector", () => ({ collectBudgets: vi.fn().mockResolvedValue({}) }));
 import { CollectPage } from "./CollectPage";
 
+const trace = {
+  id: "m1", title: "디자인 시스템 백과사전", status: "running", run_seq: 1,
+  goal: "# 디자인 시스템 백과사전\n\nIBM Carbon, Material Design 과 Apple HIG 를 폭넓게 수집해줘.",
+  targets: [], ontology: { documents: 2, stages: [{ stage: "extracting", states: { succeeded: 1, pending: 1 } }] },
+  jobs: { total: 2, failed: 1, running: 0, queued: 1 }, grades: {},
+  stages: [{ key: "discover", label: "탐색", count: 31, detail: "출처 후보 · 검색 4회" }, { key: "acquire", label: "획득", count: 12, detail: "접근 제한 1 · 실패 0" }],
+  requirements: [
+    { group: "target", key: "t:carbon", label: "IBM Carbon", status: "met", documents: 6, sources: 1, kind: "디자인 시스템" },
+    { group: "target", key: "t:hig", label: "Apple Human Interface Guidelines", status: "blocked", documents: 0, sources: 1, kind: "디자인 시스템" },
+    { group: "topic", key: "typography", label: "타이포그래피", status: "partial", documents: 2, sources: 3 },
+  ],
+  rules: [{ key: "library", label: "수집한 자료를 지식 도서관에 저장", status: "pending", detail: "적재 0건" }],
+  events: [{ at: "2026-11-05T01:00:00Z", stage: "acquire", kind: "job", subject: "x", message: "mission_prepare 작업 failed · handler_error · boom", failed: true, where: "missions.py:10 prepare" }],
+  discarded: [{ item_id: "i1", url: "https://spam.example/a", title: "광고 글", status: "held", reasons: ["low_information_density"], http_status: 200, grade: "경험·실무 글" }],
+};
 const mission = { id: "m1", title: "하네스 엔지니어링", goal: "하네스 엔지니어링", status: "running", counts: { discovered: 4, acquired: 2, accepted: 1, held: 1, failed: 0, blocked: 0, duplicate: 0, imported: 1, pending_delivery: 0 }, plan: { steps: ["독립 출처 탐색", "지식 도서관 적재"], sources: [], queries: [], coverage: [], budget: { pages: 200, searches: 16, seconds: 1800 }, stop_conditions: ["예산 소진"] }, gaps: [], jobs: [], results: [{ id: "i1", title: "설계 원전", url: "https://example.com/doc", status: "accepted", reasons: ["l0_pass"], document_id: "d1", revision_id: "r1", delivery: "imported" }], knowledge_processing: { storage: "verified", semantic: "unverified" } };
-beforeEach(() => { vi.clearAllMocks(); api.list.mockResolvedValue({ items: [] }); api.create.mockResolvedValue(mission); api.detail.mockResolvedValue(mission); });
+beforeEach(() => { vi.clearAllMocks(); api.list.mockResolvedValue({ items: [] }); api.create.mockResolvedValue(mission); api.detail.mockResolvedValue(mission); api.trace.mockResolvedValue(trace); });
 afterEach(cleanup);
 const mount = (url = "/collect", queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) => {
   render(<QueryClientProvider client={queryClient}><MemoryRouter initialEntries={[url]}><CollectPage /></MemoryRouter></QueryClientProvider>);
@@ -271,7 +288,7 @@ it("연구 블록이 없는 응답은 자율 조사 영역 없이 기존 품질�
   mount("/collect?mission=m1");
   expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
   expect(screen.queryByLabelText("자율 조사")).toBeNull();
-  expect(screen.getByLabelText("실제 수집 성과")).toBeTruthy();
+  expect(await screen.findByLabelText("처리 단계")).toBeTruthy();
 });
 
 it("연구 응답은 요약만 기본으로 보이고 계획 범위와 남은 범위의 상태·원인도 한국어로 풀어 보여준다", async () => {
@@ -296,4 +313,19 @@ it("연구 응답은 요약만 기본으로 보이고 계획 범위와 남은 �
   expect(plan.textContent).toContain("후보 없음");
   expect(plan.textContent).not.toMatch(/no_candidates|unexplored/);
   expect(document.body.textContent).not.toContain("unknown_internal_code");
+});
+
+it("임무 화면은 요청 원문, 단계, 요구 충족, 실패 원인, 보류 사유를 보여준다", async () => {
+  mount("/collect?mission=m1");
+  expect(await screen.findByLabelText("요청한 내용")).toBeTruthy();
+  expect(screen.getByLabelText("요청한 내용").textContent).toContain("IBM Carbon, Material Design 과 Apple HIG");
+  expect(screen.getByLabelText("처리 단계").textContent).toContain("출처 후보 · 검색 4회");
+  const requirements = screen.getByLabelText("요구한 대상과 분야");
+  expect(requirements.textContent).toContain("IBM Carbon");
+  expect(requirements.querySelector('[data-status="met"]')?.textContent).toContain("IBM Carbon");
+  expect(requirements.querySelector('[data-status="blocked"]')?.textContent).toContain("Apple Human Interface Guidelines");
+  const alert = screen.getByLabelText("실패한 작업");
+  expect(alert.textContent).toContain("handler_error · boom");
+  expect(alert.textContent).toContain("missions.py:10 prepare");
+  expect(screen.getByLabelText("버려지거나 보류된 자료").textContent).toContain("low_information_density");
 });

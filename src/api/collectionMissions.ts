@@ -145,3 +145,22 @@ export interface UnholdMissionItemResult {
 }
 export const unholdCollectionMissionItem = (missionId: string, itemId: string) =>
   json<UnholdMissionItemResult>(`${base}/${encodeURIComponent(missionId)}/items/${encodeURIComponent(itemId)}/unhold`, { method: "POST" });
+
+export interface MissionTraceRequirement { group: "target" | "topic"; key: string; label: string; status: string; documents: number; sources: number; kind?: string }
+export interface MissionTraceRule { key: string; label: string; status: string; detail: string }
+export interface MissionTraceStage { key: string; label: string; count: number; detail: string }
+export interface MissionTraceEvent { at: string | null; stage: string; kind: string; subject?: string | null; message: string; status?: string; failed?: boolean; where?: string | null }
+export interface MissionTraceDiscard { item_id: string; url: string; title: string; status: string; reasons: string[]; http_status: number | null; grade: string }
+export interface MissionTrace {
+  id: string; title: string; goal: string; status: string; run_seq: number;
+  targets: { key: string; name: string; kind: string; roots: string[] }[];
+  requirements: MissionTraceRequirement[];
+  rules: MissionTraceRule[];
+  stages: MissionTraceStage[];
+  ontology: { documents: number; stages: { stage: string; states: Record<string, number> }[] };
+  jobs: { total: number; failed: number; running: number; queued: number };
+  grades: Record<string, number>;
+  events: MissionTraceEvent[];
+  discarded: MissionTraceDiscard[];
+}
+export const collectionMissionTrace = (id: string) => json<MissionTrace>(`${base}/${encodeURIComponent(id)}/trace`);

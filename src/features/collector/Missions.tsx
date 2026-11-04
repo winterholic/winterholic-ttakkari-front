@@ -15,6 +15,7 @@ import {
   unholdCollectionMissionItem,
 } from "../../api/collectionMissions";
 import type { CollectionMission, CollectionPlan } from "../../api/collectionMissions";
+import { MissionTrace } from "./MissionTrace";
 import { Button } from "../../ui/Button";
 import { COLLECT_REASON, failure } from "../kb/labels";
 import { CoverageTopics, GapDetail, ResearchPanel } from "./ResearchPanel";
@@ -30,7 +31,6 @@ const STATUS: Record<string, string> = {
   cancelled: "중지됨",
   failed: "복구 필요",
 };
-const COUNTS = [["discovered", "발견한 출처"], ["acquired", "확보한 자료"], ["accepted", "품질 통과"], ["imported", "도서관 적재"], ["held", "보류"], ["duplicate", "중복"], ["failed", "실패"], ["blocked", "접근 제한"]];
 const TRIAGE_STATUS: Record<string, string> = { auto_accepted: "자동 수락", review_needed: "추가 확인 필요", auto_held: "자동 보류" };
 const AXIS_LABEL: Record<string, string> = {
   relevance_lexical: "임무 관련성 (규칙)", topic_relevance_semantic: "임무 관련성 (의미 모델)",
@@ -402,8 +402,8 @@ function Result({ mission }: { mission: CollectionMission }) {
       </p>
     )}
 
+    <MissionTrace missionId={mission.id} />
     <PreciseNotice mission={mission} />
-    <ul className="collect-funnel" aria-label="실제 수집 성과">{COUNTS.map(([key, label]) => <li key={key} data-key={key}><strong>{(mission.counts[key] ?? 0).toLocaleString("ko-KR")}</strong><span>{label}</span></li>)}</ul>
     <section className="mission-results" aria-label="수집 결과"><h3>확보한 지식과 출처</h3>
       {mission.triage && <p className="kb-note" aria-label="품질 판정 집계">
         판정 집계: 수락 {(mission.triage.accepted ?? 0).toLocaleString("ko-KR")}건 · 추가 확인 {(mission.triage.review_needed ?? 0).toLocaleString("ko-KR")}건 · 보류 {(mission.triage.held ?? 0).toLocaleString("ko-KR")}건 · 정밀평가 {preciseSummary(mission)} · 판정 기준 {mission.triage.policy?.verified === true ? "검증 이력 있음" : "미검증"}
