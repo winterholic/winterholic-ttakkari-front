@@ -51,7 +51,7 @@ export function CollectPage() {
     });
   }, [setParams]);
   return <div className="tk-screen">
-    <PageHeader title="지식 수집" meta="수집 목적에서 지식 도서관까지" actions={
+    <PageHeader title="수집 관리" meta="주제 한 줄에서 지식 도서관까지, 과정을 전부 보여줍니다" actions={
       <button type="button" className="tk-icon-button" aria-label="다시 읽기" onClick={() => void queryClient.invalidateQueries({ predicate: (qy) => /^(kb-collect|collection-mission)/.test(String(qy.queryKey[0])) })}><Icon name="retry" /></button>
     } />
     <div className="tk-screen__body"><div className="tk-container tk-container--lg kb-page collect-page">
