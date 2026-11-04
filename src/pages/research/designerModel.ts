@@ -23,7 +23,7 @@ export const ADAPTER_COMMON: Record<string, ParamSpec[]> = {
       label: '모델 별칭',
       type: 'enum',
       default: 'qwen3.5-4b-q4_k_m',
-      options: ['qwen3.5-4b-q4_k_m', 'qwen3.8-flash-next-q2k'],
+      options: ['qwen3.5-4b-q4_k_m'],
       description: '호스트 GPU(llama-server)에서 실행할 사전 양자화 모델 별칭',
       sweepable: true,
     },

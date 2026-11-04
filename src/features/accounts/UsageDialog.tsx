@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import type React from "react";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { accountUsageCached, accountUsageOne, codexReset, qwenFlashUsage, qwenUsage } from "../../api/client";
-import type { AccountUsage, QwenFlashPeriod, QwenUsagePeriod, UsageWindow } from "../../api/client";
+import { accountUsageCached, accountUsageOne, codexReset, qwenUsage } from "../../api/client";
+import type { AccountUsage, QwenUsagePeriod, UsageWindow } from "../../api/client";
 import type { AccountPool } from "../../api/types";
 import { Art } from "../../ui/Art";
 import { Dialog } from "../../ui/Dialog";
@@ -84,10 +84,9 @@ function mergeUsage(base: AccountUsage, live: AccountUsage | undefined): Account
   return { ...base, windows, source, plan, error, updated_at, stale, remaining_to_limit_percent, login, reset_credits, credits_balance, credits_error, refreshing, cooldown_seconds };
 }
 
-type UsageTab = "accounts" | "flash" | "intake";
+type UsageTab = "accounts" | "intake";
 const USAGE_TABS: { id: UsageTab; label: string }[] = [
   { id: "accounts", label: "계정·모델별" },
-  { id: "flash", label: "Flash Next" },
   { id: "intake", label: "접수 Qwen" },
 ];
 
@@ -96,7 +95,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
   const [tab, setTab] = useState<UsageTab>(() => {
     try {
       const saved = localStorage.getItem("ttakkari:usage-tab");
-      if (saved === "flash" || saved === "intake" || saved === "accounts") return saved;
+      if (saved === "intake" || saved === "accounts") return saved;
     } catch {
       // ignore local storage error
     }
@@ -137,12 +136,6 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     queryFn: qwenUsage,
     enabled: open,
     refetchInterval: open ? 120_000 : false,
-  });
-  const flash = useQuery({
-    queryKey: ["accounts", "qwen-flash-usage"],
-    queryFn: qwenFlashUsage,
-    enabled: open,
-    refetchInterval: open ? 30_000 : false,
   });
   // 남은 시간 글자를 1분마다 다시 그린다.
   const [now, setNow] = useState(() => Date.now());
@@ -221,18 +214,17 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
           </div>
           <div className="usage__bar">
             <p className="usage__meta">
-              {anyFetching || qwen.isFetching || flash.isFetching ? "불러오는 중" : q.dataUpdatedAt ? `${ago(Math.round(Math.max(q.dataUpdatedAt, ...live.map((l) => l.dataUpdatedAt)) / 1000), now)} 갱신` : ""}
+              {anyFetching || qwen.isFetching ? "불러오는 중" : q.dataUpdatedAt ? `${ago(Math.round(Math.max(q.dataUpdatedAt, ...live.map((l) => l.dataUpdatedAt)) / 1000), now)} 갱신` : ""}
             </p>
             <button
               className="tk-icon-button tk-icon-button--sm"
               type="button"
               aria-label="새로 고침"
-              aria-busy={anyFetching || qwen.isFetching || flash.isFetching || undefined}
+              aria-busy={anyFetching || qwen.isFetching || undefined}
               onClick={() => {
                 void q.refetch();
                 accountIds.forEach(refreshAccount);
                 void qwen.refetch();
-                void flash.refetch();
               }}
             >
               <Icon name="retry" />
@@ -369,60 +361,6 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
 
         <section
           role="tabpanel"
-          id="usage-panel-flash"
-          aria-labelledby="usage-tab-flash"
-          data-active={tab === "flash"}
-          tabIndex={0}
-        >
-          <section className="usage-card qwen-usage" aria-label="Qwen Flash Next 사용량">
-            <div className="usage-card__head">
-              <span className="usage-card__title">
-                <span className="usage-card__name">Qwen Flash Next</span>
-                <span className="usage-card__sub">{flash.data?.model ?? "Qwen3.8-Flash-Next Q2_K"} · 별도 로컬 하네스</span>
-              </span>
-              {flash.data?.server && <span className={`tk-badge${flash.data.server.status === "model_mismatch" ? " tk-badge--warning" : ""}`}>
-                {{ running: "실행 중", starting: "시작 중", unavailable: "서버 미연결", model_mismatch: "모델 확인 필요" }[flash.data.server.status]}
-              </span>}
-            </div>
-            {flash.isPending && <p className="usage__note" role="status">Flash Next 사용량을 불러오는 중이에요.</p>}
-            {flash.isError && <p className="tk-error" role="alert">Flash Next 사용량을 불러오지 못했어요.{flash.data ? " 마지막 측정값을 표시합니다." : ""}</p>}
-            {flash.data && <>
-              {flash.data.today && flash.data.week ? (
-                <>
-                  <div className="qwen-usage__periods">
-                    <FlashPeriod title="오늘" period={flash.data.today} now={now} hasHistory={Boolean(flash.data.collection_started_at)} />
-                    <FlashPeriod title="이번 주" period={flash.data.week} now={now} hasHistory={Boolean(flash.data.collection_started_at)} />
-                  </div>
-                  <p className="usage__note">처리 중 {flash.data.requests_processing ?? "—"}건 · 대기 {flash.data.requests_deferred ?? "—"}건</p>
-                  {flash.data.server?.status === "model_mismatch" && <p className="usage__note">연결된 서버의 모델이 Flash Next와 달라 사용량을 표시하지 않아요.</p>}
-                  {flash.data.metrics_status !== "available" && <p className="usage__note">일부 계측값을 읽지 못했어요. 미확인 값은 —로 표시합니다.</p>}
-                  <p className="usage-card__foot">
-                    {flash.data.collection_started_at
-                      ? `오늘 00:00부터 · 이번 주 월요일 00:00부터 KST · 영속 집계(서버 재시작 후에도 유지) · 수집 시작 ${new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(flash.data.collection_started_at))} KST`
-                      : "오늘 00:00부터 · 이번 주 월요일 00:00부터 KST · 영속 집계(서버 재시작 후에도 유지) · 이력 없음"}
-                  </p>
-                  <p className="usage__note">{new Date(flash.data.observed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", second: "2-digit" })} KST 측정 · 30초마다 갱신 · 입력은 캐시 제외 처리 토큰입니다.</p>
-                </>
-              ) : (
-                <>
-                  <div className="qwen-usage__numbers">
-                    <span>입력 토큰<b>{flash.data.input_tokens?.toLocaleString("ko-KR") ?? "—"}</b></span>
-                    <span>캐시 재사용 토큰<b>{flash.data.cached_input_tokens?.toLocaleString("ko-KR") ?? "—"}</b></span>
-                    <span>출력 토큰<b>{flash.data.output_tokens?.toLocaleString("ko-KR") ?? "—"}</b></span>
-                  </div>
-                  <p className="usage__note">처리 중 {flash.data.requests_processing ?? "—"}건 · 대기 {flash.data.requests_deferred ?? "—"}건</p>
-                  {flash.data.server?.status === "model_mismatch" && <p className="usage__note">연결된 서버의 모델이 Flash Next와 달라 사용량을 표시하지 않아요.</p>}
-                  {flash.data.metrics_status !== "available" && <p className="usage__note">일부 계측값을 읽지 못했어요. 미확인 값은 —로 표시합니다.</p>}
-                  <p className="usage-card__foot">현재 서버 실행 누적 · 서버를 재시작하면 초기화돼요. 해당 서버를 쓰는 모든 요청을 포함하며 접수 사용량과 별도로 집계합니다. 입력은 캐시 제외 처리 토큰입니다.</p>
-                  <p className="usage__note">{new Date(flash.data.observed_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", second: "2-digit" })} KST 측정 · 30초마다 갱신</p>
-                </>
-              )}
-            </>}
-          </section>
-        </section>
-
-        <section
-          role="tabpanel"
           id="usage-panel-intake"
           aria-labelledby="usage-tab-intake"
           data-active={tab === "intake"}
@@ -457,27 +395,6 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
         </section>
       </div>
     </Dialog>
-  );
-}
-
-function FlashPeriod({ title, period, now, hasHistory }: { title: string; period: QwenFlashPeriod; now: number; hasHistory: boolean }) {
-  const fmt = new Intl.NumberFormat("ko-KR");
-  const range = new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
-  const last = period.last_used_at ? `마지막 측정 ${ago(Date.parse(period.last_used_at) / 1000, now)}` : "측정 없음";
-  return (
-    <div className="qwen-usage__period">
-      <div className="qwen-usage__heading">
-        <strong>{title}</strong>
-        <span>{range.format(new Date(period.starts_at))}–현재 KST</span>
-      </div>
-      <div className="qwen-usage__numbers--4">
-        <span><b>{hasHistory ? fmt.format(period.input_tokens) : "—"}</b> 입력</span>
-        <span><b>{hasHistory ? fmt.format(period.cached_input_tokens) : "—"}</b> 캐시 재사용</span>
-        <span><b>{hasHistory ? fmt.format(period.output_tokens) : "—"}</b> 출력</span>
-        <span><b>{hasHistory ? fmt.format(period.total_tokens) : "—"}</b> 합계</span>
-      </div>
-      <p className="usage__note">{hasHistory ? `${last}` : "아직 수집한 사용량이 없어요."}</p>
-    </div>
   );
 }
 

@@ -25,7 +25,7 @@ beforeEach(() => {
   fetchMock.mockImplementation(async (url) => {
     const p = new URL(String(url)).pathname;
     if (p === "/api/accounts/usage") return res([account]);
-    if (p.startsWith("/api/accounts/qwen-flash-usage") || p.startsWith("/api/accounts/qwen-usage")) return res({ detail: "x" }, 503);
+    if (p.startsWith("/api/accounts/qwen-usage")) return res({ detail: "x" }, 503);
     return res({ code: "not_found", message: "Not Found" }, 404);
   });
 });

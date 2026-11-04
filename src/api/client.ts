@@ -953,32 +953,6 @@ export const accountUsageOne = async (id: string, refresh = false): Promise<Acco
   }
 };
 export const qwenUsage = ():Promise<QwenUsageSummary> => json("/api/accounts/qwen-usage");
-export interface QwenFlashPeriod {
-  starts_at: string;
-  ends_at: string;
-  input_tokens: number;
-  cached_input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-  last_used_at: string | null;
-}
-export interface QwenFlashUsage {
-  model: string;
-  scope?: "server_lifetime" | string;
-  timezone?: string;
-  observed_at: string;
-  collection_started_at?: string | null;
-  server: { status: "running" | "starting" | "unavailable" | "model_mismatch"; detail: string | null };
-  metrics_status: "available" | "partial" | "unavailable";
-  input_tokens: number | null;
-  cached_input_tokens: number | null;
-  output_tokens: number | null;
-  requests_processing: number | null;
-  requests_deferred: number | null;
-  today?: QwenFlashPeriod;
-  week?: QwenFlashPeriod;
-}
-export const qwenFlashUsage = (): Promise<QwenFlashUsage> => json("/api/accounts/qwen-flash-usage");
 
 /** 전용 HOME 으로 로그인한 Antigravity 추가 계정을 확인한다. confirm 이면 사용자가 입력한 Google 계정으로 격리 확인을 기록한다. */
 export const checkAntigravityAccount = (id: string, body: { principal?: string; confirm?: boolean }): Promise<AccountOut> =>
