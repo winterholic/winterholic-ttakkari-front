@@ -16,7 +16,7 @@ function mount() {
     <MemoryRouter><Collection /></MemoryRouter></QueryClientProvider>);
 }
 it("출처가 없으면 등록 동작을 안내한다", async () => {
-  mocks.sources.mockResolvedValue({ items: [], runtime_enabled: true, daily_page_cap: 500 });
+  mocks.sources.mockResolvedValue({ items: [], runtime_enabled: true });
   mocks.jobs.mockResolvedValue({ jobs: [], next_cursor: null });
   mount();
   expect(await screen.findByText("아직 수집 출처가 없어요.")).toBeTruthy();
@@ -32,7 +32,7 @@ it("실패를 숨기지 않고 다시 시도할 수 있다", async () => {
 it("선택한 출처만 실행하고 중복 실행 중에는 버튼을 비활성화한다", async () => {
   mocks.sources.mockResolvedValue({ items: [{ id: "s1", title: "PostgreSQL 문서", source_key: "pg", enabled: true,
     auto_import: true, seeds: ["https://postgresql.org/docs"], interval_minutes: null, last_job_id: null,
-    next_run_at: null, version: 1, scope: "personal", request: {} }], runtime_enabled: true, daily_page_cap: 500 });
+    next_run_at: null, version: 1, scope: "personal", request: {} }], runtime_enabled: true });
   mocks.jobs.mockResolvedValue({ jobs: [], next_cursor: null });
   let done: (value: unknown) => void = () => {};
   mocks.run.mockImplementation(() => new Promise((resolve) => { done = resolve; }));

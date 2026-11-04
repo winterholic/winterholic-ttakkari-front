@@ -27,12 +27,11 @@ const wrap = (node: React.ReactNode) => render(<QueryClientProvider client={new 
 
 const budget = { day: "2026-10-23", timezone: "Asia/Seoul", teacher_enabled: false, unsettled: 0,
   tokens: { limit: 60000, used: 0, remaining: 60000 }, calls: { limit: 20, used: 0, remaining: 20 },
-  micro_usd: { limit: 1000000, used: 0, remaining: 1000000 }, per_job: { tokens: 12000, calls: 4, micro_usd: 200000 },
-  pages: { limit: 500, reserved: 12 } };
+  micro_usd: { limit: 1000000, used: 0, remaining: 1000000 }, per_job: { tokens: 12000, calls: 4, micro_usd: 200000 } };
 const funnel = { discovered: 2, fetched: 26, extracted: 24, accepted: 23, held: 1, blocked: 0, failed: 0, not_modified: 8,
   delivered: 15, awaiting_delivery: 0, awaiting_review: 9 };
 const base = { funnel, jobs: { succeeded: 3 }, outbox: {}, waiting: [], runtime: { loop_available: true, paused: false, reason: null, since: null },
-  budget, daily_page_cap: 500 };
+  budget };
 
 it("현황은 단계별 건수와 모델 비용 0을 보여 주고 일시정지 요청을 보낸다", async () => {
   mocks.summary.mockResolvedValue(base);

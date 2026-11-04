@@ -24,7 +24,7 @@ export interface QualityStatus {
 }
 const base = "/api/assistant/collect";
 const scopeQuery = (scope?: KbScope) => (scope ? { scope } : {});
-export const collectSources = (scope?: KbScope) => json<{ items: CollectSource[]; runtime_enabled: boolean; daily_page_cap: number }>(`${base}/sources`, { query: scopeQuery(scope) });
+export const collectSources = (scope?: KbScope) => json<{ items: CollectSource[]; runtime_enabled: boolean}>(`${base}/sources`, { query: scopeQuery(scope) });
 export const createCollectSource = (scope: KbScope | undefined, body: Record<string, unknown>) => json<CollectSource>(`${base}/sources`, { method: "POST", query: scopeQuery(scope), json: body });
 export const updateCollectSource = (id: string, scope: KbScope | undefined, enabled: boolean, version: number) => json<CollectSource>(`${base}/sources/${encodeURIComponent(id)}`, { method: "PATCH", query: scopeQuery(scope), json: { enabled, expected_version: version } });
 export const runCollectSource = (id: string, scope?: KbScope) => json<CollectJob>(`${base}/sources/${encodeURIComponent(id)}/run`, { method: "POST", query: scopeQuery(scope) });
@@ -45,14 +45,13 @@ export interface CollectSummary {
   jobs: Record<string, number>; outbox: Record<string, number>;
   waiting: { job_id: string; status: string; source_key: string; not_before: string | null; reason: string | null }[];
   runtime: { loop_available: boolean; paused: boolean; reason: string | null; since: string | null };
-  budget: CollectBudget; daily_page_cap: number;
+  budget: CollectBudget;
 }
 export interface CollectBudget {
   day: string; timezone: string; teacher_enabled: boolean; unsettled: number;
   tokens: { limit: number; used: number; remaining: number }; calls: { limit: number; used: number; remaining: number };
   micro_usd: { limit: number; used: number; remaining: number };
   per_job: { tokens: number; calls: number; micro_usd: number };
-  pages?: { limit: number; reserved: number };
 }
 export interface ReviewItem {
   id: string; url: string; source_key: string; status: string; reason_codes: string[]; language: string | null;

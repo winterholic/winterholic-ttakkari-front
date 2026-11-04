@@ -55,7 +55,7 @@ export const COLLECT_REASON: Record<string, string> = {
   l0_too_short: "본문이 짧아 검토 대기", l0_symbol_heavy: "기호 비율이 높아 검토 대기",
   l0_low_alpha_ratio: "본문 비율이 낮아 검토 대기", l0_repeated_lines: "같은 줄 반복",
   l0_repetitive: "내용 반복이 많음", l0_link_heavy: "링크 비율이 높음", l0_mostly_short_lines: "짧은 줄이 많음",
-  exact_duplicate: "동일한 본문이 이미 있음", source_policy_missing: "출처 정책을 확인해 주세요",
+  exact_duplicate: "동일한 본문이 이미 있음", near_duplicate: "거의 같은 본문이 이미 있음", source_policy_missing: "출처 정책을 확인해 주세요",
   store_not_permitted: "원문 보관 권리가 허용되지 않음", storage_cap_reached: "원문 저장 공간 한도에 도달함",
   unknown: "확인되지 않음",
 };

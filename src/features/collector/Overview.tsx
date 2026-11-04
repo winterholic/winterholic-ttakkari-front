@@ -26,7 +26,6 @@ export function BudgetCard({ budget }: { budget: CollectBudget }) {
       <div className="kb-facts__row"><dt>호출</dt><dd>{budget.calls.used} / {budget.calls.limit}회 ({pct(budget.calls)}%)</dd></div>
       <div className="kb-facts__row"><dt>토큰</dt><dd>{budget.tokens.used.toLocaleString("ko-KR")} / {budget.tokens.limit.toLocaleString("ko-KR")} ({pct(budget.tokens)}%)</dd></div>
       <div className="kb-facts__row"><dt>비용</dt><dd>${(budget.micro_usd.used / 1_000_000).toFixed(2)} / ${(budget.micro_usd.limit / 1_000_000).toFixed(2)}</dd></div>
-      {budget.pages && <div className="kb-facts__row"><dt>페이지</dt><dd>{budget.pages.reserved} / {budget.pages.limit}장</dd></div>}
       <div className="kb-facts__row"><dt>정산 대기</dt><dd>{budget.unsettled}건{budget.unsettled > 0 ? " (결과가 확인될 때까지 한도에서 빼요)" : ""}</dd></div>
     </dl>
   </section>;
