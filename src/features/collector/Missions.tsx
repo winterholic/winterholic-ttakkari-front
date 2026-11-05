@@ -149,7 +149,9 @@ function Plan({ plan, coverage = plan.coverage }: { plan: CollectionPlan; covera
   </section>;
 }
 
-function Result({ mission }: { mission: CollectionMission }) {
+const TABS: [string, string][] = [["overview", "개요"], ["targets", "대상·분야"], ["docs", "자료"], ["log", "기록"], ["prompt", "지시문"]];
+
+function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: string; onTab: (tab: string) => void }) {
   const queryClient = useQueryClient();
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleMinutes, setScheduleMinutes] = useState<number | null>(
@@ -371,7 +373,12 @@ function Result({ mission }: { mission: CollectionMission }) {
       </p>
     )}
 
-    <MissionTrace missionId={mission.id} />
+    <nav className="mission-tabs" aria-label="임무 보기">{TABS.map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => onTab(id)}>{label}</button>)}</nav>
+    {tab === "overview" && <><MissionTrace missionId={mission.id} part="overview" /><ResearchPanel mission={mission} />
+    {mission.knowledge_processing.semantic !== "verified" && <p className="kb-note">원문 적재와 의미·관계 처리는 별도로 진행됩니다.</p>}
+    </>}
+    {tab === "targets" && <MissionTrace missionId={mission.id} part="targets" />}
+    {tab === "docs" && <>
     <PreciseNotice mission={mission} />
     <section className="mission-results" aria-label="수집 결과"><h3>확보한 지식과 출처</h3>
       {mission.triage && <p className="kb-note" aria-label="품질 판정 집계">
@@ -398,10 +405,12 @@ function Result({ mission }: { mission: CollectionMission }) {
         {item.document_id && <Link to={`/knowledge-library?view=docs&doc=${encodeURIComponent(item.document_id)}${item.revision_id ? `&rev=${encodeURIComponent(item.revision_id)}` : ""}`}>도서관에서 보기</Link>}
       </article>)}
     </section>
-    <ResearchPanel mission={mission} />
     {mission.gaps.length > 0 && <section className="mission-gaps" aria-label="남은 범위"><h3>아직 확보하지 못한 자료</h3><ul>{mission.gaps.map((gap, index) => <li key={`${gap.reason}-${index}`}><p>{gap.message}</p><GapDetail gap={gap} />{gap.url && <a href={gap.url} target="_blank" rel="noreferrer">{gap.url}</a>}</li>)}</ul></section>}
+    <MissionTrace missionId={mission.id} part="docs" /></>}
+    {tab === "log" && <MissionTrace missionId={mission.id} part="log" />}
+    {tab === "prompt" && <><MissionTrace missionId={mission.id} part="prompt" />
     <details><summary>계획과 조사 범위</summary><Plan plan={mission.plan} coverage={mission.research?.coverage ?? mission.plan.coverage} /></details>
-    {mission.knowledge_processing.semantic !== "verified" && <p className="kb-note">원문 적재와 의미·관계 처리는 별도로 진행됩니다.</p>}
+    </>}
   </article>;
 }
 
@@ -411,27 +420,36 @@ export function Missions() {
   const [goal, setGoal] = useState("");
   const [context, setContext] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
-  const [composerOpen, setComposerOpen] = useState(!selected);
   const requestKey = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const list = useQuery({ queryKey: ["collection-missions"], queryFn: collectionMissions, refetchInterval: 10000 });
   const detail = useQuery({ queryKey: ["collection-mission", selected], queryFn: () => collectionMission(selected!), enabled: !!selected, refetchInterval: 5000 });
   const input = () => ({ goal: goal.trim(), context });
-  const select = (id: string) => setParams(previous => { const next = new URLSearchParams(previous); next.set("mission", id); return next; });
+  const tab = TABS.some(([id]) => id === params.get("tab")) ? params.get("tab")! : "overview";
+  const go = (values: Record<string, string | null>) => setParams(previous => {
+    const next = new URLSearchParams(previous);
+    for (const [key, value] of Object.entries(values)) { if (value) next.set(key, value); else next.delete(key); }
+    return next;
+  });
+  const select = (id: string) => go({ mission: id, new: null, tab: null });
+  const view = selected ? "detail" : params.has("new") || (list.isSuccess && list.data.items.length === 0) ? "new" : "history";
   const create = useMutation({ mutationFn: () => {
     requestKey.current ??= crypto.randomUUID();
     return createCollectionMission({ ...input(), request_key: requestKey.current });
   }, onSuccess: async mission => {
     queryClient.setQueryData(["collection-mission", mission.id], mission);
     select(mission.id);
-    setComposerOpen(false);
     requestKey.current = null;
     await queryClient.invalidateQueries({ queryKey: ["collection-missions"] });
   } });
   const preview = useMutation({ mutationFn: () => previewCollectionPlan(input()) });
   function changed() { requestKey.current = null; preview.reset(); create.reset(); }
   return <div className="missions">
-    <details className="mission-new" open={composerOpen} onToggle={event => setComposerOpen(event.currentTarget.open)}><summary>새 수집 시작</summary>
+    <nav className="mission-nav" aria-label="수집 관리 메뉴">
+      <button type="button" aria-pressed={view !== "new"} onClick={() => go({ mission: null, new: null, tab: null })}>내역</button>
+      <button type="button" aria-pressed={view === "new"} onClick={() => go({ mission: null, new: "1", tab: null })}>새 수집</button>
+    </nav>
+    {view === "new" && <>
     <form className="mission-composer" onSubmit={event => { event.preventDefault(); if (goal.trim()) create.mutate(); }}>
       <label htmlFor="collection-goal">무엇을 수집하고 싶으세요?</label>
       <p className="kb-note" id="collection-help">지시문을 통째로 붙여 넣으면 됩니다. 대상 이름, 분야, 지켜야 할 규칙을 읽어 알아서 수집합니다. 쪽수는 정하지 않아도 됩니다.</p>
@@ -456,15 +474,15 @@ export function Missions() {
       {create.isError && <p role="alert" className="tk-error">{failure(create.error)}</p>}
       {preview.data && <Plan plan={preview.data} />}
     </form>
-    </details>
-    <div className="mission-workspace">
-      <section className="mission-history" aria-label="내 수집 임무"><h2>수집 임무</h2>
-        {list.isPending && <p role="status">임무를 불러오는 중</p>}
-        {list.isError && <div className="kb-error"><p role="alert">{failure(list.error)}</p><Button onClick={() => void list.refetch()}>다시 불러오기</Button></div>}
-        {list.data?.items.length === 0 && <div className="kb-empty"><p>아직 수집 임무가 없습니다.</p><p>위에 수집 목적을 적어 첫 임무를 시작하세요.</p></div>}
-        {list.data?.items.map(mission => <button className="mission-history__item" type="button" key={mission.id} aria-pressed={selected === mission.id} onClick={() => select(mission.id)}><strong>{mission.title}</strong><span>{STATUS[mission.status] ?? mission.status} · 도서관 {mission.counts.imported ?? 0}건</span></button>)}
-      </section>
-      {selected && <div className="mission-selected">{detail.isPending && <p role="status">임무 결과를 불러오는 중</p>}{detail.isError && <div className="kb-error"><p role="alert">{failure(detail.error)}</p><Button onClick={() => void detail.refetch()}>결과 다시 읽기</Button></div>}{detail.data && <Result mission={detail.data} />}</div>}
-    </div>
+    </>}
+    {view === "history" && <section className="mission-history" aria-label="수집 내역"><h2>수집 내역</h2>
+      {list.isPending && <p role="status">임무를 불러오는 중</p>}
+      {list.isError && <div className="kb-error"><p role="alert">{failure(list.error)}</p><Button onClick={() => void list.refetch()}>다시 불러오기</Button></div>}
+      {list.data?.items.map(mission => <button className="mission-history__item" type="button" key={mission.id} onClick={() => select(mission.id)}><strong>{mission.title}</strong><span>{STATUS[mission.status] ?? mission.status} · 도서관 {mission.counts.imported ?? 0}건</span></button>)}
+    </section>}
+    {view === "detail" && <div className="mission-selected">
+      <button type="button" className="mission-back" onClick={() => go({ mission: null, tab: null })}>← 수집 내역</button>
+      {detail.isPending && <p role="status">임무 결과를 불러오는 중</p>}{detail.isError && <div className="kb-error"><p role="alert">{failure(detail.error)}</p><Button onClick={() => void detail.refetch()}>결과 다시 읽기</Button></div>}{detail.data && <Result mission={detail.data} tab={tab} onTab={id => go({ tab: id })} />}
+    </div>}
   </div>;
 }

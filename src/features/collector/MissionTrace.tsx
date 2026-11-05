@@ -62,7 +62,7 @@ function Rules({ trace }: { trace: Trace }) {
 }
 
 function Timeline({ trace }: { trace: Trace }) {
-  return <details className="trace-card" aria-label="진행 기록"><summary>진행 기록 {count(trace.events.length)}건</summary>
+  return <details className="trace-card" aria-label="진행 기록" open><summary>진행 기록 {count(trace.events.length)}건</summary>
     <ul className="trace-events">{trace.events.map((event, index) => <li key={index} data-stage={event.stage} data-failed={event.failed ? "true" : undefined}>
       <time>{time(event.at)}</time><span>{event.message}</span>{event.subject && <small>{event.subject}</small>}</li>)}</ul>
   </details>;
@@ -70,7 +70,7 @@ function Timeline({ trace }: { trace: Trace }) {
 
 function Discarded({ trace }: { trace: Trace }) {
   if (trace.discarded.length === 0) return null;
-  return <details className="trace-card" aria-label="버려지거나 보류된 자료"><summary>버려지거나 보류된 자료 {count(trace.discarded.length)}건</summary>
+  return <details className="trace-card" aria-label="버려지거나 보류된 자료" open><summary>버려지거나 보류된 자료 {count(trace.discarded.length)}건</summary>
     <ul className="trace-events">{trace.discarded.map(item => <li key={item.item_id}>
       <strong>{ITEM_STATUS[item.status] ?? item.status}</strong>
       <span>{item.title || item.url}</span>
@@ -91,19 +91,18 @@ function Summary({ trace }: { trace: Trace }) {
   </section>;
 }
 
-export function MissionTrace({ missionId }: { missionId: string }) {
+export type TracePart = "overview" | "targets" | "docs" | "log" | "prompt";
+
+export function MissionTrace({ missionId, part }: { missionId: string; part: TracePart }) {
   const query = useQuery({ queryKey: ["collection-mission-trace", missionId], queryFn: () => collectionMissionTrace(missionId), refetchInterval: 5000 });
   if (query.isPending) return <p role="status">진행 상황을 불러오는 중</p>;
   if (query.isError) return <p role="alert" className="tk-error">{failure(query.error)}</p>;
   const trace = query.data;
   return <div className="mission-trace">
-    <Summary trace={trace} />
-    <Stages trace={trace} />
-    <Failures trace={trace} />
-    <Requirements trace={trace} />
-    <Rules trace={trace} />
-    <Goal trace={trace} />
-    <Timeline trace={trace} />
-    <Discarded trace={trace} />
+    {part === "overview" && <><Summary trace={trace} /><Stages trace={trace} /><Failures trace={trace} /><Rules trace={trace} /></>}
+    {part === "targets" && <Requirements trace={trace} />}
+    {part === "log" && <Timeline trace={trace} />}
+    {part === "docs" && <Discarded trace={trace} />}
+    {part === "prompt" && <Goal trace={trace} />}
   </div>;
 }

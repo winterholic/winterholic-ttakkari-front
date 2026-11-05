@@ -105,7 +105,11 @@
 .trace-summary__bar span { display: block; height: 100%; background: var(--tk-color-border-brand); }
 .mission-new { min-width: 0; }
 .mission-new > summary { font-weight: var(--tk-font-weight-semibold); }
-@media (min-width: 1024px) {
-  .mission-workspace { grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr); align-items: start; }
-  .mission-history { position: sticky; top: var(--tk-space-4); }
-}
+
+/* 책임 분리: 내역 / 새 수집 / 상세를 따로 보여 주고, 상세는 탭으로 나눈다. 긴 스크롤 대신 한 화면에 한 가지. */
+.mission-nav, .mission-tabs { display: flex; gap: var(--tk-space-2); flex-wrap: wrap; }
+.mission-nav button, .mission-tabs button, .mission-back { min-height: var(--tk-size-touch-target-min); padding-inline: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); font: inherit; cursor: pointer; }
+.mission-nav button[aria-pressed="true"], .mission-tabs button[aria-pressed="true"] { border-color: var(--tk-color-border-brand); background: var(--tk-color-surface-brand-subtle); font-weight: var(--tk-font-weight-semibold); }
+.mission-tabs { position: sticky; top: 0; z-index: var(--tk-z-index-raised); padding-block: var(--tk-space-2); background: var(--tk-color-surface-default); }
+.mission-back { align-self: start; border-color: transparent; background: transparent; padding-inline: 0; color: var(--tk-color-text-secondary); }
+.mission-history { gap: var(--tk-space-3); }

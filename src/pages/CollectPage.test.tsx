@@ -64,22 +64,26 @@ const mount = (url = "/collect", queryClient = new QueryClient({ defaultOptions:
 
 it("첫 화면은 자연어 임무 입력이고 범위 토글이나 출처 설정을 요구하지 않는다", async () => {
   mount();
-  expect(screen.getByLabelText("무엇을 수집하고 싶으세요?")).toBeTruthy();
+  expect(await screen.findByLabelText("무엇을 수집하고 싶으세요?")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "회사" })).toBeNull();
   expect(screen.queryByText("운영 현황")).toBeNull();
-  expect(await screen.findByText("아직 수집 임무가 없습니다.")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "내역" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "새 수집" }).getAttribute("aria-pressed")).toBe("true");
 });
 
 it("사용자 맥락과 목적을 한 번에 제출하고 실제 적재 결과를 연다", async () => {
   mount();
-  fireEvent.change(screen.getByLabelText("무엇을 수집하고 싶으세요?"), { target: { value: "하네스 엔지니어링" } });
+  fireEvent.change(await screen.findByLabelText("무엇을 수집하고 싶으세요?"), { target: { value: "하네스 엔지니어링" } });
   fireEvent.click(screen.getByText("참고 자료 추가"));
   fireEvent.change(screen.getByLabelText("조사 내용과 참고 주소"), { target: { value: "가설과 https://example.com/doc" } });
   fireEvent.click(screen.getByRole("button", { name: "수집 시작" }));
   await waitFor(() => expect(api.create).toHaveBeenCalledWith(expect.objectContaining({ goal: "하네스 엔지니어링", context: "가설과 https://example.com/doc" })));
+  // 시작하면 곧바로 그 임무의 상세 화면(개요 탭)으로 넘어간다.
+  expect(await screen.findByText("원문 적재와 의미·관계 처리는 별도로 진행됩니다.")).toBeTruthy();
+  expect(screen.queryByLabelText("무엇을 수집하고 싶으세요?")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "자료" }));
   expect(await screen.findByText("설계 원전")).toBeTruthy();
   expect(screen.getByRole("link", { name: "도서관에서 보기" }).getAttribute("href")).toContain("doc=d1");
-  expect(screen.getByText("원문 적재와 의미·관계 처리는 별도로 진행됩니다.")).toBeTruthy();
 });
 
 it("임무 목록 오류에는 재시도 경로가 있고 운영 설정은 접어서 제공한다", async () => {
@@ -92,7 +96,7 @@ it("임무 목록 오류에는 재시도 경로가 있고 운영 설정은 접�
 
 it("진행 중인 임무는 일시정지와 취소를 지원하고 상태에 맞는 버튼을 제공한다", async () => {
   api.detail.mockResolvedValue({ ...mission, status: "running" });
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByRole("button", { name: "일시정지" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "수집 취소" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
@@ -101,7 +105,7 @@ it("진행 중인 임무는 일시정지와 취소를 지원하고 상태에 맞
 
 it("일시 중지된 임무는 재개 버튼을 제공한다", async () => {
   api.detail.mockResolvedValue({ ...mission, status: "paused" });
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByRole("button", { name: "수집 재개" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "수집 재개" }));
   await waitFor(() => expect(api.resume).toHaveBeenCalledWith("m1"));
@@ -109,7 +113,7 @@ it("일시 중지된 임무는 재개 버튼을 제공한다", async () => {
 
 it("종료되거나 일부 수집된 임무는 쪽수 입력 없이 이어서 더 수집하기와 다시 실행을 제공한다", async () => {
   api.detail.mockResolvedValue({ ...mission, status: "partial" });
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByRole("button", { name: "이어서 더 수집" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "다시 실행" })).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "이어서 더 수집" }));
@@ -118,14 +122,14 @@ it("종료되거나 일부 수집된 임무는 쪽수 입력 없이 이어서 �
 });
 
 it("수집 화면 어디에도 쪽수를 입력받는 칸이 없다", async () => {
-  mount("/collect");
-  expect(screen.getByLabelText("무엇을 수집하고 싶으세요?")).toBeTruthy();
+  mount("/collect?new=1");
+  expect(await screen.findByLabelText("무엇을 수집하고 싶으세요?")).toBeTruthy();
   expect(screen.queryByText(/최대 수집 쪽수/)).toBeNull();
   expect(screen.queryByRole("spinbutton")).toBeNull();
 });
 
 it("임무의 자동 수집 주기를 설정할 수 있다", async () => {
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText(/주기 설정/)).toBeTruthy();
   fireEvent.click(screen.getByText(/주기 설정/));
   expect(screen.getByText("수집 주기 갱신")).toBeTruthy();
@@ -135,7 +139,7 @@ it("임무의 자동 수집 주기를 설정할 수 있다", async () => {
 });
 
 it("API가 허용하지 않는 15분 미만 직접 주기는 저장할 수 없다", async () => {
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText(/주기 설정/)).toBeTruthy();
   fireEvent.click(screen.getByText(/주기 설정/));
   const input = screen.getByLabelText("직접 입력 (분):");
@@ -154,7 +158,7 @@ it("임무 상세에 마지막 갱신 회차와 회차별 수집/적재 성과�
       { run_seq: 1, trigger: "initial", started_at: "2026-10-25T14:00:00Z", page_budget: 10, pages_used: 10, collected: 8, unchanged: 0, imported: 7, in_progress: false },
     ],
   });
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
   expect(screen.getByText(/수집 3건 · 적재 3건/)).toBeTruthy();
 });
@@ -179,7 +183,7 @@ it("한 응답의 회차 이력과 결과별 품질 축을 함께 보여주고 �
       precise_eval: { state: "pending", reasons: ["review_needed"] },
     } }],
   });
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
   expect(screen.getByText(/수집 3건 · 적재 1건/)).toBeTruthy();
   expect(screen.getByLabelText("품질 판정 집계").textContent).toContain("추가 확인 0건");
@@ -198,7 +202,7 @@ it("한 응답의 회차 이력과 결과별 품질 축을 함께 보여주고 �
 
 it("legacy 품질 필드가 없으면 판정 축 부재와 미검증 사실 상태를 안전하게 알린다", async () => {
   api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], delivery: null }] });
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText("기존 결과에는 품질 판정 정보가 없습니다.")).toBeTruthy();
   expect(screen.getByText(/수락됨 · 도서관 적재 확인 전/)).toBeTruthy();
 });
@@ -207,7 +211,7 @@ it("보류 복구는 사용자가 눌렀을 때 실행하고 가져오기 확인
   api.detail.mockResolvedValueOnce({ ...mission, results: [{ ...mission.results[0], status: "held", delivery: null }] })
     .mockResolvedValueOnce({ ...mission, results: [{ ...mission.results[0], status: "accepted", delivery: null }] });
   api.unhold.mockResolvedValue({ item_id: "i1", status: "accepted", delivery_queued: true, review: { factuality: "unverified" } });
-  const queryClient = mount("/collect?mission=m1");
+  const queryClient = mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText("설계 원전")).toBeTruthy();
   expect(await screen.findByText(/보류됨 · 복구할 수 있습니다\./)).toBeTruthy();
   expect(api.unhold).not.toHaveBeenCalled();
@@ -225,7 +229,7 @@ it("보류 복구에서 권리 거부를 사용자 문장으로 보여주고 임
   const { ApiError } = await import("../api/client");
   api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], status: "held", delivery: null }] });
   api.unhold.mockRejectedValue(new ApiError(403, { code: "knowledge_permission_missing", message: "knowledge_permission_missing" }));
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText("설계 원전")).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: "보류 복구" }));
   expect(await screen.findByText("이 자료를 도서관에 적재할 권리를 확인해 주세요.")).toBeTruthy();
@@ -237,7 +241,7 @@ it("보류 복구 422 코드와 이미 보류 아님 응답을 내부 코드 없
   const { ApiError } = await import("../api/client");
   api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], status: "held", delivery: null }] });
   api.unhold.mockRejectedValueOnce(new ApiError(422, { code: "item_not_importable", message: "item_not_importable" }));
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   fireEvent.click(await screen.findByRole("button", { name: "보류 복구" }));
   expect(await screen.findByText("원문 보관 정보가 부족해 도서관에 적재할 수 없습니다.")).toBeTruthy();
   expect(screen.queryByText("item_not_importable")).toBeNull();
@@ -250,7 +254,7 @@ it("이미 수락된 항목의 item_not_held 응답을 복구 처리 완료로 �
   api.detail.mockResolvedValue({ ...mission, results: [{ ...mission.results[0], status: "held", delivery: null }] });
   // backend returns the item's current status (here already accepted) with message item_not_held
   api.unhold.mockResolvedValueOnce({ item_id: "i1", status: "accepted", message: "item_not_held" });
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   fireEvent.click(await screen.findByRole("button", { name: "보류 복구" }));
   expect(await screen.findByText(/이미 보류 상태가 아니어서 바꾸지 않았습니다/)).toBeTruthy();
   expect(screen.queryByText(/복구 요청이 처리됐습니다/)).toBeNull();
@@ -266,7 +270,7 @@ it("정밀평가 대기·확인 불가 건수와 엔진 상태를 정확히 표�
     results: [item],
   });
   api.detail.mockResolvedValue(withEngine("busy"));
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText("정밀평가 대기 3건 · 결과에 따라 도서관 적재가 늘 수 있음")).toBeTruthy();
   expect(screen.getByText("정밀평가 결과 확인 불가 1건 · 운영자 확인 필요")).toBeTruthy();
   expect(screen.getByLabelText("품질 판정 집계").textContent).toContain("정밀평가 대기 3건 · 결과 확인 불가 1건");
@@ -283,7 +287,7 @@ it.each([["ready", "준비됨"], ["unavailable", "사용할 수 없음"], ["enab
       triage: { accepted: 1, review_needed: 0, held: 0, reasons: {}, policy: { status: "active", verified: false }, precise_eval: { engine } },
       results: [{ ...mission.results[0], triage: { status: "auto_accepted", axes: {}, precise_eval: { state: "not_needed" } } }],
     });
-    mount("/collect?mission=m1");
+    mount("/collect?mission=m1&tab=docs");
     fireEvent.click(await screen.findByText("품질 축과 평가 상태"));
     expect(screen.getByText("정밀 평가 엔진: " + label)).toBeTruthy();
     expect(screen.queryByLabelText("정밀평가 대기")).toBeNull();
@@ -291,9 +295,10 @@ it.each([["ready", "준비됨"], ["unavailable", "사용할 수 없음"], ["enab
 
 it("연구 블록이 없는 응답은 자율 조사 영역 없이 기존 품질·회차 표시를 유지한다", async () => {
   api.detail.mockResolvedValue({ ...mission, run_seq: 2, runs: [{ run_seq: 2, trigger: "scheduled", started_at: "2026-10-25T15:00:00Z", page_budget: 10, pages_used: 5, collected: 3, unchanged: 2, imported: 1, in_progress: false }] });
-  mount("/collect?mission=m1");
+  mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
   expect(screen.queryByLabelText("자율 조사")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "개요" }));
   expect(await screen.findByLabelText("처리 단계")).toBeTruthy();
 });
 
@@ -306,32 +311,41 @@ it("연구 응답은 요약만 기본으로 보이고 계획 범위와 남은 �
     gaps: [{ reason: "search_provider_failed", message: "검색 공급자 호출이 실패해 일부 검색어를 실행하지 못했습니다.", queries: 2, codes: ["timeout", "unknown_internal_code"] },
       { reason: "no_search_candidates", message: "검색에서 수집할 출처를 찾지 못했습니다." }],
   });
-  mount("/collect?mission=m1");
-  expect(await screen.findByLabelText("자율 조사")).toBeTruthy();
-  const results = screen.getByRole("region", { name: "수집 결과" });
+  mount("/collect?mission=m1&tab=docs");
+  const results = await screen.findByRole("region", { name: "수집 결과" });
   const gaps = screen.getByRole("region", { name: "남은 범위" });
   expect(results.compareDocumentPosition(gaps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(screen.getByLabelText("조사 종료 사유").textContent).toContain("검색 예산을 모두 써서");
   expect(screen.getByText(/실패한 검색 2건 · 원인: 응답 시간 초과/)).toBeTruthy();
   expect(screen.getByText(/검색은 성공했지만 수집할 출처를 찾지 못했습니다\(검색 실패와 다름\)/)).toBeTruthy();
-  fireEvent.click(screen.getByText("계획과 조사 범위"));
+  fireEvent.click(screen.getByRole("button", { name: "개요" }));
+  expect(await screen.findByLabelText("자율 조사")).toBeTruthy();
+  expect(screen.getByLabelText("조사 종료 사유").textContent).toContain("검색 예산을 모두 써서");
+  fireEvent.click(screen.getByRole("button", { name: "지시문" }));
+  fireEvent.click(await screen.findByText("계획과 조사 범위"));
   const plan = screen.getByLabelText("수집 계획");
   expect(plan.textContent).toContain("후보 없음");
   expect(plan.textContent).not.toMatch(/no_candidates|unexplored/);
   expect(document.body.textContent).not.toContain("unknown_internal_code");
 });
 
-it("임무 화면은 요청 원문, 단계, 요구 충족, 실패 원인, 보류 사유를 보여준다", async () => {
+it("임무 화면은 탭마다 한 가지씩 보여준다: 개요(단계·실패), 대상·분야, 자료(보류 사유), 지시문(원문)", async () => {
   mount("/collect?mission=m1");
-  expect(await screen.findByLabelText("요청한 내용")).toBeTruthy();
-  expect(screen.getByLabelText("요청한 내용").textContent).toContain("IBM Carbon, Material Design 과 Apple HIG");
-  expect(screen.getByLabelText("처리 단계").textContent).toContain("출처 후보 · 검색 4회");
-  const requirements = screen.getByLabelText("요구한 대상과 분야");
-  expect(requirements.textContent).toContain("IBM Carbon");
-  expect(requirements.querySelector('[data-status="met"]')?.textContent).toContain("IBM Carbon");
-  expect(requirements.querySelector('[data-status="blocked"]')?.textContent).toContain("Apple Human Interface Guidelines");
+  expect((await screen.findByLabelText("처리 단계")).textContent).toContain("출처 후보 · 검색 4회");
   const alert = screen.getByLabelText("실패한 작업");
   expect(alert.textContent).toContain("handler_error · boom");
   expect(alert.textContent).toContain("missions.py:10 prepare");
-  expect(screen.getByLabelText("버려지거나 보류된 자료").textContent).toContain("low_information_density");
+  expect(screen.queryByLabelText("요청한 내용")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "대상·분야" }));
+  const requirements = await screen.findByLabelText("요구한 대상과 분야");
+  expect(requirements.querySelector('[data-status="met"]')?.textContent).toContain("IBM Carbon");
+  expect(requirements.querySelector('[data-status="blocked"]')?.textContent).toContain("Apple Human Interface Guidelines");
+  expect(screen.queryByLabelText("처리 단계")).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "자료" }));
+  expect((await screen.findByLabelText("버려지거나 보류된 자료")).textContent).toContain("low_information_density");
+
+  fireEvent.click(screen.getByRole("button", { name: "지시문" }));
+  expect((await screen.findByLabelText("요청한 내용")).textContent).toContain("IBM Carbon, Material Design 과 Apple HIG");
 });
+
