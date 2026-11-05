@@ -12,10 +12,11 @@ import {
   rerunCollectionMission,
   resumeCollectionMission,
   scheduleCollectionMission,
+  supplementCollectionMission,
   unholdCollectionMissionItem,
 } from "../../api/collectionMissions";
 import type { CollectionMission, CollectionPlan } from "../../api/collectionMissions";
-import { MissionTrace } from "./MissionTrace";
+import { MissionTrace, type SupplementControl } from "./MissionTrace";
 import { Button } from "../../ui/Button";
 import { COLLECT_REASON, failure } from "../kb/labels";
 import { CoverageTopics, GapDetail, ResearchPanel } from "./ResearchPanel";
@@ -149,7 +150,7 @@ function Plan({ plan, coverage = plan.coverage }: { plan: CollectionPlan; covera
   </section>;
 }
 
-const TABS: [string, string][] = [["overview", "개요"], ["targets", "대상·분야"], ["docs", "자료"], ["log", "기록"], ["prompt", "지시문"]];
+const TABS: [string, string][] = [["overview", "요약"], ["targets", "대상별"], ["docs", "자료"], ["log", "과정"], ["prompt", "지시문"]];
 
 function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: string; onTab: (tab: string) => void }) {
   const queryClient = useQueryClient();
@@ -190,6 +191,19 @@ function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: stri
       await invalidate();
     },
   });
+  const supplementMut = useMutation({
+    mutationFn: (keys: string[]) => supplementCollectionMission(mission.id, keys),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["collection-mission-trace", mission.id] });
+      await invalidate();
+    },
+  });
+  const supplement: SupplementControl = {
+    enabled: ["succeeded", "partial", "failed"].includes(mission.status),
+    pending: supplementMut.isPending ? supplementMut.variables ?? [] : null,
+    run: keys => supplementMut.mutate(keys),
+    error: supplementMut.isError ? failure(supplementMut.error) : null,
+  };
   const unholdMut = useMutation({
     mutationFn: (itemId: string) => unholdCollectionMissionItem(mission.id, itemId),
     onSuccess: async () => {
@@ -374,12 +388,14 @@ function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: stri
     )}
 
     <nav className="mission-tabs" aria-label="임무 보기">{TABS.map(([id, label]) => <button key={id} type="button" aria-pressed={tab === id} onClick={() => onTab(id)}>{label}</button>)}</nav>
-    {tab === "overview" && <><MissionTrace missionId={mission.id} part="overview" /><ResearchPanel mission={mission} />
+    {tab === "overview" && <><MissionTrace missionId={mission.id} part="overview" supplement={supplement} /><ResearchPanel mission={mission} />
     {mission.knowledge_processing.semantic !== "verified" && <p className="kb-note">원문 적재와 의미·관계 처리는 별도로 진행됩니다.</p>}
     </>}
-    {tab === "targets" && <MissionTrace missionId={mission.id} part="targets" />}
+    {tab === "targets" && <MissionTrace missionId={mission.id} part="targets" supplement={supplement} />}
     {tab === "docs" && <>
+    <MissionTrace missionId={mission.id} part="docs" />
     <PreciseNotice mission={mission} />
+    <details className="mission-results-detail"><summary>품질 판정 상세 (최근 {mission.results.length}건)</summary>
     <section className="mission-results" aria-label="수집 결과"><h3>확보한 지식과 출처</h3>
       {mission.triage && <p className="kb-note" aria-label="품질 판정 집계">
         판정 집계: 수락 {(mission.triage.accepted ?? 0).toLocaleString("ko-KR")}건 · 추가 확인 {(mission.triage.review_needed ?? 0).toLocaleString("ko-KR")}건 · 보류 {(mission.triage.held ?? 0).toLocaleString("ko-KR")}건 · 정밀평가 {preciseSummary(mission)} · 판정 기준 {mission.triage.policy?.verified === true ? "검증 이력 있음" : "미검증"}
@@ -404,9 +420,9 @@ function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: stri
           : "이미 보류 상태가 아니어서 바꾸지 않았습니다. 최신 상태를 다시 읽었습니다."}</p>}
         {item.document_id && <Link to={`/knowledge-library?view=docs&doc=${encodeURIComponent(item.document_id)}${item.revision_id ? `&rev=${encodeURIComponent(item.revision_id)}` : ""}`}>도서관에서 보기</Link>}
       </article>)}
-    </section>
+    </section></details>
     {mission.gaps.length > 0 && <section className="mission-gaps" aria-label="남은 범위"><h3>아직 확보하지 못한 자료</h3><ul>{mission.gaps.map((gap, index) => <li key={`${gap.reason}-${index}`}><p>{gap.message}</p><GapDetail gap={gap} />{gap.url && <a href={gap.url} target="_blank" rel="noreferrer">{gap.url}</a>}</li>)}</ul></section>}
-    <MissionTrace missionId={mission.id} part="docs" /></>}
+    </>}
     {tab === "log" && <MissionTrace missionId={mission.id} part="log" />}
     {tab === "prompt" && <><MissionTrace missionId={mission.id} part="prompt" />
     <details><summary>계획과 조사 범위</summary><Plan plan={mission.plan} coverage={mission.research?.coverage ?? mission.plan.coverage} /></details>

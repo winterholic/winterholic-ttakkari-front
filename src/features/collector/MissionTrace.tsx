@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Link } from "react-router";
 import { collectionMissionTrace, type MissionTrace as Trace } from "../../api/collectionMissions";
+import { Button } from "../../ui/Button";
 import { failure } from "../kb/labels";
 
 const STATE: Record<string, string> = {
@@ -8,6 +11,16 @@ const STATE: Record<string, string> = {
 const ONTOLOGY_STAGE: Record<string, string> = {
   parsing: "파싱", chunking: "청킹", extracting: "개념·주장 추출", linking: "엔터티 연결", indexing: "색인", canonicalizing: "정본 통합",
 };
+// 상태마다 "그래서 지금 어떤 상태인가"를 사람 말로 한 줄 덧붙인다. 칩 색만으로는 의미를 알 수 없다.
+const STATE_HINT: Record<string, (documents: number, need: number) => string> = {
+  met: () => "충분히 모았습니다",
+  partial: (documents, need) => `일부만 모았습니다 (${documents}/${need})`,
+  active: () => "출처는 찾았지만 읽어 온 자료가 아직 적습니다",
+  empty: () => "검색해도 쓸 만한 결과가 나오지 않았습니다",
+  blocked: () => "접근이 막혀 가져오지 못했습니다",
+  pending: () => "아직 시작 전입니다",
+};
+const PAGE = 50;
 const ITEM_STATUS: Record<string, string> = { held: "보류", failed: "실패", blocked: "접근 제한" };
 const count = (value: number) => value.toLocaleString("ko-KR");
 const time = (iso: string | null) => iso ? new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(new Date(iso)) : "";
@@ -21,6 +34,27 @@ function Goal({ trace }: { trace: Trace }) {
       ? <details><summary>{lines.slice(0, 3).join(" ").replace(/[#*]/g, "").slice(0, 160)}… <span className="kb-note">전체 {count(trace.goal.length)}자 보기</span></summary><pre className="trace-goal">{trace.goal}</pre></details>
       : <pre className="trace-goal">{trace.goal}</pre>}
   </section>;
+}
+
+export interface SupplementControl {
+  enabled: boolean;
+  /** 지금 요청 중인 키. 빈 배열은 "부족한 것 전부"를 요청 중이라는 뜻이다. */
+  pending: string[] | null;
+  run: (keys: string[]) => void;
+  error: string | null;
+}
+
+const isWeak = (r: Trace["requirements"][number]) => r.status !== "met";
+const weakFirst = (a: Trace["requirements"][number], b: Trace["requirements"][number]) => Number(!isWeak(a)) - Number(!isWeak(b));
+
+function SupplementAll({ trace, supplement }: { trace: Trace; supplement?: SupplementControl }) {
+  const weak = trace.requirements.filter(isWeak);
+  if (!supplement || weak.length === 0) return null;
+  return <div className="trace-supplement">
+    <Button type="button" variant="primary" disabled={!supplement.enabled || supplement.pending !== null} busy={supplement.pending?.length === 0} onClick={() => supplement.run([])}>부족한 {weak.length}개 보충 수집</Button>
+    <p className="kb-note">{supplement.enabled ? "부족한 대상·분야만 새 검색어와 공식 출처로 다시 찾습니다. 이미 모은 자료는 그대로 두고, 바뀌지 않은 페이지는 다시 받지 않습니다." : "수집이 끝난 뒤에 보충할 수 있습니다."}</p>
+    {supplement.error && <p role="alert" className="tk-error">{supplement.error}</p>}
+  </div>;
 }
 
 function Stages({ trace }: { trace: Trace }) {
@@ -38,17 +72,79 @@ function Failures({ trace }: { trace: Trace }) {
   </section>;
 }
 
-function Requirements({ trace }: { trace: Trace }) {
+function Weak({ trace, supplement }: { trace: Trace; supplement?: SupplementControl }) {
+  const weak = trace.requirements.filter(isWeak);
+  if (weak.length === 0) return <section className="trace-card" aria-label="부족한 항목"><h3>부족한 항목</h3><p className="kb-note">요구한 대상과 분야를 모두 충족했습니다.</p></section>;
+  return <section className="trace-card" aria-label="부족한 항목">
+    <h3>부족한 항목 <small>{weak.length}개</small></h3>
+    <ul className="trace-weak">{weak.slice(0, 8).map(r => <li key={r.key}><span><strong>{r.label}</strong><small>{STATE_HINT[r.status]?.(r.documents, r.need) ?? STATE[r.status]}</small></span>
+      {supplement && <Button type="button" disabled={!supplement.enabled || supplement.pending !== null} busy={supplement.pending?.includes(r.key)} onClick={() => supplement.run([r.key])}>보충</Button>}</li>)}</ul>
+    {weak.length > 8 && <p className="kb-note">나머지 {weak.length - 8}개는 "대상별" 탭에서 볼 수 있습니다.</p>}
+    <SupplementAll trace={trace} supplement={supplement} />
+  </section>;
+}
+
+function DocLink({ doc }: { doc: Trace["documents"][number] }) {
+  return <li><span>{doc.title}</span><small>{doc.host} · {doc.grade}</small>
+    <span className="trace-doc__links"><a className="kb-note" href={doc.url} target="_blank" rel="noreferrer">원문</a>
+      <Link to={`/knowledge-library?view=docs&doc=${encodeURIComponent(doc.document_id)}`}>도서관에서 보기</Link></span></li>;
+}
+
+function Targets({ trace, supplement }: { trace: Trace; supplement?: SupplementControl }) {
   const targets = trace.requirements.filter(r => r.group === "target");
   const topics = trace.requirements.filter(r => r.group === "topic");
   const kinds = [...new Set(targets.map(r => r.kind || "기타"))];
   const met = trace.requirements.filter(r => r.status === "met").length;
+  const percent = trace.requirements.length ? Math.round((met / trace.requirements.length) * 100) : 0;
+  const row = (r: Trace["requirements"][number]) => {
+    const docs = trace.documents.filter(d => d.target === r.key);
+    const fill = Math.min(100, Math.round((r.documents / Math.max(1, r.need)) * 100));
+    return <li key={r.key} className="trace-row" data-status={r.status}>
+      <details>
+        <summary><span className="trace-row__name">{r.label}</span><em data-status={r.status}>{STATE[r.status] ?? r.status}</em>
+          <span className="trace-row__bar" aria-hidden="true"><i style={{ width: `${fill}%` }} /></span><span className="trace-row__n">{r.documents}/{r.need}</span></summary>
+        <p className="kb-note">{STATE_HINT[r.status]?.(r.documents, r.need) ?? ""} · 찾은 출처 {r.sources}곳</p>
+        {r.group === "target"
+          ? docs.length > 0 ? <ul className="trace-docs">{docs.slice(0, 30).map(d => <DocLink key={d.document_id} doc={d} />)}</ul> : <p className="kb-note">도서관에 저장된 자료가 아직 없습니다.</p>
+          : <p className="kb-note">분야는 여러 대상의 자료에서 계산됩니다. 자료는 "자료" 탭에서 검색하세요.</p>}
+        {docs.length > 30 && <p className="kb-note">{docs.length - 30}건 더 있습니다. "자료" 탭에서 대상으로 걸러 볼 수 있습니다.</p>}
+      </details>
+      {isWeak(r) && supplement && <Button type="button" disabled={!supplement.enabled || supplement.pending !== null} busy={supplement.pending?.includes(r.key)} onClick={() => supplement.run([r.key])}>보충</Button>}
+    </li>;
+  };
   return <section className="trace-card" aria-label="요구한 대상과 분야">
     <h3>요구한 것을 얼마나 채웠나 <small>{met}/{trace.requirements.length}</small></h3>
+    <div className="trace-summary__bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label="요구 충족"><span style={{ width: `${percent}%` }} /></div>
+    <SupplementAll trace={trace} supplement={supplement} />
     {kinds.map(kind => <div key={kind} className="trace-group"><h4>{kind}</h4>
-      <ul className="trace-chips">{targets.filter(r => (r.kind || "기타") === kind).map(r => <li key={r.key} data-status={r.status} title={`${STATE[r.status] ?? r.status} · 자료 ${r.documents}건 · 출처 ${r.sources}곳`}>{r.label}<span>{r.documents}</span></li>)}</ul></div>)}
-    {topics.length > 0 && <div className="trace-group"><h4>분야</h4>
-      <ul className="trace-chips">{topics.map(r => <li key={r.key} data-status={r.status} title={`${STATE[r.status] ?? r.status} · 자료 ${r.documents}건`}>{r.label}<span>{r.documents}</span></li>)}</ul></div>}
+      <ul className="trace-rows">{targets.filter(r => (r.kind || "기타") === kind).sort(weakFirst).map(row)}</ul></div>)}
+    {topics.length > 0 && <div className="trace-group"><h4>분야</h4><ul className="trace-rows">{[...topics].sort(weakFirst).map(row)}</ul></div>}
+  </section>;
+}
+
+function Documents({ trace }: { trace: Trace }) {
+  const [text, setText] = useState("");
+  const [target, setTarget] = useState("");
+  const [grade, setGrade] = useState("");
+  const [shown, setShown] = useState(PAGE);
+  const labelOf = new Map(trace.requirements.map(r => [r.key, r.label]));
+  const owners = [...new Set(trace.documents.map(d => d.target).filter((v): v is string => !!v))];
+  const needle = text.trim().toLowerCase();
+  const found = trace.documents.filter(d => (!target || (target === "-" ? !d.target : d.target === target)) && (!grade || d.grade === grade)
+    && (!needle || d.title.toLowerCase().includes(needle) || d.url.toLowerCase().includes(needle)));
+  const reset = () => setShown(PAGE);
+  return <section className="trace-card" aria-label="도서관에 저장된 자료">
+    <h3>도서관에 저장된 자료 <small>{count(trace.documents.length)}건</small></h3>
+    <div className="trace-filters">
+      <input className="tk-input" type="search" aria-label="자료 검색" placeholder="제목이나 주소로 검색" value={text} onChange={e => { setText(e.target.value); reset(); }} />
+      <select className="tk-input" aria-label="대상" value={target} onChange={e => { setTarget(e.target.value); reset(); }}>
+        <option value="">모든 대상</option>{owners.map(key => <option key={key} value={key}>{labelOf.get(key) ?? key}</option>)}<option value="-">그 밖의 출처</option></select>
+      <select className="tk-input" aria-label="출처 등급" value={grade} onChange={e => { setGrade(e.target.value); reset(); }}>
+        <option value="">모든 등급</option>{Object.keys(trace.grades).map(label => <option key={label} value={label}>{label} ({trace.grades[label]})</option>)}</select>
+    </div>
+    {found.length === 0 ? <p className="kb-note">조건에 맞는 자료가 없습니다.</p>
+      : <ul className="trace-docs">{found.slice(0, shown).map(d => <DocLink key={d.document_id} doc={d} />)}</ul>}
+    {found.length > shown && <Button type="button" onClick={() => setShown(shown + PAGE)}>더 보기 ({count(found.length - shown)}건 남음)</Button>}
   </section>;
 }
 
@@ -61,16 +157,21 @@ function Rules({ trace }: { trace: Trace }) {
   </section>;
 }
 
+const LOG_FILTER: [string, string][] = [["all", "전체"], ["failed", "실패"], ["discover", "검색"], ["acquire", "획득"], ["judge", "판별"]];
+
 function Timeline({ trace }: { trace: Trace }) {
-  return <details className="trace-card" aria-label="진행 기록" open><summary>진행 기록 {count(trace.events.length)}건</summary>
-    <ul className="trace-events">{trace.events.map((event, index) => <li key={index} data-stage={event.stage} data-failed={event.failed ? "true" : undefined}>
-      <time>{time(event.at)}</time><span>{event.message}</span>{event.subject && <small>{event.subject}</small>}</li>)}</ul>
-  </details>;
+  const [filter, setFilter] = useState("all");
+  const events = trace.events.filter(event => filter === "all" || (filter === "failed" ? event.failed : event.stage === filter));
+  return <section className="trace-card" aria-label="진행 기록"><h3>진행 기록 <small>{count(events.length)}건</small></h3>
+    <div className="trace-filter-chips" role="group" aria-label="기록 거르기">{LOG_FILTER.map(([id, label]) => <button key={id} type="button" aria-pressed={filter === id} onClick={() => setFilter(id)}>{label}</button>)}</div>
+    {events.length === 0 ? <p className="kb-note">해당하는 기록이 없습니다.</p> : <ul className="trace-events">{events.map((event, index) => <li key={index} data-stage={event.stage} data-failed={event.failed ? "true" : undefined}>
+      <time>{time(event.at)}</time><span>{event.message}</span>{event.subject && <small>{event.subject}</small>}</li>)}</ul>}
+  </section>;
 }
 
 function Discarded({ trace }: { trace: Trace }) {
   if (trace.discarded.length === 0) return null;
-  return <details className="trace-card" aria-label="버려지거나 보류된 자료" open><summary>버려지거나 보류된 자료 {count(trace.discarded.length)}건</summary>
+  return <details className="trace-card" aria-label="버려지거나 보류된 자료"><summary>버려지거나 보류된 자료 {count(trace.discarded.length)}건</summary>
     <ul className="trace-events">{trace.discarded.map(item => <li key={item.item_id}>
       <strong>{ITEM_STATUS[item.status] ?? item.status}</strong>
       <span>{item.title || item.url}</span>
@@ -93,16 +194,16 @@ function Summary({ trace }: { trace: Trace }) {
 
 export type TracePart = "overview" | "targets" | "docs" | "log" | "prompt";
 
-export function MissionTrace({ missionId, part }: { missionId: string; part: TracePart }) {
+export function MissionTrace({ missionId, part, supplement }: { missionId: string; part: TracePart; supplement?: SupplementControl }) {
   const query = useQuery({ queryKey: ["collection-mission-trace", missionId], queryFn: () => collectionMissionTrace(missionId), refetchInterval: 5000 });
   if (query.isPending) return <p role="status">진행 상황을 불러오는 중</p>;
   if (query.isError) return <p role="alert" className="tk-error">{failure(query.error)}</p>;
   const trace = query.data;
   return <div className="mission-trace">
-    {part === "overview" && <><Summary trace={trace} /><Stages trace={trace} /><Failures trace={trace} /><Rules trace={trace} /></>}
-    {part === "targets" && <Requirements trace={trace} />}
+    {part === "overview" && <><Summary trace={trace} /><Weak trace={trace} supplement={supplement} /><Stages trace={trace} /><Failures trace={trace} /><Rules trace={trace} /></>}
+    {part === "targets" && <Targets trace={trace} supplement={supplement} />}
     {part === "log" && <Timeline trace={trace} />}
-    {part === "docs" && <Discarded trace={trace} />}
+    {part === "docs" && <><Documents trace={trace} /><Discarded trace={trace} /></>}
     {part === "prompt" && <Goal trace={trace} />}
   </div>;
 }

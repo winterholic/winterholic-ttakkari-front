@@ -113,3 +113,31 @@
 .mission-tabs { position: sticky; top: 0; z-index: var(--tk-z-index-raised); padding-block: var(--tk-space-2); background: var(--tk-color-surface-default); }
 .mission-back { align-self: start; border-color: transparent; background: transparent; padding-inline: 0; color: var(--tk-color-text-secondary); }
 .mission-history { gap: var(--tk-space-3); }
+
+/* 대상별 진행: 한 줄에 이름·상태·진행 막대, 펼치면 모은 자료. 부족한 것이 위에 온다. */
+.trace-supplement { display: flex; flex-direction: column; gap: var(--tk-space-2); align-items: start; }
+.trace-supplement p { margin: 0; }
+.trace-weak, .trace-rows, .trace-docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.trace-weak li { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-3); min-width: 0; }
+.trace-weak li > span { display: flex; flex-direction: column; min-width: 0; overflow-wrap: anywhere; }
+.trace-weak small, .trace-docs small { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); }
+.trace-row { display: flex; align-items: start; gap: var(--tk-space-2); min-width: 0; border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
+.trace-row > details { flex: 1; min-width: 0; }
+.trace-row summary { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name state" "bar n"; align-items: center; gap: var(--tk-space-1) var(--tk-space-3); list-style: none; }
+.trace-row summary::-webkit-details-marker { display: none; }
+.trace-row__name { grid-area: name; overflow-wrap: anywhere; }
+.trace-row summary em { grid-area: state; font-style: normal; font-size: var(--tk-font-size-xs); color: var(--tk-color-text-secondary); }
+.trace-row[data-status="met"] summary em { color: var(--tk-color-text-brand); }
+.trace-row__bar { grid-area: bar; height: var(--tk-space-1); border-radius: var(--tk-radius-full); background: var(--tk-color-surface-default); overflow: hidden; }
+.trace-row__bar i { display: block; height: 100%; background: var(--tk-color-border-brand); }
+.trace-row__n { grid-area: n; font-size: var(--tk-font-size-xs); font-variant-numeric: tabular-nums; color: var(--tk-color-text-secondary); }
+.trace-row > button { margin-block: var(--tk-space-2); }
+.trace-docs li { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; overflow-wrap: anywhere; padding-block: var(--tk-space-2); border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
+.trace-doc__links { display: flex; gap: var(--tk-space-3); font-size: var(--tk-font-size-sm); }
+.trace-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-2); }
+.trace-filters .tk-input { min-height: var(--tk-size-touch-target-min); }
+@media (min-width: 640px) { .trace-filters { grid-template-columns: 2fr 1fr 1fr; } }
+.trace-filter-chips { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); }
+.trace-filter-chips button { min-height: var(--tk-size-touch-target-min); padding-inline: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-full); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); cursor: pointer; }
+.trace-filter-chips button[aria-pressed="true"] { border-color: var(--tk-color-border-brand); background: var(--tk-color-surface-brand-subtle); font-weight: var(--tk-font-weight-semibold); }
+.mission-results-detail { min-width: 0; }

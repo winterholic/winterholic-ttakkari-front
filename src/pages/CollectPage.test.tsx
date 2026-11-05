@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 
@@ -16,6 +16,7 @@ const api = vi.hoisted(() => ({
   schedule: vi.fn(),
   unhold: vi.fn(),
   trace: vi.fn(),
+  supplement: vi.fn(),
 }));
 vi.mock("../api/collectionMissions", () => ({
   collectionMissions: api.list,
@@ -30,6 +31,7 @@ vi.mock("../api/collectionMissions", () => ({
   scheduleCollectionMission: api.schedule,
   unholdCollectionMissionItem: api.unhold,
   collectionMissionTrace: api.trace,
+  supplementCollectionMission: api.supplement,
 }));
 vi.mock("../features/collector/Overview", () => ({ Overview: () => <p>운영 현황</p>, BudgetCard: () => <p>한도 카드</p> }));
 vi.mock("../features/collector/Review", () => ({ Review: () => <p>검토</p> }));
@@ -46,12 +48,16 @@ const trace = {
   jobs: { total: 2, failed: 1, running: 0, queued: 1 }, grades: {},
   stages: [{ key: "discover", label: "탐색", count: 31, detail: "출처 후보 · 검색 4회" }, { key: "acquire", label: "획득", count: 12, detail: "접근 제한 1 · 실패 0" }],
   requirements: [
-    { group: "target", key: "t:carbon", label: "IBM Carbon", status: "met", documents: 6, sources: 1, kind: "디자인 시스템" },
-    { group: "target", key: "t:hig", label: "Apple Human Interface Guidelines", status: "blocked", documents: 0, sources: 1, kind: "디자인 시스템" },
-    { group: "topic", key: "typography", label: "타이포그래피", status: "partial", documents: 2, sources: 3 },
+    { group: "target", key: "t:carbon", label: "IBM Carbon", status: "met", documents: 6, sources: 1, need: 5, kind: "디자인 시스템" },
+    { group: "target", key: "t:hig", label: "Apple Human Interface Guidelines", status: "blocked", documents: 0, sources: 1, need: 5, kind: "디자인 시스템" },
+    { group: "topic", key: "typography", label: "타이포그래피", status: "partial", documents: 2, sources: 3, need: 2 },
   ],
   rules: [{ key: "library", label: "수집한 자료를 지식 도서관에 저장", status: "pending", detail: "적재 0건" }],
   events: [{ at: "2026-11-05T01:00:00Z", stage: "acquire", kind: "job", subject: "x", message: "mission_prepare 작업 failed · handler_error · boom", failed: true, where: "missions.py:10 prepare" }],
+  documents: [
+    { title: "Carbon 타이포그래피", url: "https://www.carbondesignsystem.com/type", host: "www.carbondesignsystem.com", target: "t:carbon", grade: "기업·기관 권장", document_id: "d1" },
+    { title: "어느 블로그 글", url: "https://blog.example/a", host: "blog.example", target: null, grade: "경험·실무 글", document_id: "d2" },
+  ],
   discarded: [{ item_id: "i1", url: "https://spam.example/a", title: "광고 글", status: "held", reasons: ["low_information_density"], http_status: 200, grade: "경험·실무 글" }],
 };
 const mission = { id: "m1", title: "하네스 엔지니어링", goal: "하네스 엔지니어링", status: "running", counts: { discovered: 4, acquired: 2, accepted: 1, held: 1, failed: 0, blocked: 0, duplicate: 0, imported: 1, pending_delivery: 0 }, plan: { steps: ["독립 출처 탐색", "지식 도서관 적재"], sources: [], queries: [], coverage: [], budget: { pages: 200, searches: 16, seconds: 1800 }, stop_conditions: ["예산 소진"] }, gaps: [], jobs: [], results: [{ id: "i1", title: "설계 원전", url: "https://example.com/doc", status: "accepted", reasons: ["l0_pass"], document_id: "d1", revision_id: "r1", delivery: "imported" }], knowledge_processing: { storage: "verified", semantic: "unverified" } };
@@ -83,7 +89,7 @@ it("사용자 맥락과 목적을 한 번에 제출하고 실제 적재 결과�
   expect(screen.queryByLabelText("무엇을 수집하고 싶으세요?")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "자료" }));
   expect(await screen.findByText("설계 원전")).toBeTruthy();
-  expect(screen.getByRole("link", { name: "도서관에서 보기" }).getAttribute("href")).toContain("doc=d1");
+  expect(within(screen.getByRole("region", { name: "수집 결과" })).getByRole("link", { name: "도서관에서 보기" }).getAttribute("href")).toContain("doc=d1");
 });
 
 it("임무 목록 오류에는 재시도 경로가 있고 운영 설정은 접어서 제공한다", async () => {
@@ -298,7 +304,7 @@ it("연구 블록이 없는 응답은 자율 조사 영역 없이 기존 품질�
   mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
   expect(screen.queryByLabelText("자율 조사")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "개요" }));
+  fireEvent.click(screen.getByRole("button", { name: "요약" }));
   expect(await screen.findByLabelText("처리 단계")).toBeTruthy();
 });
 
@@ -317,7 +323,7 @@ it("연구 응답은 요약만 기본으로 보이고 계획 범위와 남은 �
   expect(results.compareDocumentPosition(gaps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getByText(/실패한 검색 2건 · 원인: 응답 시간 초과/)).toBeTruthy();
   expect(screen.getByText(/검색은 성공했지만 수집할 출처를 찾지 못했습니다\(검색 실패와 다름\)/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "개요" }));
+  fireEvent.click(screen.getByRole("button", { name: "요약" }));
   expect(await screen.findByLabelText("자율 조사")).toBeTruthy();
   expect(screen.getByLabelText("조사 종료 사유").textContent).toContain("검색 예산을 모두 써서");
   fireEvent.click(screen.getByRole("button", { name: "지시문" }));
@@ -328,7 +334,7 @@ it("연구 응답은 요약만 기본으로 보이고 계획 범위와 남은 �
   expect(document.body.textContent).not.toContain("unknown_internal_code");
 });
 
-it("임무 화면은 탭마다 한 가지씩 보여준다: 개요(단계·실패), 대상·분야, 자료(보류 사유), 지시문(원문)", async () => {
+it("임무 화면은 탭마다 한 가지씩 보여준다: 요약(단계·실패·부족한 항목), 대상별, 자료(보류 사유), 지시문(원문)", async () => {
   mount("/collect?mission=m1");
   expect((await screen.findByLabelText("처리 단계")).textContent).toContain("출처 후보 · 검색 4회");
   const alert = screen.getByLabelText("실패한 작업");
@@ -336,7 +342,7 @@ it("임무 화면은 탭마다 한 가지씩 보여준다: 개요(단계·실패
   expect(alert.textContent).toContain("missions.py:10 prepare");
   expect(screen.queryByLabelText("요청한 내용")).toBeNull();
 
-  fireEvent.click(screen.getByRole("button", { name: "대상·분야" }));
+  fireEvent.click(screen.getByRole("button", { name: "대상별" }));
   const requirements = await screen.findByLabelText("요구한 대상과 분야");
   expect(requirements.querySelector('[data-status="met"]')?.textContent).toContain("IBM Carbon");
   expect(requirements.querySelector('[data-status="blocked"]')?.textContent).toContain("Apple Human Interface Guidelines");
@@ -349,3 +355,36 @@ it("임무 화면은 탭마다 한 가지씩 보여준다: 개요(단계·실패
   expect((await screen.findByLabelText("요청한 내용")).textContent).toContain("IBM Carbon, Material Design 과 Apple HIG");
 });
 
+
+it("부족한 항목만 골라 보충 수집을 요청하고, 수집 중에는 막는다", async () => {
+  api.detail.mockResolvedValue({ ...mission, status: "partial" });
+  api.supplement.mockResolvedValue({ ...mission, status: "running", supplement_keys: ["t:hig"] });
+  mount("/collect?mission=m1&tab=targets");
+  const section = await screen.findByLabelText("요구한 대상과 분야");
+  expect(section.textContent).toContain("접근이 막혀 가져오지 못했습니다");
+  // 충족한 대상에는 보충 버튼이 없고, 부족한 대상에만 있다.
+  expect(section.querySelectorAll("li.trace-row > button")).toHaveLength(2);
+  fireEvent.click(section.querySelector('li[data-status="blocked"] > button')!);
+  await waitFor(() => expect(api.supplement).toHaveBeenCalledWith("m1", ["t:hig"]));
+  fireEvent.click(screen.getByRole("button", { name: "부족한 2개 보충 수집" }));
+  await waitFor(() => expect(api.supplement).toHaveBeenLastCalledWith("m1", []));
+});
+
+it("수집이 진행 중이면 보충 버튼은 눌리지 않는다", async () => {
+  mount("/collect?mission=m1&tab=targets");
+  const button = await screen.findByRole("button", { name: "부족한 2개 보충 수집" });
+  expect((button as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByText("수집이 끝난 뒤에 보충할 수 있습니다.")).toBeTruthy();
+});
+
+it("자료 탭은 도서관에 저장된 자료를 대상·검색어로 걸러 보여 준다", async () => {
+  mount("/collect?mission=m1&tab=docs");
+  const docs = await screen.findByLabelText("도서관에 저장된 자료");
+  expect(docs.textContent).toContain("Carbon 타이포그래피");
+  expect(docs.textContent).toContain("어느 블로그 글");
+  fireEvent.change(screen.getByLabelText("대상"), { target: { value: "t:carbon" } });
+  expect(docs.textContent).not.toContain("어느 블로그 글");
+  fireEvent.change(screen.getByLabelText("대상"), { target: { value: "" } });
+  fireEvent.change(screen.getByLabelText("자료 검색"), { target: { value: "없는검색어" } });
+  expect(docs.textContent).toContain("조건에 맞는 자료가 없습니다");
+});

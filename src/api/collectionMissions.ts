@@ -131,6 +131,9 @@ export const cancelCollectionMission = (id: string) =>
   json<CollectionMission>(`${base}/${encodeURIComponent(id)}/cancel`, { method: "POST" });
 export const extendCollectionMission = (id: string, addPages: number) =>
   json<CollectionMission>(`${base}/${encodeURIComponent(id)}/extend`, { method: "POST", json: { add_pages: addPages } });
+/** keys 가 비면 아직 충족하지 못한 대상·분야 전부를 보충한다. */
+export const supplementCollectionMission = (id: string, keys: string[]) =>
+  json<CollectionMission & { supplement_keys: string[] }>(`${base}/${encodeURIComponent(id)}/supplement`, { method: "POST", json: { keys } });
 export const rerunCollectionMission = (id: string) =>
   json<CollectionMission>(`${base}/${encodeURIComponent(id)}/rerun`, { method: "POST" });
 export const scheduleCollectionMission = (id: string, intervalMinutes: number | null) =>
@@ -146,11 +149,12 @@ export interface UnholdMissionItemResult {
 export const unholdCollectionMissionItem = (missionId: string, itemId: string) =>
   json<UnholdMissionItemResult>(`${base}/${encodeURIComponent(missionId)}/items/${encodeURIComponent(itemId)}/unhold`, { method: "POST" });
 
-export interface MissionTraceRequirement { group: "target" | "topic"; key: string; label: string; status: string; documents: number; sources: number; kind?: string }
+export interface MissionTraceRequirement { group: "target" | "topic"; key: string; label: string; status: string; documents: number; sources: number; need: number; kind?: string }
 export interface MissionTraceRule { key: string; label: string; status: string; detail: string }
 export interface MissionTraceStage { key: string; label: string; count: number; detail: string }
 export interface MissionTraceEvent { at: string | null; stage: string; kind: string; subject?: string | null; message: string; status?: string; failed?: boolean; where?: string | null }
 export interface MissionTraceDiscard { item_id: string; url: string; title: string; status: string; reasons: string[]; http_status: number | null; grade: string }
+export interface MissionTraceDocument { title: string; url: string; host: string; target: string | null; grade: string; document_id: string }
 export interface MissionTrace {
   id: string; title: string; goal: string; status: string; run_seq: number;
   targets: { key: string; name: string; kind: string; roots: string[] }[];
@@ -162,5 +166,6 @@ export interface MissionTrace {
   grades: Record<string, number>;
   events: MissionTraceEvent[];
   discarded: MissionTraceDiscard[];
+  documents: MissionTraceDocument[];
 }
 export const collectionMissionTrace = (id: string) => json<MissionTrace>(`${base}/${encodeURIComponent(id)}/trace`);
