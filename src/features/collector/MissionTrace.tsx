@@ -79,17 +79,30 @@ function Discarded({ trace }: { trace: Trace }) {
   </details>;
 }
 
+function Summary({ trace }: { trace: Trace }) {
+  const total = trace.requirements.length;
+  const met = trace.requirements.filter(r => r.status === "met").length;
+  const loaded = trace.stages.find(stage => stage.key === "load")?.count ?? 0;
+  const acquired = trace.stages.find(stage => stage.key === "acquire")?.count ?? 0;
+  const percent = total ? Math.round((met / total) * 100) : 0;
+  return <section className="trace-summary" aria-label="진행 요약">
+    <div className="trace-summary__bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent} aria-label="요구 충족"><span style={{ width: `${percent}%` }} /></div>
+    <p><strong>{met}/{total}</strong> 요구 충족 · 가져온 자료 <strong>{count(acquired)}</strong> · 도서관 적재 <strong>{count(loaded)}</strong>{trace.jobs.failed > 0 && <> · 실패 작업 <strong>{trace.jobs.failed}</strong></>}{trace.jobs.queued + trace.jobs.running > 0 && <> · 대기·진행 작업 {trace.jobs.queued + trace.jobs.running}</>}</p>
+  </section>;
+}
+
 export function MissionTrace({ missionId }: { missionId: string }) {
   const query = useQuery({ queryKey: ["collection-mission-trace", missionId], queryFn: () => collectionMissionTrace(missionId), refetchInterval: 5000 });
   if (query.isPending) return <p role="status">진행 상황을 불러오는 중</p>;
   if (query.isError) return <p role="alert" className="tk-error">{failure(query.error)}</p>;
   const trace = query.data;
   return <div className="mission-trace">
-    <Goal trace={trace} />
+    <Summary trace={trace} />
     <Stages trace={trace} />
     <Failures trace={trace} />
     <Requirements trace={trace} />
     <Rules trace={trace} />
+    <Goal trace={trace} />
     <Timeline trace={trace} />
     <Discarded trace={trace} />
   </div>;

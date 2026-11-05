@@ -20,6 +20,9 @@ import { Button } from "../../ui/Button";
 import { COLLECT_REASON, failure } from "../kb/labels";
 import { CoverageTopics, GapDetail, ResearchPanel } from "./ResearchPanel";
 
+// A continuation adds this much room from the preserved frontier. The owner never types a page count.
+const MORE_PAGES = 1000;
+
 const STATUS: Record<string, string> = {
   queued: "준비 중",
   running: "수집 중",
@@ -140,7 +143,7 @@ function Plan({ plan, coverage = plan.coverage }: { plan: CollectionPlan; covera
   return <section className="mission-plan" aria-label="수집 계획">
     <h3>이렇게 수집합니다</h3>
     <ol>{plan.steps.map(step => <li key={step}>{step}</li>)}</ol>
-    <p className="kb-note">최대 {plan.budget.pages.toLocaleString("ko-KR")}쪽 · 검색 {plan.budget.searches}회 · {Math.round(plan.budget.seconds / 60)}분 예산</p>
+    <p className="kb-note">검색 {plan.budget.searches}회 · {Math.round(plan.budget.seconds / 60)}분 예산</p>
     <p className="kb-note">종료 기준: {plan.stop_conditions.join(" · ")}</p>
     {coverage.length > 0 && <CoverageTopics coverage={coverage} />}
   </section>;
@@ -148,8 +151,6 @@ function Plan({ plan, coverage = plan.coverage }: { plan: CollectionPlan; covera
 
 function Result({ mission }: { mission: CollectionMission }) {
   const queryClient = useQueryClient();
-  const [extendOpen, setExtendOpen] = useState(false);
-  const [addPages, setAddPages] = useState(50);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleMinutes, setScheduleMinutes] = useState<number | null>(
     mission.plan.schedule?.interval_minutes ?? null
@@ -173,11 +174,8 @@ function Result({ mission }: { mission: CollectionMission }) {
     onSuccess: invalidate,
   });
   const extendMut = useMutation({
-    mutationFn: () => extendCollectionMission(mission.id, addPages),
-    onSuccess: async () => {
-      setExtendOpen(false);
-      await invalidate();
-    },
+    mutationFn: () => extendCollectionMission(mission.id, MORE_PAGES),
+    onSuccess: invalidate,
   });
   const rerunMut = useMutation({
     mutationFn: () => rerunCollectionMission(mission.id),
@@ -267,9 +265,10 @@ function Result({ mission }: { mission: CollectionMission }) {
             type="button"
             variant="primary"
             disabled={isPending}
-            onClick={() => setExtendOpen(prev => !prev)}
+            busy={extendMut.isPending}
+            onClick={() => extendMut.mutate()}
           >
-            더 수집하기
+            이어서 더 수집
           </Button>
           <Button
             type="button"
@@ -300,36 +299,6 @@ function Result({ mission }: { mission: CollectionMission }) {
         주기 설정 ({scheduleText})
       </Button>
     </div>
-
-    {extendOpen && (
-      <form
-        className="mission-extend-form"
-        onSubmit={e => {
-          e.preventDefault();
-          if (addPages > 0) extendMut.mutate();
-        }}
-      >
-        <label htmlFor="mission-add-pages">추가 수집할 쪽수:</label>
-        <input
-          id="mission-add-pages"
-          className="tk-input"
-          type="number"
-          min={1}
-          max={100000}
-          value={addPages}
-          onChange={e => setAddPages(Number(e.target.value))}
-        />
-        <Button type="submit" variant="primary" busy={extendMut.isPending}>
-          추가 수집 시작
-        </Button>
-        <Button type="button" onClick={() => setExtendOpen(false)}>
-          닫기
-        </Button>
-        <p className="kb-note" style={{ width: "100%" }}>
-          이전에 보존된 탐색 목록(frontier)에서 이어서 수집을 진행합니다.
-        </p>
-      </form>
-    )}
 
     {scheduleOpen && (
       <div className="mission-schedule-panel" aria-label="수집 주기 설정">
@@ -441,13 +410,13 @@ export function Missions() {
   const selected = params.get("mission");
   const [goal, setGoal] = useState("");
   const [context, setContext] = useState("");
-  const [maxPages, setMaxPages] = useState(200);
   const [fileError, setFileError] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(!selected);
   const requestKey = useRef<string | null>(null);
   const queryClient = useQueryClient();
   const list = useQuery({ queryKey: ["collection-missions"], queryFn: collectionMissions, refetchInterval: 10000 });
   const detail = useQuery({ queryKey: ["collection-mission", selected], queryFn: () => collectionMission(selected!), enabled: !!selected, refetchInterval: 5000 });
-  const input = () => ({ goal: goal.trim(), context, max_pages: maxPages });
+  const input = () => ({ goal: goal.trim(), context });
   const select = (id: string) => setParams(previous => { const next = new URLSearchParams(previous); next.set("mission", id); return next; });
   const create = useMutation({ mutationFn: () => {
     requestKey.current ??= crypto.randomUUID();
@@ -455,16 +424,18 @@ export function Missions() {
   }, onSuccess: async mission => {
     queryClient.setQueryData(["collection-mission", mission.id], mission);
     select(mission.id);
+    setComposerOpen(false);
     requestKey.current = null;
     await queryClient.invalidateQueries({ queryKey: ["collection-missions"] });
   } });
   const preview = useMutation({ mutationFn: () => previewCollectionPlan(input()) });
   function changed() { requestKey.current = null; preview.reset(); create.reset(); }
   return <div className="missions">
+    <details className="mission-new" open={composerOpen} onToggle={event => setComposerOpen(event.currentTarget.open)}><summary>새 수집 시작</summary>
     <form className="mission-composer" onSubmit={event => { event.preventDefault(); if (goal.trim()) create.mutate(); }}>
       <label htmlFor="collection-goal">무엇을 수집하고 싶으세요?</label>
-      <p className="kb-note" id="collection-help">목적을 적거나 주소를 붙여 넣으세요. 조사 내용과 참고 자료도 한 임무로 함께 다룹니다.</p>
-      <textarea id="collection-goal" className="tk-textarea" rows={4} maxLength={20000} required value={goal} aria-describedby="collection-help" placeholder="하네스 엔지니어링의 이론, 논문과 오픈소스 사례를 폭넓게 수집해줘." onChange={event => { setGoal(event.target.value); changed(); }} />
+      <p className="kb-note" id="collection-help">지시문을 통째로 붙여 넣으면 됩니다. 대상 이름, 분야, 지켜야 할 규칙을 읽어 알아서 수집합니다. 쪽수는 정하지 않아도 됩니다.</p>
+      <textarea id="collection-goal" className="tk-textarea" rows={9} maxLength={20000} required value={goal} aria-describedby="collection-help" placeholder="하네스 엔지니어링의 이론, 논문과 오픈소스 사례를 폭넓게 수집해줘." onChange={event => { setGoal(event.target.value); changed(); }} />
       <details className="mission-references"><summary>참고 자료 추가</summary>
         <label htmlFor="collection-context">조사 내용과 참고 주소</label>
         <textarea id="collection-context" className="tk-textarea" rows={6} maxLength={500000} value={context} placeholder="미리 조사한 내용, 여러 URL, GitHub 저장소와 논문 주소를 함께 넣으세요." onChange={event => { setContext(event.target.value); changed(); }} />
@@ -480,12 +451,12 @@ export function Missions() {
         }} /></label>
         {fileError && <p role="alert" className="tk-error">{fileError}</p>}
       </details>
-      <details><summary>수집 범위 조정</summary><label className="mission-budget">최대 수집 쪽수<input className="tk-input" type="number" min={1} max={100000} value={maxPages} onChange={event => { setMaxPages(Number(event.target.value)); changed(); }} /></label><p className="kb-note">접근 정책과 실제 가용 예산 안에서 나누어 수집합니다.</p></details>
       <div className="mission-submit"><Button type="button" disabled={!goal.trim() || create.isPending} busy={preview.isPending} onClick={() => preview.mutate()}>계획 미리 보기</Button><Button type="submit" variant="primary" disabled={!goal.trim()} busy={create.isPending}>수집 시작</Button></div>
       {preview.isError && <p role="alert" className="tk-error">{failure(preview.error)}</p>}
       {create.isError && <p role="alert" className="tk-error">{failure(create.error)}</p>}
       {preview.data && <Plan plan={preview.data} />}
     </form>
+    </details>
     <div className="mission-workspace">
       <section className="mission-history" aria-label="내 수집 임무"><h2>수집 임무</h2>
         {list.isPending && <p role="status">임무를 불러오는 중</p>}

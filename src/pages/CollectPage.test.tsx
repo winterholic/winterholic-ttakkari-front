@@ -107,15 +107,21 @@ it("일시 중지된 임무는 재개 버튼을 제공한다", async () => {
   await waitFor(() => expect(api.resume).toHaveBeenCalledWith("m1"));
 });
 
-it("종료되거나 일부 수집된 임무는 더 수집하기와 다시 실행을 제공한다", async () => {
+it("종료되거나 일부 수집된 임무는 쪽수 입력 없이 이어서 더 수집하기와 다시 실행을 제공한다", async () => {
   api.detail.mockResolvedValue({ ...mission, status: "partial" });
   mount("/collect?mission=m1");
-  expect(await screen.findByRole("button", { name: "더 수집하기" })).toBeTruthy();
+  expect(await screen.findByRole("button", { name: "이어서 더 수집" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "다시 실행" })).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "더 수집하기" }));
-  expect(screen.getByText("추가 수집할 쪽수:")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "추가 수집 시작" }));
-  await waitFor(() => expect(api.extend).toHaveBeenCalledWith("m1", 50));
+  fireEvent.click(screen.getByRole("button", { name: "이어서 더 수집" }));
+  expect(screen.queryByText("추가 수집할 쪽수:")).toBeNull();
+  await waitFor(() => expect(api.extend).toHaveBeenCalledWith("m1", 1000));
+});
+
+it("수집 화면 어디에도 쪽수를 입력받는 칸이 없다", async () => {
+  mount("/collect");
+  expect(screen.getByLabelText("무엇을 수집하고 싶으세요?")).toBeTruthy();
+  expect(screen.queryByText(/최대 수집 쪽수/)).toBeNull();
+  expect(screen.queryByRole("spinbutton")).toBeNull();
 });
 
 it("임무의 자동 수집 주기를 설정할 수 있다", async () => {

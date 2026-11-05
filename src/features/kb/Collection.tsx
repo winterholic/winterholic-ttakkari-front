@@ -23,7 +23,6 @@ function SourceForm({ scope, close, editing }: { scope?: KbScope; close: () => v
   const [policyUrl, setPolicyUrl] = useState(editing?.policy?.policy_url || "");
   const [basis, setBasis] = useState(editing?.policy?.basis || "");
   const [interval, setInterval] = useState(editing?.interval_minutes ? String(editing.interval_minutes) : "manual");
-  const [pages, setPages] = useState(String(editing?.request.max_pages || 10));
   const [grant, setGrant] = useState(Boolean(editing?.policy && ["store", "knowledge", "export"].every((purpose) => editing.policy?.permissions[purpose] === "allowed")));
   const [trainGrant, setTrainGrant] = useState(editing?.policy?.permissions.train === "allowed");
   const save = useMutation({
@@ -32,7 +31,7 @@ function SourceForm({ scope, close, editing }: { scope?: KbScope; close: () => v
       if (parsed.protocol !== "https:") throw new Error("HTTPS 주소를 입력해 주세요.");
       const body = {
         title: title.trim(), seeds: [url.trim(), ...(editing?.seeds.slice(1) || [])],
-        interval_minutes: interval === "manual" ? null : Number(interval), max_pages: Number(pages),
+        interval_minutes: interval === "manual" ? null : Number(interval), max_pages: editing?.request.max_pages || 100,
         policy: { ...editing?.policy, allowed_hosts: [parsed.hostname], permissions: { store: "allowed", knowledge: "allowed", export: "allowed", train: trainGrant ? "allowed" : "unknown" },
           license_id: license.trim(), policy_url: policyUrl.trim(), basis: basis.trim(), checked_at: editing?.policy?.checked_at || new Date().toISOString() },
       };
@@ -46,7 +45,6 @@ function SourceForm({ scope, close, editing }: { scope?: KbScope; close: () => v
     <label className="kb-field">이름<input className="tk-input" required value={title} maxLength={500} onChange={(e) => setTitle(e.target.value)} placeholder="예: PostgreSQL 공식 문서" /></label>
     <label className="kb-field">문서·피드·사이트맵 주소<input className="tk-input" required type="url" value={url} onChange={(e) => { setUrl(e.target.value); if (editing) setGrant(false); }} placeholder="https://…" /></label>
     <div className="kb-collect-fields">
-      <label className="kb-field">한 번에 수집할 최대 페이지<input className="tk-input" type="number" min={1} max={50} required value={pages} onChange={(e) => setPages(e.target.value)} /></label>
       <div className="kb-field"><label id="collect-frequency-label" htmlFor="collect-frequency">수집 주기</label>
         <Select id="collect-frequency" labelledBy="collect-frequency-label" value={interval} onChange={setInterval} options={[
           { value: "manual", label: "직접 실행" }, { value: "60", label: "매시간" }, { value: "1440", label: "매일" }, { value: "10080", label: "매주" },
