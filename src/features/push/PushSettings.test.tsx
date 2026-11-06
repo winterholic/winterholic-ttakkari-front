@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { PushSettings } from "./PushSettings";
 import type { PushState } from "./pushState";
+
+vi.mock("../../api/client", async (original) => ({ ...(await original<typeof import("../../api/client")>()), getNotificationPreferences: vi.fn().mockResolvedValue({ items: [] }) }));
 
 const hook = vi.hoisted(() => ({ state: "off" as PushState, enable: vi.fn(), disable: vi.fn(), test: vi.fn() }));
 vi.mock("./usePush", () => ({
@@ -24,7 +27,7 @@ afterEach(() => {
 });
 
 function open() {
-  render(<PushSettings />);
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><PushSettings /></QueryClientProvider>);
   fireEvent.click(screen.getByRole("button", { name: "알림 설정" }));
 }
 
@@ -44,11 +47,11 @@ describe("PushSettings", () => {
     expect(hook.disable).toHaveBeenCalledOnce();
     expect((screen.getByRole("button", { name: "테스트 알림", hidden: true }) as HTMLButtonElement).disabled).toBe(false);
   });
-  it.each(["off", "on"] as const)("%s: 안내 문구는 새 정책(직접 보낸 알림·실패)을 말하고 자동 완료 알림은 없다고 밝힌다", (state) => {
+  it.each(["off", "on"] as const)("%s: 기기 푸시는 유형 선택을 따르고 자동 완료 알림은 없다고 밝힌다", (state) => {
     hook.state = state;
     open();
     const text = screen.getByTestId("push-message").textContent ?? "";
-    expect(text).toContain("작업 실패");
+    expect(text).toContain("아래에서 켠 유형");
     expect(text).toContain("끝났다는 알림은 보내지 않습니다");
   });
   it.each([

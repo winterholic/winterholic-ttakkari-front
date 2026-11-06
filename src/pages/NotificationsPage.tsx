@@ -3,6 +3,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { Link } from "react-router";
 import { listNotifications, readAllNotifications, readNotification } from "../api/client";
+import { notificationKindLabels } from "../api/notificationTypes";
 import type { NotificationCategory, NotificationOut } from "../api/notificationTypes";
 import { PushSettingsDialog } from "../features/push/PushSettings";
 import { useForegroundResync } from "../hooks/useForegroundResync";
@@ -35,7 +36,7 @@ function NotificationRow({ item, busy, onRead }: { item: NotificationOut; busy: 
         <span className="notification-row__icon"><Icon name={tab.icon} /></span>
         <span className="notification-row__body">
           <span className="notification-row__meta">
-            <span>{tab.label}</span>
+            <span>{notificationKindLabels[item.kind] ?? tab.label}</span>
             {!item.read_at && <span className="notification-row__unread">안 읽음</span>}
             <time dateTime={item.created_at} title={new Date(item.created_at).toLocaleString("ko-KR")}>{timeFormat.format(new Date(item.created_at))}</time>
           </span>
