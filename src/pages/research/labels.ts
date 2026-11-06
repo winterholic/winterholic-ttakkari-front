@@ -52,6 +52,9 @@ export const PROVENANCE_LABEL: Record<string, string> = { external_benchmark: '�
 // 실행기가 남기는 error_code 중 사용자가 취할 행동이 다른 것. 원문 메시지는 그대로 두고 이 설명을 먼저 보여 준다.
 export const ERROR_CODE_NOTE: Record<string, string> = {
   GENERATION_REJECTED: '서버가 새 버전으로 바뀌는 중이라 이 실행을 시작하지 못했습니다. 설정이나 실행기의 문제가 아니니 잠시 뒤 같은 설정으로 다시 실행하세요.',
+  batch_cancelled: '이 실행은 시작되지 않았습니다. 같은 배치의 앞선 실행이 취소되어 대기 중이던 나머지 실행이 함께 정리됐습니다. 개별 설정만 다시 실행하려면 이 Run의 원 조건 다시 실행을 선택하세요.',
+  budget_exceeded: '실행 시간 예산을 소진해 이 실행이 중단됐습니다. 대기 중이던 같은 배치의 실행도 시작하지 않았습니다.',
+  budget_invalid: '실험의 시간 예산 설정을 사용할 수 없어 실행이 시작되지 않았습니다. 예산 설정을 고친 뒤 실험을 다시 실행하세요.',
   cancelled: '사용자가 취소한 실행입니다.',
 };
 // 실행 모니터의 점유 중인 잠금 이름(서버 active_locks[].lock)
