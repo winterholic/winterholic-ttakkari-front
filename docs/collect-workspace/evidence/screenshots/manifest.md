@@ -72,3 +72,27 @@
 추가 조작 증거는 `ui-independent-audit.md`에 기록했다. 상단 `review?offset=50` GET의 첫 응답 503과 재시도, 50→100 loaded 및 필터 유지를 configured browser로 실행했다. 두 번째 페이지는 저장된 첫 50행의 익명화 row를 mock에서 복제해 만든 synthetic pagination 데이터로, pagination 조작 확인용이며 fixture의 실제 2페이지를 뜻하지 않는다. Keyboard로 Review 폼을 열고 direct URL/뒤로가기도 확인했다. 신규 계획은 `/collect?new=1` 직접 진입해 synthetic 감사 문구로 inert mock preview POST 1회를 수행했다. 저장 mission 목록의 일부 plan에 `coverage`가 없어 `/collect` 기본 목록 진입은 React `map` 오류로 끝났으며 화면을 임의 synthetic fixture로 바꾸지 않았다. 이 오류 때문에 프로젝트 목록에서 새 계획 버튼으로 이동하는 연결 영향은 미검증이다. UI-01 수치와 모수 설명은 두 viewport에서 확인했다.
 
 2026-11-06 15:30Z baseline e2d89e6 screenshot의 review total 2,306은 당시 다른 시점이다. 15:45:43Z 저장 fixture 관측은 2,310이며, 4450 캡처와 794d0e9 캡처는 모두 후자 fixture 값을 표시한다. 이전 4450 screenshot은 794d0e9 검증 증거로 재분류하지 않았다. 850a825b precision aggregate/canonical type correction의 독립 확인은 후속 범위다.
+
+## ai2 Run 재개 — e070bc0 표본 및 미완료 키보드 필터
+
+현재 Run의 최초 profile gate는 outbox UUID로 owner API를 조회했다. 명령은 `ttk get /api/runs/anon-9363cf1fbd1d7f11e316 | python3 -c 'import json,sys; r=json.load(sys.stdin); print(json.dumps({k:r.get(k) for k in ("id","session_id","status","profile")},ensure_ascii=False))'`; 제한 출력은 `id=anon-9363cf1fbd1d7f11e316`, `session_id=anon-2c56214a3dd6e6b916af`, `status=running`, `profile=회사 코덱스 ai2 ([email 비식별 처리])`다. Run ID를 `read_session`에 넣지 않았다.
+
+화면 source checkout `04eec5da037596b9f9de6765e409711850b0796b`에는 제품 영향 commit `78635d328b983b1dbda8dab41450c5ace5607996`이 포함된다. saved completion adapter revision은 `e070bc080a2036e07930ca7856c2dfa7b76213c3`다. completion fixture 관측 시각 `2026-11-06T16:40:45.920458+00:00`, baseline fixture 관측은 `2026-11-06T15:45:43.416672+00:00`; screenshot은 이후 별도 local replay 시각이다. mock의 UI-only shape defaults는 synthetic으로 기록하며 저장 실측값과 구분했다. 아래는 이번 Run outbox `browser/` 원본을 저장소에 복사한 목록이다.
+
+| 화면 / 표본 | viewport | 저장 파일 | 원본 browser 캡처 UTC | 화면 코드 / adapter / 입력 |
+|---|---:|---|---|---|
+| missions 21행·동일 제목 그룹 | 1440×900 | 미보존 (계정 식별자 노출) | 17:17:07.662Z | `04eec5d` / `e070bc0` / completion fixture; schema defaults는 synthetic |
+| sources 200행 | 1440×900 | 미보존 (계정 식별자 노출) | 17:18:08.581Z | `04eec5d` / `e070bc0` / completion fixture |
+| 선택 mission detail·trace | 1440×900 | 미보존 (계정 식별자 노출) | 17:18:21.309Z | `04eec5d` / `e070bc0` / 저장 detail+trace join |
+| job item 실제 빈 상태 | 1440×900 | 미보존 (계정 식별자 노출) | 17:19:44.151Z | `04eec5d` / `e070bc0` / saved job page `items=0,total=0` |
+| missions 21행·동일 제목 그룹 | 390×844 | `ui-e070bc0-mobile-missions-390x844.png` | 17:22:59.859Z | `04eec5d` / `e070bc0` / completion fixture; schema defaults는 synthetic |
+| 선택 mission summary 첫 viewport | 390×844 | `ui-e070bc0-mobile-mission-summary-390x844.png` | 17:23:08.340Z | `04eec5d` / `e070bc0` / 저장 detail+trace join |
+| 선택 mission 확보 분야 | 390×844 | `ui-e070bc0-mobile-mission-targets-390x844.png` | 17:19:05.894Z | `04eec5d` / `e070bc0` / 저장 trace join |
+| sources 200행 | 390×844 | `ui-e070bc0-mobile-sources-390x844.png` | 17:19:19.789Z | `04eec5d` / `e070bc0` / completion fixture |
+| job item 실제 빈 상태 | 390×844 | `ui-e070bc0-mobile-empty-job-items-390x844.png` | 17:19:40.457Z | `04eec5d` / `e070bc0` / saved job page `items=0,total=0` |
+| 가능 조치 filter keyboard 재시도 | 1440×900 | 미보존 (계정 식별자 노출) | 17:22:38.742Z | `04eec5d` / baseline saved review fixture; 키 입력 뒤에도 “모든 조치” selected |
+
+17:22:38Z review 화면에서 `ArrowDown`/`Enter`, `r`/`Enter`, `Space`/`ArrowDown`/`Enter`를 보냈지만 snapshot selected option은 계속 “모든 조치”였다. 이는 통과 화면이 아니라 keyboard selection 미완료 기록이다. mobile missions/mission/sources/job empty 화면은 390×844 변경 영향·표본 범위를 담는다. 새 질문별 표본 답과 경계는 `../ui-independent-audit.md`의 ai2 Run 재개 절에 기록했다.
+
+
+후보 반입 전 `e070bc0` desktop 5장은 좌측 계정 영역에 계정 식별자가 보여 제외했다. mobile 5장은 해당 식별자가 보이지 않아 보존했다. audit 관측 결과는 문서에 유지하되 제외 screenshot 자체는 보존 증거로 인용하지 않는다.

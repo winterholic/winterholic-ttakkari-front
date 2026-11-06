@@ -175,3 +175,55 @@ Keyboard/browser evidence: configured browser snapshot으로 viewport-relative C
 브라우저/서버 로그에는 Vite dev 서버가 `/sw.js` 요청에 HTML MIME을 반환해 ServiceWorker 등록이 거절된 경고가 반복됐다. Review, mission, direct new-plan 화면과 mock API 조작은 진행됐으며 이 서비스워커 메시지를 제품 경로 성공 근거로 사용하지 않았다. `/collect` 목록의 `plan.coverage` 오류는 별도 화면 렌더 오류로 기록했다.
 
 표본이 없는 정책 차단 Review 행, 정상 종료 후 미달, 실제 dedupe 관계 ID, 실 item의 decision 누락은 이번 전체 제품 판정에 포함하지 않는다. 850a825b의 정밀 집계 및 canonical 타입 교정은 이후 별도 독립 검증이며 이번 감사 범위가 아니다. 제품 수정/빌드/테스트/운영 요청은 하지 않았다.
+
+## 2026-11-07 KST — ai2 Run 재개: e070bc0 표본 UI 및 미완료 범위
+
+현재 판정: **부분**. 이 Run은 outbox `anon-9363cf1fbd1d7f11e316`, worker session `anon-2c56214a3dd6e6b916af`다. 첫 명령 `ttk get /api/runs/anon-9363cf1fbd1d7f11e316 | python3 -c 'import json,sys; r=json.load(sys.stdin); print(json.dumps({k:r.get(k) for k in ("id","session_id","status","profile")},ensure_ascii=False))'` 결과는 `{"id":"anon-9363cf1fbd1d7f11e316","session_id":"anon-2c56214a3dd6e6b916af","status":"running","profile":"회사 코덱스 ai2 ([email 비식별 처리])"}`다. Run UUID를 `read_session` 식별자로 사용하지 않았다. 계정/인증 설정은 바꾸지 않았다.
+
+### 기준·입력·실행 범위
+
+| 구분 | 값 |
+|---|---|
+| 프론트 checkout / 캡처 source | `04eec5da037596b9f9de6765e409711850b0796b` worktree; 제품 변경 영향 commit `78635d328b983b1dbda8dab41450c5ace5607996` 포함 |
+| 저장 fixture adapter | `e070bc080a2036e07930ca7856c2dfa7b76213c3`; `python3 -B docs/collect-workspace/evidence/validate_completion_adapter.py` 오프라인 검증 |
+| completion fixture 관측 | `2026-11-06T16:40:45.920458+00:00`; baseline mission/review 관측 `2026-11-06T15:45:43.416672+00:00` |
+| 브라우저 입력 | configured `ttakkari_browser`; loopback Vite `127.0.0.1:5195` + 저장 fixture 전용 mock `127.0.0.1:5196`; 제품 쓰기 API는 mock에서 405 |
+| 캡처 뷰포트 | desktop 1440×900, mobile 390×844; filename 없는 browser 캡처를 이 Run outbox에서 가져와 manifest 이름으로 복사 |
+
+검증 출력: `PASS: offline IDs, mission detail/trace boundary, title groups=12/3/3/3`; `PASS: sources=200, jobs=20, empty job item pages=8, item detail cap recorded exceeded=30/10`; `PASS: observation scopes retained, matching-only details, source fixtures unchanged`. 브라우저는 저장 fixture를 local mock에서 읽었다. 이 Run에서 운영 GET/운영 쓰기, fixture maker, 합성 item·mission 상세는 실행하지 않았다. mission detail/trace는 adapter가 실제 저장 응답과 연결한 선택 mission 하나만 연결했다.
+
+### e070bc0 새 표본 대조
+
+| 화면·행 조작 | 결과 | 경계 / 증거 |
+|---|---|---|
+| `/collect` missions 목록 | 같은 제목 21행에서 4개 제목 그룹(12·3·3·3)을 렌더하고 서로 다른 mission alias를 보존했다. 1440×900 및 390×844 확인. | 저장 목록에는 일부 `plan.coverage`, `results`, `jobs`, `gaps`, `goal`이 없다. mock은 렌더에 필요한 빈 shape만 주입하고 `SHAPE_DEFAULT`로 기록한다. 따라서 해당 기본값 때문에 결과/문제/목표 셀이 비어 보이는 것은 실제 빈 값 관측이 아니다. 제목·회차·시각·count는 저장 표본이다. |
+| `/collect?view=sources` | 200개 출처 행, desktop/mobile 확인. | adapter는 `items`와 응답 키를 유지했다. URL host/path는 `example.test`로 익명화됐다. |
+| `/collect?view=runs`와 item | 20개 job 행 표시. 첫 행 `수집 항목 보기`에서 실제 저장 `job-5b9e510edb52a552` item 페이지 확인: GET 200, `items=[]`, `total=0`. | 저장된 8개 job item 페이지가 모두 0행이다. 추가 job 상세는 만들지 않았다. |
+| 선택 mission 상세 / trace | `장기 수집 과제`, 상태 `cancelled`; detail·trace 조인 성공. 51개 요구 중 15개 충족, 36개 부족. 확인된 분류명: 디자인 시스템, 업무용 UI, UX 연구·이론, 접근성·표준, 공공 디자인 시스템, 분야. | 요구 원문과 실패·부족의 상세 사유는 익명화돼 있다. trace 문서 목록 1,652는 API 최대 3,000 범위이며 전체 누계나 사실 검증 수가 아니다. |
+| canonical 후보 | completion item detail 10건 모두 `canonical_candidate=null`, `canonical_status=unreviewed`; 실제 `exact_of`/`cluster_id` 관계 0. | `candidate-8` 같은 문자열은 별도 synthetic 경계 테스트다. 실제 후보 ID나 확정 관계로 읽지 않는다. |
+
+선택 mission의 saved detail 집계: discovered 69,851, acquired 4,903, accepted/imported 2,939, held 1,244, failed 466, blocked 104, duplicate 483, pending delivery 0, review-needed 2,926, auto-accepted 13. trace 요구 상태는 충족 15, 일부 충족 12, 진행 중 19, 차단 4, pending 1이다. 적재 2,939와 trace 응답 문서 목록 1,652는 다른 원장·범위이므로 전환율이나 동일 문서 수로 해석하지 않는다. 온톨로지 화면도 1,652 대상과 파싱/청킹 1,783, 개념 추출 degraded 1,783, 색인 succeeded 1,782/failed 1, 정본 통합 succeeded 1,782/skipped 1을 별도 집계로 보였다. 동일성·완료율 증명은 아니다.
+
+78635d3 집계 경계는 실제 선택 mission에서 엔진 unavailable, 모델/세부 실행 상태 미확인, triage pending 1,353 / processing 0 / unresolved 0으로 표시됐다. legacy `precise_waiting`도 1,353이지만 그것만으로 triage 개별값을 대체하지 않는다. 별도 저장된 boundary test 입력은 legacy waiting 7/unresolved 0만 제공될 때 “대기·처리 합계 7건 · 개별 대기·처리 미확인 · 결과 확인 불가 0건”, triage의 명시적 0은 각각 0건, triage 일부 값만 제공될 때 빠진 pending을 만들지 않음을 확인한다. 이 숫자들은 synthetic test 입력이며 운영 표본이 아니다. 이 Run에서 제품 테스트는 재실행하지 않고 `independent-final-verification-20261107.md`의 기존 79-test/build 결과를 재사용했다.
+
+### 원래 질문 7개에 대한 저장 표본 답
+
+| 질문 | 화면 경로 | 표본이 답하는 범위 | 미확인 |
+|---|---|---|---|
+| 지금 어떤 연구를 진행 중인가? | `/collect` → 선택 mission → `요약·진행` | 익명 과제 “장기 수집 과제”는 `cancelled`; 3회차, 마지막 회차 수집 5건·적재 1건. 현재 진행 중으로 표시되지 않는다. | 원요청문은 `[운영 요청문 익명화]`; 취소 결정 맥락은 미확인. |
+| 어느 분야의 지식을 확보했는가? | `확보 분야`, `요약·진행` | 디자인 시스템, 업무용 UI, UX 연구·이론, 접근성·표준, 공공 디자인 시스템, 분야 분류가 보인다. 목표량 충족은 15/51 요구다. | 익명 요구 번호 외 세부 문구, 원문 내용의 정확성/품질은 검증되지 않았다. |
+| 요구사항 중 무엇이 부족한가? | `요약·진행` 부족 항목, `확보 분야` | 부족 36개. trace 상태는 일부 12, 진행 중 19, 차단 4, pending 1. 보충은 수집 종료 후 가능하다는 안내와 비활성 버튼이 보인다. | 익명화 때문에 개별 요구의 실질 주제와 접근 제한 출처는 미확인. |
+| 실제 도서관에 무엇이 저장됐는가? | `요약·진행` 대표 자료 / `자료·품질` | 운영 집계 accepted/imported 2,939; trace 응답 문서 목록 1,652. 화면 대표 자료 3건은 익명 alias로 표시한다. | 전체 2,939 원문·정본 관계를 대조하거나 열람하지 않았다. 1,652는 trace API 응답 목록 수(최대 3,000)다. |
+| 수집 품질이 얼마나 검증됐는가? | mission `요약·진행` 품질 판정 / `자료·품질 검토` | 판정 집계 수락 13, 추가 확인 2,926, 보류 1,244. review는 전체 2,310 중 첫 50행. UI는 판정 기준 성능 검증 이력 없음 표시. | 사실성·승인율 증거는 없다. 전체 큐를 로드하지 않았다. 키보드 필터 값 선택도 미통과. |
+| 막혔다면 왜인가? | `요약·진행` 문제와 해결 행동 / `자율 조사` | 상태 cancelled. 정밀평가 엔진 사용 불가, 모델/세부 상태 미확인, 종료 사유 확인 필요. 화면은 부족 항목과 제한 출처 대체를 일반 행동으로 제시한다. | 실패·부족 사유가 `[실패·부족 사유 익명화]`라 취소 원인은 단정할 수 없다. |
+| 지금 무엇을 해야 하는가? | 선택 mission의 `다시 실행`, `부족한 36개 보충 수집` | 화면은 다시 실행을 제안하며, 보충 수집은 종료 후 가능하다는 안내로 비활성이다. | 실행/보충은 누르지 않았다. 원요구·출처 권한·엔진 가용성·미확인 품질을 검토한 뒤 사용자/운영자가 재개 여부를 결정해야 한다. |
+
+### 남은 상호작용·캡처·미실행
+
+키보드 가능 조치 필터에 focus 후 `ArrowDown`, `Enter`; 재시도 `ArrowDown`; 이어 `r`, `Enter`; `Space`, `ArrowDown`, `Enter`를 보냈다. 매번 접근성 snapshot은 `모든 조치` selected로 남아 실제 값 변경을 확인하지 못했다. `browser_select_option`으로 대신 선택하지 않았다. 이 configured browser 입력 경로에서는 미통과이며 모든 플랫폼에서 필터가 고장 났다고 일반화하지 않는다. Review decision/재처리, 물리 터치, 정량 시각 계측 및 접근성 보조기술 검증은 실행하지 않았다. 물리 터치/계측은 configured browser 도구가 제공하지 않는다. 정책 차단 Review 행은 첫 실제 페이지 표본에서 찾지 못해 미실행이다.
+
+Review는 baseline fixture `2,310 total / 50 loaded`; sources/jobs는 completion fixture `200 / 20`; 8개 실제 job item 응답은 각 0행이다. 첫 review 진입에서 mock에 해당 route가 없어 404가 한 번 났으나 본인 mock에 baseline route를 추가한 뒤 50행 로드에 성공했다. 이 초기 설정 오류와 mock shape default는 제품 결함/저장 fixture 관측으로 계산하지 않는다. `/sw.js` ServiceWorker MIME 경고와 browser snapshot의 console 2 errors는 로컬 환경 로그이며 새 UI 회귀로 분류하지 않았다.
+
+후보 반입 전 screenshot 검토에서 desktop 캡처 5장은 계정 식별자 노출로 보존하지 않고, 해당 식별자가 없는 mobile 캡처 5장만 보존했다.
+
+이번 캡처는 2026-11-06 17:17–17:23 UTC (2026-11-07 02:17–02:23 KST), checkout `04eec5d` 및 adapter `e070bc0` 입력이다. 바뀐 mission/source/job sample 및 미완료 keyboard filter 결과만 담았다. 기존 794d0e9 통과 화면을 재사용하고 review form 열기, plan preview, 이전 synthetic pagination은 반복하지 않았다. 캡처와 원본 screenshot 시각은 manifest에서 구분한다. 이 감사는 UX/표본 판정이지 R1–R10 제품 승인이나 배포 완료 증거가 아니다. 제품 파일은 수정하지 않았다.
