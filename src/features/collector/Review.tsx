@@ -16,11 +16,16 @@ const labelReason = (code: string) => COLLECT_REASON[code] ?? "사유 확인 필
 const humanStatus = (status: string) => STATUS[status] ?? "상태 확인 필요";
 const reviewDecision = (decision: string) => ({ accept: "유용함", reject: "유용하지 않음", hold: "판단 보류" }[decision] ?? "판정 확인 필요");
 const isPolicyBlocked = (item: ReviewItem) => item.reason_codes.some(code => POLICY_REASON.test(code));
+const userFailure = (error: unknown) => {
+  const message = failure(error);
+  if (COLLECT_REASON[message] || STATUS[message]) return COLLECT_REASON[message] ?? STATUS[message];
+  return /^[a-z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*$/.test(message) ? "요청을 처리하지 못했어요. 잠시 뒤 다시 읽고 기술 상세를 확인해 주세요." : message;
+};
 
 function Detail({ id, scope }: { id: string; scope?: KbScope }) {
   const detail = useQuery({ queryKey: ["kb-collect-item", scope, id], queryFn: () => collectItemDetail(id, scope) });
   if (detail.isPending) return <p role="status">자료 정보를 읽는 중</p>;
-  if (detail.isError) return <div><p className="tk-error" role="alert">{failure(detail.error)}</p><Button size="sm" onClick={() => void detail.refetch()}>자료 정보 다시 읽기</Button></div>;
+  if (detail.isError) return <div><p className="tk-error" role="alert">{userFailure(detail.error)}</p><Button size="sm" onClick={() => void detail.refetch()}>자료 정보 다시 읽기</Button></div>;
   const d = detail.data;
   const qualityValues = Object.entries(d.quality ?? {});
   const qualityScores = qualityValues.map(([, value]) => value.score).filter((value): value is number => value != null);
@@ -67,7 +72,7 @@ function Row({ item, scope }: { item: ReviewItem; scope?: KbScope }) {
       <Button size="sm" variant="ghost" busy={reprocess.isPending} onClick={() => reprocess.mutate()}>원문으로 다시 처리</Button>
       {reprocess.isPending && <span className="kb-note" role="status">재처리 요청을 보내고 있어요.</span>}
       {reprocess.isSuccess && <span className="kb-note" role="status">재처리 작업을 등록했어요. 실행 탭에서 진행 상태를 볼 수 있어요.</span>}
-      {reprocess.isError && <span className="tk-error" role="alert">재처리 작업을 등록하지 못했어요: {failure(reprocess.error)}</span>}
+      {reprocess.isError && <span className="tk-error" role="alert">재처리 작업을 등록하지 못했어요: {userFailure(reprocess.error)}</span>}
     </div>}
     {policyBlocked && <p className="kb-note">권리·정책·robots 차단 사유가 있어 재처리를 표시하지 않습니다. 정책 확인은 우회할 수 없어요.</p>}
     <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "기술 상세 닫기" : "근거와 처리 이력"}</Button>
@@ -79,7 +84,7 @@ function Row({ item, scope }: { item: ReviewItem; scope?: KbScope }) {
 function Audit({ scope }: { scope?: KbScope }) {
   const audit = useQuery({ queryKey: ["kb-collect-audit", scope], queryFn: () => collectHoldAudit(scope) });
   if (audit.isPending) return <p role="status">출처·사유별 표본을 불러오는 중</p>;
-  if (audit.isError) return <div className="kb-error"><p className="tk-error" role="alert">{failure(audit.error)}</p><Button onClick={() => void audit.refetch()}>다시 시도</Button></div>;
+  if (audit.isError) return <div className="kb-error"><p className="tk-error" role="alert">{userFailure(audit.error)}</p><Button onClick={() => void audit.refetch()}>다시 시도</Button></div>;
   const { groups, items, day, per_group } = audit.data;
   return <section className="kb-results" aria-label="보류 표본 감사">
     <h2>보류 표본 감사</h2>
@@ -114,7 +119,7 @@ export function Review({ scope }: { scope?: KbScope } = {}) {
   }), [rows, search, filters]);
   if (sample) return <div className="review-workspace"><Button size="sm" variant="ghost" onClick={() => setSample(false)}>검토 대기 목록으로</Button><Audit scope={scope} /></div>;
   if (query.isPending) return <p role="status">검토 대기 자료를 읽는 중</p>;
-  if (query.isError && !query.data) return <div className="kb-error"><p className="tk-error" role="alert">{failure(query.error)}</p><Button onClick={() => void query.refetch()}>다시 시도</Button></div>;
+  if (query.isError && !query.data) return <div className="kb-error"><p className="tk-error" role="alert">{userFailure(query.error)}</p><Button onClick={() => void query.refetch()}>다시 시도</Button></div>;
   const total = query.data?.pages[0]?.total ?? 0;
   const setFilter = (key: FilterKey, value: string) => setFilters(current => ({ ...current, [key]: value }));
   return <section className="kb-results review-workspace" aria-label="검토 대기">
@@ -132,7 +137,7 @@ export function Review({ scope }: { scope?: KbScope } = {}) {
     {rows.length > 0 && filtered.length === 0 && <p className="kb-empty">불러온 {rows.length}건 중 조건에 맞는 자료가 없습니다.</p>}
     {filtered.length > 0 && <p className="review-workspace__scope" aria-live="polite">불러온 {rows.length}건 중 {filtered.length}건 표시</p>}
     <ul className="kb-hits">{filtered.map(item => <Row key={item.id} item={item} scope={scope} />)}</ul>
-    {query.isError && <p className="tk-error" role="alert">다음 페이지를 불러오지 못했어요: {failure(query.error)}</p>}
+    {query.isError && <p className="tk-error" role="alert">다음 페이지를 불러오지 못했어요: {userFailure(query.error)}</p>}
     {query.hasNextPage && <Button variant="ghost" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>다음 {query.data?.pages[query.data.pages.length - 1]?.limit ?? ""}건 불러오기</Button>}
     {!query.hasNextPage && rows.length > 0 && <p className="kb-note">전체 {total.toLocaleString("ko-KR")}건 중 {rows.length.toLocaleString("ko-KR")}건을 불러왔습니다.</p>}
   </section>;

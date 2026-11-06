@@ -100,12 +100,13 @@ it("재처리 요청 중·성공 상태를 행에 알린다", async () => {
 
 it("재처리 API 실패를 성공으로 보이지 않고 오류로 알린다", async () => {
   api.collectReviewQueue.mockResolvedValue({ items: [row()], total: 1, limit: 20, offset: 0 });
-  api.reprocessCollectItem.mockRejectedValue(new Error("request rejected"));
+  api.reprocessCollectItem.mockRejectedValue(new Error("source_policy_missing"));
   mount(<Review />);
   await screen.findByText("https://example.com/a");
   fireEvent.click(screen.getByRole("button", { name: "원문으로 다시 처리" }));
   expect(await screen.findByRole("alert")).toBeTruthy();
   expect(screen.getByRole("alert").textContent).toContain("재처리 작업을 등록하지 못했어요");
+  expect(screen.getByRole("alert").textContent).not.toContain("source_policy_missing");
 });
 
 it("운영 화면은 사용자 조치 총량과 자동 평가 대기·정책 차단의 미분리 상태를 명시한다", async () => {

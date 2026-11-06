@@ -11,6 +11,12 @@ const WAIT_TEXT: Record<string, string> = {
   fetch_deferred: "서버가 요청을 늦추라고 했거나 응답이 없어요", handler_error: "처리 중 오류가 나서 다시 시도해요",
   source_policy_missing: "출처 정책을 확인해야 해요", store_not_permitted: "원문 보관 권리를 확인할 수 없어요",
 };
+const userFailure = (error: unknown) => {
+  const message = failure(error);
+  return STATUS[message] || /^[a-z][a-zA-Z0-9]*(?:_[a-zA-Z0-9]+)*$/.test(message)
+    ? STATUS[message] || "요청을 처리하지 못했어요. 잠시 뒤 다시 읽어 주세요."
+    : message;
+};
 
 export function BudgetCard({ budget }: { budget: CollectBudget }) {
   const pct = (b: { used: number; limit: number }) => (b.limit ? Math.min(100, Math.round((b.used / b.limit) * 100)) : 100);
@@ -35,7 +41,7 @@ export function Overview({ scope }: { scope?: KbScope } = {}) {
   const pause = useMutation({ mutationFn: (paused: boolean) => setCollectRuntime(scope, paused, paused ? "owner pause" : "owner resume"), onSuccess: refresh });
   const pilot = useMutation({ mutationFn: () => registerCollectPilot(scope), onSuccess: refresh });
   if (summary.isPending) return <p role="status">수집 현황을 읽는 중</p>;
-  if (summary.isError) return <div className="kb-error"><p className="tk-error" role="alert">{failure(summary.error)}</p><Button onClick={() => void summary.refetch()}>다시 시도</Button></div>;
+  if (summary.isError) return <div className="kb-error"><p className="tk-error" role="alert">{userFailure(summary.error)}</p><Button onClick={() => void summary.refetch()}>다시 시도</Button></div>;
   const data = summary.data;
   const paused = data.runtime.paused;
   const reviewTotal = data.funnel.awaiting_review;
@@ -46,7 +52,7 @@ export function Overview({ scope }: { scope?: KbScope } = {}) {
         : paused ? `새 수집을 시작하지 않아요${data.runtime.since ? ` (${formatTime(data.runtime.since)}부터)` : ""}. 이미 가져온 자료의 전달은 계속돼요.`
           : "등록한 출처를 주기에 따라 가져와요. 출처마다 일시정지할 수도 있어요."}</p>
       {data.runtime.loop_available && <Button size="sm" variant={paused ? "primary" : "ghost"} busy={pause.isPending} onClick={() => pause.mutate(!paused)}>{paused ? "자동 수집 재개" : "자동 수집 일시정지"}</Button>}
-      {pause.isError && <p className="tk-error" role="alert">{failure(pause.error)}</p>}
+      {pause.isError && <p className="tk-error" role="alert">{userFailure(pause.error)}</p>}
     </div>
     <section className="review-overview__status" aria-label="검토와 운영 상태">
       <div><span>서버 검토 대기 총량</span><strong>{reviewTotal.toLocaleString("ko-KR")}건</strong></div>
@@ -59,7 +65,7 @@ export function Overview({ scope }: { scope?: KbScope } = {}) {
     </section>
     {reviewTotal === 0 && data.funnel.blocked === 0 && data.funnel.failed === 0 && data.funnel.awaiting_delivery === 0 && <p className="kb-empty">현재 표시할 검토 대기나 운영 문제가 없습니다. 출처를 등록하면 수집 상태가 여기에 나타납니다.</p>}
     {runtime.isPending && <p className="kb-note" role="status">추가 운영 설정을 읽는 중이에요.</p>}
-    {runtime.isError && <div className="kb-error"><p className="tk-error" role="alert">운영 설정을 읽지 못했어요: {failure(runtime.error)}</p><Button size="sm" onClick={() => void runtime.refetch()}>운영 설정 다시 읽기</Button></div>}
+    {runtime.isError && <div className="kb-error"><p className="tk-error" role="alert">운영 설정을 읽지 못했어요: {userFailure(runtime.error)}</p><Button size="sm" onClick={() => void runtime.refetch()}>운영 설정 다시 읽기</Button></div>}
     {data.waiting.length > 0 && <div className="collect-card" role="status"><h3>기다리는 작업</h3>
       <ul className="kb-passages">{data.waiting.map((w) => <li className="kb-passage" key={w.job_id}>
         <div className="kb-badges"><Badge>{STATUS[w.status] || "상태 확인 필요"}</Badge></div>
@@ -72,7 +78,7 @@ export function Overview({ scope }: { scope?: KbScope } = {}) {
       {runtime.data?.pilot && <p className="kb-note">처음 한 번 자동으로 등록됐어요 (권리 확인 {formatTime(runtime.data.pilot.rights_checked_at)}).</p>}
       <Button size="sm" busy={pilot.isPending} onClick={() => pilot.mutate()}>예시 출처 추가</Button>
       {pilot.isSuccess && <p role="status" className="kb-note">{pilot.data.created.length ? `${pilot.data.created.length}곳을 추가했어요.` : "이미 모두 등록돼 있어요."}</p>}
-      {pilot.isError && <p className="tk-error" role="alert">{failure(pilot.error)}</p>}
+      {pilot.isError && <p className="tk-error" role="alert">{userFailure(pilot.error)}</p>}
     </div>
   </section>;
 }
