@@ -211,13 +211,18 @@ export function researchRequest<T = unknown>(path: string, body?: unknown, metho
 }
 
 // ---- notifications
-import type { NotificationListParams, NotificationOut, NotificationPage, NotificationCategory } from "./notificationTypes";
+import type { NotificationListParams, NotificationOut, NotificationPage, NotificationCategory, NotificationPreferencesOut } from "./notificationTypes";
 export const listNotifications = (params: NotificationListParams = {}): Promise<NotificationPage> =>
   json("/api/notifications", { query: { ...params } });
 export const readNotification = (id: number): Promise<NotificationOut> =>
   json(`/api/notifications/${id}/read`, { method: "PATCH" });
 export const readAllNotifications = (body: { category?: NotificationCategory; through_id: number }): Promise<{ updated: number }> =>
   json("/api/notifications/read-all", { method: "POST", json: body });
+
+export const getNotificationPreferences = (): Promise<NotificationPreferencesOut> =>
+  json("/api/notifications/preferences");
+export const updateNotificationPreference = (body: { kind: string; enabled: boolean }): Promise<NotificationPreferencesOut> =>
+  json("/api/notifications/preferences", { method: "PATCH", json: body });
 
 // ---- auth
 // 회의록 공유: 소유자 경로와 익명 capability 경로는 인증을 섞지 않는다.

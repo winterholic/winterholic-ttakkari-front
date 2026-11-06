@@ -22,3 +22,18 @@ it("알림 필터와 페이지 커서·읽음 범위를 인증된 API로 전달�
   expect(url).toMatch(/\/api\/notifications\/31\/read$/);
   expect(init.method).toBe("PATCH");
 });
+
+it("알림 수신 설정을 인증된 API에서 조회하고 한 유형씩 엄격한 boolean으로 저장한다", async () => {
+  const fetcher = vi.fn().mockImplementation(async () => new Response('{"items":[]}', { headers: { "Content-Type": "application/json" } }));
+  vi.stubGlobal("fetch", fetcher);
+  api.setAccessToken("notification-test-token");
+  await api.getNotificationPreferences();
+  let [url, init] = fetcher.mock.calls[0];
+  expect(url).toMatch(/\/api\/notifications\/preferences$/);
+  expect(init.headers.Authorization).toBe("Bearer notification-test-token");
+  await api.updateNotificationPreference({ kind: "push.weather", enabled: false });
+  [url, init] = fetcher.mock.calls[1];
+  expect(url).toMatch(/\/api\/notifications\/preferences$/);
+  expect(init.method).toBe("PATCH");
+  expect(JSON.parse(init.body)).toEqual({ kind: "push.weather", enabled: false });
+});
