@@ -21,24 +21,54 @@ const STATUS: Record<string, string> = {
   invalid_output: "검토할 수 없는 출력", completed_needs_review: "검토 대기",
 };
 
+type ReferenceDocument = {
+  id: string;
+  file: File;
+  status: "loading" | "ready" | "error";
+  text: string;
+  error?: string;
+};
+
+const characterCount = (value: string) => Array.from(value).length;
+const newDocumentId = () => `file-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
+
 export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: string) => void }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [brief, setBrief] = useState("");
   const [extraLocator, setExtraLocator] = useState("");
   const [extraText, setExtraText] = useState("");
+  const [qualityGoal, setQualityGoal] = useState("");
+  const [documents, setDocuments] = useState<ReferenceDocument[]>([]);
   const [run, setRun] = useState<StoryboardRunStart | null>(null);
   const [requestKey, setRequestKey] = useState(makeKey);
   const [resumeKey, setResumeKey] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [notice, setNotice] = useState("");
-  const request = useMemo<StoryboardRequest | null>(() => {
+  const { request, inputError } = useMemo(() => {
     const cleaned = brief.trim();
-    if (!cleaned) return null;
-    const sources: StoryboardRequest["sources"] = [{ id: "brief", locator: "사용자 요청", text: cleaned }];
+    const goal = qualityGoal.trim();
+    const compiledBrief = goal
+      ? `사용자 요청:\n${cleaned}\n\n사용자 품질 목표 (보장 아님):\n${goal}`
+      : cleaned;
+    const sources: StoryboardRequest["sources"] = cleaned
+      ? [{ id: "brief", locator: "사용자 요청", text: compiledBrief }]
+      : [];
     if (extraText.trim()) sources.push({ id: "source-1", locator: extraLocator.trim() || "사용자 제공 자료", text: extraText.trim() });
-    return { brief: cleaned, sources, engine: "codex" };
-  }, [brief, extraLocator, extraText]);
+    for (const document of documents) {
+      if (document.status === "ready") sources.push({ id: document.id, locator: document.file.name, text: document.text });
+    }
+
+    let error = "";
+    if (documents.some((document) => document.status === "loading")) error = "참고 문서 읽기가 끝날 때까지 기다려 주세요.";
+    else if (documents.some((document) => document.status === "error")) error = "오류가 있는 참고 문서를 제거하거나 다시 선택해 주세요.";
+    else if (cleaned && characterCount(compiledBrief) > 6000) error = "요청과 품질 목표를 합친 brief는 6,000자 이하여야 합니다.";
+    else if (extraText.trim() && characterCount(extraText.trim()) > 12000) error = "추가 출처 본문은 12,000자 이하여야 합니다.";
+    else if (extraText.trim() && characterCount(extraLocator.trim() || "사용자 제공 자료") > 500) error = "출처 위치는 500자 이하여야 합니다.";
+    else if (sources.length > 10) error = "요청 출처는 사용자 요청을 포함해 10개 이하여야 합니다. 참고 문서를 제거해 주세요.";
+
+    return { request: cleaned && !error ? { brief: compiledBrief, sources, engine: "codex" as const } : null, inputError: error };
+  }, [brief, extraLocator, extraText, qualityGoal, documents]);
 
   const start = useMutation({ mutationFn: () => storyboardRunStart(request!, requestKey), onSuccess: (value) => { setRun(value); setReviewed(false); setNotice(""); } });
   const resume = useMutation({ mutationFn: (key: string) => storyboardRunResume(run!.run_id, key), onSuccess: (value) => { setRun(value); setResumeKey(""); setReviewed(false); setNotice(""); } });
@@ -72,10 +102,56 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
   const data = result.data;
   const phase = data?.phase ?? run?.status;
   const terminal = !!data && ["failed", "cancelled", "interrupted", "invalid_output"].includes(data.phase === "invalid_output" ? data.phase : data.status);
+  const frozen = !!run || start.isPending;
 
   function submit() {
-    if (!request || start.isPending) return;
+    if (!request || start.isPending || run) return;
     start.mutate();
+  }
+
+  function addDocuments(files: File[]) {
+    if (!files.length) return;
+    const usedIds = new Set(["brief", "source-1", ...documents.map((document) => document.id)]);
+    const entries = files.map((file) => {
+      let id = newDocumentId();
+      while (usedIds.has(id)) id = newDocumentId();
+      usedIds.add(id);
+      return { id, file, status: "loading" as const, text: "" };
+    });
+    setDocuments((current) => [...current, ...entries]);
+    setRequestKey(makeKey());
+    setNotice("");
+    for (const entry of entries) {
+      if (!/\.(txt|md)$/i.test(entry.file.name)) {
+        setDocuments((current) => current.map((item) => item.id === entry.id
+          ? { ...item, status: "error", error: "지원하지 않는 형식입니다. .txt 또는 .md 파일을 선택해 주세요." }
+          : item));
+        continue;
+      }
+      if (characterCount(entry.file.name) > 500) {
+        setDocuments((current) => current.map((item) => item.id === entry.id
+          ? { ...item, status: "error", error: "파일명(출처 위치)은 500자 이하여야 합니다." }
+          : item));
+        continue;
+      }
+      if (entry.file.size > 48003) {
+        setDocuments((current) => current.map((item) => item.id === entry.id
+          ? { ...item, status: "error", error: "문서가 12,000자 한도를 넘을 수 있는 크기입니다. 파일을 줄여 주세요." }
+          : item));
+        continue;
+      }
+      void Promise.resolve().then(() => entry.file.text()).then((text) => {
+        setDocuments((current) => current.map((item) => item.id !== entry.id ? item : !text.trim()
+          ? { ...item, status: "error", error: "문서가 비어 있습니다. 내용이 있는 .txt 또는 .md 파일을 선택해 주세요." }
+          : characterCount(text) > 12000
+            ? { ...item, status: "error", error: "문서가 12,000자 한도를 초과했습니다. 파일을 줄여 주세요." }
+            : { ...item, status: "ready", text }));
+      }).catch(() => {
+        setDocuments((current) => current.map((item) => item.id === entry.id
+          ? { ...item, status: "error", error: "파일을 읽지 못했습니다. 다시 선택해 주세요." }
+          : item));
+      });
+    }
   }
 
   return <section className="creative-create creative-plan-create storyboard-create" aria-labelledby="storyboard-create-title">
@@ -86,19 +162,39 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
     </div>
     <div className="storyboard-create__form">
       <label className="creative-field">만들고 싶은 콘텐츠
-        <textarea className="tk-textarea" value={brief} maxLength={6000} rows={5} required
-          disabled={!!run}
+        <textarea className="tk-textarea" value={brief} rows={5} required
+          disabled={frozen}
           onChange={(event) => { setBrief(event.target.value); setRequestKey(makeKey()); setNotice(""); }}
           aria-label="만들고 싶은 콘텐츠" placeholder="주제, 전달할 내용, 분위기와 원하는 장면을 자유롭게 적어 주세요." />
+      </label>
+      <label className="creative-field">품질 목표 (선택)
+        <textarea className="tk-textarea" value={qualityGoal} rows={2} disabled={frozen}
+          onChange={(event) => { setQualityGoal(event.target.value); setRequestKey(makeKey()); setNotice(""); }}
+          aria-label="품질 목표 (선택)" placeholder="예: 초보자도 핵심 기능을 바로 이해하도록 구성" />
       </label>
       <details className="creative-plan-create__duration storyboard-create__sources">
         <summary>추가 출처 본문 (선택)</summary>
         <p className="creative-hint">자동 검색은 하지 않습니다. 사용자가 제공한 자료의 위치와 본문을 직접 붙여 넣을 수 있습니다.</p>
-        <label className="creative-field">출처 위치<input className="tk-input" value={extraLocator} disabled={!!run} onChange={(event) => { setExtraLocator(event.target.value); setRequestKey(makeKey()); }} placeholder="자료명 또는 URL" /></label>
-        <label className="creative-field">출처 본문<textarea className="tk-textarea" value={extraText} disabled={!!run} maxLength={12000} rows={4} onChange={(event) => { setExtraText(event.target.value); setRequestKey(makeKey()); }} /></label>
+        <label className="creative-field">출처 위치<input className="tk-input" value={extraLocator} disabled={frozen} onChange={(event) => { setExtraLocator(event.target.value); setRequestKey(makeKey()); }} placeholder="자료명 또는 URL" /></label>
+        <label className="creative-field">출처 본문<textarea className="tk-textarea" value={extraText} disabled={frozen} rows={4} onChange={(event) => { setExtraText(event.target.value); setRequestKey(makeKey()); }} /></label>
       </details>
+      <div className="storyboard-create__sources">
+        <label className="creative-field">텍스트 참고 문서 (.txt, .md)
+          <input className="tk-input" type="file" accept=".txt,.md,text/plain,text/markdown" multiple disabled={frozen}
+            aria-label="텍스트 참고 문서 (.txt, .md)" onChange={(event) => { addDocuments(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
+        </label>
+        <p className="creative-hint">선택한 문서는 이 브라우저에서 텍스트로 읽습니다. 제출할 때만 storyboard 요청에 포함되며 파일 자체는 업로드하지 않습니다. 이미지·영상·음악·PDF 읽기는 지원하지 않습니다.</p>
+        {documents.length > 0 && <ul aria-label="선택한 참고 문서">
+          {documents.map((document) => <li key={document.id}>
+            <span>{document.file.name}</span> · {document.status === "loading" ? "읽는 중" : document.status === "ready" ? "읽기 완료" : "오류"}
+            {document.error && <span className="tk-error" role="alert"> {document.error}</span>}
+            <Button type="button" disabled={frozen} onClick={() => { setDocuments((current) => current.filter((item) => item.id !== document.id)); setRequestKey(makeKey()); setNotice(""); }}>{document.file.name} 제거</Button>
+          </li>)}
+        </ul>}
+      </div>
+      {inputError && <p className="tk-error" role="alert">{inputError}</p>}
       <p className="creative-hint">요청은 codex storyboard API의 지원 필드만 보냅니다. 새 계획은 16:9로 고정됩니다. 계획 길이는 모델이 제안한 장면 길이의 합이며 입력 길이를 보장하지 않습니다. 먼저 장면과 도구 선택을 검토하며 제작이나 승인은 시작되지 않습니다.</p>
-      {!run && <Button type="button" variant="primary" busy={start.isPending} disabled={!request} onClick={submit}>AI 장면 구성 만들기</Button>}
+      {!run && <Button type="button" variant="primary" busy={start.isPending} disabled={!request || start.isPending} onClick={submit}>AI 장면 구성 만들기</Button>}
       {start.isError && <p className="tk-error" role="alert">{errorMessage(start.error)}</p>}
     </div>
 
