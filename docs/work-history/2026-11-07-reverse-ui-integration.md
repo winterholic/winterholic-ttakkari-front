@@ -47,3 +47,9 @@
 - 감사 22개 파일은 독립 recheck worktree에만 유지되고 이 통합에 포함되지 않았다. 원문: `front-reverse-ui-recheck-a9fe03d8-20261107/docs/reverse-platform/audit-front-a9fe03d8-20261107/`; 감사 commit `4e644d1`.
 - 마지막 `git fetch origin main` 뒤 준비 당시 origin/main은 `67fead1...`, 통합 HEAD는 `b1f6bed...`였다. 아래 push 이후 원격 SHA와 단회 Vercel status 결과를 이어 기록한다. 이전 main `950d120...`의 GitHub Vercel status `success / Deployment has completed`는 확인했으나 이번 후보의 배포 결과 증거가 아니다.
 - 저장소 및 상위 경로에 적용되는 `AGENTS.md`는 발견되지 않았다.
+
+## 최초 main 게시 확인
+
+- 최종 통합 tree를 `GH_TOKEN` per-command `winterholic`으로 `git push origin HEAD:main` 했고 GitHub 응답은 `67fead1..6938e1c HEAD -> main`이었다. 즉 fast-forward push 수락.
+- 이어 `git fetch origin main` 후 `HEAD`와 `origin/main` 모두 `6938e1c1ee61ab6b42660da7ffcef59527837f41`, worktree clean이었다.
+- 해당 전체 SHA의 단회 GitHub commit status 조회는 `Vercel: pending`, description `Vercel is deploying your app`와 deployment URL `https://vercel.com/winterholics-projects/ttakkari/BxktHmUhxoSmLTigkGRRDbSUsW7U`를 반환했다. 동일 SHA deployments 목록은 빈 배열이었다. 지시대로 상태를 다시 폴링하지 않았으므로 이 기록 시점의 Vercel 성공·production 반영은 미확인이다. 운영 revision과 화면도 미관찰.
