@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 
@@ -80,7 +80,7 @@ beforeEach(() => {
   h.content.mockResolvedValue({ text: async () => "# README\n실행: pytest -q" } as Blob);
   h.get.mockResolvedValue(detail);
 });
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 it("부가 기능에 등록되고 빈 목록·분석 시작을 안내한다", async () => {
   expect(FEATURES.find((x) => x.root === "reverse")?.to).toBe("/reverse");
@@ -366,4 +366,138 @@ it("verifier 로그는 output_path와 verifier_session_id로 읽고 구현 소�
   fireEvent.click(screen.getByRole("button", { name: "검증 로그 읽기" }));
   await waitFor(() => expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/evidence/verifier.log`, workspace_id: "ws-1", session_id: "verifier-session" }));
   expect(await screen.findByText("verifier failure log")).toBeTruthy();
+});
+
+it("result_state의 기능·시각 요약을 구현과 verifier별로 합산하지 않고 표시한다", async () => {
+  mountDetail({ ...doneJob, kind: "reconstruction", result: null, latest: null,
+    result_state: {
+      direct_comparison: { status: "match", count: 2, matched: 2, mismatched: 0, unverified: 0 },
+      visual_comparison: { status: "mismatch", count: 2, matched: 1, mismatched: 1, unverified: 0 },
+      verification_direct_comparison: { status: "mismatch", count: 1, matched: 0, mismatched: 1, unverified: 0 },
+      verification_visual_comparison: { status: "unverified", count: 1, matched: 0, mismatched: 0, unverified: 1 },
+    }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+
+  const implementation = await screen.findByRole("region", { name: "직접 비교" });
+  expect(implementation.textContent).toContain("기능 비교 2건");
+  expect(implementation.textContent).toContain("시각 비교 2건");
+  expect(implementation.textContent).toContain("불일치 1");
+  const verifier = screen.getByRole("region", { name: "독립 검증 비교" });
+  expect(verifier.textContent).toContain("검증 기능 비교 1건");
+  expect(verifier.textContent).toContain("검증 시각 비교 1건");
+  expect(verifier.textContent).toContain("미검증 1");
+  expect(implementation.textContent).not.toContain("기능 비교 3건");
+});
+
+it("웹 캡처는 기능·시각·무결성·관찰 출처를 분리하고 역할별 PNG를 요청 시 읽는다", async () => {
+  const outputPath = "/work/project/reverse-engineering/job-1";
+  const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const captureRef = (path: string) => ({ path, sha256: "a".repeat(64), size_bytes: png.length,
+    viewport: { width: 390, height: 844, device_scale_factor: 1 }, format: "png" as const });
+  const evidence = { kind: "web_capture", path: "captures/web.json",
+    capture: { path: "captures/web.json", sha256: "b".repeat(64), size_bytes: 512 },
+    integrity: { status: "verified", reasons: [] },
+    provenance: { status: "unverified", reason: "RunEvent/tool-result 연결이 없어 실제 브라우저 실행 출처를 확인하지 못했습니다." } };
+  const implementation = { id: "impl-web", behavior: "저장 후 요약 보기", target_type: "web" as const,
+    input: {}, pre_state: {}, original: { screenshot: captureRef("captures/impl-original.png") },
+    replica: { screenshot: captureRef("captures/impl-replica.png") }, environment: {},
+    evidence_level: "observed" as const, evidence: [evidence], verified_at: "2026-11-07T00:00:00Z",
+    run_id: "impl-run", result: "match" as const, functional_result: "match" as const,
+    visual_result: "mismatch" as const, visual_assessment: { reason: "pixel mismatch", different_pixels: 17 },
+    difference: null };
+  const verifier = { ...implementation, id: "verify-web", behavior: "모바일 메뉴 열기", run_id: "verify-run",
+    original: { screenshot: captureRef("captures/verify-original.png") },
+    replica: { screenshot: captureRef("captures/verify-replica.png") },
+    result: "mismatch" as const, functional_result: "mismatch" as const,
+    visual_result: "unverified" as const, difference: { field: "dom", reason: "verifier result differs" } };
+  h.content.mockResolvedValue(new Blob([png], { type: "image/png" }));
+  const createObjectURL = vi.fn(() => "blob:reverse-capture");
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+  mountDetail({ ...doneJob, kind: "reconstruction", workspace_id: "ws-1", output_path: outputPath,
+    session_id: "impl-session", verifier_session_id: "verifier-session",
+    result: { schema_version: 2, latest: {
+      direct_comparison: { status: "match", count: 1, matched: 1, mismatched: 0, unverified: 0 },
+      visual_comparison: { status: "mismatch", count: 1, matched: 0, mismatched: 1, unverified: 0 },
+      comparisons: [implementation],
+      verification_direct_comparison: { status: "mismatch", count: 1, matched: 0, mismatched: 1, unverified: 0 },
+      verification_visual_comparison: { status: "unverified", count: 1, matched: 0, mismatched: 0, unverified: 1 },
+      verification_comparisons: [verifier],
+    } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+
+  const webRegions = await screen.findAllByRole("group", { name: "웹 증거 상태" });
+  expect(webRegions[0].textContent).toContain("파일 무결성: 확인됨");
+  expect(webRegions.every((region) => region.textContent?.includes("실제 관찰 출처: 미검증"))).toBe(true);
+  expect(webRegions[0].textContent).toContain("RunEvent/tool-result 연결이 없어");
+  expect(screen.getByText(/시각 평가: 차이 발견/)).toBeTruthy();
+  expect(screen.getByText(/기능: 일치/)).toBeTruthy();
+  expect(screen.getByText(/기능: 불일치/)).toBeTruthy();
+  expect(createObjectURL).not.toHaveBeenCalled();
+
+  fireEvent.click(within(webRegions[0]).getByRole("button", { name: "원본 캡처 미리보기" }));
+  await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+  fireEvent.click(within(webRegions[0]).getByRole("button", { name: "재현 캡처 미리보기" }));
+  await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(2));
+  fireEvent.click(within(webRegions[1]).getByRole("button", { name: "원본 캡처 미리보기" }));
+  await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(3));
+  fireEvent.click(within(webRegions[1]).getByRole("button", { name: "재현 캡처 미리보기" }));
+  await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(4));
+  expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/captures/impl-original.png`, workspace_id: "ws-1", session_id: "impl-session" });
+  expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/captures/impl-replica.png`, workspace_id: "ws-1", session_id: "impl-session" });
+  expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/captures/verify-original.png`, workspace_id: "ws-1", session_id: "verifier-session" });
+  expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/captures/verify-replica.png`, workspace_id: "ws-1", session_id: "verifier-session" });
+
+  fireEvent.click(screen.getByRole("button", { name: "불일치 차이 수정" }));
+  expect((screen.getByLabelText("추가 설명·검사·수정 요청") as HTMLTextAreaElement).value)
+    .toContain("구현 비교 · 시각 확인 필요 · 저장 후 요약 보기");
+  expect((screen.getByLabelText("추가 설명·검사·수정 요청") as HTMLTextAreaElement).value)
+    .toContain("실제 관찰 출처: 미검증");
+  expect((screen.getByLabelText("추가 설명·검사·수정 요청") as HTMLTextAreaElement).value)
+    .toContain("원본 PNG: captures/impl-original.png · 재현 PNG: captures/impl-replica.png");
+});
+
+it("무결성이 확인되지 않거나 캡처 참조가 빠진 웹 증거는 미검증으로 남기고 이미지 경로를 열지 않는다", async () => {
+  const unsafe = { id: "unsafe", behavior: "경로 반례", target_type: "web" as const, input: {}, pre_state: {},
+    original: { screenshot: { path: "../outside.png", sha256: "a".repeat(64), size_bytes: 20, format: "png" } },
+    replica: {}, environment: {}, evidence_level: "unknown" as const,
+    evidence: [{ kind: "web_capture", integrity: { status: "unverified", reasons: ["sha256 불일치"] },
+      provenance: { status: "unverified", reason: "실행 연결 없음" } }], verified_at: null, run_id: "run-1",
+    result: "match" as const, functional_result: "match" as const, visual_result: "unverified" as const, difference: null };
+  const noEvidence = { ...unsafe, id: "no-evidence", behavior: "캡처 누락 반례", original: null, replica: {},
+    evidence: [], result: "unverified" as const, functional_result: "unverified" as const };
+  mountDetail({ ...doneJob, kind: "reconstruction", result: { schema_version: 2, latest: {
+    comparisons: [unsafe, noEvidence], visual_comparison: { status: "unverified", count: 2, matched: 0, mismatched: 0, unverified: 2 },
+  } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+
+  const allWebRegions = await screen.findAllByRole("group", { name: "웹 증거 상태" });
+  const webRegion = allWebRegions[0];
+  expect(webRegion.textContent).toContain("파일 무결성: 미검증");
+  expect(webRegion.textContent).toContain("sha256 불일치");
+  expect(webRegion.textContent).toContain("원본 캡처 경로: 미검증 또는 누락");
+  expect(allWebRegions[1].textContent).toContain("웹 캡처 증거가 없습니다");
+  expect(screen.queryByRole("button", { name: "원본 캡처 미리보기" })).toBeNull();
+  expect(h.resolveArtifact).not.toHaveBeenCalled();
+});
+
+it("캡처 artifact 읽기 실패를 알리고 같은 경로를 다시 요청할 수 있다", async () => {
+  const screenshot = { path: "captures/original.png", sha256: "a".repeat(64), size_bytes: 8, format: "png" as const };
+  const item = { id: "web-retry", behavior: "읽기 실패", target_type: "web" as const, input: {}, pre_state: {},
+    original: { screenshot }, replica: {}, environment: {}, evidence_level: "observed" as const,
+    evidence: [{ kind: "web_capture", capture: { path: "captures/web.json" },
+      integrity: { status: "verified" }, provenance: { status: "unverified", reason: "실행 연결 없음" } }],
+    verified_at: null, run_id: "run-1", result: "match" as const, functional_result: "match" as const,
+    visual_result: "match" as const, difference: null };
+  h.resolveArtifact.mockRejectedValueOnce(new Error("artifact not found"));
+  const createObjectURL = vi.fn(() => "blob:retry-capture");
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+  const png = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: "image/png" });
+  h.content.mockResolvedValue(png);
+  mountDetail({ ...doneJob, kind: "reconstruction", workspace_id: "ws-1", output_path: "/work/job", session_id: "impl-session",
+    result: { schema_version: 2, latest: { comparisons: [item] } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+
+  const captureButton = await screen.findByRole("button", { name: "원본 캡처 미리보기" }) as HTMLButtonElement;
+  fireEvent.click(captureButton);
+  expect((await screen.findByRole("alert")).textContent).toContain("캡처 미리보기 실패: artifact not found");
+  expect(captureButton.disabled).toBe(false);
+  fireEvent.click(captureButton);
+  await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(1));
+  expect(await screen.findByRole("img", { name: "읽기 실패 · 원본 캡처" })).toBeTruthy();
 });

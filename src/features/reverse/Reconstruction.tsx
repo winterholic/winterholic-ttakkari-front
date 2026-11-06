@@ -1,8 +1,8 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { cancelRun, contentBlob, downloadLink, messageReverseJob, patchReverseJob, resolveArtifactLink, retryReverseJob } from "../../api/client";
-import { reverseEvidenceLabel, reverseV2FromDetail, type ReverseComparison, type ReverseDetail, type ReverseMode, type ReverseSnapshot, type ReverseTargetType } from "../../api/reverseTypes";
+import { reverseEvidenceLabel, reverseV2FromDetail, type ReverseComparison, type ReverseDetail, type ReverseEvidenceItem, type ReverseMode, type ReverseScreenshotReference, type ReverseSnapshot, type ReverseTargetType, type ReverseVisualComparisonSummary } from "../../api/reverseTypes";
 import { Button } from "../../ui/Button";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
@@ -19,8 +19,10 @@ function statusLabel(value?: string | null) {
   if (value === "failed") return "실패";
   if (value === "pending" || value === "running") return "진행 중";
   if (value === "unverified") return "미검증";
+  if (value === "not_required") return "해당 없음";
   return "기록 없음";
 }
+function webStatus(value?: string | null) { return value === "verified" ? "확인됨" : "미검증"; }
 function outputArtifactPath(path: string, outputPath?: string) {
   if (!outputPath || path.startsWith("/")) return path;
   return `${outputPath.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
@@ -35,6 +37,27 @@ function countComparisonSet(summary: ReverseSnapshot["direct_comparison"], compa
     mismatched: comparisons.filter((c) => c.result === "mismatch").length,
     unverified: comparisons.filter((c) => c.result === "unverified").length };
 }
+function countVisualComparisonSet(summary: ReverseVisualComparisonSummary | undefined, comparisons: ReverseComparison[]) {
+  if (summary) return summary;
+  const web = comparisons.filter((item) => item.target_type === "web");
+  if (!web.length) return null;
+  const matched = web.filter((item) => item.visual_result === "match").length;
+  const mismatched = web.filter((item) => item.visual_result === "mismatch").length;
+  const unverified = web.length - matched - mismatched;
+  return { status: mismatched ? "mismatch" as const : matched === web.length ? "match" as const : "unverified" as const,
+    count: web.length, matched, mismatched, unverified };
+}
+function evidenceReasons(item?: ReverseEvidenceItem) {
+  return [...new Set([...(item?.integrity?.reasons ?? []), ...(item?.integrity?.reason ? [item.integrity.reason] : [])])];
+}
+function provenanceReasons(item?: ReverseEvidenceItem) {
+  return [...new Set([...(item?.provenance?.reasons ?? []), ...(item?.provenance?.reason ? [item.provenance.reason] : [])])];
+}
+function safeRelativePng(ref?: ReverseScreenshotReference | null): ref is ReverseScreenshotReference {
+  if (!ref || ref.format !== "png" || !ref.path || ref.path.startsWith("/") || ref.path.includes("\\")) return false;
+  if (ref.path.split("/").some((part) => !part || part === "." || part === "..")) return false;
+  return !!ref.sha256 && /^[a-f\d]{64}$/i.test(ref.sha256) && Number.isSafeInteger(ref.size_bytes) && (ref.size_bytes ?? 0) > 0;
+}
 function fileCacheKey(path: string, sessionId?: string | null) { return `${sessionId || "workspace"}:${path}`; }
 function ResultSide({ label, value }: { label: string; value: Record<string, unknown> | null }) {
   return <div className="rv-compare-side"><h4>{label}</h4>{value == null ? <p className="rv-note">원본을 실행할 수 없어 결과가 없습니다.</p> : <>
@@ -42,10 +65,71 @@ function ResultSide({ label, value }: { label: string; value: Record<string, unk
     <details className="rv-disclosure"><summary>{label} 전체 기록</summary><pre className="rv-code-block">{json(value)}</pre></details>
   </>}</div>;
 }
-function Comparison({ item }: { item: ReverseComparison }) {
+function CapturePair({ item, evidence, job, role }: {
+  item: ReverseComparison; evidence?: ReverseEvidenceItem; job: ReverseDetail; role: "implementation" | "verifier";
+}) {
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const ownedUrls = useRef(new Set<string>());
+  const sessionId = role === "verifier" ? job.verifier_session_id : job.session_id;
+  useEffect(() => () => { ownedUrls.current.forEach((url) => URL.revokeObjectURL(url)); }, []);
+  const integrityVerified = evidence?.integrity?.status === "verified";
+  const load = async (side: "original" | "replica", ref?: ReverseScreenshotReference | null) => {
+    if (!ref || !safeRelativePng(ref) || !integrityVerified || !job.output_path || !job.workspace_id || !sessionId) return;
+    const key = `${side}:${ref.path}`;
+    if (urls[key] || loading) return;
+    setLoading(key); setErrors((current) => ({ ...current, [key]: "" }));
+    try {
+      const artifact = await resolveArtifactLink({ path: outputArtifactPath(ref.path, job.output_path), workspace_id: job.workspace_id, session_id: sessionId });
+      const blob = await contentBlob(artifact.id);
+      const signature = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+      const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
+      if (signature.some((byte, index) => byte !== pngSignature[index]) || blob.size !== ref.size_bytes) {
+        throw new Error("읽은 파일이 기록된 PNG 캡처와 일치하지 않습니다.");
+      }
+      const url = URL.createObjectURL(blob);
+      ownedUrls.current.add(url);
+      setUrls((current) => ({ ...current, [key]: url }));
+    } catch (error) {
+      setErrors((current) => ({ ...current, [key]: errorText(error).message }));
+    } finally { setLoading(null); }
+  };
+  const canResolve = integrityVerified && !!job.output_path && !!job.workspace_id && !!sessionId;
+  const sides = [
+    { key: "original" as const, label: "원본", ref: item.original?.screenshot },
+    { key: "replica" as const, label: "재현", ref: item.replica?.screenshot },
+  ];
+  return <div className="rv-capture-pair" role="group" aria-label={`${role === "verifier" ? "독립 검증" : "구현"} 캡처`}>
+    {sides.map(({ key, label, ref }) => {
+      const cacheKey = `${key}:${ref?.path ?? "missing"}`;
+      const valid = safeRelativePng(ref);
+      const available = canResolve && valid;
+      return <figure className="rv-capture" key={key}>
+        <figcaption>{label} 캡처</figcaption>
+        {!valid ? <p className="rv-note">{label} 캡처 경로: 미검증 또는 누락</p> : <>
+          <code className="rv-path">{ref.path}</code>
+          {!integrityVerified && <p className="rv-note">파일 무결성을 확인하지 못해 캡처를 열지 않았습니다.</p>}
+          {integrityVerified && !canResolve && <p className="rv-note">작업공간·출력 경로·역할 세션이 없어 캡처를 열 수 없습니다.</p>}
+          <Button variant="ghost" size="sm" disabled={!available || loading !== null} busy={loading === cacheKey}
+            onClick={() => void load(key, ref)}> {label} 캡처 미리보기</Button>
+          {errors[cacheKey] && <p className="tk-error" role="alert">캡처 미리보기 실패: {errors[cacheKey]}</p>}
+          {urls[cacheKey] && !errors[cacheKey] && <img className="rv-capture__image" src={urls[cacheKey]} alt={`${item.behavior} · ${label} 캡처`}
+            onError={() => setErrors((current) => ({ ...current, [cacheKey]: "이미지를 표시할 수 없습니다." }))} />}
+        </>}
+      </figure>;
+    })}
+  </div>;
+}
+function Comparison({ item, job, role }: { item: ReverseComparison; job: ReverseDetail; role: "implementation" | "verifier" }) {
   const functional = item.functional_result ?? item.result;
   const label = functional === "match" ? "기능: 일치" : functional === "mismatch" ? "기능: 불일치" : "기능: 미검증";
   const visualEvidence = item.evidence?.filter((e) => e.kind === "visual_assessment") ?? [];
+  const webEvidence = item.evidence?.filter((e) => e.kind === "web_capture") ?? [];
+  const evidencePaths = item.evidence?.length ? item.evidence.map((e, index) => {
+    const path = e.path ?? e.capture?.path;
+    return <code className="rv-path" key={`${e.kind}:${path ?? index}`}>{e.kind}: {path ?? "경로 미기록"}{(e.sha256 ?? e.capture?.sha256) ? ` · sha256 ${e.sha256 ?? e.capture?.sha256}` : ""}</code>;
+  }) : null;
   return <article className="rv-comparison" data-result={item.result}>
     <header className="rv-comparison__head"><div><span className="rv-compare-chip" data-result={functional}>{label}</span><h3>{item.behavior || item.id}</h3></div>
       <span className="rv-note">근거 수준: {reverseEvidenceLabel(item.evidence_level)}</span></header>
@@ -55,12 +139,27 @@ function Comparison({ item }: { item: ReverseComparison }) {
       {item.visual_assessment && <pre className="rv-code-block">{json(item.visual_assessment)}</pre>}
       {visualEvidence.map((e) => <code className="rv-path" key={e.path}>{e.path}</code>)}
     </div>}
+    {item.target_type === "web" && <div className="rv-web-evidence" role="group" aria-label="웹 증거 상태">
+      <h4>웹 기능·시각과 증거 상태</h4>
+      <div className="rv-web-evidence__states">
+        <span>기능 결과: <strong>{statusLabel(functional)}</strong></span>
+        <span>시각 결과: <strong>{visualLabel(item.visual_result).replace("시각 평가: ", "")}</strong></span>
+        {webEvidence.length ? webEvidence.map((evidence, index) => <div className="rv-web-evidence__source" key={evidence.capture?.path ?? `web-evidence-${index}`}>
+          <span>파일 무결성: <strong>{webStatus(evidence.integrity?.status)}</strong></span>
+          {evidenceReasons(evidence).map((reason) => <p className="rv-note" key={reason}>무결성 사유: {reason}</p>)}
+          <span>실제 관찰 출처: <strong>{webStatus(evidence.provenance?.status)}</strong></span>
+          {provenanceReasons(evidence).map((reason) => <p className="rv-note" key={reason}>출처 확인 사유: {reason}</p>)}
+          {evidence.capture?.path && <code className="rv-path">캡처 기록: {evidence.capture.path}</code>}
+          <CapturePair item={item} evidence={evidence} job={job} role={role} />
+        </div>) : <p className="rv-note">웹 캡처 증거가 없습니다. 무결성과 실제 관찰 출처 모두 미검증입니다.</p>}
+      </div>
+    </div>}
     <div className="rv-compare-grid"><ResultSide label="원본 결과" value={item.original} /><ResultSide label="재현 결과" value={item.replica} /></div>
     <details className="rv-disclosure rv-raw-disclosure"><summary>입력·환경·증거·Run 세부 정보</summary>
       <dl className="rv-meta-grid"><dt>입력 (stdin / argv / request)</dt><dd><pre>{json(item.input)}</pre></dd>
         <dt>사전 상태</dt><dd><pre>{json(item.pre_state)}</pre></dd><dt>환경</dt><dd><pre>{json(item.environment)}</pre></dd>
         <dt>확인 시각</dt><dd>{item.verified_at || "미기록"}</dd><dt>Run ID</dt><dd><code>{item.run_id || "미기록"}</code></dd>
-        <dt>증거 경로</dt><dd>{item.evidence?.length ? item.evidence.map((e) => <code className="rv-path" key={e.path}>{e.kind}: {e.path}{e.sha256 ? ` · sha256 ${e.sha256}` : ""}</code>) : "증거 없음"}</dd>
+        <dt>증거 경로</dt><dd>{evidencePaths ?? "증거 없음"}</dd>
       </dl>
     </details>
   </article>;
@@ -103,6 +202,8 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
   const counts = countComparisons(latest);
   const verificationComparisons = latest?.verification_comparisons ?? [];
   const verificationCounts = countComparisonSet(latest?.verification_direct_comparison, verificationComparisons);
+  const visualCounts = countVisualComparisonSet(latest?.visual_comparison, latest?.comparisons ?? []);
+  const verificationVisualCounts = countVisualComparisonSet(latest?.verification_visual_comparison, verificationComparisons);
   const verificationReport = latest?.verification_report;
   const verificationChecks = verificationReport?.checks ?? [];
   const failedRequiredChecks = verificationChecks.filter((check) => check.required !== false
@@ -115,8 +216,34 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
   const unknowns = latest?.comparisons?.filter((c) => c.result === "unverified") ?? [];
   const allMismatches = [...mismatches.map((item) => ({ item, source: "구현 비교" })),
     ...verificationMismatches.map((item) => ({ item, source: "독립 검증" }))];
-  const suggestions = allMismatches.length > 0 ? ["불일치 차이 수정", "경계·오류 입력 추가 검사"]
+  const visualIssues = [...(latest?.comparisons ?? []).filter((item) => item.target_type === "web" && item.visual_result !== "match")
+    .map((item) => ({ item, source: "구현 비교" })),
+  ...verificationComparisons.filter((item) => item.target_type === "web" && item.visual_result !== "match")
+    .map((item) => ({ item, source: "독립 검증" }))];
+  const mismatchKeys = new Set(allMismatches.map(({ item, source }) => `${source}:${item.id}`));
+  const repairFindings = [...allMismatches, ...visualIssues.filter(({ item, source }) => !mismatchKeys.has(`${source}:${item.id}`))];
+  const suggestions = repairFindings.length > 0 ? ["불일치 차이 수정", "경계·오류 입력 추가 검사"]
     : independent?.status !== "passed" ? ["독립 검증 또는 추가 검사 요청", "대상 설명과 반례 보충"] : ["새 반례 탐색", "설명 보충"];
+  const repairPrompt = () => {
+    const rows = repairFindings.map(({ item, source }) => {
+      const functional = item.functional_result ?? item.result;
+      const web = item.target_type === "web";
+      const evidence = item.evidence?.filter((entry) => entry.kind === "web_capture") ?? [];
+      const webLines = web ? [
+        `  기능 결과: ${statusLabel(functional)} · 시각 결과: ${statusLabel(item.visual_result)}`,
+        `  시각 근거: ${json(item.visual_assessment)}`,
+        ...(evidence.length ? evidence.flatMap((entry) => [
+          `  파일 무결성: ${webStatus(entry.integrity?.status)} · ${evidenceReasons(entry).join(" / ") || "사유 미기록"}`,
+          `  실제 관찰 출처: ${webStatus(entry.provenance?.status)} · ${provenanceReasons(entry).join(" / ") || "사유 미기록"}`,
+          `  캡처 기록: ${entry.capture?.path ?? "미기록"}`,
+        ]) : ["  웹 캡처 증거: 누락 · 무결성/실제 관찰 출처 미검증"]),
+        `  원본 PNG: ${item.original?.screenshot?.path ?? "미기록"} · 재현 PNG: ${item.replica?.screenshot?.path ?? "미기록"}`,
+      ] : [];
+      return [`- ${source} · ${web && item.visual_result !== "match" ? "시각 확인 필요 · " : ""}${item.behavior}: ${json(item.difference)}`,
+        ...webLines].join("\n");
+    });
+    return `기능 비교와 시각 비교를 각각 확인하고, 웹 시각 차이 또는 미검증 근거를 재현·교정해 주세요. 파일 무결성 확인은 브라우저 실행 출처 확인을 뜻하지 않습니다.\n${rows.join("\n")}`;
+  };
   const ask = (text: string) => { setPrompt(text); requestAnimationFrame(() => promptRef.current?.focus()); };
   const readWorkspaceFile = async (path: string, sessionId: string | null | undefined = job.session_id) => {
     const key = fileCacheKey(path, sessionId);
@@ -188,11 +315,15 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
 
     {latest && <section className="rv-section" aria-label="직접 비교">
       <div className="rv-section__heading"><div><h2 className="tk-heading-4">원본과 재현 결과 비교</h2><p className="rv-note">비교 사례 수는 전체 정확도 점수가 아닙니다. 원본 결과가 없거나 근거가 부족하면 미검증으로 남습니다.</p></div></div>
-      {latest.comparisons?.length ? <div className="rv-comparisons">{latest.comparisons.map((item) => <Comparison item={item} key={item.id} />)}</div>
+      {visualCounts && visualCounts.status !== "not_required" && <div className="rv-web-summary" aria-label="구현 기능 및 시각 비교 요약">
+        <span>기능 비교 {counts.count}건 · 일치 {counts.matched} · 불일치 {counts.mismatched} · 미검증 {counts.unverified}</span>
+        <span>시각 비교 {visualCounts.count}건 · 일치 {visualCounts.matched} · 불일치 {visualCounts.mismatched} · 미검증 {visualCounts.unverified}</span>
+      </div>}
+      {latest.comparisons?.length ? <div className="rv-comparisons">{latest.comparisons.map((item) => <Comparison item={item} job={job} role="implementation" key={item.id} />)}</div>
         : <p className="rv-empty-inline">비교 사례가 없습니다. 직접 비교는 0건이며 결과는 미검증입니다.</p>}
     </section>}
 
-    {latest && (latest.verification_direct_comparison || latest.verification_comparisons || verificationReport || independent) && <section className="rv-section" aria-label="독립 검증 비교">
+    {latest && (latest.verification_direct_comparison || latest.verification_visual_comparison || latest.verification_comparisons || verificationReport || independent) && <section className="rv-section" aria-label="독립 검증 비교">
       <div className="rv-section__heading"><div><h2 className="tk-heading-4">독립 검증 비교와 검사</h2>
         <p className="rv-note">구현 회차의 직접 비교와 분리된 독립 verifier 결과입니다.</p></div></div>
       <div className="rv-verification-summary">
@@ -200,7 +331,11 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         <span>검증 비교: <strong>{statusLabel(verificationCounts.status)}</strong></span>
         <span>사례 {verificationCounts.count}건 · 일치 {verificationCounts.matched} · 불일치 {verificationCounts.mismatched} · 미검증 {verificationCounts.unverified}</span>
       </div>
-      {verificationComparisons.length ? <div className="rv-comparisons">{verificationComparisons.map((item) => <Comparison item={item} key={`verify-${item.id}`} />)}</div>
+      {verificationVisualCounts && verificationVisualCounts.status !== "not_required" && <div className="rv-web-summary" aria-label="검증 기능 및 시각 비교 요약">
+        <span>검증 기능 비교 {verificationCounts.count}건 · 일치 {verificationCounts.matched} · 불일치 {verificationCounts.mismatched} · 미검증 {verificationCounts.unverified}</span>
+        <span>검증 시각 비교 {verificationVisualCounts.count}건 · 일치 {verificationVisualCounts.matched} · 불일치 {verificationVisualCounts.mismatched} · 미검증 {verificationVisualCounts.unverified}</span>
+      </div>}
+      {verificationComparisons.length ? <div className="rv-comparisons">{verificationComparisons.map((item) => <Comparison item={item} job={job} role="verifier" key={`verify-${item.id}`} />)}</div>
         : <p className="rv-empty-inline">검증 비교 사례가 없습니다. 독립 검증 비교는 0건이며 결과는 미검증입니다.</p>}
       <div className="rv-verification-report">
         <h3>Verifier 검사와 보고</h3>
@@ -263,7 +398,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
     {!!history.length && <section className="rv-section" aria-label="이전 비교 회차"><h2 className="tk-heading-4">이전 결과</h2>
       <div className="rv-history">{history.map((snapshot, i) => { const c = countComparisons(snapshot); return <details key={snapshot.run_id || i}>
         <summary>{snapshot.created_at || snapshot.run_id || `이전 회차 ${i + 1}`} · 비교 {c.count}건 · 일치 {c.matched} · 불일치 {c.mismatched} · 미검증 {c.unverified}</summary>
-        {snapshot.comparisons?.length ? snapshot.comparisons.map((item) => <Comparison item={item} key={item.id} />) : <p className="rv-note">저장된 비교 사례가 없습니다.</p>}
+        {snapshot.comparisons?.length ? snapshot.comparisons.map((item) => <Comparison item={item} job={job} role="implementation" key={item.id} />) : <p className="rv-note">저장된 비교 사례가 없습니다.</p>}
       </details>; })}</div></section>}
 
     {!!job.outputs?.length && <section className="rv-section" aria-label="소스와 산출물 다운로드"><h2 className="tk-heading-4">소스·산출물</h2>
@@ -276,7 +411,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         <summary>{r.role === "verify" ? "독립 검증" : "분석·구현"} · {r.status} · {r.engine}{r.model ? ` / ${r.model}` : ""}</summary><p className="rv-prose">{r.result_text || r.error}</p></details>)}</details>}
 
     <section className="rv-start" aria-label="후속 작업"><h2 className="tk-heading-4">다음 작업</h2>
-      <div className="rv-action-row">{suggestions.map((s) => <Button key={s} variant="ghost" disabled={active} onClick={() => ask(s === "불일치 차이 수정" ? `직접 비교와 독립 검증의 불일치 항목을 근거와 함께 확인하고 수정해 주세요.\n${allMismatches.map(({ item, source }) => `- ${source} · ${item.behavior}: ${json(item.difference)}`).join("\n")}` : s)}>{s}</Button>)}
+      <div className="rv-action-row">{suggestions.map((s) => <Button key={s} variant="ghost" disabled={active} onClick={() => ask(s === "불일치 차이 수정" ? repairPrompt() : s)}>{s}</Button>)}
         {job.mode === "analyze" && <Button variant="ghost" busy={saveSettings.isPending} disabled={active || saveSettings.isPending} onClick={switchToReconstruct}>분석에서 재현으로 전환</Button>}</div>
       <label className="rv-label" htmlFor="rv-followup">추가 설명·검사·수정 요청</label>
       <textarea ref={promptRef} id="rv-followup" rows={4} maxLength={40000} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="차이를 고치거나, 추가 검사를 요청하거나, 관찰된 사실과 추론을 보충해 주세요." />

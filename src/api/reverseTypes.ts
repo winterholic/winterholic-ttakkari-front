@@ -6,6 +6,36 @@ export type ReverseTargetType = "auto" | "cli" | "web" | "api" | "source";
 export type ReverseMode = "auto" | "analyze" | "reconstruct" | "analyze_reconstruct";
 export type ComparisonResult = "match" | "mismatch" | "unverified";
 
+export interface ReverseComparisonSummary {
+  status: ComparisonResult;
+  count: number;
+  matched: number;
+  mismatched: number;
+  unverified: number;
+}
+
+export interface ReverseVisualComparisonSummary extends Omit<ReverseComparisonSummary, "status"> {
+  status: ComparisonResult | "not_required";
+}
+
+export interface ReverseScreenshotReference {
+  path: string;
+  sha256?: string;
+  size_bytes?: number;
+  viewport?: { width: number; height: number; device_scale_factor: number };
+  format?: "png" | string;
+}
+
+export interface ReverseEvidenceItem {
+  kind: string;
+  /** Non-web evidence may use a direct path; web_capture uses capture.path. */
+  path?: string;
+  sha256?: string;
+  capture?: { path?: string; sha256?: string; size_bytes?: number };
+  integrity?: { status?: string | null; reason?: string | null; reasons?: string[] };
+  provenance?: { status?: string | null; reason?: string | null; reasons?: string[] };
+}
+
 export interface ReverseStage {
   key: string; label: string; status: "pending" | "running" | "waiting" | "done" | "failed" | "skipped";
   started_at: string | null; finished_at: string | null; evidence: string[]; notes: string[];
@@ -34,10 +64,12 @@ export interface ReverseReport {
 
 export interface ReverseComparison {
   id: string; behavior: string; target_type: ReverseTargetType; input: Record<string, unknown>;
-  pre_state: Record<string, unknown>; original: Record<string, unknown> | null;
-  replica: Record<string, unknown>; environment: Record<string, unknown>;
+  pre_state: Record<string, unknown>;
+  original: (Record<string, unknown> & { screenshot?: ReverseScreenshotReference | null }) | null;
+  replica: Record<string, unknown> & { screenshot?: ReverseScreenshotReference | null };
+  environment: Record<string, unknown>;
   evidence_level: "direct" | "observed" | "inferred" | "unknown";
-  evidence: { kind: string; path: string; sha256?: string }[];
+  evidence: ReverseEvidenceItem[];
   verified_at: string | null; run_id: string; result: ComparisonResult;
   difference: Record<string, unknown> | null;
   functional_result?: ComparisonResult;
@@ -52,10 +84,12 @@ export interface ReverseSnapshot {
   report?: Record<string, unknown>;
   source?: { status: string; files?: string[] };
   execution?: { status: string; checks?: ReverseCheck[] };
-  direct_comparison?: { status: ComparisonResult; count: number; matched: number; mismatched: number; unverified: number };
+  direct_comparison?: ReverseComparisonSummary;
+  visual_comparison?: ReverseVisualComparisonSummary;
   independent_verification?: { status: string; run_id?: string | null; verdict?: string | null };
   comparisons?: ReverseComparison[];
-  verification_direct_comparison?: { status: ComparisonResult; count: number; matched: number; mismatched: number; unverified: number };
+  verification_direct_comparison?: ReverseComparisonSummary;
+  verification_visual_comparison?: ReverseVisualComparisonSummary;
   verification_comparisons?: ReverseComparison[];
   verification_report?: ReverseReport;
 }
@@ -80,6 +114,9 @@ export interface ReverseSummary {
     source?: ReverseSnapshot["source"];
     execution?: ReverseSnapshot["execution"];
     direct_comparison?: ReverseSnapshot["direct_comparison"];
+    visual_comparison?: ReverseSnapshot["visual_comparison"];
+    verification_direct_comparison?: ReverseSnapshot["verification_direct_comparison"];
+    verification_visual_comparison?: ReverseSnapshot["verification_visual_comparison"];
     independent_verification?: ReverseSnapshot["independent_verification"];
   };
   independent_verification?: ReverseSnapshot["independent_verification"];
@@ -129,6 +166,11 @@ export function reverseV2FromDetail(detail: ReverseDetail): ReverseV2Result | nu
     ...(state?.source && !latest?.source ? { source: state.source } : {}),
     ...(state?.execution && !latest?.execution ? { execution: state.execution } : {}),
     ...(state?.direct_comparison && !latest?.direct_comparison ? { direct_comparison: state.direct_comparison } : {}),
+    ...(state?.visual_comparison && !latest?.visual_comparison ? { visual_comparison: state.visual_comparison } : {}),
+    ...(state?.verification_direct_comparison && !latest?.verification_direct_comparison
+      ? { verification_direct_comparison: state.verification_direct_comparison } : {}),
+    ...(state?.verification_visual_comparison && !latest?.verification_visual_comparison
+      ? { verification_visual_comparison: state.verification_visual_comparison } : {}),
     ...(state?.independent_verification && !latest?.independent_verification ? { independent_verification: state.independent_verification } : {}),
   } : null;
   return {
