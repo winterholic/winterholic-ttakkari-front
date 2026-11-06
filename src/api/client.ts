@@ -1354,8 +1354,9 @@ export const getNotebookJob = (id: string): Promise<NlmJob> => json(`/api/notebo
 export const cancelNotebookJob = (id: string): Promise<NlmJob> => json(`/api/notebooklm/jobs/${encodeURIComponent(id)}/cancel`, { method: "POST" });
 
 // ---- 게임 스튜디오(back ADR 0046~0050). 게임 화면은 별도 origin 의 sandbox iframe 이라 여기서는 주소만 받는다.
-import type { Game, GameBuild, GameBuildDetail, GameCreateIn, GameCreateOut, GamePlay, GameRequest, GameRequestIn, GameRollbackIn, GameRollbackOut, GameSourceDiff, GameVersion } from "./gameTypes";
+import type { Game, GameBuild, GameBuildDetail, GameCreateIn, GameCreateOut, GameDiscovery, GamePlay, GameRequest, GameRequestIn, GameRollbackIn, GameRollbackOut, GameSourceDiff, GameVersion } from "./gameTypes";
 export const listGames = (): Promise<Game[]> => json("/api/games");
+export const discoverGames = (): Promise<GameDiscovery> => json("/api/games/discover");
 export const getGame = (id: UUID): Promise<Game> => json(`/api/games/${id}`);
 export const registerGame = (slug: string): Promise<Game> => json("/api/games", { method: "POST", json: { slug } });
 export const createGame = (body: GameCreateIn): Promise<GameCreateOut> => json("/api/games/create", { method: "POST", json: body });

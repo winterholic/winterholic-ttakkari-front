@@ -20,9 +20,9 @@ const build = (seq: number, over: Partial<GameBuild> = {}): GameBuild => ({
 });
 const game = { id: "g1", slug: "flappy-dot", name: "Flappy Dot", workspace_id: "w1", active_build_id: "b3" } as Game;
 
-function wrap(shots: Record<string, Screenshot> = {}, onShot = vi.fn()) {
+function wrap(shots: Record<string, Screenshot> = {}, onShot = vi.fn(), selectedGame: Game = game) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(<QueryClientProvider client={qc}><MemoryRouter><BuildHistory game={game} shots={shots} onShot={onShot} /></MemoryRouter></QueryClientProvider>);
+  return render(<QueryClientProvider client={qc}><MemoryRouter><BuildHistory game={selectedGame} shots={shots} onShot={onShot} /></MemoryRouter></QueryClientProvider>);
 }
 
 beforeEach(() => {
@@ -34,6 +34,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("빌드 목록과 되돌리기", () => {
+  it("현재 버전보다 새 후보는 해 본 뒤 소스 변경 없이 채택한다", async () => {
+    wrap({}, vi.fn(), { ...game, active_build_id: "b2" });
+    fireEvent.click(await screen.findByRole("button", { name: "v3 사용하기" }));
+    const dialog = await screen.findByRole("dialog", { name: "이 버전 사용하기" });
+    expect(within(dialog).queryByRole("checkbox")).toBeNull();
+    fireEvent.click(within(dialog).getByRole("button", { name: "이 버전 사용" }));
+    await waitFor(() => expect(api.rollbackGame).toHaveBeenCalledWith("g1", { build_id: "b3", restore_source: false, confirm: true }));
+  });
   it("빌드마다 상태를 보이고 지금 보는 버전에는 되돌리기 버튼이 없다", async () => {
     wrap();
     const list = await screen.findByRole("list", { name: "빌드 목록" });

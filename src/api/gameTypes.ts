@@ -59,6 +59,20 @@ export interface GamePlay {
 
 export type GameRequestKind = "develop" | "modify" | "verify";
 
+export interface GameCandidate {
+  slug: string;
+  name: string;
+  engine_id: string | null;
+  game_id: UUID | null;
+  can_register: boolean;
+  issues: string[];
+}
+
+export interface GameDiscovery {
+  candidates: GameCandidate[];
+  has_more: boolean;
+}
+
 /** 좌표는 이미지 왼쪽 위가 (0,0)인 0~1 비율. back games/feedback.py 의 AnnotationIn 과 같다. */
 export type GameAnnotation =
   | { type: "box"; x: number; y: number; w: number; h: number }
@@ -103,6 +117,7 @@ export interface GamePickedObject {
 export interface GameRequestIn {
   kind: GameRequestKind;
   instruction: string;
+  review_before_apply?: boolean;
   build_id?: UUID | null;
   feedback?: GameFeedbackIn | null;
 }
@@ -112,6 +127,7 @@ export interface GameRequest {
   run_id: UUID;
   status: string;
   kind: string;
+  instruction?: string;
   build_id: UUID | null;
   lock: string;
   /** Run 이 끝난 시점의 잠금 상태. worker 가 승인된 잠금 결정을 바꿨으면 "tampered". 끝나기 전에는 없다 */

@@ -50,6 +50,21 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("GameCockpit", () => {
+  it("첫 빌드 실패와 다음 행동을 보여주고 빌드 없이 수리 요청을 받는다", async () => {
+    api.getGame.mockResolvedValue(game({ active_build_id: null, last_build: build(1, { status: "failed" }) }));
+    api.listGameBuilds.mockResolvedValue([build(1, { status: "failed", error: "typecheck_failed" })]);
+    api.playGame.mockRejectedValue(new ApiError(409, { code: "not_playable", message: "x" }));
+    renderCockpit();
+    expect(await screen.findByRole("heading", { name: "첫 실행 준비에서 멈췄어요" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "수리 요청 작성" }));
+    expect(screen.getByRole("button", { name: "AI 수리 요청" })).toBeTruthy();
+  });
+
+  it("Run 성공만으로 플레이 검증 완료라고 안내하지 않는다", async () => {
+    renderCockpit();
+    expect(await screen.findByRole("heading", { name: "직접 플레이하며 확인해 주세요" })).toBeTruthy();
+    expect(screen.getByText(/빌드가 끝났어요. 실제 재미와 조작/)).toBeTruthy();
+  });
   it("장르·엔진·빌드 칩과 상태 배지, 별도 origin 의 sandbox iframe 을 보인다", async () => {
     renderCockpit();
     const frame = (await screen.findByTitle("게임 화면 v2")) as HTMLIFrameElement;
@@ -79,7 +94,7 @@ describe("GameCockpit", () => {
     renderCockpit();
     expect(await screen.findByText("게임 미리보기 주소가 아직 설정되지 않았어요")).toBeTruthy();
     expect(screen.queryByTitle(/게임 화면 v/)).toBeNull();
-    expect((screen.getByRole("button", { name: "현재 화면 캡처" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: "현재 화면 캡처" })).toBeNull();
   });
 
   it("성공한 빌드가 없으면 빌드 시작 버튼을 보인다", async () => {

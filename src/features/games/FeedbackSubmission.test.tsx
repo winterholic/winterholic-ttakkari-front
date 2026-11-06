@@ -36,6 +36,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("FeedbackForm", () => {
+  it("장면과 확인할 결과를 요청 문맥에 함께 보낸다", async () => {
+    wrap(<FeedbackForm game={game} build={null} screenshot={null} annotations={[]} onSubmitted={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "상호작용 후 멈춰요" } });
+    fireEvent.change(screen.getByLabelText("장면·챕터 (선택)"), { target: { value: "1장" } });
+    fireEvent.change(screen.getByLabelText("확인할 결과 (선택)"), { target: { value: "대화 후 다시 이동할 수 있음" } });
+    fireEvent.click(screen.getByRole("button", { name: "AI 개발 요청" }));
+    await waitFor(() => expect(api.requestGameWork).toHaveBeenCalled());
+    expect(api.requestGameWork.mock.calls[0][1].instruction).toBe("상호작용 후 멈춰요\n\n장면·챕터: 1장\n확인할 결과: 대화 후 다시 이동할 수 있음");
+  });
   it("프레임 업로드가 실패하면 수정 요청을 보내지 않고 입력을 보존한다", async () => {
     api.uploadFile.mockRejectedValueOnce(new Error("업로드 실패"));
     const clip = { buildId: "b2", buildSeq: 2, startMs: 0, endMs: 500, frames: [{ tMs: 0, dataUrl: "data:image/jpeg;base64,/9j/2Q==" }] };
@@ -133,11 +142,27 @@ describe("FeedbackForm", () => {
     expect(JSON.stringify(body.feedback)).not.toContain("source"); // 소스 위치 같은 값은 만들어 보내지 않는다
   });
 
-  it("빌드가 없으면 보낼 수 없다고 알려 주고 단추를 끈다", () => {
+  it("성공한 빌드가 없어도 글로 개발을 요청한다", async () => {
     wrap(<FeedbackForm game={game} build={null} screenshot={null} annotations={[]} onSubmitted={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "x" } });
-    expect(screen.getByText("성공한 빌드가 있어야 요청할 수 있어요.")).toBeTruthy();
-    expect((screen.getByRole("button", { name: "AI 수정 요청" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "AI 개발 요청" }));
+    await waitFor(() => expect(api.requestGameWork).toHaveBeenCalledWith("g1", { kind: "develop", instruction: "x", build_id: null, review_before_apply: true }));
+    expect(api.uploadFile).not.toHaveBeenCalled();
+  });
+
+  it("빌드 없는 요청에서 화면 증거를 조용히 버리지 않는다", () => {
+    wrap(<FeedbackForm game={game} build={null} screenshot={shot} annotations={[]} onSubmitted={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "수리" } });
+    expect(screen.getByText("화면 자료의 기준 버전을 확인해 주세요.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "AI 개발 요청" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(api.requestGameWork).not.toHaveBeenCalled();
+  });
+
+  it("첫 빌드 실패 뒤에는 같은 프로젝트에 수리를 요청한다", async () => {
+    wrap(<FeedbackForm game={{ ...game, last_build: { status: "failed" } } as Game} build={null} screenshot={null} annotations={[]} onSubmitted={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("이렇게 바꿔 주세요"), { target: { value: "빌드 오류를 고쳐 주세요" } });
+    fireEvent.click(screen.getByRole("button", { name: "AI 수리 요청" }));
+    await waitFor(() => expect(api.requestGameWork).toHaveBeenCalledWith("g1", { kind: "modify", instruction: "빌드 오류를 고쳐 주세요", build_id: null, review_before_apply: true }));
   });
 
   it("요청이 거절되면 서버 메시지를 보이고 입력을 지우지 않는다", async () => {
@@ -162,7 +187,7 @@ describe("GameRequests", () => {
     const cards = await screen.findAllByTestId("task-card");
     expect(cards.map((c) => c.textContent)).toEqual(["s1", "s0"]);
     expect(screen.getByText("작업 중")).toBeTruthy();
-    expect(screen.getByText("완료")).toBeTruthy();
+    expect(screen.getByText("코드 작업 끝남")).toBeTruthy();
     expect(screen.getAllByRole("link", { name: "작업 세션 열기" })[0].getAttribute("href")).toBe("/workspace/s1");
   });
 

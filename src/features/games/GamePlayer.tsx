@@ -149,7 +149,7 @@ export function GamePlayer({
 
   return (
     <section className="game-player" aria-label="게임 화면">
-      <div className="game-stage" ref={stageRef} data-fullscreen={fullscreen ? "" : undefined}>
+      <div className="game-stage" ref={stageRef} data-empty={!play || !!problem ? "" : undefined} data-fullscreen={fullscreen ? "" : undefined}>
         {play && !problem ? (
           <iframe
             key={`${play.url}#${frameKey}`}
@@ -193,7 +193,7 @@ export function GamePlayer({
           </button>
         )}
       </div>
-      <div className="tk-toolbar game-toolbar" role="toolbar" aria-label="게임 조작">
+      {play && !problem && <div className="tk-toolbar game-toolbar" role="toolbar" aria-label="게임 조작">
         <div className="tk-toolbar__group">
           <Button size="sm" onClick={() => { onRestart(); setFrameKey((k) => k + 1); setPausedUrl(null); setPauseError(null); stopPicking(); }} disabled={loading} aria-label="처음부터 다시 재생">
             <Icon name="retry" />
@@ -224,7 +224,7 @@ export function GamePlayer({
             <span>전체화면</span>
           </Button>
         </div>
-      </div>
+      </div>}
       {picking && (
         <div ref={pickPanelRef}>
           <ObjectPickPanel

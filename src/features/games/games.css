@@ -18,6 +18,8 @@
   padding: var(--tk-space-4); text-align: center; color: var(--tk-color-text-inverse, var(--tk-color-text-secondary));
 }
 .game-stage__empty p { margin: 0; }
+.game-stage[data-empty] { aspect-ratio: auto; max-height: none; }
+.game-stage[data-empty] .game-stage__empty { position: static; min-block-size: var(--tk-space-24); }
 .game-stage__empty-title { font-weight: var(--tk-font-weight-semibold); }
 .game-stage__empty-detail { font-size: var(--tk-font-size-sm); opacity: 0.85; max-inline-size: 28ch; }
 .game-toolbar { flex-wrap: wrap; }
@@ -208,3 +210,17 @@
 .game-source__commits code { flex: none; white-space: nowrap; }
 /* 캡처 전에는 9:16 빈 상자 대신 버튼만 둬서 목록까지 스크롤이 길어지지 않게 한다 */
 .game-compare__shot[data-empty] { aspect-ratio: auto; min-block-size: var(--tk-space-16); padding: var(--tk-space-2); }
+.games-home__intro h2, .game-connect h2 { margin: 0; font-size: var(--tk-font-size-lg); }
+.games-home__actions { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); }
+.game-connect, .game-connect__manual { display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; }
+.game-connect p { margin: 0; overflow-wrap: anywhere; }
+.game-request-context { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.game-request-context .tk-label { margin: 0; }
+.game-request__instruction { margin: 0; overflow-wrap: anywhere; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-primary); }
+.game-next { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--tk-space-3); padding: var(--tk-space-4); background: var(--tk-color-surface-default); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); }
+.game-next > div { min-width: 0; }
+.game-next h2 { font-size: var(--tk-font-size-lg); margin: var(--tk-space-1) 0 var(--tk-space-2); }
+.game-next p { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.game-next > .tk-button { flex-shrink: 0; }
+@media (max-width: 640px) { .game-next { flex-direction: column; } .game-next > .tk-button { width: 100%; } }
+

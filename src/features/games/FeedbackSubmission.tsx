@@ -35,7 +35,13 @@ export function useGameRequests(gameId: string) {
 export function useSubmitFeedback(game: Game) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { build: Pick<GameBuild, "id" | "seq">; screenshot: Screenshot | null; annotations: Annotation[]; comment: string; picked?: PickSelection | null; clip?: ClipSelection | null }) => {
+    mutationFn: async (input: { build: Pick<GameBuild, "id" | "seq"> | null; screenshot: Screenshot | null; annotations: Annotation[]; comment: string; picked?: PickSelection | null; clip?: ClipSelection | null }) => {
+      if (!input.build) {
+        if (input.screenshot || input.annotations.length || input.picked || input.clip) throw new Error("화면 자료의 기준 버전을 확인해 주세요.");
+        return { request: await requestGameWork(game.id, {
+          kind: game.last_build?.status === "failed" ? "modify" : "develop", build_id: null, instruction: input.comment.trim(), review_before_apply: true,
+        }) };
+      }
       // 모든 프레임을 먼저 검사해 일부 업로드 후 로컬 검증에 실패하지 않게 한다.
       const files = input.clip ? clipFiles(input.clip, input.build.id) : [];
       let clip: GameClipIn | undefined;
@@ -59,7 +65,7 @@ export function useSubmitFeedback(game: Game) {
       }
       const payload = buildPayload({ gameId: game.id, build: input.build, screenshot: input.screenshot, annotations: input.annotations, comment: input.comment, artifact: original, annotatedArtifact: annotated });
       const request = await requestGameWork(game.id, {
-        kind: "modify", build_id: input.build.id, instruction: payload.comment, feedback: toFeedbackIn(payload, input.picked ?? null, clip),
+        kind: "modify", build_id: input.build.id, instruction: payload.comment, feedback: toFeedbackIn(payload, input.picked ?? null, clip), review_before_apply: true,
       });
       return { request, payload, original, annotated };
     },
@@ -81,6 +87,8 @@ export function FeedbackForm({
   clip = null,
   onClearClip,
   onSubmitted,
+  working = false,
+  unavailableReason = null,
 }: {
   game: Game;
   build: Pick<GameBuild, "id" | "seq"> | null;
@@ -92,20 +100,29 @@ export function FeedbackForm({
   clip?: ClipSelection | null;
   onClearClip?: () => void;
   onSubmitted: () => void;
+  working?: boolean;
+  unavailableReason?: string | null;
 }) {
   const [comment, setComment] = useState("");
+  const [scene, setScene] = useState("");
+  const [expected, setExpected] = useState("");
   const submit = useSubmitFeedback(game);
   const text = comment.trim();
-  const blocked = !build ? "성공한 빌드가 있어야 요청할 수 있어요." : !text ? "무엇을 바꿀지 글로 적어 주세요." : null;
+  const blocked = unavailableReason ?? (!build && (screenshot || annotations.length || picked || clip) ? "화면 자료의 기준 버전을 확인해 주세요."
+    : working ? "진행 중인 작업이 끝나면 다음 요청을 보낼 수 있어요."
+    : !text ? "무엇을 바꿀지 글로 적어 주세요." : null);
+  const label = build ? "AI 수정 요청" : game.last_build?.status === "failed" ? "AI 수리 요청" : "AI 개발 요청";
 
   const send = () => {
-    if (!build || !text) return;
+    if (blocked || submit.isPending) return;
     submit.mutate(
-      { build, screenshot, annotations, comment, picked, clip },
+      { build, screenshot, annotations, comment: [comment.trim(), ...((scene.trim() || expected.trim())
+        ? ["", ...(scene.trim() ? [`장면·챕터: ${scene.trim()}`] : []), ...(expected.trim() ? [`확인할 결과: ${expected.trim()}`] : [])] : [])].join("\n"), picked, clip },
       {
         onSuccess: () => {
-          toast({ message: "AI에게 수정 요청을 보냈어요", tone: "success" });
+          toast({ message: "AI에게 요청을 보냈어요", tone: "success" });
           setComment("");
+          setExpected("");
           onSubmitted();
         },
       },
@@ -124,6 +141,12 @@ export function FeedbackForm({
         onChange={(e) => setComment(e.target.value)}
         placeholder="예: 주인공 점프가 너무 무거워요. 20%만 가볍게 해 주세요"
       />
+      <div className="game-request-context">
+        <label className="tk-label" htmlFor="game-feedback-scene">장면·챕터 (선택)</label>
+        <input id="game-feedback-scene" className="tk-input" maxLength={200} value={scene} onChange={(e) => setScene(e.target.value)} placeholder="예: 1장 · 문을 조사한 직후" />
+        <label className="tk-label" htmlFor="game-feedback-expected">확인할 결과 (선택)</label>
+        <input id="game-feedback-expected" className="tk-input" maxLength={400} value={expected} onChange={(e) => setExpected(e.target.value)} placeholder="예: 대화가 닫힌 뒤 다시 이동할 수 있음" />
+      </div>
       {picked && (
         <p className="vf-form__attach game-picked" aria-live="polite">
           <Icon name="search" />
@@ -143,7 +166,7 @@ export function FeedbackForm({
       {blocked && <p className="tk-help">{blocked}</p>}
       <Button type="submit" variant="primary" block busy={submit.isPending} disabled={!!blocked}>
         <Icon name="send" />
-        <span>AI 수정 요청</span>
+        <span>{label}</span>
       </Button>
     </form>
   );
@@ -154,7 +177,7 @@ function autoBuildNotice(r: GameRequest): string | null {
   const a = r.auto_build_result;
   if (!a) return null;
   if (a.code === "lock_violation") return "승인한 잠긴 결정이 바뀌어 자동 빌드를 건너뛰었어요. 위에서 결정을 확인하고 다시 승인하거나 되돌려 주세요.";
-  if (a.code === "typecheck_failed") return "자동 빌드가 타입 검사에서 실패했어요. 오류를 담아 AI에게 다시 고쳐 달라고 요청했어요.";
+  if (a.code === "typecheck_failed") return "자동 빌드가 타입 검사에서 실패했어요. AI 작업에서 자동 수리 상태를 확인하거나 수리를 요청해 주세요.";
   if (a.status === "failed") return "자동 빌드가 실패했어요. 빌드 이력에서 로그를 확인해 주세요.";
   if (a.status === "skipped" && a.code === "build_in_progress") return "다른 빌드가 진행 중이라 자동 빌드를 건너뛰었어요.";
   return null;
@@ -164,10 +187,11 @@ function RequestRow({ r }: { r: GameRequest }) {
   return (
     <li className="game-request" data-status={r.status}>
       <p className="game-request__meta">
-        <span className="tk-badge" data-state={r.status === "succeeded" ? "succeeded" : r.status === "failed" ? "failed" : r.status}>{STATUS_TEXT[r.status] ?? r.status}</span>
+        <span className="tk-badge" data-state={r.status === "succeeded" ? "succeeded" : r.status === "failed" ? "failed" : r.status}>{r.status === "succeeded" ? r.kind === "verify" ? "검토 작업 끝남" : "코드 작업 끝남" : STATUS_TEXT[r.status] ?? r.status}</span>
         <span>{new Date(r.created_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
         {(r.lock === "tampered" || r.lock_after === "tampered") && <span className="tk-badge tk-badge--warning">잠금 결정 변경 감지</span>}
       </p>
+      {r.instruction && <p className="game-request__instruction">{r.instruction}</p>}
       {autoBuildNotice(r) && <p className="tk-help game-request__note" role="status">{autoBuildNotice(r)}</p>}
       {/* 새 상태 시스템을 만들지 않고 기존 작업 트리 카드(back ADR 0014)를 그대로 쓴다 */}
       <TaskTreeCard rootId={r.session_id} onSelect={() => undefined} />

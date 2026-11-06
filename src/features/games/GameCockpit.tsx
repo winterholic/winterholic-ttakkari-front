@@ -8,6 +8,7 @@ import { errorText } from "../viewer/api";
 import { BuildHistory, activeBuildOf, useGameBuilds } from "./BuildHistory";
 import { FeedbackForm, GameRequests, useGameRequests } from "./FeedbackSubmission";
 import { GamePlayer } from "./GamePlayer";
+import { GameNextAction } from "./GameNextAction";
 import type { ClipSelection } from "./recordBridge";
 import type { PickSelection } from "./pickBridge";
 import { LockedDecisions } from "./LockedDecisions";
@@ -137,6 +138,10 @@ export function GameCockpit({ gameId }: { gameId: string }) {
 
   return (
     <div className="game-cockpit">
+      <GameNextAction game={g} builds={builds.data ?? []} requests={requests.data ?? []}
+        loading={builds.isPending || requests.isPending} error={builds.isError || requests.isError}
+        onRetry={() => { void builds.refetch(); void requests.refetch(); }}
+        onAction={(next) => { setTab(next); if (next === "feedback") document.getElementById("game-feedback-text")?.focus(); else panelRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }); }} />
       <div className="game-chips tk-chips tk-chips--wrap" aria-label="게임 정보">
         {g.genre && <span className="tk-chip"><span>장르 {g.genre}</span></span>}
         <span className="tk-chip"><Icon name="smartphone" /><span>엔진 {engineLabel(g.engine_id)}</span></span>
@@ -177,7 +182,8 @@ export function GameCockpit({ gameId }: { gameId: string }) {
             {screenshot ? (
               <VisualFeedback screenshot={screenshot} annotations={annotations} onChange={setAnnotations} onDiscard={() => { setScreenshot(null); setAnnotations([]); }} />
             ) : (
-              <p className="tk-help game-panel__hint">게임 화면 아래 <strong>캡처</strong>를 누르면 그 장면 위에 영역·화살표·그림으로 바꿀 곳을 표시할 수 있어요.</p>
+              playedBuild ? <p className="tk-help game-panel__hint">게임 화면 아래 <strong>캡처</strong>를 누르면 그 장면 위에 영역·화살표·그림으로 바꿀 곳을 표시할 수 있어요.</p>
+                : <p className="tk-help game-panel__hint">플레이 화면이 없어도 만들거나 고칠 내용을 글로 요청할 수 있어요.</p>
             )}
             <FeedbackForm
               game={g}
@@ -187,6 +193,8 @@ export function GameCockpit({ gameId }: { gameId: string }) {
               clip={clip}
               onClearClip={() => setClip(null)}
               picked={picked}
+              working={requestsActive || hasBuilding}
+              unavailableReason={requests.isPending || builds.isPending ? "진행 상태를 확인하고 있어요." : requests.isError || builds.isError ? "작업 상태를 다시 확인한 뒤 요청해 주세요." : null}
               onClearPicked={() => setPicked(null)}
               onSubmitted={() => { setScreenshot(null); setAnnotations([]); setPicked(null); setClip(null); setTab("work"); }}
             />
