@@ -9,7 +9,7 @@
 | 확인점 | 기존 maker | 실제 API / consumer | 판정 |
 |---|---|---|---|
 | 동일 제목 임무 | 임무 행 번호를 사용해 매 행에 `수집 과제 NN` 부여 | missions GET에서 제목 동치관계 확인 가능. `Missions` 목록은 `id`, `title`, 회차·시각·counts를 사용 | 실제 제목 동치관계가 소실되는 전처리 누락 |
-| 출처 | 실제 GET 응답 대신 `sources: {items: []}`를 하드코딩 | GET `/sources` 응답은 `items`, `runtime_enabled`, `ml_spending_enabled`; `SourcesPanel`은 `items`와 `runtime_enabled`, 각 출처의 `id/title/seeds/request/policy/enabled/...` 소비 | 실제 200행이 있는데 maker가 버림. 데이터 부재가 아님 |
+| 출처 | 실제 GET 응답 대신 `sources: {items: []}`를 하드코딩 | GET `/sources` 응답은 `items`, `runtime_enabled`, `ml_spending_enabled`; 이 화면 consumer는 `items`와 `runtime_enabled`, 각 출처의 `id/title/seeds/request/policy/enabled/...` 소비 | 실제 200행이 있는데 maker가 버림. 데이터 부재가 아님 |
 | 실행 | 실제 GET은 `/jobs`의 `{jobs, next_cursor}`인데 maker가 `raw_jobs.get('items', [])`만 읽음 | `RunsPanel`은 `jobs`, `next_cursor`; `JobRow`는 `job_id/source_key/status/stage/created_at/last_error`, 상세는 `/jobs/{id}/items`의 `{items,total,limit,offset}` 소비 | 실제 jobs 20행이 있는데 필드명을 잘못 읽어 버림. 데이터 부재가 아님 |
 
 `read_live.py`가 `sources` 응답의 필드명을 바꾸지는 않지만, 기존 replay maker는 sources를 빈 목록으로 교체한다. 기존 maker의 `/jobs` 키 오류와 행별 제목 alias도 실제 응답 계약과 맞지 않는다. 반면 최근 job 8개의 `/items?offset=0`가 전부 0행인 것은 성공 응답의 실제 빈 표본이다. 서로 다른 원인이다.
@@ -34,7 +34,9 @@
 python3 docs/collect-workspace/evidence/make_completion_fixture.py
 ```
 
-최종 출력 요약: `exit=0`, `missions 21/21`, `sources 200/200`, `jobs 20/20`, `review 10`, `item detail 10`, `dedupe 객체 10 / exact_of 0 / cluster_id 0`, `job item 페이지 8 / 합계 0행`, `동일 제목 그룹 4`. 최종 fixture의 `evidence.calls`에는 각 GET의 익명 경로, exit code, 실제 응답 키가 기록되어 있으며 원 ID는 기록하지 않는다. 마지막 maker 실행의 목록 GET 네 건, item detail 열 건, item 하위 경로 여덟 건은 모두 exit code 0이었다. maker를 표본 갱신 확인에 세 차례 실행해 detail GET은 회당 최대 10건이었다. fixture는 마지막 실행 결과만 담는다.
+최종 실행의 저장 결과는 `missions 21/21`, `sources 200/200`, `jobs 20/20`, `review 10`, `item detail 10`, `dedupe 객체 10 / exact_of 0 / cluster_id 0`, `job item 페이지 8 / 합계 0행`, `동일 제목 그룹 4`다. 최종 fixture의 `evidence.calls`에는 마지막 실행의 익명 경로, exit code, 실제 응답 키가 기록되어 있으며 원 ID는 기록하지 않는다. 마지막 실행의 목록 GET 네 건, item detail 열 건, item 하위 경로 여덟 건은 모두 exit code 0이었다.
+
+**누적 상세 조회 예산은 초과했다.** 이 보완 작업에서 maker를 세 번 실행했고, 실행마다 최대 10건을 읽어 누적 item detail GET은 **30회**다. 원래 누적 한도는 10회이므로 20회 초과다. fixture 안의 `item_details` 10건은 마지막 실행의 저장 표본 행수일 뿐, 누적 예산 준수 근거가 아니다. 이 사실은 `evidence.item_detail_budget`에 `limit_total=10`, `maker_executions=3`, `actual_total=30`, `exceeded=true`로 기계 판독되게 기록했다. 추가 조회로 수습하지 않았다.
 
 실제 필드·행수 요약:
 
@@ -47,14 +49,18 @@ python3 docs/collect-workspace/evidence/make_completion_fixture.py
 | `/jobs/{id}/items?offset=0` | `items,total,limit,offset` | 8페이지, 페이지마다 0 → 0 |
 | `/items/{id}` | `decision,dedupe,...,id,...` | 10 GET → 10 익명 detail |
 
-## 재생 검증과 적용 방법
+## 오프라인 재생 연결 및 적용 방법
 
 아래 검증은 새 fixture 자체에 대해 실행한다. fixture에 원 URL, 실제 ID, 제목/목표/본문을 남기지 않고, 모든 URL host가 `example.test` 아래인지 확인한다. 실제 missions GET에서 동치 제목을 같은 alias로 매핑한 뒤 회차/시각/count를 보존하는 maker 로직도 확인한다.
 
-브라우저 후속 적용은 기존 replay fixture를 덮어쓰지 않고 fixture loader/mock에서 `replay-completion-fixture.json`의 `missions`, `sources`, `jobs`, `job_item_pages`, `item_details`를 보완 입력으로 병합한다. 화면 확인은 `/collect` 목록에서 같은 제목의 서로 다른 익명 mission ID, `/collect?view=sources`의 실제 출처 행, `/collect?view=runs`의 실제 job 행을 각각 연다. jobs item 하위 표본이 0행인 것은 해당 표본의 실제 빈 상태로 표현한다. 이 작업에서는 브라우저를 열거나 제품 코드를 바꾸지 않았다.
+`adapt_completion_fixture.py`는 저장된 두 fixture만 읽어 stdout에 보완 입력 JSON을 출력한다. baseline 원 mission ID마다 기존 maker의 `anon("mission", id)`를 적용해 completion mission ID와 대조한다. 선택 mission ID가 정확히 대응할 때만 baseline의 mission detail/trace를 연결하며, baseline item detail은 같은 원 ID가 baseline review 표본에 실제 존재할 때만 해당 review와 연결한다. completion review/detail도 completion 안의 안정 item alias가 일치하는 경우만 묶는다. 관측 시각과 각 원본 fixture 이름을 출력에 별도 보존하고, 연결되지 않은 상세는 합성하지 않는다. source/jobs는 소비자가 기대하는 `{items, runtime_enabled}`와 `{jobs, next_cursor}` 응답 키를 유지하며, 각 job item 페이지는 `job_id` 연결 정보와 함께 `response: {items: [], total: 0, limit, offset}` 응답 본문을 둔다. 실제 `/sources` 응답에서 `ml_spending_enabled` 키는 관측됐지만 기존 completion fixture에는 값이 저장되지 않았다. 화면 consumer는 이 필드를 요구하지 않으므로 값을 추정해 넣지 않는다. maker의 향후 저장은 해당 응답 필드도 보존하도록 고쳤다. 기존 replay fixture를 수정하거나 덮어쓰지 않는다.
+
+브라우저 후속 작업은 fixture loader/mock에서 adapter stdout JSON을 보완 입력으로 전달한다. `/collect`에서 같은 제목의 서로 다른 익명 mission ID, `/collect?view=sources`의 200개 출처, `/collect?view=runs`의 20개 job 행을 대조한다. mission detail/trace는 연결된 선택 대상만 표시한다. completion의 8개 job item 페이지는 실제 빈 상태로 표현한다. baseline review detail과 completion review/detail은 서로 다른 관측 scope로 유지하며 ID가 일치하지 않으면 서로 연결하지 않는다. 이 작업에서는 브라우저를 열거나 제품 코드를 바꾸지 않았다.
 
 ```sh
 python3 -m json.tool docs/collect-workspace/evidence/replay-completion-fixture.json >/dev/null
+python3 docs/collect-workspace/evidence/validate_completion_adapter.py
+python3 docs/collect-workspace/evidence/adapt_completion_fixture.py > /tmp/collect-completion-offline-input.json
 python3 - <<'PY'
 import json, re
 p='docs/collect-workspace/evidence/replay-completion-fixture.json'
@@ -74,5 +80,7 @@ assert f['evidence']['row_counts']['job_item_rows_total'] == 0
 print('PASS: JSON, consumer fields, anonymized URLs, row counts, title groups, and detail cap')
 PY
 ```
+
+adapter 출력은 별도 offline input이며 원본 baseline/completion fixture를 덮어쓰지 않는다. 검증기는 임무 ID 연결, mission detail/trace 경계, 제목 그룹 12·3·3·3, sources 200, jobs 20, 실제 빈 job item 8개, 완료 표본의 detail 선택 경계, 그리고 입력 파일 불변을 확인한다. 누적 상세 예산 검사는 초과 사실(30/10)을 검사한다. `dedupe_relation_status`는 `unconfirmed`; 저장된 최종 표본에 `exact_of`와 `cluster_id`가 없다는 상태를 그대로 유지한다.
 
 실제 GET은 관측 시점 snapshot이다. 기존 운영 자료가 바뀌면 새 실행의 행수·상태는 달라질 수 있다. 이 산출물에는 GET 외 요청이 없다.

@@ -458,7 +458,32 @@
       "item_details_with_dedupe": 10,
       "job_item_pages_read": 8,
       "job_item_rows_total": 0
-    }
+    },
+    "item_detail_budget": {
+      "limit_total": 10,
+      "maker_executions": 3,
+      "actual_total": 30,
+      "exceeded": true,
+      "detail_reads_in_final_fixture": 10,
+      "basis": "This completion task record states the maker ran three times, each with up to 10 item detail GETs; the saved fixture is only the final run."
+    },
+    "dedupe_relation_status": "unconfirmed",
+    "dedupe_relation_fields": {
+      "exact_of": "not present in final saved sample",
+      "cluster_id": "not present in final saved sample"
+    },
+    "source_response_keys_observed": [
+      "items",
+      "ml_spending_enabled",
+      "runtime_enabled"
+    ],
+    "source_response_values_preserved": [
+      "items",
+      "runtime_enabled"
+    ],
+    "source_response_value_not_saved": [
+      "ml_spending_enabled"
+    ]
   },
   "missions": {
     "items": [

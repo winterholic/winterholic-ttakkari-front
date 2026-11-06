@@ -65,6 +65,20 @@ def time_value(value: object) -> str | None:
     return value if isinstance(value, str) and len(value) <= 48 else None
 
 
+def safe_dedupe(value: object) -> dict | None:
+    if not isinstance(value, dict):
+        return None
+    safe = {}
+    for field in ("exact_of", "cluster_id"):
+        if field in value and value[field] is not None:
+            safe[field] = anon("item" if field == "exact_of" else "cluster", value[field])
+    for field in ("canonical_candidate", "canonical_status", "algorithm_version"):
+        if field in value and isinstance(value[field], (str, int, float, bool, type(None))):
+            candidate = value[field]
+            safe[field] = anon("item", candidate) if field == "canonical_candidate" and isinstance(candidate, str) else candidate
+    return safe
+
+
 def main() -> None:
     observed_at = dt.datetime.now(dt.timezone.utc).isoformat()
     reader = Reader()
@@ -179,18 +193,10 @@ def main() -> None:
             continue
         raw = reader.get(BASE + "/items/" + row["id"])
         dedupe = raw.get("dedupe") if isinstance(raw.get("dedupe"), dict) else None
-        safe_dedupe = None
-        if dedupe is not None:
-            safe_dedupe = {}
-            for field in ("exact_of", "cluster_id"):
-                if field in dedupe and dedupe[field] is not None:
-                    safe_dedupe[field] = anon("item" if field == "exact_of" else "cluster", dedupe[field])
-            for field in ("canonical_candidate", "canonical_status", "algorithm_version"):
-                if field in dedupe and isinstance(dedupe[field], (str, int, float, bool, type(None))):
-                    safe_dedupe[field] = dedupe[field]
+        safe_dedupe_value = safe_dedupe(dedupe)
         details.append({
             "id": anon("item", raw.get("id", row["id"])), "status": raw.get("status"),
-            "stage": raw.get("stage"), "dedupe": safe_dedupe,
+            "stage": raw.get("stage"), "dedupe": safe_dedupe_value,
         })
 
     fixture = {
@@ -213,7 +219,8 @@ def main() -> None:
         },
         "missions": {"items": safe_missions, "limit": missions_raw.get("limit"),
                      "offset": missions_raw.get("offset"), "has_more": missions_raw.get("has_more")},
-        "sources": {"items": safe_sources, "runtime_enabled": sources_raw.get("runtime_enabled")},
+        "sources": {"items": safe_sources, "runtime_enabled": sources_raw.get("runtime_enabled"),
+                    "ml_spending_enabled": sources_raw.get("ml_spending_enabled")},
         "jobs": {"jobs": safe_jobs, "next_cursor": "[익명 커서]" if jobs_raw.get("next_cursor") else None},
         "job_item_pages": job_item_pages,
         "review": {"items": safe_review, "total": review_raw.get("total"),
