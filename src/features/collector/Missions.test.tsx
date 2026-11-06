@@ -65,8 +65,21 @@ it("정밀 평가 수치를 제공값대로 표시하고 busy를 로컬 엔진�
   expect(screen.getByLabelText("정밀평가 처리 중").textContent).toContain("3건");
   expect(screen.getByLabelText("정밀평가 확인 불가").textContent).toContain("2건");
   fireEvent.click(screen.getByText(/품질 판정 상세/));
-  expect(screen.getByText(/대기 4건 · 처리 중 3건 · 결과 확인 불가 2건/)).toBeTruthy();
+  expect(screen.getByLabelText("품질 판정 집계").textContent).toContain("대기 4건 · 처리 중 3건 · 결과 확인 불가 2건");
   fireEvent.click(screen.getByText("품질 축과 평가 상태"));
   expect(screen.getByText(/정밀 평가 엔진: 사용 상태 확인 중/)).toBeTruthy();
   expect(document.body.textContent).not.toMatch(/로컬 모델 사용 중|로컬 엔진/);
+});
+
+it("triage가 없는 상세는 구형 대기·처리 합계와 미해결 집계를 보존한다", async () => {
+  const legacy = project("m1", "구형 임무", "2026-11-06T00:00:00Z");
+  legacy.counts = { precise_waiting: 7, precise_unresolved: 0 };
+  api.list.mockResolvedValue({ items: [legacy] });
+  api.detail.mockResolvedValue(legacy);
+  api.trace.mockResolvedValue(trace);
+  renderMissions("/collect?mission=m1&tab=docs");
+
+  expect(await screen.findByLabelText("정밀평가 대기·처리 합계")).toBeTruthy();
+  expect(screen.getByLabelText("정밀평가 대기·처리 합계").textContent).toContain("7건");
+  expect(screen.getByLabelText("정밀평가 집계").textContent).toContain("대기·처리 합계 7건 · 개별 대기·처리 미확인 · 결과 확인 불가 0건");
 });

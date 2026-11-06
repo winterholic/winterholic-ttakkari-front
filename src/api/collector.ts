@@ -61,7 +61,7 @@ export interface ReviewItem {
 export interface CollectDedupe {
   exact_of?: string | null;
   cluster_id?: string | null;
-  canonical_candidate?: boolean | null;
+  canonical_candidate?: string | null;
   canonical_status?: string | null;
   algorithm_version?: string | null;
 }

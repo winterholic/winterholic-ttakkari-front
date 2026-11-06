@@ -32,12 +32,11 @@ function mission(overrides: Partial<CollectionMission> = {}): CollectionMission 
   } as CollectionMission;
 }
 
-it("구형 counts만 제공되고 triage가 없으면 제공값을 화면이 사용하지 않는 것을 재현한다", () => {
+it("구형 집계만 있으면 대기·처리 합계와 미해결 수를 구분해 표시한다", () => {
   const legacy = mission({ counts: { precise_waiting: 7, precise_unresolved: 0 }, triage: undefined });
   mount(<ResearchPanel mission={legacy} />);
 
-  expect(screen.getByText(/정밀 평가: 대기 미확인 · 처리 중 미확인 · 결과 확인 불가 미확인/)).toBeTruthy();
-  expect(document.body.textContent).not.toContain("7건");
+  expect(screen.getByLabelText("자율 조사").textContent).toContain("정밀 평가: 대기·처리 합계 7건 · 개별 대기·처리 미확인 · 결과 확인 불가 0건");
 });
 
 it("triage의 0과 unavailable을 제공 상태로 표시하고 엔진 식별자로 노출하지 않는다", () => {
@@ -49,11 +48,24 @@ it("triage의 0과 unavailable을 제공 상태로 표시하고 엔진 식별자
   expect(document.body.textContent).not.toMatch(/모델명: [^미]/);
 });
 
+it("triage의 0은 구형 집계를 덮고 빠진 개별 pending은 만들어 내지 않는다", () => {
+  const partial = mission({
+    counts: { precise_waiting: 7, precise_unresolved: 4 },
+    triage: { precise_eval: { processing: 0, unresolved: 0 } },
+  });
+  mount(<ResearchPanel mission={partial} />);
+
+  const summary = screen.getByLabelText("자율 조사").textContent ?? "";
+  expect(summary).toContain("정밀 평가: 대기·처리 합계 7건 · 처리 중 0건 · 결과 확인 불가 0건");
+  expect(summary).not.toMatch(/대기 7건/);
+  expect(summary).not.toMatch(/대기 [0-9]+건/);
+});
+
 it("제공된 decision은 최상위 status보다 우선하고 실제 string canonical_candidate를 그대로 보존한다", async () => {
   const dedupe = {
     exact_of: "canonical-item-id", cluster_id: "cluster-id", canonical_candidate: "candidate-item-id",
     canonical_status: "unreviewed", algorithm_version: "fixture-v1",
-  } as unknown as CollectDedupe;
+  } satisfies CollectDedupe;
   api.collectReviewQueue.mockResolvedValue({ items: [{ ...row, dedupe }], total: 1, limit: 20, offset: 0 });
   api.collectItemDetail.mockResolvedValue({
     id: row.id, url: row.url, final_url: null, status: "accepted", stage: "dedupe", http_status: 200,

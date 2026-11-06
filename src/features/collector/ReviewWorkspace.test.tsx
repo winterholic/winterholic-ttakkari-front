@@ -126,12 +126,12 @@ it("재처리 API 실패를 성공으로 보이지 않고 오류로 알린다", 
 
 it("중복 근거의 선택 필드를 기술 상세에 보존하고 대상 링크를 추정하지 않는다", async () => {
   api.collectReviewQueue.mockResolvedValue({ items: [row({ reason_codes: ["exact_duplicate"], dedupe: {
-    exact_of: "item-canonical-7", cluster_id: "cluster-4", canonical_candidate: false,
+    exact_of: "item-canonical-7", cluster_id: "cluster-4", canonical_candidate: "candidate-8",
     canonical_status: "accepted", algorithm_version: "dedupe-v3",
   } })], total: 1, limit: 20, offset: 0 });
   api.collectItemDetail.mockResolvedValue({ id: "i1", url: "https://example.com/a", final_url: null, status: "held", stage: "dedupe", http_status: null,
     language: "ko", text_chars: 420, reason_codes: ["exact_duplicate"], preview: "", decision: null,
-    dedupe: { exact_of: "item-canonical-7", cluster_id: "cluster-4", canonical_candidate: false, canonical_status: "accepted", algorithm_version: "dedupe-v3" },
+    dedupe: { exact_of: "item-canonical-7", cluster_id: "cluster-4", canonical_candidate: "candidate-8", canonical_status: "accepted", algorithm_version: "dedupe-v3" },
     quality: {}, versions: { parser: null, normalizer: null }, hashes: { raw_sha256: null, text_sha256: null, payload: null },
     rights: { purposes: [] }, reviews: [], deliveries: [] });
   mount(<Review />);
@@ -139,7 +139,7 @@ it("중복 근거의 선택 필드를 기술 상세에 보존하고 대상 링�
   expect(screen.getByText(/중복 관계 대상: item-canonical-7/)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "근거와 처리 이력" }));
   fireEvent.click(await screen.findByText("원 코드·중복 근거·처리 이력 보기"));
-  const technical = screen.getByText(/"canonical_candidate": false/);
+  const technical = screen.getByText(/"canonical_candidate": "candidate-8"/);
   expect(technical.textContent).toContain("\"cluster_id\": \"cluster-4\"");
   expect(technical.textContent).toContain("\"canonical_status\": \"accepted\"");
   expect(technical.textContent).toContain("\"algorithm_version\": \"dedupe-v3\"");

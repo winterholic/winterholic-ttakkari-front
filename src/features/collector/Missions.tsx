@@ -22,6 +22,7 @@ import { COLLECT_REASON, formatTime } from "../kb/labels";
 import { CoverageTopics, GapDetail, ResearchPanel } from "./ResearchPanel";
 import { explainCollectionError, filterAndSortMissions, missionNeeds, type MissionListStatus } from "./missionProjects";
 import { CollectionErrorNotice } from "./CollectionErrorNotice";
+import { preciseEvalSummary } from "./preciseEvalSummary";
 
 // A continuation adds this much room from the preserved frontier. The owner never types a page count.
 const MORE_PAGES = 1000;
@@ -103,22 +104,29 @@ function engineLabel(engine: string): string {
   return "확인 필요";
 }
 
-function preciseQueue(mission: CollectionMission): { pending?: number; processing?: number; unresolved?: number } {
+function preciseQueue(mission: CollectionMission): { pending?: number; processing?: number; unresolved?: number; waitingTotal?: number } {
   const precise = mission.triage?.precise_eval;
-  return { pending: precise?.pending, processing: precise?.processing, unresolved: precise?.unresolved };
+  return {
+    pending: precise?.pending,
+    processing: precise?.processing,
+    unresolved: precise?.unresolved ?? mission.counts.precise_unresolved,
+    waitingTotal: precise?.pending == null ? mission.counts.precise_waiting : undefined,
+  };
 }
 
 const preciseCount = (value: number | undefined) => value == null ? "미확인" : `${value.toLocaleString("ko-KR")}건`;
 
 function preciseSummary(mission: CollectionMission): string {
-  const { pending, processing, unresolved } = preciseQueue(mission);
-  return `대기 ${preciseCount(pending)} · 처리 중 ${preciseCount(processing)} · 결과 확인 불가 ${preciseCount(unresolved)}`;
+  return preciseEvalSummary(mission.counts, mission.triage?.precise_eval);
 }
 
 function PreciseNotice({ mission }: { mission: CollectionMission }) {
-  const { pending, processing, unresolved } = preciseQueue(mission);
+  const { pending, processing, unresolved, waitingTotal } = preciseQueue(mission);
+  const hasPreciseCounts = mission.counts.precise_waiting != null || mission.counts.precise_unresolved != null || mission.triage?.precise_eval != null;
   return <>
+    {hasPreciseCounts && <p className="kb-note" aria-label="정밀평가 집계">정밀평가 집계: {preciseSummary(mission)}. 사용자 검토 대기와 별도입니다.</p>}
     {pending != null && <p className="kb-note" role="status" aria-label="정밀평가 대기">정밀평가 대기 {preciseCount(pending)} · 결과에 따라 도서관 적재가 달라질 수 있음</p>}
+    {waitingTotal != null && <p className="kb-note" role="status" aria-label="정밀평가 대기·처리 합계">정밀평가 대기·처리 합계 {preciseCount(waitingTotal)} · 개별 대기 수는 미확인</p>}
     {processing != null && <p className="kb-note" role="status" aria-label="정밀평가 처리 중">정밀평가 처리 중 {preciseCount(processing)}</p>}
     {unresolved != null && <p className="kb-note" role="status" aria-label="정밀평가 확인 불가">정밀평가 결과 확인 불가 {preciseCount(unresolved)} · 운영자 확인 필요</p>}
   </>;

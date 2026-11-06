@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import type { CollectionContextRelation, CollectionCoverageEntry, CollectionMission, CollectionPaper } from "../../api/collectionMissions";
+import { preciseEvalSummary } from "./preciseEvalSummary";
 import {
   COVERAGE_LIMITATION, COVERAGE_STATE, COVERED_RULE, RELATION_LABEL, ROUND_REASON, TARGET_KIND,
   coverageLabel, hasResearch, paperRights, paperSource, safeHttp, searchErrorLabels, searchStats, stopText,
@@ -8,7 +9,6 @@ import type { SearchStats } from "./researchLabels";
 import "./review-workspace.css";
 
 const count = (n: number | undefined) => (n ?? 0).toLocaleString("ko-KR");
-const providedCount = (n: number | undefined) => n == null ? "미확인" : `${n.toLocaleString("ko-KR")}건`;
 const engineAvailability = (engine: string | undefined) => ({
   ready: "사용 가능", enabled: "사용 가능", busy: "사용 상태 확인 중",
   unavailable: "사용 불가", enabled_without_registered_engine: "등록된 엔진 확인 안 됨",
@@ -114,7 +114,7 @@ export function ResearchPanel({ mission }: { mission: CollectionMission }) {
   return <section className="mission-research" aria-label="자율 조사">
     <h3>자율 조사</h3>
     <p className="kb-note">엔진 가용 상태: {engineAvailability(preciseEval?.engine)} · 모델명·세부 실행 상태: 조사 응답에서 미확인</p>
-    <p className="kb-note">정밀 평가: 대기 {providedCount(preciseEval?.pending)} · 처리 중 {providedCount(preciseEval?.processing)} · 결과 확인 불가 {providedCount(preciseEval?.unresolved)}. 사용자 검토 대기와 별도입니다.</p>
+    <p className="kb-note">정밀 평가: {preciseEvalSummary(mission.counts, preciseEval)}. 사용자 검토 대기와 별도입니다.</p>
     {research && <>
       <p className="kb-note" aria-label="조사 라운드">후속 조사 라운드 {count(research.round)}회 점검{plan.budget.rounds ? `(상한 ${count(plan.budget.rounds)}회)` : ""} · 검색 {count(research.searches_used)}{searchBudget ? `/${count(searchBudget)}` : ""}회 사용</p>
       <p className="kb-note" role="status" aria-label="조사 종료 사유">{stopText(research.stop, plan.budget.rounds)}</p>
