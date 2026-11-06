@@ -91,7 +91,7 @@ export interface ArtcraftJob {
   kind: "remote" | "smoke" | "gui" | "update";
   action: string;
   apps: string[];
-  mode: ArtcraftSmokeMode | null;
+  mode: ArtcraftSmokeMode | "apply" | "rollback" | null;
   state: ArtcraftJobState;
   created_at: string;
   started_at: string | null;
