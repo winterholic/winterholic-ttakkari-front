@@ -10,6 +10,7 @@ import { MetricComparisonBar } from './charts/MetricComparisonBar';
 import { SweepLineChart } from './charts/SweepLineChart';
 import { calls, cfgs, defaultHandler, experiment, methodDetail, mount, runs, runMeasurements, setup, study, validateOk } from './testkit';
 import { promotionNotice } from './format';
+import { errorCodeNote } from './labels';
 import { deriveSeries, narrate, paretoFor, stats } from './series';
 import type { ExperimentDetail, KnowledgeNode, MethodDetail, ParamSpec } from './types';
 import { researchRequest } from '../../api/client';
@@ -1353,4 +1354,30 @@ it('opens the original Run from a retry Run detail after re-entry', async () => 
 
   await waitFor(() => expect(calls).toContain('GET /runs/r3'));
   expect(await screen.findByText('메모리 한도를 넘었습니다')).toBeTruthy();
+});
+
+it('connects the saved benchmark prompt with response previews in Run detail', async () => {
+  const prompt = '다음 내용을 한 문장으로 요약해 주세요.';
+  const response = '핵심은 재시도 조건을 실제 API에 맞추는 것입니다.';
+  setup((path, body) => {
+    if (path === '/experiments/e1') return {
+      ...experiment, adapter_id: 'llm_inference',
+      configurations: [{ ...cfgs[0], parameters: { prompt } }], runs: [runs[0]], artifacts: [],
+    };
+    if (path === '/runs/r1') return {
+      ...runs[0], adapter_id: 'llm_inference', raw_output: { runs: [{ run: 1, output_preview: response }] },
+      environment_snapshot: {}, measurements: [], artifacts: [],
+    };
+    return defaultHandler(path, body);
+  });
+  mount('/research?view=monitor&study=s1&experiment=e1&run=r1');
+  const dialog = await screen.findByRole('dialog', { name: /실행 상세/ });
+  expect(await within(dialog).findByRole('heading', { name: '모델 입력과 응답' })).toBeTruthy();
+  expect(within(dialog).getByText(prompt)).toBeTruthy();
+  expect(within(dialog).getByText(response)).toBeTruthy();
+});
+
+it('explains batch-cancelled Runs as not started rather than failed', () => {
+  expect(errorCodeNote('batch_cancelled')).toContain('이 실행은 시작되지 않았습니다');
+  expect(errorCodeNote('budget_exceeded')).toContain('실행 시간 예산을 소진');
 });

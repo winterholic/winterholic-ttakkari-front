@@ -8,11 +8,12 @@ import { ArtifactList } from './ArtifactList';
 import { OriginBadge, ProxyBadge, RunStateBadge } from './ExecutionStatusBadge';
 import { adapterLabel, errorCodeNote } from '../labels';
 import { Callout, FactList, Skeleton } from './parts';
+import type { Configuration } from '../types';
 
-interface Props { runId: string; onClose: () => void; configLabel?: string; onCancel?: (id: string) => void; onRerun?: (runId: string) => void; onOpenRelatedRun?: (runId: string) => void }
+interface Props { runId: string; onClose: () => void; configLabel?: string; configurations?: Configuration[]; onCancel?: (id: string) => void; onRerun?: (runId: string) => void; onOpenRelatedRun?: (runId: string) => void }
 
 /** 실행 한 건의 전부: 상태·실패 원인·측정값·실행 환경·원본 출력·산출물. 진행률은 실행기가 줄 때만 보인다. */
-export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun, onOpenRelatedRun }: Props) {
+export function RunDetailDialog({ runId, onClose, configLabel, configurations = [], onCancel, onRerun, onOpenRelatedRun }: Props) {
   const q = useQuery({ queryKey: [...rk(), 'run', runId], queryFn: () => getRun(runId), refetchInterval: query => (['queued', 'running'].includes(query.state.data?.status ?? '') ? 3000 : false) });
   const r = q.data;
   const active = r && (r.status === 'queued' || r.status === 'running');
@@ -20,6 +21,11 @@ export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun
   const originalRunId = retry && typeof retry === 'object' && !Array.isArray(retry)
     && typeof (retry as Record<string, unknown>).retry_of_run_id === 'string'
     ? (retry as Record<string, string>).retry_of_run_id : null;
+  const configuration = r && configurations.find(c => c.id === r.configuration_id);
+  const prompt = configuration?.parameters?.prompt;
+  const outputRuns = Array.isArray(r?.raw_output?.runs) ? r.raw_output.runs as Record<string, unknown>[] : [];
+  const previews = outputRuns.flatMap((item, index) => typeof item.output_preview === 'string' && item.output_preview
+    ? [{ run: item.run ?? index + 1, text: item.output_preview }] : []);
   return <Dialog open onClose={onClose} size="lg" title={`실행 상세${configLabel ? ` · ${configLabel}` : ''}`}
     footer={r ? <>{active && onCancel && <Button variant="danger" onClick={() => onCancel(r.id)}>이 실행 취소</Button>}
       {!active && onRerun && (r.execution_origin === 'local_measured' || r.execution_origin === 'migrated_v1') && <Button variant="primary" onClick={() => onRerun(r.id)}>원 조건으로 다시 실행</Button>}</> : undefined}>
@@ -46,6 +52,14 @@ export function RunDetailDialog({ runId, onClose, configLabel, onCancel, onRerun
             <tbody>{r.measurements.map((m, i) => <tr key={i}><th scope="row">{m.metric_label}{m.is_proxy && <> <ProxyBadge metricKey={m.metric_key} /></>}</th><td className="tk-datatable__num">{fmtValue(m.value, m.unit)}</td><td>{DIRECTION_TEXT[m.direction]}</td><td>{m.aggregator}{m.slice_key !== 'overall' ? ` · ${m.slice_key}` : ''}</td></tr>)}</tbody></table></div></div>
           : <p className="rs-muted">{r.status === 'succeeded' ? '측정값이 기록되지 않았습니다.' : '측정값이 없습니다. 실패·취소한 실행은 측정하지 않습니다.'}</p>}
       </section>
+      {r.adapter_id === 'llm_inference' && <section aria-label="모델 입력과 응답"><h4>모델 입력과 응답</h4>
+        <p className="rs-muted">이 서버가 저장한 벤치마크 입력과 응답 미리보기입니다. 응답 원문은 각 실행에서 최대 200자까지 기록됩니다.</p>
+        <h5>입력 프롬프트</h5>
+        {typeof prompt === 'string' && prompt ? <pre className="rs-pre">{prompt}</pre> : <p className="rs-muted">설정에 입력 프롬프트가 없습니다.</p>}
+        <h5>모델 응답</h5>
+        {previews.length ? <ol className="rs-bullets">{previews.map((item, i) => <li key={i}><span className="rs-muted">실행 {String(item.run)}</span><pre className="rs-pre">{item.text}</pre></li>)}</ol>
+          : <p className="rs-muted">API에 저장된 응답 미리보기가 없습니다.</p>}
+      </section>}
       <section aria-label="산출물"><h4>산출물</h4><ArtifactList artifacts={r.artifacts ?? []} /></section>
       <section aria-label="실행 환경"><h4>실행 환경</h4><FactList data={r.environment_snapshot} empty="실행 환경이 기록되지 않았습니다. 같은 조건의 비교인지 확인할 수 없습니다." /></section>
       <section aria-label="원본 출력"><h4>원본 출력</h4><FactList data={r.raw_output} empty="원본 출력이 없습니다." /></section>
