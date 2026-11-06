@@ -61,3 +61,12 @@
 - 범위 한계: 이 보정은 현재 UI의 지연 storyboard start를 검증한다. 과거 intent validation 요청과 그에 대한 편집 경합은 현 후보에 해당 UI가 없어 이 후보에서 직접 재검증하지 않았다.
 - 상속 증거: Run `8f449b4e`에서 기존 13검사 통과, `tsc --noEmit` exit 0, 환경 변수 off build exit 0을 기록했다. 이번 변경에는 제품 source가 없으므로 타입·build를 재실행하지 않았다.
 - 브라우저 파일 선택은 미검증이다. 설정된 브라우저에 파일 업로드 도구가 없다는 기존 관측을 보존했고 로컬 브라우저를 실행하지 않았다. 모바일도 미검증이다. 남은 미디어 입력은 이미지·영상·음악·PDF이며 현재 UI의 파일 입력은 `.txt`/`.md` 텍스트 문서만 읽는다.
+
+## 후속 Run 재이관 기록
+
+- 총괄의 source 대조와 현재 Run `2a95f0bd-d441-4e13-8816-1d10ce5e0a01` 상세에서 같은 회사 Codex ai2 profile을 확인했다. 시작 HEAD는 `ae0e32dc5e833d869eb1df58d50f7f74448bf8ef`이며, 새 후속 커밋의 부모다. 작업 경로와 feat 브랜치는 위와 같다.
+- `CreativePlanNewPage` (`CreativePlanPage.tsx:1029–1110`)는 `StoryboardCreateFlow`와 보조 `planCreate`만 렌더한다. 제품 화면 검색에서 `직접 의도 작성`, `근거 문구`, `의도 검증 후 확인`은 발견되지 않아 과거 intent validation UI 경로가 제거된 것을 확인했다. 이를 되살리거나 해당 문구에 대한 의미 없는 assertion을 유지하지 않았다.
+- 이전 보정의 지연 start 검사는 `freezes the brief, quality goal and file selector while the request is starting` (`StoryboardCreateFlow.test.tsx:138`)의 기존 계약과 중복되므로 제거했다. 이 13검사 중 요청 동결 계약은 그대로 두고 수정하지 않았다.
+- 대응하는 도달 가능한 계약 두 개를 `StoryboardCreateFlow.late-review.test.tsx`로 이관했다. 지연 파일 읽기 후 제거된 문서가 최신 brief 제출에 되살아나지 않는지, 완료 결과가 사용자 확인 전에는 미승인인지 함께 검사한다. stale accept/409 뒤 새 SHA가 오면 이전 확인을 해제하고 새 확인 전 accept를 비활성화하는 회귀도 이 파일로 옮겨 강화했다.
+- 검증: `node_modules/.bin/vitest run src/pages/creative/StoryboardCreateFlow.late-review.test.tsx` → 1 file / 2 tests passed. `node_modules/.bin/vitest run src/pages/creative` → 6 files / 75 tests passed. `git diff --check` → exit 0. 제품 source 변경 없음; 타입/build는 Run `8f449b4e`의 source 동일 증거를 재사용한다.
+- 이 재이관은 과거 `/intent/validate` 경합을 같은 API 계약으로 검증한 것은 아니다. 대신 현 제품에서 도달 가능한 최신 입력 보존과 미승인/재검토 계약으로 옮겼다. 과거 intent validation UI 전용 경합은 현재 제품에 없어 별도 미충족 계약으로 남긴다.

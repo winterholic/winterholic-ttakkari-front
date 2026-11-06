@@ -56,7 +56,6 @@ test("submits the supported storyboard request once, reviews output and accepts 
   expect(accept?.body).toEqual({ reviewed_output_sha256: "a".repeat(64) });
   expect(calls.some((c) => c.url.endsWith("/approve") || c.url.endsWith("/production/render"))).toBe(false);
 });
-
 test("submits selected text documents and an explicit optional quality goal through supported fields", async () => {
   const calls = stub((url, init) => {
     if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-doc", status: "queued", engine: "codex", model: null, session_id: "session" };
@@ -146,28 +145,6 @@ test("freezes the brief, quality goal and file selector while the request is sta
   expect((screen.getByLabelText("텍스트 참고 문서 (.txt, .md)") as HTMLInputElement).disabled).toBe(true);
   finish(new Response(JSON.stringify({ run_id: "run-freeze", status: "queued", engine: "codex", model: null, session_id: "session" }), { status: 200 }));
   await screen.findByText(/실행 상태/);
-});
-
-test("removing a document while its read is pending prevents a stale read from returning", async () => {
-  let finishRead!: (value: string) => void;
-  const delayed = new File(["unused"], "delayed.txt", { type: "text/plain" });
-  delayed.text = () => new Promise<string>((resolve) => { finishRead = resolve; });
-  const calls = stub((url, init) => url.endsWith("/storyboard/runs") && init?.method === "POST"
-    ? { run_id: "run-stale-read", status: "queued", engine: "codex", model: null, session_id: "session" }
-    : { run_id: "run-stale-read", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null });
-  mount();
-  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
-  const input = screen.getByLabelText("텍스트 참고 문서 (.txt, .md)");
-  fireEvent.change(input, { target: { files: [delayed] } });
-  fireEvent.click(await screen.findByRole("button", { name: "delayed.txt 제거" }));
-  finishRead("늦게 도착한 본문");
-  await waitFor(() => expect(screen.queryByText("delayed.txt")).toBeNull());
-  expect((screen.getByRole("button", { name: "AI 장면 구성 만들기" }) as HTMLButtonElement).disabled).toBe(false);
-  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
-  await screen.findByText(/실행 상태/);
-  expect((calls.find((call) => call.method === "POST")?.body as { sources: unknown[] }).sources).toEqual([
-    { id: "brief", locator: "사용자 요청", text: "brief" },
-  ]);
 });
 
 test("shows a read failure and preserves selected inputs and key for a failed request retry", async () => {
@@ -322,28 +299,4 @@ test("cancellation and terminal resume follow the server phases without approvin
   expect(calls.find((call) => call.url.endsWith("/run-live/resume"))?.body).toEqual({});
   expect(calls.find((call) => call.url.endsWith("/run-live/resume"))?.key).toBeTruthy();
   expect(calls.some((call) => call.url.endsWith("/approve") || call.url.endsWith("/production/render"))).toBe(false);
-});
-
-test("a stale accept refreshes the hash and requires a new review", async () => {
-  let reads = 0;
-  const calls = stub((url, init) => {
-    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-stale", status: "queued", engine: "codex", model: null, session_id: "session" };
-    if (url.endsWith("/storyboard/runs/run-stale/accept")) return new Response('{"detail":"storyboard output changed"}', { status: 409 });
-    if (url.endsWith("/storyboard/runs/run-stale")) {
-      reads++;
-      return { run_id: "run-stale", status: "succeeded", phase: "completed_needs_review", review_required: true, sources: [{ id: "brief", locator: "사용자 요청", text: "brief" }], storyboard: story, output_sha256: reads === 1 ? "a".repeat(64) : "b".repeat(64), error: null };
-    }
-    return { id: "plan" };
-  });
-  mount();
-  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
-  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
-  await screen.findByText("구성 요약");
-  fireEvent.click(screen.getByRole("checkbox", { name: /출력 SHA/ }));
-  fireEvent.click(screen.getByRole("button", { name: "이 출력으로 미승인 계획 만들기" }));
-  expect((await screen.findByRole("status")).textContent).toMatch(/최신 서버 응답/);
-  await waitFor(() => expect(screen.getByText(`검토 대기 · SHA-256 ${"b".repeat(64)}`)).toBeTruthy());
-  expect((screen.getByRole("checkbox", { name: /출력 SHA/ }) as HTMLInputElement).checked).toBe(false);
-  expect((screen.getByRole("button", { name: "이 출력으로 미승인 계획 만들기" }) as HTMLButtonElement).disabled).toBe(true);
-  expect(calls.filter((call) => call.url.endsWith("/accept"))).toHaveLength(1);
 });
