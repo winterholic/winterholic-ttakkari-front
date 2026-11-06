@@ -10,14 +10,22 @@
 |---|---|
 | 작업 경로 | `/Users/winterholic/development/projects/winterholic-ttakkari/front-collect-workspace-20261107` |
 | 감사 시작 HEAD | `0b2851252fd6adb59b98a600ef97b997ddec3f0e` (`0b28512`) |
-| 후보 8장 캡처 시점 | 2026-11-06 16:02–16:05 UTC, 시작 HEAD의 제품 화면 |
-| 재확인 HEAD | `d87b696fbffcb63600b62487a0916d71779b49c8` (`d87b696`); 이 커밋은 화면 코드가 아닌 runtime/handoff evidence 추가 |
-| 교정 재확인 때 화면 코드 | 교정 워커의 `src/api/collector.ts`, `Missions.tsx`, `Overview.tsx`, `ResearchPanel.tsx`, `Review.tsx`, `review-workspace.css` 수정이 미커밋 상태로 worktree에 보였음. 아래 “교정 후” 결과는 해당 worktree를 Vite로 재기동해 확인한 결과이며 배포 완료를 뜻하지 않음 |
+| 후보 8장 관측 HEAD | `d87b696fbffcb63600b62487a0916d71779b49c8` (`d87b696`); 캡처 16:02–16:05Z. d87 commit은 00:59:09 KST이므로 후보 캡처 시점의 HEAD는 0b가 아니라 d87이며 화면 코드에는 차이가 없음 |
+| 화면 코드 교정 revision | `4450dac805bc3557bc57bd8093abdd50e8dec06a` (`4450dac`) |
+| 캡처 당시 repo HEAD | 캡처마다 다름: 16:32:18/16:32:58Z는 `165ea5f`; 16:33:14Z 이후는 `3d2b30e`. `3d2b30e`는 audit/evidence/전용 테스트 추가였고 제품 화면 소스는 바꾸지 않음 |
+| 최종 영향 화면 재확인 | 제품 소스는 `4450dac`, repo HEAD는 위 시각별 값. captures 모두 실제 fixture에서 동작하는 동일한 교정 source를 재생 |
+| 통합 교정 기록 | [integration-corrections.md](integration-corrections.md); 교정 commit `4450dac`, 기록 commit `3b3e764`. 뒤따른 `3d2b30e`도 확인했으며 문서/evidence/전용 테스트만 추가. 배포 완료를 의미하지 않음 |
 | 화면/API 계약 기준 | `5f5cbd997addcb4ea084ab908790f8f6eec54122` |
 | 실제 runtime 보고 | 작업 handoff의 2026-11-07 00:51 KST에는 active `efe07c4bf9332473c60743bf31bb73111be00c4a`. 감사에서 확인한 read-only `runtime_report`는 2026-11-06 15:58:35Z 기준 active `5f5cbd997addcb4ea084ab908790f8f6eec54122`, 이전 `efe07c4b` draining. 시점이 다른 두 보고를 구분하며 제품 UI replay는 로컬 Vite이므로 어느 runtime revision이 그 화면을 제공했다고 주장하지 않음 |
 | 브라우저 및 앱 | configured `ttakkari_browser`; `http://127.0.0.1:5195/collect`; API는 격리 mock `http://127.0.0.1:5196`만 사용 |
 | 실행 명령 | `TTAKKARI_NO_ENV_FILE=1 VITE_API_BASE=http://127.0.0.1:5196 npm run dev -- --host 127.0.0.1 --port 5195 --strictPort`; mock `COLLECT_REPLAY_FIXTURE=.../replay-fixture.json python3 /private/tmp/collect_replay_mock.py` |
 | fixture 시각/출처 | `replay-fixture.json`의 `observed_at=2026-11-06T15:45:43.416672Z`; 비식별화한 실제 owner API GET 응답. source 목록/원문·제목·목표·URL·문맥은 제거 또는 대체됨 |
+
+### 감사 연속성
+
+이 기록은 이전 독립 UI 감사 Run `8b7e4566-de8e-434d-96ff-68cca2b1a14d`의 연속이다. 새 Run `492a5c71-f3ad-4462-8c1f-9efcb4c6484d`에서는 기존 8개 전후 캡처와 scenario 결과를 보존하고, 통합 교정 `4450dac`이 건드린 Review/ResearchPanel만 다시 확인했다. 목록·계획 재로딩은 영향이 없어서 생략했다. 이 세션의 callable tools 목록에는 `fresh_context`/`reset_my_context`가 없어 reset은 실행하지 않았다. 이 문서와 manifest에 revision·남은 검증 한계를 기록해 다음 재로딩 비용을 줄인다.
+
+마지막 최종 캡처는 16:35:42Z (01:35:42 KST)다. 현재 worktree에서 `MissionTrace.tsx`, `Review.tsx`, collector/review CSS, `CollectPage.tsx` 및 관련 테스트가 그 뒤 01:36–01:40 KST에 수정된 것으로 보인다. 감사자는 이 제품 코드를 수정·stage하지 않았으며, 해당 후속 dirty diff는 이 revision-pinned 캡처에 포함되지 않고 별도 화면 대조도 수행하지 않았다.
 
 운영에 로그인해 UI를 열지 않았다. 후보 화면과 모든 브라우저 API 요청은 local replay로 구동했다. 수집 생성, 승인/거절/보류, 재처리, 보충, 일시정지, 권리/정책 변경을 운영 API에 전송하지 않았다. 계획 미리보기와 재처리는 mock에만 POST했다. `/private/tmp/collect_replay_mock_writes.jsonl`에는 로컬 `POST /missions/plan` 2회, 로컬 inert `POST /items/{id}/reprocess` 1회, 로컬 auth refresh만 기록되어 있다. 별도 누락 판정 테스트는 synthetic mock 응답으로 분리했다.
 
@@ -25,20 +33,29 @@
 
 기준 화면은 detached checkout `e2d89e6`의 허용 복사본이다. 후보 8장은 교정 전 화면으로 보존했고, 사용자가 지정한 동일 viewport에서 보관했다. 파일명은 복사본에만 붙였으며 browser 캡처는 filename 없이 수행했다.
 
-| 화면 | 기준 PNG | 후보 PNG | viewport / 데이터 입력 |
-|---|---|---|---|
-| 수집 목록 | [desktop 기준](evidence/screenshots/desktop-list-1440x900.png) | [desktop 후보](evidence/screenshots/ui-candidate-desktop-list-1440x900.png) | 1440×900, fixture 21개 mission; 2026-11-06 16:02:16Z |
-| 임무 상세 | [desktop 기준](evidence/screenshots/desktop-detail-1440x900.png) | [desktop 후보](evidence/screenshots/ui-candidate-desktop-detail-1440x900.png) | 1440×900, mission `e4b02ac0-3a8d-4fb3-b8ae-52ef9b1e95cb`; 16:03:26Z |
-| 검토 | [desktop 기준](evidence/screenshots/desktop-review-1440x900.png) | [desktop 후보](evidence/screenshots/ui-candidate-desktop-review-1440x900.png) | 1440×900, 전체 2,310 / 불러온 50; 16:04:05Z |
-| 신규 계획 | [desktop 기준](evidence/screenshots/desktop-plan-1440x900.png) | [desktop 후보](evidence/screenshots/ui-candidate-desktop-plan-1440x900.png) | 1440×900, synthetic 입력과 격리 mock preview; 16:04:48Z |
-| 수집 목록 | [mobile 기준](evidence/screenshots/mobile-list-390x844.png) | [mobile 후보](evidence/screenshots/ui-candidate-mobile-list-390x844.png) | 390×844, fixture 21개 mission; 16:04:58Z |
-| 임무 상세 | [mobile 기준](evidence/screenshots/mobile-detail-390x844.png) | [mobile 후보](evidence/screenshots/ui-candidate-mobile-detail-390x844.png) | 390×844, 같은 mission; 16:05:09Z |
-| 검토 | [mobile 기준](evidence/screenshots/mobile-review-390x844.png) | [mobile 후보](evidence/screenshots/ui-candidate-mobile-review-390x844.png) | 390×844, 전체 2,310 / 불러온 50; 16:05:23Z |
-| 신규 계획 | [mobile 기준](evidence/screenshots/mobile-plan-390x844.png) | [mobile 후보](evidence/screenshots/ui-candidate-mobile-plan-390x844.png) | 390×844, synthetic 입력과 격리 mock preview; 16:05:50Z |
+| 화면 | 기준 PNG | 후보 PNG | viewport / 데이터 입력 | 기준 HEAD | 후보 HEAD |
+|---|---|---|---|---|---|
+| 수집 목록 | [desktop 기준](evidence/screenshots/desktop-list-1440x900.png) | [desktop 후보](evidence/screenshots/ui-candidate-desktop-list-1440x900.png) | 1440×900, fixture 21개 mission; 16:02:16Z | `e2d89e6` | `d87b696` |
+| 임무 상세 | [desktop 기준](evidence/screenshots/desktop-detail-1440x900.png) | [desktop 후보](evidence/screenshots/ui-candidate-desktop-detail-1440x900.png) | 1440×900, 선택 mission; 16:03:26Z | `e2d89e6` | `d87b696` |
+| 검토 | [desktop 기준](evidence/screenshots/desktop-review-1440x900.png) | [desktop 후보](evidence/screenshots/ui-candidate-desktop-review-1440x900.png) | 1440×900, 전체 2,310 / 불러온 50; 16:04:05Z | `e2d89e6` | `d87b696` |
+| 신규 계획 | [desktop 기준](evidence/screenshots/desktop-plan-1440x900.png) | [desktop 후보](evidence/screenshots/ui-candidate-desktop-plan-1440x900.png) | 1440×900, synthetic prompt/mock preview; 16:04:48Z | `e2d89e6` | `d87b696` |
+| 수집 목록 | [mobile 기준](evidence/screenshots/mobile-list-390x844.png) | [mobile 후보](evidence/screenshots/ui-candidate-mobile-list-390x844.png) | 390×844, fixture 21개 mission; 16:04:58Z | `e2d89e6` | `d87b696` |
+| 임무 상세 | [mobile 기준](evidence/screenshots/mobile-detail-390x844.png) | [mobile 후보](evidence/screenshots/ui-candidate-mobile-detail-390x844.png) | 390×844, 같은 mission; 16:05:09Z | `e2d89e6` | `d87b696` |
+| 검토 | [mobile 기준](evidence/screenshots/mobile-review-390x844.png) | [mobile 후보](evidence/screenshots/ui-candidate-mobile-review-390x844.png) | 390×844, 전체 2,310 / 불러온 50; 16:05:23Z | `e2d89e6` | `d87b696` |
+| 신규 계획 | [mobile 기준](evidence/screenshots/mobile-plan-390x844.png) | [mobile 후보](evidence/screenshots/ui-candidate-mobile-plan-390x844.png) | 390×844, synthetic prompt/mock preview; 16:05:50Z | `e2d89e6` | `d87b696` |
 
 기준 캡처는 2026-11-06 15:30–15:31Z, 후보는 16:02–16:05Z다. 기준 review 화면에 보이는 2,306과 이후 GET fixture의 2,310은 관측 시각이 다르다. 계획 입력도 기준의 “웹 접근성…” synthetic 문구와 후보의 synthetic local replay 문구가 다르다. 따라서 시각·수치 차이는 코드만의 효과로 해석할 수 없다.
 
-교정 후 바뀐 화면의 부분 재확인은 추가 캡처에 기록했다: [desktop 검토](evidence/screenshots/ui-post-correction-desktop-review-1440x900.png), [mobile 상세](evidence/screenshots/ui-post-correction-mobile-detail-390x844.png), [mobile 검토](evidence/screenshots/ui-post-correction-mobile-review-390x844.png). desktop 상세는 브라우저 snapshot으로 교정 문구를 확인했다. 전체 8화면 재촬영은 하지 않았다.
+통합 교정 commit 뒤인 2026-11-06 16:32–16:35Z에 관측 HEAD `4450dac`으로 영향 화면만 재확인·캡처했다. 목록과 계획은 영향이 없어 반복하지 않았다. 예전 부분 캡처는 보존하고 아래 revision-pinned 파일을 최종 비교 증거로 쓴다.
+
+| 영향 화면 / 상태 | viewport | 최종 캡처 | 관측 HEAD / 입력 |
+|---|---:|---|---|
+| Review 재처리 가능 filter (46/50) | desktop 1440×900 | [desktop Review](evidence/screenshots/ui-post-4450-desktop-review-1440x900.png) | source `4450dac`; repo HEAD `165ea5f`; 16:32:58Z; actual GET |
+| Review 재처리 가능 filter (46/50) | mobile 390×844 | [mobile Review](evidence/screenshots/ui-post-4450-mobile-review-390x844.png) | source `4450dac`; repo HEAD `3d2b30e`; 16:33:14Z; actual GET |
+| Review duplicate 상세와 dedupe JSON | desktop 1440×900 | [desktop 상세](evidence/screenshots/ui-post-4450-desktop-review-detail-1440x900.png) | source `4450dac`; repo HEAD `3d2b30e`; 16:35:25Z; actual GET |
+| Review duplicate 상세와 dedupe JSON | mobile 390×844 | [mobile 상세](evidence/screenshots/ui-post-4450-mobile-review-detail-390x844.png) | source `4450dac`; repo HEAD `3d2b30e`; 16:35:42Z; actual GET |
+| ResearchPanel 실제 precise 상태 | desktop 1440×900 | [desktop ResearchPanel](evidence/screenshots/ui-post-4450-desktop-research-1440x900.png) | source `4450dac`; repo HEAD `165ea5f`; 16:32:18Z; actual mission GET |
+| ResearchPanel 실제 precise 상태 | mobile 390×844 | [mobile ResearchPanel](evidence/screenshots/ui-post-4450-mobile-research-390x844.png) | source `4450dac`; repo HEAD `3d2b30e`; 16:34:26Z; actual mission GET |
 
 ## 시나리오와 화면별 판정
 
@@ -52,10 +69,10 @@
 | 정책 차단·실패·대기 | pass | 전역 job 집계 policy_blocked 55, queued 142, running 1, failed 33; 선택 mission trace의 실패 3, 접근 제한·실패 표시 확인. 정책/권리 차단을 재처리로 우회하지 말라는 안내 표시. |
 | 대형 검토 queue·감사 표본 | pass with scope | review 총 2,310, 페이지 50; 감사 11개 reason group과 sample_count 합 468. fixture에는 감사 item 세부 표본 10개만 남고 집계 전체 468은 별도임. 2,310/50/468은 분모가 다른 값으로 확인. |
 | source/runs 상세 항목 | unverified | URL 호환 view는 열렸지만 fixture source 목록이 비어 있고 runs/jobs 상세 응답도 0행이라 비어 있지 않은 실제 표의 정렬·행 조작은 검증할 수 없음. |
-| 교정 후 검토 조치 필터 | pass (local replay) | mock fixture에서 “재처리 가능” 선택: 50개 중 46개 표시, 각 결과에 재처리 버튼이 나타남. 실제 API sample의 held/can_reprocess 46, accepted/can_reprocess 4와 일치. 전후 조치 조건은 UI client filter이며 서버 원장 변경은 없음. |
-| 교정 후 dedupe 정보 | partial | 목록은 “중복 관계 대상: 미확인”. 교정 후 기술 JSON에는 `dedupe` 객체가 렌더됨. 표본 상세 값에는 `canonical_status`, `algorithm_version`만 있고 `exact_of`, `cluster_id`가 없어서 대표 자료 관계는 계속 알 수 없음. 행별 관계를 제공하는 live data는 비식별 fixture로 확인할 수 없음. |
-| 교정 후 decision fallback | pass (synthetic boundary only) | fixture에는 decision 포함. 별도 mock에서 decision 필드를 제거하고 `status=accepted`, `reason_codes=[review:low_relevance]`로 시험하자 상세에 `적재 대상 · 사유 확인 필요` 표시. “판정 정보 없음”은 재현되지 않았으나, 실제 운영 표본의 decision 누락은 확인 불가. |
-| 교정 후 정밀 평가 | pass for selected detail | `/collect?mission=…` 상세에 엔진 `사용 불가`, pending 1,353건, processing 0, unresolved 0 표시. 별도 overview/review 응답에는 필드가 없다고 명시해 미확인으로 남김. |
+| 교정 후 검토 조치 필터 | pass (local replay, desktop/mobile) | revision `4450dac`에서 “재처리 가능” 선택: 양 viewport 모두 50개 중 46개 표시, 행 버튼 표시도 확인. actual GET sample의 held/can_reprocess 46 및 accepted/can_reprocess 4와 일치. 최종 대조에서는 버튼을 눌러 쓰기를 만들지 않음. |
+| 교정 후 Review 판정 | pass (actual GET replay, desktop/mobile) | held item detail의 `decision.state=hold`가 양 viewport 모두 “판단 보류”로 표시. synthetic 경계에서 decision을 생략하고 `status=accepted`, `review:low_relevance`를 주자 “적재 대상 · 사유 확인 필요”; 실제 운영 누락 표본은 없음. |
+| 교정 후 dedupe 정보 | partial (desktop/mobile) | 목록은 “중복 관계 대상: 미확인”. 기술 JSON에 `dedupe` 객체는 표시되지만 표본에는 `canonical_status`, `algorithm_version`만 있고 `exact_of`, `cluster_id`가 없음. 대상 문서 연결은 여전히 미확인. |
+| 교정 후 정밀 평가 | pass for selected detail (desktop/mobile) | 실제 mission detail replay의 raw engine `unavailable`은 양 viewport 모두 “사용 불가”로 표시. 엔진 식별자나 모델명처럼 보이지 않으며 모델명·세부 실행 상태는 미확인. pending 1,353, processing 0, unresolved 0. overview/review 응답의 필드 부재도 미확인으로 표시. |
 
 ### 지표 단위 검토
 
@@ -87,8 +104,8 @@ review에서 서버 전체 2,310과 loaded 50의 차이는 안내문으로 표�
 |---|---|---|---|
 | 기존 API/UI-A1: 필터와 재처리 버튼 기준 불일치 | Review 필터 및 행 조치. 승인된 자료가 “재처리 가능”에 들어오지만 버튼이 없어 사용자가 할 수 있는 일과 필터 결과가 달라질 수 있었음. | 교정 전 fixture에서 재처리 가능 50개, accepted 4개는 버튼 없음. 현재 교정 후 같은 filter는 46개, 46개 모두 버튼 확인. | **교정으로 재현 안 됨**(로컬 최신 worktree). 운영 배포 검증 아님. |
 | 기존 API/UI-A2: 중복 상세에 dedupe 누락 | Review 기술 상세. 대표 자료·중복 근거 추적이 불가. | `동일한 본문이 이미 있음` 자료 → 근거와 처리 이력 → 원 코드·중복 근거·처리 이력 보기. 현재 상세 JSON에 dedupe 객체가 추가됐으나 표본은 algorithm/canonical status만 제공. | **부분 개선, 관계값 미확인**. exact_of/cluster_id는 replay GET sample에 없음. 목록의 대상 표시는 여전히 “미확인”. |
-| 기존 API/UI-A3: decision 누락 fallback | Review detail 판정 영역. API가 decision 없이 status/reason을 줄 때 의미 있는 상태인지 확인. | `COLLECT_SYNTHETIC_MISSING_DECISION=1` mock에서 detail GET을 accepted/delivered/low_relevance, decision omitted로 강제. | **교정 후 synthetic에서 정상 fallback 확인**: “적재 대상 · 사유 확인 필요”. 실제 운영 누락 사례는 fixture에 없어 unverified. |
-| 기존 API/UI-A4: precise_eval 표시 | Mission detail ResearchPanel. 실제 triage 상태를 숨기면 엔진/대기 규모를 찾기 어려움. | 실제 detail fixture가 `triage.precise_eval` engine/pending/processing/unresolved를 포함. Vite 재시작 후 detail을 열어 확인. | **교정으로 재현 안 됨**: engine availability와 1,353/0/0을 명시. 요약 API에 없는 값은 미확인으로 남김. |
+| 기존 API/UI-A3: decision 누락 fallback | Review detail 판정 영역. API가 decision 없이 status/reason을 줄 때 의미 있는 상태인지 확인. | `COLLECT_SYNTHETIC_MISSING_DECISION=1` mock에서 accepted/delivered/low_relevance, decision omitted. 최종 대조는 `4450dac` frontend. | **synthetic fallback 확인**: “적재 대상 · 사유 확인 필요”. 실제 운영 누락 표본은 없어 unverified. |
+| 기존 API/UI-A4: precise_eval 표시 | Mission detail ResearchPanel. 실제 triage 상태를 숨기면 엔진/대기 규모를 찾기 어려움. | actual detail fixture에 `triage.precise_eval`; `4450dac`에서 desktop/mobile 화면과 bounding box 확인. | **교정으로 재현 안 됨**: raw `unavailable`은 “사용 불가” 상태, 모델명/세부 실행 상태는 미확인, pending/processing/unresolved 1,353/0/0. |
 | 신규 UI-01: 도서관 적재 수치 레이블 모호함 | Mission 상세의 진행 요약과 단계 카드. `trace documents=1,652`와 `counts.imported=2,939`가 모두 적재 문맥으로 보임. 사용자가 실적/문서 수를 혼동할 수 있음. | 위 선택 mission의 overview snapshot에서 각각 1,652와 2,939, 별도 단위 안내 확인. | **재현됨**, 수정하지 않음(독립 검증 범위). |
 
 ## 7개 사용자 질문에 대한 답
@@ -107,7 +124,8 @@ review에서 서버 전체 2,310과 loaded 50의 차이는 안내문으로 표�
 
 | 방법 | 결과 / evidence |
 |---|---|
-| Browser navigation/screenshot | `ttakkari_browser`에서 `/collect`, `?mission=…`, `?view=overview|sources|runs|review|quality`, `?new=1`; viewport 1440×900 및 390×844. 후보 PNG 8개 및 교정 후 부분 캡처 3개를 저장. |
+| Browser navigation/screenshot | `ttakkari_browser`에서 영향 화면만 `?mission=…`, `?view=review`; viewport 1440×900 및 390×844. `4450dac`의 review/action/detail 및 research 캡처 6개를 추가. 기존 후보 8장과 미영향 목록·계획 결과는 보존. |
+| actual GET vs synthetic 경계 | 최신 Review/Research 캡처는 비식별 실제 GET fixture를 local mock에서 재생. decision 누락 응답은 `COLLECT_SYNTHETIC_MISSING_DECISION=1` synthetic mock의 별도 browser snapshot에서 `accepted → 적재 대상 · 사유 확인 필요`로 확인. 계획 preview도 예전 local mock에서만 실행한 synthetic 입력/결과이며 production 요청과 무관. 이번 Run에서는 계획 preview를 반복하지 않음. |
 | Real-data replay GET | 로컬 replay `GET /missions`, `/missions/{id}`, trace, `/review`, `/review/audit`, `/items/{id}`, `/summary`, `/quality`, `/budgets`, `/runtime`; source가 anonymized GET fixture임을 UI 경로와 `evidence/README.md`에서 확인. 실제 production UI 요청은 없음. |
 | Mock writes | local mock POST `/missions/plan` 2회; inert local POST `/items/{id}/reprocess` 1회. mock은 결과만 응답하고 데이터/원장 변경 없음. create, accept/reject/hold, pause/resume, rerun/supplement는 누르지 않음. |
 | DOM test | 미실행: 요청이 독립 브라우저 조작/시각 감사이고, DOM 테스트로 사용자 화면 검증을 대체하지 않음. |
