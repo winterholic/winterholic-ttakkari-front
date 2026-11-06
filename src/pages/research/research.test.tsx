@@ -378,6 +378,34 @@ describe('연구 기록', () => {
     expect(posted.source_run_id).toBe('r2');
     expect((posted.fixed_inputs as Record<string, unknown>)?.bm25_k1).toBe(1.8);
   });
+
+  it('최근 12개 밖에 있는 채택 실험도 원래 설정과 결과물을 읽는다', async () => {
+    const experiments = Array.from({ length: 13 }, (_, i) => ({
+      ...experiment, id: `e${i + 1}`, title: `실험 ${i + 1}`, name: `실험 ${i + 1}`,
+    }));
+    setup(path => {
+      if (new URL(path, 'http://test').pathname === '/studies/s1/resume') return {
+        ...(defaultHandler(path) as object), experiments,
+        best_results: [{ id: 'best-old', study_id: 's1', status: 'adopted', rationale: '기존 채택 근거',
+          experiment_id: 'e13', configuration_id: 'c13', run_id: 'r13', configuration_label: '기존 채택 설정' }],
+      };
+      if (new URL(path, 'http://test').pathname === '/experiments/e13') return {
+        ...experiment, id: 'e13', title: '오래된 채택 실험', name: '오래된 채택 실험',
+        configurations: [{ ...cfgs[1], id: 'c13', experiment_id: 'e13', label: '기존 채택 설정', parameters: { bm25_k1: 2.7 } }],
+        runs: [], measurements: [], latest_analysis: null,
+        artifacts: [{ id: 'a13', experiment_id: 'e13', artifact_id: 'file-e13-original', role: 'benchmark_table', label: 'e13 원본 측정표' }],
+      };
+      if (new URL(path, 'http://test').pathname === '/runs/r13') return { ...runs[1], id: 'r13', experiment_id: 'e13', configuration_id: 'c13', raw_output: {}, environment_snapshot: {}, measurements: [], artifacts: [] };
+      return defaultHandler(path);
+    });
+
+    mount('/research?view=records&study=s1');
+
+    expect(await screen.findByText('e13 원본 측정표')).toBeTruthy();
+    expect(screen.getByText('2.7')).toBeTruthy();
+    expect(calls.some(call => call.includes('/experiments/e13'))).toBe(true);
+    expect(screen.queryByText('연결된 결과물이 없습니다.')).toBeNull();
+  });
 });
 
 describe('결과 분석 compare-series 계약 정합 (반증 테스트)', () => {
