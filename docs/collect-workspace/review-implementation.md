@@ -34,6 +34,12 @@
 
 ## 데이터 계약과 남은 제품/API 질문
 
+### 2026-11-07 후속 계약 보정
+
+사용자가 알려 준 backend 작업 `1eaed429-b996-44d6-b6f3-f2e29a8431f8`는 **queued**이며 운영 전환이 끝나지 않았다. 이 작업이나 기존 robotics pending39 큐는 조회·수정·재생성하지 않았다. 과거 로컬 Qwen 결정은 현재 운영 엔진을 증명하지 않으므로 UI 근거로 사용하지 않는다.
+
+현재 프론트 타입에서 `teacher_enabled`는 일일 budget 응답의 boolean일 뿐 engine/model/current run state의 식별자가 아니다. `signals`는 미정형이며 이 화면은 이를 engine/model 정보로 해석하지 않는다. 따라서 Overview/Review/ResearchPanel에는 정밀 판정 engine·model·state와 정밀 평가 대기 총량을 미확인으로 표시하고, 서버 검토 대기 총량 및 실제 보고된 일일 budget과 분리한다. API가 실행 상태나 대기값을 내놓지 않으면 실제 전환·실패 원인을 추정하지 않는다.
+
 프론트 계약(`src/api/collector.ts`)에서 확인한 응답은 다음과 같다.
 
 - 검토 목록: `items`, `total`, `limit`, `offset`; 행은 `id`, `url`, `source_key`, `status`, `reason_codes`, `language`, `text_chars`, `preview`, 미정형 `signals`, `can_reprocess`를 제공한다.
@@ -65,7 +71,7 @@ API 실제 응답의 종합 baseline 문서 `docs/collect-workspace/baseline-con
 
 ## 검증 로그
 
-- `TTAKKARI_NO_ENV_FILE=1 pnpm exec vitest run src/features/collector/ResearchPanel.test.tsx src/features/collector/ReviewWorkspace.test.tsx --reporter=dot` — 2 test files, 16 tests passed. 큐 필터/모수, 정책 재처리 숨김, 표본 그룹, ItemReview·적재 mutation, 재처리 대기·성공·실패 상태, ResearchPanel 품질 한계를 확인.
+- `TTAKKARI_NO_ENV_FILE=1 pnpm exec vitest run src/features/collector/ResearchPanel.test.tsx src/features/collector/ReviewWorkspace.test.tsx --reporter=dot` — 2 test files, 16 tests passed. 큐 필터/모수, 정책 재처리 숨김, 표본 그룹, ItemReview·적재 mutation, 재처리 대기·성공·실패 상태, ResearchPanel 품질 한계 및 Qwen/teacher_enabled 기반 engine 추론이 없음을 확인.
 - `pnpm exec eslint src/features/collector/Review.tsx src/features/collector/ResearchPanel.tsx src/features/collector/Overview.tsx src/features/collector/researchLabels.ts src/features/collector/ResearchPanel.test.tsx src/features/collector/ReviewWorkspace.test.tsx` — exit 0, lint findings 없음.
 - `TTAKKARI_NO_ENV_FILE=1 pnpm exec vite build` — exit 0, 3,104 modules transformed, production assets generated. 기존 500 kB chunk size warning은 남음.
 - `TTAKKARI_NO_ENV_FILE=1 pnpm build` — 최종 실행 exit 0 (`tsc -b && vite build`, PWA 산출물 생성). 초기 실행은 병행 작업자의 파일이 편집 중인 시점에 다른 소유 파일의 TypeScript 오류 3건으로 실패했으나, 최종 실행에서는 통과했다. 범위 밖 파일은 수정하지 않았다.

@@ -107,6 +107,7 @@ export function ResearchPanel({ mission }: { mission: CollectionMission }) {
   const searchBudget = research?.search_budget ?? plan.budget.searches;
   return <section className="mission-research" aria-label="자율 조사">
     <h3>자율 조사</h3>
+    <p className="kb-note">정밀 판정 엔진·모델·실행 상태: 조사 응답에 없음 · 미확인. 정밀 평가 대기 건수도 제공되지 않으며 사용자 검토 대기와 분리됩니다.</p>
     {research && <>
       <p className="kb-note" aria-label="조사 라운드">후속 조사 라운드 {count(research.round)}회 점검{plan.budget.rounds ? `(상한 ${count(plan.budget.rounds)}회)` : ""} · 검색 {count(research.searches_used)}{searchBudget ? `/${count(searchBudget)}` : ""}회 사용</p>
       <p className="kb-note" role="status" aria-label="조사 종료 사유">{stopText(research.stop, plan.budget.rounds)}</p>

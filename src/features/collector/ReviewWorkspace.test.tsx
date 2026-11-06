@@ -42,6 +42,8 @@ it("검토 화면은 전체 총량과 현재 로드 범위를 구분하고 필�
   expect(await screen.findByRole("heading", { name: "서버 검토 대기 120건" })).toBeTruthy();
   expect(screen.getByText(/현재 2건을 불러왔습니다.*전체/)).toBeTruthy();
   expect(screen.getByText(/자동 평가와 불확실성은 목록 API에 값이 없어 미확인입니다/)).toBeTruthy();
+  expect(screen.getByText(/정밀 판정 엔진·모델·상태: API 미제공 · 미확인/)).toBeTruthy();
+  expect(screen.getByText(/정밀 평가 대기 건수: API 미제공 · 미확인/)).toBeTruthy();
   expect(screen.getByText(/중복 관계 대상: 미제공/)).toBeTruthy();
   fireEvent.change(screen.getByLabelText("자료 검색"), { target: { value: "other.test" } });
   expect(screen.queryByText("https://example.com/a")).toBeNull();
@@ -117,6 +119,11 @@ it("운영 화면은 사용자 조치 총량과 자동 평가 대기·정책 차
   expect(screen.getByText("서버 검토 대기 총량").parentElement?.textContent).toContain("52건");
   expect(screen.getByText(/사용자 조치가 필요한 자료의 전체 수는 API에서 분리 제공하지 않습니다/)).toBeTruthy();
   expect(screen.getByText(/자동 평가 대기와 정책 차단은 별도 총량이 제공되지 않습니다/)).toBeTruthy();
+  expect(screen.getByText(/정밀 판정 엔진·모델·실행 상태: API 미제공 · 미확인/)).toBeTruthy();
+  expect(screen.getByText(/정밀 평가 대기 건수: API 미제공 · 미확인/)).toBeTruthy();
+  expect(screen.queryByText(/규칙 검사만 하므로 수집량이 늘어도 모델 비용은 0/)).toBeNull();
+  expect(screen.queryByText(/모델 호출은 꺼져 있어요/)).toBeNull();
+  expect(document.body.textContent).not.toMatch(/Qwen|로컬 실행|teacher_enabled/);
   expect(screen.queryByLabelText("단계별 건수")).toBeNull();
 });
 

@@ -32,7 +32,8 @@ function Detail({ id, scope }: { id: string; scope?: KbScope }) {
   return <dl className="kb-facts">
     <div className="kb-facts__row"><dt>가져온 주소</dt><dd className="kb-hash">{d.final_url || d.url}</dd></div>
     <div className="kb-facts__row"><dt>판정</dt><dd>{d.decision ? `${humanStatus(d.decision.state)} · ${d.decision.reason_codes.map(labelReason).join(", ") || "추가 사유 없음"}` : "판정 정보 없음"}</dd></div>
-    <div className="kb-facts__row"><dt>자동 품질 평가</dt><dd>{qualityValues.length ? `상세 평가 항목 ${qualityValues.length}개${qualityScores.length ? ` · 점수 ${qualityScores.join(", ")}` : " · 점수 미제공"} · 점수 의미와 불확실성은 별도 제공되지 않음` : "평가 값 미제공 · 자동 판정 여부를 확인할 수 없음"}</dd></div>
+    <div className="kb-facts__row"><dt>상세 품질 값</dt><dd>{qualityValues.length ? `평가 항목 ${qualityValues.length}개${qualityScores.length ? ` · 점수 ${qualityScores.join(", ")}` : " · 점수 미제공"} · 항목 의미와 불확실성 별도 제공 안 됨` : "품질 값 미제공 · 자동 평가 여부 미확인"}</dd></div>
+    <div className="kb-facts__row"><dt>정밀 판정 실행 상태</dt><dd>엔진·모델·실행 상태 API 미제공 · 미확인</dd></div>
     <div className="kb-facts__row"><dt>권리</dt><dd>{d.rights.license_id || "라이선스 확인 안 됨"} · {(d.rights.purposes || []).map(purpose => PURPOSE_LABEL[purpose] ?? "허용 목적 확인 필요").join(", ") || "허용 목적 정보 없음"}</dd></div>
     <div className="kb-facts__row"><dt>원문 해시</dt><dd className="kb-hash">{d.hashes.raw_sha256 ? shortHash(d.hashes.raw_sha256) : "미제공"}</dd></div>
     <div className="kb-facts__row"><dt>본문 해시</dt><dd className="kb-hash">{d.hashes.text_sha256 ? shortHash(d.hashes.text_sha256) : "미제공"}</dd></div>
@@ -126,6 +127,7 @@ export function Review({ scope }: { scope?: KbScope } = {}) {
     <div className="kb-actions review-workspace__heading"><div><h2>서버 검토 대기 {total.toLocaleString("ko-KR")}건</h2><p className="kb-note">전체 큐 총량입니다. 사용자 조치 필요·자동 평가 대기·정책 차단의 전체 분류는 API에서 제공하지 않습니다.</p></div>
       <Button size="sm" variant="primary" onClick={() => setSample(true)}>보류 표본 감사</Button></div>
     <p className="review-workspace__scope">현재 {rows.length.toLocaleString("ko-KR")}건을 불러왔습니다. 아래 검색·필터는 불러온 항목에만 적용됩니다. 전체 큐를 보려면 더 불러오세요.</p>
+    <p className="kb-note">정밀 판정 엔진·모델·상태: API 미제공 · 미확인. 정밀 평가 대기 건수: API 미제공 · 미확인(사용자 조치 필요 수와 별도).</p>
     <div className="review-filters" aria-label="검토 필터">
       <label>자료 검색<input className="tk-input" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="주소·출처·미리보기" /></label>
       <label>보류 사유<select className="tk-input" value={filters.reason} onChange={event => setFilter("reason", event.target.value)}><option value="">모든 사유</option>{[...new Set(rows.flatMap(item => item.reason_codes))].map(code => <option key={code} value={code}>{labelReason(code)}</option>)}</select></label>
