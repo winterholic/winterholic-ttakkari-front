@@ -1,0 +1,12 @@
+{
+  "source": "ttakkari.host_operation_start(kind=runtime_report)",
+  "operation_id": "3754c898-ef3d-40fa-8093-541a3c18ee96",
+  "observed_at": "2026-11-06T15:51:00.034912+00:00",
+  "status": "succeeded",
+  "serving_revision": "efe07c4bf9332473c60743bf31bb73111be00c4a",
+  "active_generation": "d31bc932-f2ef-48f3-9a42-1814172fe1da",
+  "epoch": 151,
+  "contract_source_revision": "5f5cbd997addcb4ea084ab908790f8f6eec54122",
+  "contract_source_deploy_status": "testing",
+  "scope": "Current runtime observation only. It does not establish the revision serving earlier baseline GET requests."
+}
