@@ -79,3 +79,13 @@
 - 대응하는 도달 가능한 계약 두 개를 `StoryboardCreateFlow.late-review.test.tsx`로 이관했다. 지연 파일 읽기 후 제거된 문서가 최신 brief 제출에 되살아나지 않는지, 완료 결과가 사용자 확인 전에는 미승인인지 함께 검사한다. stale accept/409 뒤 새 SHA가 오면 이전 확인을 해제하고 새 확인 전 accept를 비활성화하는 회귀도 이 파일로 옮겨 강화했다.
 - 검증: `node_modules/.bin/vitest run src/pages/creative/StoryboardCreateFlow.late-review.test.tsx` → 1 file / 2 tests passed. `node_modules/.bin/vitest run src/pages/creative` → 6 files / 75 tests passed. `git diff --check` → exit 0. 제품 source 변경 없음; 타입/build는 Run `8f449b4e`의 source 동일 증거를 재사용한다.
 - 이 재이관은 과거 `/intent/validate` 경합을 같은 API 계약으로 검증한 것은 아니다. 대신 현 제품에서 도달 가능한 최신 입력 보존과 미승인/재검토 계약으로 옮겼다. 과거 intent validation UI 전용 경합은 현재 제품에 없어 별도 미충족 계약으로 남긴다.
+
+## 원격 통합·배포 후속 (2026-11-07)
+
+- 현재 통합 Run `3d808fe3-0baa-44f9-a547-b4e622bcb540`은 `ttk get /api/runs/3d808fe3-0baa-44f9-a547-b4e622bcb540`에서 profile `회사 코덱스 ai2 (ai2@hyperez.io)`로 확인했다. 시작 HEAD는 `6b2f1f372b98e161e9c909ad9f738b3554ad0053`, 부모는 `a102d12205f8c46853bb4e93a9855da4b8bf85d2`, 시작 트리는 clean이었다.
+- `github_accounts` 결과는 `winterholic` active/success, `daeseon-dev` inactive/success다. 토글은 바꾸지 않았으며 fetch/push는 `winterholic` per-command credential만 사용한다.
+- `git fetch origin main:refs/remotes/origin/main` 결과 `origin/main=a3b2b51ee88e1c37a0a44f60e8eac3cfdf8ed71d`. `git merge-base origin/main HEAD`도 같은 SHA이고 `git rev-list --left-right --count origin/main...HEAD`는 `0 4`; 따라서 후보는 원격 main의 fast-forward 후보다. 공통 조상 이후 `origin/main` 경로 delta는 0개다. 신규 원격 기능 delta가 없어 격리 재검증 분기에는 해당하지 않는다.
+- 후보는 `origin/main` 대비 4개 커밋 앞서며 4개 경로를 추가/변경한다: 이 후보 문서, `src/pages/creative/StoryboardCreateFlow.tsx`, `src/pages/creative/StoryboardCreateFlow.test.tsx`, `src/pages/creative/StoryboardCreateFlow.late-review.test.tsx` (이전 late-review 테스트 경로 1개는 제거). 79검사에는 구현79 run의 전체 Creative 79 passed가 포함되고, 독립 75검사 및 별도 허용 경계4검사는 lead handoff의 실제 이벤트 대조 기록을 재사용한다.
+- source 지문 표의 `StoryboardCreateFlow.tsx=f4bb…`는 최초 구현 SHA `048f20d205e6086b4d713b9fa893b46c2830bcf8`의 역사적 지문이다. 후속 feature commit `dd8f17adee48a66a69977dd0a59cef914f08c5e9`부터 현재 후보까지 실제 파일 SHA-256은 `5ce098cb24a03a2bc83afee4397a5c009ad5dae03953c7b01e5116f01f653e15`로 동일하다. 현재 구현79 전체검사 이후 제품 소스, `package.json`, `pnpm-lock.yaml`은 변경되지 않았다. 타입/build는 후속 Run `8f449b4e`에 기록된 동일 source 근거를 재사용하며 이번에는 중복 실행하지 않는다.
+- 배포 전 증거: `git merge-base --is-ancestor origin/main HEAD` exit 0; `git status --short --branch`는 `## feat/creative-text-sources-quality-20261107`만 출력; `git diff --check` exit 0. 이 시점 push는 아직 실행하지 않았다.
+- 최종 통합 SHA, push 원격 SHA, 표준 프런트엔드 deployment ID/state 및 공개 URL 로그인 경계는 push 후 관측값으로 아래에 추가한다. 실제 인증 제작과 공개 도메인의 지정 SHA 연결은 이 Run에서 검증하지 않는다.
