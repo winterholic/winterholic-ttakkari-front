@@ -15,10 +15,15 @@ function visualLabel(value?: string | null) {
 }
 function statusLabel(value?: string | null) {
   if (value === "verified" || value === "passed" || value === "match") return "확인됨";
-  if (value === "mismatch" || value === "failed") return "차이 발견";
+  if (value === "mismatch") return "차이 발견";
+  if (value === "failed") return "실패";
   if (value === "pending" || value === "running") return "진행 중";
   if (value === "unverified") return "미검증";
   return "기록 없음";
+}
+function outputArtifactPath(path: string, outputPath?: string) {
+  if (!outputPath || path.startsWith("/")) return path;
+  return `${outputPath.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 function countComparisons(snapshot: ReverseSnapshot | null | undefined) {
   const summary = snapshot?.direct_comparison;
@@ -95,7 +100,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
   const history = v2?.history ?? [];
   const counts = countComparisons(latest);
   const independent = latest?.independent_verification ?? (job.verifier_session_id
-    ? { status: result?.verification ?? "pending", run_id: job.verifier_session_id, verdict: result?.verification ?? null }
+    ? { status: result?.verification ?? "pending", verdict: result?.verification ?? null }
     : undefined);
   const mismatches = latest?.comparisons?.filter((c) => c.result === "mismatch") ?? [];
   const unknowns = latest?.comparisons?.filter((c) => c.result === "unverified") ?? [];
@@ -106,7 +111,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
     if (fileContents[path] !== undefined || readingPath) return;
     setReadingPath(path); setFileErrors((current) => ({ ...current, [path]: "" }));
     try {
-      const artifact = await resolveArtifactLink({ path, workspace_id: job.workspace_id, session_id: job.session_id });
+      const artifact = await resolveArtifactLink({ path: outputArtifactPath(path, job.output_path), workspace_id: job.workspace_id, session_id: job.session_id });
       const body = await contentBlob(artifact.id).then((blob) => blob.text());
       setFileContents((current) => ({ ...current, [path]: body }));
     } catch (error) {
@@ -131,8 +136,9 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         <div><strong>{counts.mismatched}</strong><span>불일치</span></div><div><strong>{counts.unverified}</strong><span>미검증</span></div>
       </div>
       <div className="rv-summary__meta"><span>직접 비교: <b>{statusLabel(counts.status)}</b></span>
-        <span>독립 검증: <b>{statusLabel(independent?.verdict ?? independent?.status)}</b></span>
-        {independent?.run_id && <Link to={`/chat/${independent.run_id}`}>검증 Run 보기</Link>}
+        <span>독립 검증: <b>{statusLabel(independent?.status ?? independent?.verdict)}</b></span>
+        {job.verifier_session_id && <Link to={`/chat/${job.verifier_session_id}`}>검증 대화 보기</Link>}
+        {independent?.run_id && <span>검증 Run ID: <code>{independent.run_id}</code></span>}
         {!v2 && result?.verification && <span>기존 검증 보고: <b>{result.verification}</b> · 독립 Run 근거 미확인</span>}
       </div>
       {(mismatches.length > 0 || unknowns.length > 0) && <div className="rv-summary__findings">

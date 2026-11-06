@@ -258,3 +258,48 @@ it("Workspace API에서 README와 검사 로그 본문을 읽어 표시한다", 
   fireEvent.click(screen.getByRole("button", { name: "로그 읽기" }));
   await waitFor(() => expect(h.resolveArtifact).toHaveBeenCalledWith({ path: "logs/tests.log", workspace_id: "ws-1", session_id: "session-1" }));
 });
+
+it.each([
+  ["failed", "실패"],
+  ["unverified", "미검증"],
+  ["pending", "진행 중"],
+])("독립 검증 서버 상태 %s는 passed verdict보다 우선한다", async (status, label) => {
+  mountDetail({ ...doneJob, kind: "reconstruction", result: { schema_version: 2, latest: {
+    independent_verification: { status, verdict: "passed", run_id: "verify-run-1" },
+  } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+  const verification = await screen.findAllByText(label, { selector: "b" });
+  expect(verification.some((item) => item.parentElement?.textContent?.startsWith("독립 검증:"))).toBe(true);
+});
+
+it("실제 재현 출력 경로 아래의 소스와 로그 본문을 resolve한다", async () => {
+  const outputPath = "/work/project/reverse-engineering/job-1";
+  h.content.mockResolvedValueOnce({ text: async () => "print('source file')" } as Blob)
+    .mockResolvedValueOnce({ text: async () => "pytest log body" } as Blob);
+  mountDetail({ ...doneJob, kind: "reconstruction", workspace_id: "ws-1", session_id: "session-1", output_path: outputPath,
+    result: null, latest: null, history: [], stages, rounds: [], activity: [], outputs: [],
+    reconstruction: { summary: "작업", source_files: ["src/main.py"], observations: [],
+      checks: [{ command: "pytest -q", exit_code: 0, log: "logs/tests.log" }], limitations: [] } });
+  fireEvent.click(await screen.findByRole("button", { name: "src/main.py 미리보기" }));
+  await waitFor(() => expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/src/main.py`, workspace_id: "ws-1", session_id: "session-1" }));
+  expect(await screen.findByText("print('source file')")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "로그 읽기" }));
+  await waitFor(() => expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/logs/tests.log`, workspace_id: "ws-1", session_id: "session-1" }));
+  expect(await screen.findByText("pytest log body")).toBeTruthy();
+});
+
+it("검증 대화 링크는 verifier_session_id를 쓰고 Run ID는 별도로 보존한다", async () => {
+  mountDetail({ ...doneJob, kind: "reconstruction", verifier_session_id: "verifier-session-1", result: { schema_version: 2, latest: {
+    independent_verification: { status: "passed", verdict: "passed", run_id: "verify-run-1" },
+  } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+  const link = await screen.findByRole("link", { name: "검증 대화 보기" });
+  expect(link.getAttribute("href")).toBe("/chat/verifier-session-1");
+  expect(screen.getByText("verify-run-1")).toBeTruthy();
+});
+
+it("검증 세션 ID가 없으면 Run ID를 대화 링크로 쓰지 않는다", async () => {
+  mountDetail({ ...doneJob, kind: "reconstruction", result: { schema_version: 2, latest: {
+    independent_verification: { status: "passed", verdict: "passed", run_id: "verify-run-1" },
+  } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+  expect(await screen.findByText("verify-run-1")).toBeTruthy();
+  expect(screen.queryByRole("link", { name: "검증 대화 보기" })).toBeNull();
+});
