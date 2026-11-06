@@ -1,12 +1,7 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import {
-  intentRunGet,
-  intentRunResume,
-  intentRunStart,
-  intentValidate,
-  planCatalog,
   planApprove,
   planCreate,
   planEdit,
@@ -17,13 +12,17 @@ import {
   productionRender,
   productionGenerateAssets,
   productionMediaUrl,
+  productionResultUrl,
+  productionRevision,
+  productionReview,
+  productionRepairPlan,
+  productionRepairApply,
   productionUpload,
 } from "../../api/creativeV2";
-import type { CreativeCatalog } from "../../api/creativeV2";
-import { cancelRun } from "../../api/client";
+import { creativeList } from "../../api/creative";
+import type { CreativeProject } from "../../api/creative";
 import type {
   CreativePlan,
-  CreativeIntent,
   DurationAlternative,
   DurationRequest,
   DurationStatus,
@@ -31,6 +30,8 @@ import type {
   PlanScene,
   ProductionState,
   ProductionView,
+  ProductionRevision,
+  QualityDefect,
   RenderPlan,
   SceneEditBody,
 } from "../../api/creativeV2";
@@ -40,9 +41,10 @@ import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { DurationPicker } from "./DurationPicker";
 import type { DurationState } from "./duration";
-import { INITIAL_DURATION, MAX_SECONDS, PRESETS, clock, describeRequest, formatSeconds, toRequest } from "./duration";
+import { INITIAL_DURATION, MAX_SECONDS, clock, describeRequest, formatSeconds, toRequest } from "./duration";
 import "../creative.css";
 import "./creativePlan.css";
+import { StoryboardCreateFlow } from "./StoryboardCreateFlow";
 
 type Tone = "info" | "success" | "warning" | "danger" | undefined;
 
@@ -79,22 +81,30 @@ const STATE_LABEL: Record<PlanScene["duration_state"], string> = {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-function requestToDurationState(request: DurationRequest | null | undefined): DurationState {
-  if (!request || request.mode === "auto") return INITIAL_DURATION;
-  const seconds = request.seconds ?? (request.platform === "youtube_shorts" ? 180 : null);
-  if (seconds == null) return INITIAL_DURATION;
-  const choice = PRESETS.includes(seconds as (typeof PRESETS)[number]) ? String(seconds) as DurationState["choice"] : "custom";
-  return {
-    choice,
-    custom: choice === "custom" ? String(seconds) : "",
-    strictness: request.mode === "exact" ? "exact" : request.mode === "platform_cap" ? "cap" : "soft",
-    capKind: request.platform === "youtube_shorts" ? "youtube_shorts" : "custom",
-    capSource: request.source ?? "",
-  };
-}
-
 function errorLine(error: unknown) {
   return errorText(error).message;
+}
+
+function qualityVerdict(value: string) {
+  return ({ pass: "통과", fail: "실패", unknown: "미확인", needs_review: "추가 검수 필요" } as Record<string, string>)[value] ?? value;
+}
+
+type CaptionMode = "narration" | "title_only";
+const captionModeKey = (planId: string) => `creative-caption-mode:${planId}`;
+function readCaptionMode(planId: string): CaptionMode | null {
+  try {
+    const value = sessionStorage.getItem(captionModeKey(planId));
+    return value === "narration" || value === "title_only" ? value : null;
+  } catch {
+    return null;
+  }
+}
+function rememberCaptionMode(planId: string, value: CaptionMode | null | undefined) {
+  if (!value) return;
+  try { sessionStorage.setItem(captionModeKey(planId), value); } catch { /* session persistence is optional */ }
+}
+function consumedCaptionField(scene: PlanScene | undefined, mode: CaptionMode): "title" | "narration" {
+  return mode === "title_only" || !scene?.narration ? "title" : "narration";
 }
 
 function NeededBar({ plan }: { plan: CreativePlan }) {
@@ -316,6 +326,42 @@ function SceneEditor({
                   <span className="creative-scene__range">저장하면 필요 길이를 계산해요</span>
                 )}
                 {need && <Badge tone={need.duration_state === "ok" ? undefined : "warning"}>{STATE_LABEL[need.duration_state]}</Badge>}
+                {need && (
+                  <>
+                    <p className="creative-scene__evidence">
+                      목적: {need.narrative_goal} · 대사 예상 {formatSeconds(need.speech_seconds)} · {need.essential ? "필수 장면" : "선택 장면"}
+                    </p>
+                    {[
+                      ["필수 기술", need.required_skills],
+                      ["선택 도구", need.selected_tools],
+                      ["선택 모델", need.selected_models],
+                      ["품질 검사 목표", need.quality_checks],
+                      ["인물", need.characters],
+                      ["환경", need.environment],
+                      ["카메라", need.camera],
+                      ["움직임", need.motion],
+                      ["오디오", need.audio],
+                      ["의존 장면", need.dependencies],
+                      ["출력 자산", need.output_assets],
+                    ].some(([, values]) => Array.isArray(values) && values.length > 0) && (
+                      <details className="creative-scene__basis">
+                        <summary>장면 근거·목표 검사</summary>
+                        <dl>
+                          {[
+                            ["필수 기술", need.required_skills], ["선택 도구", need.selected_tools],
+                            ["선택 모델", need.selected_models], ["품질 검사 목표", need.quality_checks],
+                            ["인물", need.characters], ["환경", need.environment], ["카메라", need.camera],
+                            ["움직임", need.motion], ["오디오", need.audio], ["의존 장면", need.dependencies],
+                            ["출력 자산", need.output_assets],
+                          ].filter(([, values]) => Array.isArray(values) && values.length > 0).map(([label, values]) => (
+                            <div key={String(label)}><dt>{String(label)}</dt><dd>{(values as string[]).join(", ")}</dd></div>
+                          ))}
+                          {need.style_dna && <div><dt>Style DNA</dt><dd>{need.style_dna}</dd></div>}
+                        </dl>
+                      </details>
+                    )}
+                  </>
+                )}
                 {cut && (
                   <span className="tk-error" role="alert">
                     대사가 잘려요
@@ -370,182 +416,6 @@ function SceneEditor({
         </div>
       )}
     </section>
-  );
-}
-
-function IntentEditor({
-  value,
-  catalog,
-  onChange,
-}: {
-  value: CreativeIntent;
-  catalog?: CreativeCatalog;
-  onChange: (intent: CreativeIntent) => void;
-}) {
-  const entries = Object.entries(catalog?.catalogs ?? {});
-  const patchSelection = (index: number, patch: Partial<CreativeIntent["selections"][number]>) =>
-    onChange({
-      ...value,
-      selections: value.selections.map((selection, i) =>
-        i === index ? { ...selection, ...patch, source: "user_explicit" } : selection,
-      ),
-    });
-  const patchConstraint = (index: number, patch: Partial<CreativeIntent["constraints"][number]>) =>
-    onChange({
-      ...value,
-      constraints: value.constraints.map((constraint, i) =>
-        i === index ? { ...constraint, ...patch, source: "user_explicit" } : constraint,
-      ),
-    });
-  const patchInfo = (index: number, patch: Partial<CreativeIntent["info_items"][number]>) =>
-    onChange({
-      ...value,
-      info_items: value.info_items.map((item, i) => (i === index ? { ...item, ...patch } : item)),
-    });
-
-  return (
-    <div className="creative-intent-editor">
-      <fieldset className="creative-intent-editor__group">
-        <legend>제작 유형과 선호</legend>
-        <p className="creative-hint">AI가 고른 항목은 모두 선호 초안입니다. 바꾸거나 필수로 표시하면 사용자가 결정한 값으로 기록돼요.</p>
-        {value.selections.map((selection, index) => (
-          <div className="creative-intent-editor__row" key={`${selection.entry_id}-${index}`}>
-            <label className="creative-field">
-              콘텐츠 형식
-              <select
-                className="tk-input"
-                aria-label="콘텐츠 형식"
-                value={selection.entry_id}
-                onChange={(event) => patchSelection(index, { entry_id: event.target.value })}
-              >
-                <option value="">선택해 주세요</option>
-                {entries.map(([key, group]) => (
-                  <optgroup key={key} label={group.name}>
-                    {group.entries.map((entry) => <option key={entry.id} value={entry.id}>{entry.name}</option>)}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
-            <label className="creative-field">
-              중요도
-              <select
-                className="tk-input"
-                aria-label="중요도"
-                value={selection.strength}
-                onChange={(event) => patchSelection(index, { strength: event.target.value as "hard" | "soft" })}
-              >
-                <option value="soft">선호</option>
-                <option value="hard">필수</option>
-              </select>
-            </label>
-            <label className="creative-field creative-intent-editor__evidence">
-              근거 문구
-              <input
-                className="tk-input"
-                value={selection.evidence[0]?.quote ?? ""}
-                onChange={(event) => patchSelection(index, { evidence: event.target.value ? [{ quote: event.target.value }] : [] })}
-                placeholder="브리프에서 그대로 인용"
-              />
-            </label>
-              <Button size="xs" variant="ghost" aria-label={`선택 항목 ${index + 1} 삭제`}
-              onClick={() => onChange({ ...value, selections: value.selections.filter((_, i) => i !== index) })}>
-              삭제
-            </Button>
-          </div>
-        ))}
-        <Button size="sm" variant="ghost" onClick={() => onChange({
-          ...value,
-          selections: [...value.selections, { entry_id: "", role: "secondary", strength: "soft", confidence: 1, source: "user_explicit", evidence: [] }],
-        })}>유형 추가</Button>
-      </fieldset>
-
-      <fieldset className="creative-intent-editor__group">
-        <legend>제약</legend>
-        {value.constraints.map((constraint, index) => (
-          <div className="creative-intent-editor__row creative-intent-editor__row--constraint" key={constraint.id}>
-            <label className="creative-field">
-              제약 유형
-              <select className="tk-input" aria-label="제약 유형" value={constraint.kind}
-                onChange={(event) => patchConstraint(index, { kind: event.target.value as CreativeIntent["constraints"][number]["kind"] })}>
-                {[["duration", "길이"], ["aspect", "화면 비율"], ["platform", "플랫폼"], ["budget", "예산"], ["resource", "리소스"], ["style", "스타일"], ["content", "내용"], ["legal", "법률"]].map(([key, label]) => <option key={key} value={key}>{label}</option>)}
-              </select>
-            </label>
-            <label className="creative-field">
-              제약 내용
-              <input className="tk-input" value={constraint.statement} onChange={(event) => patchConstraint(index, { statement: event.target.value })} />
-            </label>
-            <label className="creative-field">
-              중요도
-              <select className="tk-input" aria-label="제약 중요도" value={constraint.hard ? "hard" : "soft"}
-                onChange={(event) => patchConstraint(index, { hard: event.target.value === "hard" })}>
-                <option value="soft">선호</option><option value="hard">필수</option>
-              </select>
-            </label>
-            <label className="creative-field creative-intent-editor__evidence">
-              제약 근거
-              <input className="tk-input" value={constraint.evidence[0]?.quote ?? ""}
-                onChange={(event) => patchConstraint(index, { evidence: event.target.value ? [{ quote: event.target.value }] : [] })}
-                placeholder="브리프에서 그대로 인용" />
-            </label>
-              <Button size="xs" variant="ghost" aria-label={`${constraint.statement || "제약"} 삭제`}
-              onClick={() => onChange({ ...value, constraints: value.constraints.filter((_, i) => i !== index) })}>삭제</Button>
-          </div>
-        ))}
-        <Button size="sm" variant="ghost" onClick={() => onChange({
-          ...value,
-          constraints: [...value.constraints, { id: `c${Date.now().toString(36)}`, kind: "content", hard: false, statement: "", source: "user_explicit", evidence: [] }],
-        })}>제약 추가</Button>
-      </fieldset>
-
-      <fieldset className="creative-intent-editor__group">
-        <legend>전달할 내용</legend>
-        {value.info_items.map((item, index) => (
-          <div className="creative-intent-editor__row creative-intent-editor__row--info" key={item.id}>
-            <label className="creative-field">항목 제목
-              <input className="tk-input" value={item.title} onChange={(event) => patchInfo(index, { title: event.target.value })} />
-            </label>
-            <label className="creative-field creative-intent-editor__evidence">전달할 내용
-              <textarea className="tk-textarea" rows={2} value={item.narration} onChange={(event) => patchInfo(index, { narration: event.target.value })} />
-            </label>
-            <label className="creative-field creative-intent-editor__evidence">전달 근거
-              <input className="tk-input" value={item.evidence[0]?.quote ?? ""}
-                onChange={(event) => patchInfo(index, { evidence: event.target.value ? [{ quote: event.target.value }] : [] })}
-                placeholder="브리프에서 그대로 인용" />
-            </label>
-            <label className="creative-field">중요도
-              <input className="tk-input" type="number" min="0" max="10" step="0.1" value={item.weight}
-                onChange={(event) => patchInfo(index, { weight: event.target.value ? Number(event.target.value) : 0 })} />
-            </label>
-            <label className="creative-intent-editor__check">
-              <input type="checkbox" checked={item.essential} onChange={(event) => patchInfo(index, { essential: event.target.checked })} />
-              꼭 전달
-            </label>
-              <Button size="xs" variant="ghost" aria-label={`${item.title || `전달 항목 ${index + 1}`} 삭제`}
-              onClick={() => onChange({ ...value, info_items: value.info_items.filter((_, i) => i !== index) })}>삭제</Button>
-          </div>
-        ))}
-        <Button size="sm" variant="ghost" onClick={() => onChange({
-          ...value,
-          info_items: [...value.info_items, { id: `i${Date.now().toString(36)}`, title: "", narration: "", weight: 1, essential: false, evidence: [] }],
-        })}>전달 항목 추가</Button>
-      </fieldset>
-
-      {value.open_questions.length > 0 && (
-        <fieldset className="creative-intent-editor__group">
-          <legend>아직 결정되지 않은 점</legend>
-          <p className="creative-hint">각 질문을 읽고 해결한 뒤 목록에서 닫아 주세요. 남은 질문이 있으면 의도를 확정할 수 없어요.</p>
-          {value.open_questions.map((question, index) => (
-            <div className="creative-intent-editor__question" key={`${question}-${index}`}>
-              <label className="creative-field">확인할 질문 {index + 1}
-                <textarea className="tk-textarea" rows={2} value={question}
-                  onChange={(event) => onChange({ ...value, open_questions: value.open_questions.map((q, i) => i === index ? event.target.value : q) })} />
-              </label>
-              <Button size="sm" variant="ghost" onClick={() => onChange({ ...value, open_questions: value.open_questions.filter((_, i) => i !== index) })}>확인하고 닫기</Button>
-            </div>
-          ))}
-        </fieldset>
-      )}
-    </div>
   );
 }
 
@@ -664,6 +534,10 @@ const SEGMENT_LABEL: Record<string, string> = {
 function ProductionPanel({ plan }: { plan: CreativePlan }) {
   const qc = useQueryClient();
   const [assetGenerationRequested, setAssetGenerationRequested] = useState(false);
+  const [repairDrafts, setRepairDrafts] = useState<Record<string, string>>({});
+  const [comparison, setComparison] = useState<{ revision: ProductionRevision; url: string; expires_at: string } | null>(null);
+  const [currentResultLink, setCurrentResultLink] = useState<{ url: string; sha256: string; expires_at: string } | null>(null);
+  const [segmentLinks, setSegmentLinks] = useState<Record<string, { url: string; sha256: string; expires_at: string; pending?: boolean; error?: boolean }>>({});
   const key = ["creative-production", plan.id, plan.revision];
   const q = useQuery({
     queryKey: key,
@@ -675,7 +549,14 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
     },
   });
   const done = (view: ProductionView) => qc.setQueryData(key, view);
-  const dispatch = useMutation({ mutationFn: () => productionDispatch(plan.id, plan.revision), onSuccess: done });
+  const dispatch = useMutation({
+    mutationFn: () => {
+      const mode = view?.caption_mode ?? readCaptionMode(plan.id) ?? "narration";
+      rememberCaptionMode(plan.id, mode);
+      return productionDispatch(plan.id, plan.revision, mode);
+    },
+    onSuccess: done,
+  });
   const start = useMutation({ mutationFn: () => productionRender(plan.id, plan.revision), onSuccess: done });
   const generate = useMutation({
     mutationFn: () => productionGenerateAssets(plan.id, plan.revision),
@@ -689,10 +570,39 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
     onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
   });
   const media = useMutation({ mutationFn: (mediaId: string) => productionMediaUrl(plan.id, mediaId) });
+  const review = useMutation({
+    mutationFn: () => productionReview(plan.id, plan.revision),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
+  });
+  const repair = useMutation({
+    mutationFn: (defects: QualityDefect[]) => productionRepairPlan(plan.id, plan.revision, defects),
+    onSuccess: (proposal) => qc.setQueryData<ProductionView>(key, (old) => old ? { ...old, repair_plan: proposal } : old),
+  });
+  const applyRepair = useMutation({
+    mutationFn: (input: { proposal: NonNullable<ProductionView["repair_plan"]>; captionMode: CaptionMode; updates: Array<{ scene_id: string; shot_id?: string | null; layer: "captions"; field: "title" | "narration"; text: string }> }) =>
+      productionRepairApply(plan.id, plan.revision, input.proposal.proposal_sha256!, input.updates),
+    onSuccess: (result, input) => {
+      rememberCaptionMode(plan.id, input.captionMode);
+      qc.setQueryData(["creative-repair-result", plan.id], result);
+      void qc.invalidateQueries({ queryKey: ["creative-plan", plan.id] });
+      void qc.invalidateQueries({ queryKey: ["creative-plans"] });
+    },
+  });
+  const compareRevision = useMutation({
+    mutationFn: async (revision: number) => {
+      const previous = await productionRevision(plan.id, revision);
+      if (!previous.final.id || !previous.final.sha256) throw new Error("이 revision에는 재생 가능한 결과가 없습니다.");
+      const link = await productionResultUrl(plan.id, revision, "final");
+      if (link.sha256 !== previous.final.sha256 || link.revision !== revision || link.result_id !== "final") throw new Error("revision 결과 SHA가 링크 발급 정보와 일치하지 않습니다.");
+      return { revision: previous, url: link.url, expires_at: link.expires_at };
+    },
+    onSuccess: setComparison,
+  });
   const view = q.data;
-  const error = dispatch.error ?? generate.error ?? start.error ?? upload.error ?? media.error ?? (q.isError ? q.error : null);
+  const error = dispatch.error ?? generate.error ?? start.error ?? upload.error ?? media.error ?? review.error ?? repair.error ?? applyRepair.error ?? compareRevision.error ?? (q.isError ? q.error : null);
   const dispatched = view && view.state !== "not_dispatched" && view.state !== "stale_revision";
   const missing = new Set(view?.assets.missing_scene_ids ?? []);
+  const segmentFor = (sceneId: string) => view?.segments.find((segment) => segment.scene_ids.includes(sceneId));
   return (
     <section className="creative-panel" aria-labelledby="plan-production">
       <h2 id="plan-production">제작 연결</h2>
@@ -715,10 +625,39 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
               ))}
             </ul>
           )}
+          <ol className="creative-production-timeline" aria-label="장면 타임라인">
+            {plan.scenes.map((scene) => <li key={scene.scene_id}>
+              <span>{clock(scene.start_time)}–{clock(scene.end_time)}</span>
+              <strong>{scene.title || scene.scene_id}</strong>
+              {scene.selected_engine && <small>{scene.strategy ?? "전략 미지정"} · {scene.selected_engine}</small>}
+              {scene.shots?.map((shot) => <small key={shot.shot_id}>{shot.shot_id}: {shot.action} · {shot.selected_providers?.join(", ") || "공급자 근거 없음"}</small>)}
+              {scene.strategy_rationale?.reason && <small>선택 근거: {scene.strategy_rationale.reason}</small>}
+            </li>)}
+          </ol>
+          <div>
+            <h3>장면별 상태</h3>
+            <ol className="creative-scene-status" aria-label="장면별 제작 상태">
+              {plan.scenes.map((scene) => {
+                const segment = segmentFor(scene.scene_id);
+                const generatedImage = view.asset_generation?.assets.scenes[scene.scene_id];
+                const generatedVoice = view.asset_generation?.assets.voices[scene.scene_id];
+                const status = segment
+                  ? SEGMENT_LABEL[segment.status] ?? segment.status
+                  : missing.has(scene.scene_id) ? "이미지 필요" : "대기";
+                return <li key={scene.scene_id}>
+                  <strong>{scene.title || scene.scene_id}</strong><span>{status}</span>
+                  {segment?.error && <span className="tk-error" role="status">{segment.error}</span>}
+                  {generatedImage && <span>생성 이미지 · {generatedImage.id} · SHA {generatedImage.sha256.slice(0, 8)}</span>}
+                  {generatedVoice && <span>장면 음성 · {generatedVoice.id} · SHA {generatedVoice.sha256.slice(0, 8)}</span>}
+                </li>;
+              })}
+            </ol>
+            <p className="creative-hint">장면별 미디어 원본·썸네일 조회 API는 아직 없습니다. 서버에서 받은 자산 ID와 해시만 표시하며, 자산이 실제 미리보기되는 것처럼 보이지 않습니다.</p>
+          </div>
           {view.state === "not_dispatched" && view.dispatchable && (
-            <Button variant="primary" busy={dispatch.isPending} onClick={() => dispatch.mutate()}>
+            <><p className="creative-hint">dispatch caption mode: {view.caption_mode ?? readCaptionMode(plan.id) ?? "narration"} · 승인한 revision의 기존 모드를 유지합니다.</p><Button variant="primary" busy={dispatch.isPending} onClick={() => dispatch.mutate()}>
               제작 시작 준비
-            </Button>
+            </Button></>
           )}
           {dispatched && (
             <div>
@@ -801,10 +740,92 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
                   {seg.attempts > 0 && ` · ${seg.attempts}회 실행`}
                   {seg.metrics?.cached_scenes ? ` · 장면 ${seg.metrics.cached_scenes}개 재사용` : ""}
                   {seg.error && ` · ${seg.error}`}
+                  {seg.output_sha256 && <><Button variant="ghost" busy={Boolean(segmentLinks[seg.id]?.pending)} onClick={async () => {
+                    setSegmentLinks((current) => ({ ...current, [seg.id]: { ...current[seg.id], pending: true } }));
+                    try {
+                      const resultId = seg.result_id ?? seg.id;
+                      const link = await productionResultUrl(plan.id, view.plan_revision, resultId);
+                      if (link.sha256 !== seg.output_sha256 || link.revision !== view.plan_revision || link.result_id !== resultId) throw new Error("구간 결과 link metadata가 일치하지 않습니다.");
+                      setSegmentLinks((current) => ({ ...current, [seg.id]: link }));
+                    } catch {
+                      setSegmentLinks((current) => ({ ...current, [seg.id]: { ...current[seg.id], error: true } }));
+                    }
+                  }}>이 구간 영상 열기</Button>{segmentLinks[seg.id]?.url && <video controls src={segmentLinks[seg.id].url} aria-label={`${seg.id} 결과 영상`} style={{ maxWidth: "100%" }} />}{segmentLinks[seg.id]?.error && <span className="tk-error">구간 임시 링크를 발급하지 못했습니다.</span>}{segmentLinks[seg.id]?.sha256 && <small>결과 SHA {segmentLinks[seg.id].sha256.slice(0, 12)} · 임시 링크 만료 {segmentLinks[seg.id].expires_at}</small>}</>}
                 </li>
               ))}
             </ol>
           )}
+          {view.quality_report && <section className="creative-quality" aria-labelledby="creative-quality-title">
+            <h3 id="creative-quality-title">품질 판정</h3>
+            <p><strong>전체 판정: {qualityVerdict(view.quality_report.overall_verdict)}</strong></p>
+            <ul>
+              <li>기계 검사: {qualityVerdict(view.quality_report.machine_qa.verdict)}{view.quality_report.machine_qa.reason ? ` · ${view.quality_report.machine_qa.reason}` : ""}</li>
+              <li>내용 검수: {qualityVerdict(view.quality_report.semantic_qa.verdict)}{view.quality_report.semantic_qa.reason ? ` · ${view.quality_report.semantic_qa.reason}` : ""}</li>
+              <li>시청·청취 검수: {qualityVerdict(view.quality_report.viewing_qa.verdict)}{view.quality_report.viewing_qa.reason ? ` · ${view.quality_report.viewing_qa.reason}` : ""}</li>
+            </ul>
+            {view.quality_report.rubric?.criteria && <details><summary>서버 품질 목표 · {view.quality_report.rubric.criteria.length}개 기준</summary><ul>{view.quality_report.rubric.criteria.map((criterion) => <li key={criterion.id}>{criterion.stage} · {criterion.description ?? criterion.id}</li>)}</ul></details>}
+            {view.quality_report.defects.length > 0 && <>
+              <h4>발견한 결함</h4>
+              <ul>{view.quality_report.defects.map((defect, i) => <li key={`${defect.scene_id}-${defect.code}-${i}`}>{defect.scene_id}{defect.shot_id ? `/${defect.shot_id}` : ""} · {defect.code} · {defect.layer}{defect.summary ? ` · ${defect.summary}` : ""}{defect.evidence?.map((e, j) => <span key={j}> · 증거 {e.kind ?? "파일"}{e.start_time != null ? ` ${clock(e.start_time)}${e.end_time != null ? `–${clock(e.end_time)}` : ""}` : ""}{e.sha256 ? ` SHA ${e.sha256.slice(0, 8)}` : ""}</span>)}</li>)}</ul>
+              <Button busy={repair.isPending} onClick={() => repair.mutate(view.quality_report!.defects)}>수정 영향 계산</Button>
+            </>}
+            <Button variant="ghost" busy={review.isPending} disabled={!view.final?.id} onClick={() => review.mutate()}>서버 검수 요청</Button>
+            {review.data?.status === "not_connected" && <p className="creative-hint">검수 연결 상태: not_connected · 의미·시청 판정은 미확인으로 유지됩니다.</p>}
+            {view.review_execution?.status === "not_connected" && <p className="creative-hint">서버 검수 연결 상태: not_connected · semantic/viewing은 unknown입니다.</p>}
+            {!view.review_execution && view.quality_report.semantic_qa.verdict === "unknown" && <p className="creative-hint">현재 기본 검수는 not_connected/unknown입니다. independent 입력이나 fixture 결과로 PASS 처리하지 않습니다.</p>}
+          </section>}
+          {view.repair_plan && <section className="creative-repair" aria-label="부분 수정 제안">
+            <h3>부분 수정 제안 · {view.repair_plan.status}</h3>
+            {applyRepair.data?.status === "blocked" && <p className="tk-error" role="alert">서버가 이 수정 적용을 차단했습니다. 제안된 차단 사유를 확인하세요.</p>}
+            <p>영향 장면 {view.repair_plan.invalidate.scene_ids.join(", ") || "없음"} · 무효화 구간 {view.repair_plan.invalidate.segment_ids.join(", ") || "없음"}</p>
+            <p>보존 장면 {view.repair_plan.preserve.scene_ids.join(", ") || "없음"} · 기존 구간 run key {Object.keys(view.repair_plan.preserve.segment_run_keys).length}개 유지</p>
+            {view.repair_plan.blocked.map((item, i) => <p className="tk-error" key={i}>{item.reason}</p>)}
+            {view.repair_plan.actions.map((action) => {
+              const scene = plan.scenes.find((s) => s.scene_id === action.scene_id);
+              const mode = view.repair_plan?.caption_mode ?? view.caption_mode ?? readCaptionMode(plan.id) ?? "narration";
+              const field = action.layer === "captions" ? consumedCaptionField(scene, mode) : null;
+              const text = field ? (repairDrafts[`${action.scene_id}:${field}`] ?? (field === "title" ? scene?.title : scene?.narration) ?? "") : "";
+              const previousScene = comparison?.revision.scenes?.find((candidate) => candidate.scene_id === action.scene_id);
+              const previousText = field === "title" ? previousScene?.title : previousScene?.narration;
+              const currentText = field === "title" ? scene?.title : scene?.narration;
+              const previousRepairTexts = [...new Set((comparison?.revision.repairs.flatMap((entry) => {
+                const changes = (entry as { changes?: Array<{ scene_id: string; shot_id?: string | null; layer?: string; field: string; before: string }> }).changes ?? [];
+                return changes
+                  .filter((change) => change.scene_id === action.scene_id && change.shot_id === action.shot_id && change.layer === "captions" && change.field === field && change.before !== currentText)
+                  .map((change) => change.before);
+              }) ?? []))];
+              const hasMatchingProposal = view.repair_plan?.actions.some((candidate) => candidate.scene_id === action.scene_id && candidate.shot_id === action.shot_id && candidate.layer === "captions");
+              const voiceExists = Boolean(view.asset_generation?.assets.voices?.[action.scene_id]);
+              const fixedProducer = ["frame_animation_2d", "scene_3d", "code_motion"].includes(scene?.strategy ?? "");
+              const supportedCode = ["text_legibility", "fake_text"].includes(action.code);
+              return <div key={`${action.scene_id}:${action.code}`} className="creative-repair__action">
+                <span>{action.scene_id}{action.shot_id ? `/${action.shot_id}` : ""} · {action.code} → {action.strategy}</span>
+                {field && !fixedProducer && !(field === "narration" && voiceExists) && supportedCode ? <>
+                  <textarea className="tk-textarea" aria-label={`수정 문구 ${action.scene_id}`} value={text} onChange={(e) => setRepairDrafts((current) => ({ ...current, [`${action.scene_id}:${field}`]: e.target.value }))} />
+                  <small>전: {field === "title" ? scene?.title : scene?.narration}</small><small>후: {text}</small>
+                  {typeof previousText === "string" && previousText !== (field === "title" ? scene?.title : scene?.narration) && hasMatchingProposal && <Button variant="ghost" onClick={() => setRepairDrafts((current) => ({ ...current, [`${action.scene_id}:${field}`]: previousText }))}>이전 문구를 수정 초안에 불러오기</Button>}
+                  {hasMatchingProposal && previousRepairTexts.map((beforeText, index) => <Button key={`${action.scene_id}:${field}:before:${index}`} variant="ghost" onClick={() => setRepairDrafts((current) => ({ ...current, [`${action.scene_id}:${field}`]: beforeText }))}>수정 전 문구를 수정 초안에 불러오기</Button>)}
+                </> : <small>{fixedProducer ? "고정 producer 장면의 caption 수정은 지원되지 않습니다." : field === "narration" && voiceExists ? "음성 자산이 있는 narration 수정은 음성 재생성이 필요해 지원되지 않습니다." : "이 layer/code는 caption text 수정 계약에 포함되지 않습니다."}</small>}
+              </div>;
+            })}
+            <Button busy={applyRepair.isPending} disabled={!view.repair_plan.proposal_sha256 || view.repair_plan.actions.length === 0 || view.repair_plan.blocked.length > 0 || view.repair_plan.actions.some((action) => {
+              const scene = plan.scenes.find((s) => s.scene_id === action.scene_id);
+              const mode = view.repair_plan?.caption_mode ?? view.caption_mode ?? readCaptionMode(plan.id) ?? "narration";
+              const field = consumedCaptionField(scene, mode);
+              const original = (field === "title" ? scene?.title : scene?.narration) ?? "";
+              const text = repairDrafts[`${action.scene_id}:${field}`] ?? original;
+              return action.layer !== "captions" || !["text_legibility", "fake_text"].includes(action.code) || ["frame_animation_2d", "scene_3d", "code_motion"].includes(scene?.strategy ?? "") || (field === "narration" && Boolean(view.asset_generation?.assets.voices?.[action.scene_id])) || !text.trim() || text.trim() === original.trim();
+            })} onClick={() => {
+              const mode = view.repair_plan?.caption_mode ?? view.caption_mode ?? readCaptionMode(plan.id) ?? "narration";
+              rememberCaptionMode(plan.id, mode);
+              applyRepair.mutate({ proposal: view.repair_plan!, captionMode: mode, updates: view.repair_plan!.actions.map((action) => {
+              const field = consumedCaptionField(plan.scenes.find((s) => s.scene_id === action.scene_id), mode);
+              const scene = plan.scenes.find((s) => s.scene_id === action.scene_id);
+              return { scene_id: action.scene_id, shot_id: action.shot_id, layer: "captions" as const, field, text: repairDrafts[`${action.scene_id}:${field}`] ?? (field === "title" ? scene?.title : scene?.narration) ?? "" };
+            }) });
+            }}>문구 수정 적용 · 새 revision</Button>
+            <p className="creative-hint">수정 결과는 applied_needs_approval입니다. 새 revision의 승인 버튼을 직접 눌러야 하며, 이어서 기존 제작 시작 준비(같은 caption mode)와 렌더를 실행합니다. 독립 검수는 기본 not_connected/unknown입니다.</p>
+          </section>}
           {view.final?.qa && (
             <div>
               <h3>결과 검사</h3>
@@ -831,6 +852,26 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
               )}
             </div>
           )}
+            {view.final?.id && view.history?.some((item) => item.revision < view.plan_revision && item.snapshot_available && item.final_sha256) && <section className="creative-revisions" aria-label="결과 revision 비교">
+            <h3>전후 결과 비교</h3>
+            <Button busy={compareRevision.isPending} onClick={() => {
+              void productionResultUrl(plan.id, view.plan_revision, "final").then((link) => {
+                if (link.sha256 !== view.final?.sha256 || link.revision !== view.plan_revision || link.result_id !== "final") throw new Error("현재 결과 링크의 revision/SHA가 일치하지 않습니다.");
+                setCurrentResultLink(link);
+              }).catch(() => setCurrentResultLink(null));
+              const revisions = view.history!.filter((item) => item.revision < view.plan_revision && item.snapshot_available && item.final_sha256).map((item) => item.revision);
+              if (revisions.length) compareRevision.mutate(Math.max(...revisions));
+            }}>직전 결과와 비교</Button>
+            {comparison && <div className="creative-revisions__compare"><article><h4>이전 r{comparison.revision.revision} · 읽기 전용</h4><video controls src={comparison.url} aria-label={`이전 revision ${comparison.revision.revision} 결과`} /><p>SHA {comparison.revision.final.sha256?.slice(0, 12)} · 임시 링크 만료 {comparison.expires_at}</p><p>장면 snapshot: {comparison.revision.snapshot_available ? `${comparison.revision.scenes?.length ?? 0}개` : "미보존"}</p></article><article><h4>현재 r{view.plan_revision}</h4>{currentResultLink ? <video controls src={currentResultLink.url} aria-label={`현재 revision ${view.plan_revision} 결과`} /> : <p>현재 결과 링크를 불러오지 못했습니다.</p>}<p>SHA {view.final.sha256?.slice(0, 12)} · 링크 SHA {currentResultLink?.sha256.slice(0, 12) ?? "미발급"}{currentResultLink?.expires_at ? ` · 임시 링크 만료 ${currentResultLink.expires_at}` : ""}</p></article>
+              <section className="creative-revisions__changes" aria-label="장면 snapshot 비교"><h4>장면 snapshot 전후</h4>{comparison.revision.snapshot_available && comparison.revision.scenes ? <ol>{comparison.revision.scenes.map((oldScene) => {
+                const currentScene = plan.scenes.find((scene) => scene.scene_id === oldScene.scene_id);
+                return <li key={oldScene.scene_id}><strong>{oldScene.scene_id} · {oldScene.title}</strong><p>이전 제목: {oldScene.title} → 현재: {currentScene?.title ?? "없음"}</p><p>이전 narration: {oldScene.narration} → 현재: {currentScene?.narration ?? "없음"}</p></li>;
+              })}</ol> : <p>이전 revision의 scene snapshot이 보존되지 않아 장면 diff를 표시할 수 없습니다.</p>}</section>
+              <section className="creative-revisions__changes" aria-label="과거 caption 변경 근거"><h4>과거 수정 기록 · 초안 입력만</h4>{comparison.revision.repairs.flatMap((entry, index) => {
+                const changes = (entry as { changes?: Array<{ scene_id: string; field: string; before: string; after: string; layer?: string }> }).changes ?? [];
+                return changes.map((change, changeIndex) => <p key={`${index}-${changeIndex}`}>{change.scene_id} · {change.layer ?? "layer 미상"}/{change.field}: {change.before} → {change.after}</p>);
+              })}<p>이전 문구 불러오기는 현재 revision에 같은 caption repair proposal이 있을 때만 초안으로 입력됩니다. 자동 복원, 승인, 렌더는 하지 않습니다.</p></section></div>}
+          </section>}
           {view.style && view.style.ignored.length > 0 && (
             <details className="creative-details">
               <summary>
@@ -844,7 +885,11 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
             </details>
           )}
           <p className="creative-hint">
-            렌더는 현재 v1 FFmpeg 정지 이미지 슬라이드쇼로 실행돼요. R21 자동 생성은 Comfy 장면 영상, 장면별 Supertonic 음성, ACE-Step 음악을 만들고 엔진별 실행 또는 캐시 출처를 제작 기록에 남겨요.
+            {view.engine
+              ? `현재 제작 기록의 엔진: ${view.engine.adapter}${view.engine.version ? ` · ${view.engine.version}` : ""}${view.engine.mode ? ` · ${view.engine.mode}` : ""}. 실제 실행 결과와 자산 생성 엔진은 위 제작 기록에서 확인해 주세요.`
+              : view.asset_generation
+                ? `현재 기록된 자산 생성 엔진: ${view.asset_generation.engine.id} · ${view.asset_generation.engine.version}. 최종 렌더 엔진은 아직 선택되지 않았습니다.`
+                : "아직 제작 실행 엔진이 선택되지 않았습니다. 승인과 제작 준비가 끝난 뒤 서버가 기록한 엔진과 실행 상태를 표시합니다."}
           </p>
         </>
       )}
@@ -852,11 +897,12 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
   );
 }
 
-function ApprovalPanel({ plan, onApprove, busy }: { plan: CreativePlan; onApprove: () => void; busy: boolean }) {
+function ApprovalPanel({ plan, onApprove, busy, repairResult }: { plan: CreativePlan; onApprove: () => void; busy: boolean; repairResult?: { status: string; revision?: number } }) {
   const approved = plan.approval && plan.approval.revision === plan.revision;
   return (
     <section className="creative-panel" aria-labelledby="plan-approval">
       <h2 id="plan-approval">렌더 전 확인</h2>
+      {repairResult?.status === "applied_needs_approval" && repairResult.revision === plan.revision && !approved && <p className="creative-hint" role="status">수정 내용이 r{plan.revision}에 적용됐습니다. 상태: applied_needs_approval · 이 revision을 승인해야 제작이 가능합니다.</p>}
       {approved ? (
         <p role="status">
           <Badge tone="success">승인됨</Badge> r{plan.revision} · {formatSeconds(plan.approval!.planned_seconds)} ({plan.approval!.planned_frames}프레임). 장면이나 길이를 바꾸면 다시 승인해야 해요.
@@ -899,6 +945,7 @@ function ApprovalPanel({ plan, onApprove, busy }: { plan: CreativePlan; onApprov
 export function CreativePlanDetailPage() {
   const { id = "" } = useParams();
   const qc = useQueryClient();
+  const repairResult = qc.getQueryData<{ status: string; revision?: number }>(["creative-repair-result", id]);
   const q = useQuery({ queryKey: ["creative-plan", id], queryFn: () => planGet(id) });
   const [picker, setPicker] = useState<DurationState>(INITIAL_DURATION);
   const done = (plan: CreativePlan) => {
@@ -909,7 +956,7 @@ export function CreativePlanDetailPage() {
     mutationFn: (body: { scenes?: SceneEditBody[]; duration?: DurationRequest }) => planEdit(id, { revision: q.data!.revision, ...body }),
     onSuccess: done,
   });
-  const approve = useMutation({ mutationFn: () => planApprove(id, q.data!.revision), onSuccess: done });
+  const approve = useMutation({ mutationFn: () => planApprove(id, q.data!.revision), onSuccess: (value) => { done(value); qc.removeQueries({ queryKey: ["creative-repair-result", id] }); } });
   const resolved = toRequest(picker, today());
   const plan = q.data;
   return (
@@ -947,6 +994,15 @@ export function CreativePlanDetailPage() {
                 </ul>
               )}
               <RuntimeCard plan={plan} busy={edit.isPending} onRequest={(request) => edit.mutate({ duration: request })} />
+              {plan.history.length > 0 && (
+                <details className="creative-details">
+                  <summary>계획 변경 이력 · {plan.history.length}개 revision</summary>
+                  <p className="creative-hint">서버가 제공하는 변경 종류·길이·상태 요약입니다. 이전 장면의 문구 비교는 API가 제공하지 않습니다.</p>
+                  <ol aria-label="계획 revision 이력">
+                    {plan.history.map((item) => <li key={item.revision}>r{item.revision} · {item.kind} · {item.total_seconds == null ? "길이 미정" : formatSeconds(item.total_seconds)} · {item.status}</li>)}
+                  </ol>
+                </details>
+              )}
               <section className="creative-panel" aria-labelledby="plan-duration">
                 <h2 id="plan-duration">길이 요청 바꾸기</h2>
                 <DurationPicker value={picker} onChange={setPicker} idPrefix="plan-duration-picker" />
@@ -960,7 +1016,7 @@ export function CreativePlanDetailPage() {
               </section>
               <SceneEditor key={plan.revision} plan={plan} busy={edit.isPending} onSave={(scenes) => edit.mutate({ scenes })} />
               <MatchPanel plan={plan} />
-              <ApprovalPanel plan={plan} busy={approve.isPending} onApprove={() => approve.mutate()} />
+              <ApprovalPanel plan={plan} busy={approve.isPending} repairResult={repairResult} onApprove={() => approve.mutate()} />
               {plan.render_gate && plan.approval && <ProductionPanel plan={plan} />}
             </>
           )}
@@ -972,172 +1028,91 @@ export function CreativePlanDetailPage() {
 
 export function CreativePlanNewPage() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
-  const list = useQuery({ queryKey: ["creative-plans"], queryFn: planList });
-  const catalog = useQuery({ queryKey: ["creative-catalog"], queryFn: planCatalog });
+  const plans = useQuery({ queryKey: ["creative-plans"], queryFn: planList });
+  const projects = useQuery({ queryKey: ["creative"], queryFn: creativeList });
   const [name, setName] = useState("");
   const [brief, setBrief] = useState("");
-  const briefRef = useRef(brief);
-  const intentRevisionRef = useRef(0);
-  const [intentRevision, setIntentRevision] = useState(0);
-  const bumpIntentRevision = () => { intentRevisionRef.current += 1; setIntentRevision(intentRevisionRef.current); };
   const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
-  const [aspectTouched, setAspectTouched] = useState(false);
-  const [durationTouched, setDurationTouched] = useState(false);
-  const [intentOverride, setIntentOverride] = useState<CreativeIntent | null>(null);
-  const [intentReviewed, setIntentReviewed] = useState(false);
-  const runId = searchParams.get("intent_run") ?? "";
-  const startKey = searchParams.get("intent_request") ?? "";
-  const resumeKey = searchParams.get("intent_resume_request") ?? "";
-  const run = useQuery({
-    queryKey: ["creative-intent-run", runId], queryFn: () => intentRunGet(runId), enabled: Boolean(runId),
-    refetchInterval: (query) => ["queued", "running"].includes(query.state.data?.status ?? "") ? 1200 : false,
-  });
-  const start = useMutation({
-    mutationFn: ({ brief: submittedBrief, key }: { brief: string; key: string; revision: number }) => intentRunStart(submittedBrief, key),
-    onSuccess: (result, variables) => {
-      if (variables.brief !== briefRef.current.trim() || variables.revision !== intentRevisionRef.current) {
-        void cancelRun(result.run_id).catch(() => undefined);
-        return;
-      }
-      setIntentOverride(null); setIntentReviewed(false);
-      setSearchParams({ intent_run: result.run_id, intent_session: result.session_id });
-    },
-  });
-  const resume = useMutation({
-    mutationFn: ({ key }: { key: string; brief: string; revision: number }) => intentRunResume(runId, key),
-    onSuccess: (result, variables) => {
-      if (variables.brief !== briefRef.current.trim() || variables.revision !== intentRevisionRef.current) {
-        void cancelRun(result.run_id).catch(() => undefined);
-        return;
-      }
-      setIntentOverride(null); setSearchParams({ intent_run: result.run_id, intent_session: result.session_id });
-    },
-  });
-  const cancel = useMutation({ mutationFn: () => cancelRun(runId), onSuccess: () => void run.refetch() });
-  const intentDraft = intentOverride ?? (run.data?.status === "succeeded" ? run.data.intent : null);
-  const validation = useMutation({
-    mutationFn: async ({ intent, brief: submittedBrief }: { intent: CreativeIntent; brief: string; revision: number }) => {
-      const confirmed: CreativeIntent = {
-        ...intent,
-        duration: durationTouched ? toRequest(duration, today()).request ?? intent.duration : intent.duration,
-        aspect: aspectTouched ? aspect : intent.aspect,
-        extraction: { method: "user_structured", model: null },
-      };
-      return { candidate: confirmed, validation: await intentValidate(submittedBrief, confirmed) };
-    },
-    onSuccess: ({ candidate, validation: result }, variables) => {
-      if (variables.brief !== briefRef.current.trim() || variables.revision !== intentRevisionRef.current) return;
-      const accepted = Boolean(result?.valid && !result.needs_confirmation);
-      setIntentReviewed(accepted);
-      if (accepted) setIntentOverride(candidate);
-    },
-  });
   const [duration, setDuration] = useState<DurationState>(INITIAL_DURATION);
-  const displayedDuration = durationTouched ? duration : requestToDurationState(intentDraft?.duration);
-  const resolved = durationTouched ? toRequest(duration, today()) : { request: intentDraft?.duration ?? toRequest(duration, today()).request, error: null };
-  const displayedAspect = aspectTouched ? aspect : intentDraft?.aspect ?? aspect;
-  const validationMatchesCurrent = validation.variables?.brief === brief.trim()
-    && validation.variables.revision === intentRevision;
+  const durationRequest = toRequest(duration, today());
   const create = useMutation({
     mutationFn: () => planCreate({
-      brief, name, aspect: displayedAspect, duration: resolved.request!,
-      intent: { ...intentDraft!, duration: resolved.request!, aspect: displayedAspect, extraction: { method: "user_structured", model: null } },
+      brief: brief.trim(),
+      name: name.trim(),
+      aspect,
+      duration: durationRequest.request ?? { mode: "auto", seconds: null, platform: null, source: null, as_of: null },
     }),
-    onSuccess: (plan) => { void qc.invalidateQueries({ queryKey: ["creative-plans"] }); navigate(`/creative/plan/${plan.id}`); },
+    onSuccess: (plan) => {
+      void qc.invalidateQueries({ queryKey: ["creative-plans"] });
+      navigate(`/creative/plan/${plan.id}`);
+    },
   });
-  const ready = brief.trim().length > 0 && resolved.request !== null && Boolean(intentDraft && intentReviewed
-    && intentDraft.selections.some((item) => item.entry_id.startsWith("C01.") && item.role === "primary")
-    && intentDraft.open_questions.length === 0);
-  const updateIntent = (intent: CreativeIntent) => { bumpIntentRevision(); setIntentOverride(intent); setIntentReviewed(false); validation.reset(); };
-  const makeManualIntent = () => {
-    bumpIntentRevision();
-    setIntentOverride({
-      schema_version: 1,
-      selections: [{ entry_id: "", role: "primary", source: "user_explicit", strength: "soft", confidence: 1, evidence: [] }],
-      constraints: [], duration: resolved.request ?? { mode: "auto", seconds: null, platform: null, source: null, as_of: null },
-      aspect: aspect as CreativeIntent["aspect"], info_items: [], music_seconds: null, open_questions: [], extraction: { method: "user_structured", model: null },
-    });
-    setIntentReviewed(false); setSearchParams({});
-  };
-  const startIntent = () => {
-    bumpIntentRevision();
-    const key = startKey || crypto.randomUUID();
-    const submittedBrief = brief.trim();
-    if (!startKey) setSearchParams({ intent_request: key });
-    start.mutate({ key, brief: submittedBrief, revision: intentRevisionRef.current });
-  };
-  const resumeIntent = () => {
-    bumpIntentRevision();
-    const key = resumeKey || crypto.randomUUID();
-    if (!resumeKey) setSearchParams({ intent_run: runId, intent_session: searchParams.get("intent_session") ?? "", intent_resume_request: key });
-    resume.mutate({ key, brief: brief.trim(), revision: intentRevisionRef.current });
-  };
+  const canCreate = brief.trim().length > 0 && durationRequest.request !== null;
   return (
     <div className="tk-screen">
-      <PageHeader title="제작 계획" meta="아이디어에서 예상 길이와 장면 구성까지, 렌더 전에 확인해요" actions={<Link className="tk-button" to="/creative">콘텐츠 스튜디오</Link>} />
+      <PageHeader
+        title="콘텐츠 스튜디오"
+        meta="아이디어에서 계획을 만들고, 장면을 확인해 영상으로 완성해요"
+        actions={<><Link className="tk-button" to="/creative/legacy">기존 프로젝트 편집기</Link><Link className="tk-button" to="/creative/records">제작 기록</Link></>}
+      />
       <div className="tk-screen__body"><div className="tk-container creative-plan">
-        <form className="creative-create" onSubmit={(e) => { e.preventDefault(); if (ready) create.mutate(); }}>
-          <label className="creative-field">계획 이름
-            <input className="tk-input" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} placeholder="비워 두면 내용에서 정해요" />
-          </label>
-          <label className="creative-field">만들고 싶은 콘텐츠
-            <textarea className="tk-textarea" value={brief} maxLength={6000} rows={4}
-              onChange={(e) => { briefRef.current = e.target.value; bumpIntentRevision(); setBrief(e.target.value); setIntentOverride(null); setIntentReviewed(false); validation.reset(); start.reset(); setSearchParams({}); }}
-              placeholder="주제, 분위기, 전달할 내용을 적어 주세요." />
-          </label>
-          <div className="creative-intent-actions">
-            <Button type="button" busy={start.isPending} disabled={!brief.trim()} onClick={startIntent}>{start.isError && startKey ? "같은 요청 다시 확인" : "AI로 의도 분석"}</Button>
-            <Button type="button" variant="ghost" disabled={!brief.trim()} onClick={makeManualIntent}>직접 의도 작성</Button>
-            <span>AI 제안은 초안입니다. 근거와 선택을 직접 확인해야 계획에 반영돼요.</span>
+        <StoryboardCreateFlow />
+
+        <details className="creative-plan-structured">
+        <summary>구조화 계획 입력 (보조 경로)</summary>
+        <section className="creative-create creative-plan-create" aria-labelledby="creative-create-title">
+          <div>
+            <span className="creative-eyebrow">AI CREATIVE STUDIO</span>
+            <h2 id="creative-create-title">어떤 영상을 만들까요?</h2>
+            <p className="creative-hint">내용을 적으면 장면 계획과 필요한 제작 도구를 먼저 확인할 수 있어요. 이름·길이·비율은 선택 사항입니다.</p>
           </div>
-          {start.isError && start.variables?.brief === brief.trim() && <p className="tk-error" role="alert">{errorLine(start.error)} 요청 결과가 불명확하면 같은 키로 다시 요청해 기존 Run을 확인합니다.</p>}
-          {runId && <section className="creative-intent-run" aria-live="polite">
-            <div><strong>의도 분석 Run</strong><span>{run.data?.status ?? "상태 조회 중"} · {run.data?.engine ?? "qwen-local"} · {run.data?.model ?? ""}</span></div>
-            {run.isError && <p className="tk-error">{errorLine(run.error)} <Button type="button" onClick={() => void run.refetch()}>상태 다시 확인</Button></p>}
-            {run.data?.error && <p className="tk-error" role="alert">{run.data.error}</p>}
-            {["queued", "running"].includes(run.data?.status ?? "") && <Button type="button" variant="ghost" busy={cancel.isPending} onClick={() => cancel.mutate()}>분석 취소</Button>}
-            {["failed", "cancelled", "interrupted"].includes(run.data?.status ?? "") && <Button type="button" busy={resume.isPending} onClick={resumeIntent}>{resume.isError ? "같은 재개 요청 다시 확인" : "같은 대화에서 재개"}</Button>}
-            {resume.isError && <p className="tk-error" role="alert">{errorLine(resume.error)} 같은 요청 키로 재시도해 이미 접수된 Run인지 확인할 수 있어요.</p>}
-            {run.data?.status === "succeeded" && !run.data.intent && <p className="tk-error">모델 응답이 의도 스키마 검증을 통과하지 못했습니다. 초안은 만들어지지 않았어요.</p>}
-          </section>}
-          {intentDraft && <section className="creative-intent-preview" aria-labelledby="creative-intent-title">
-            <div><h3 id="creative-intent-title">{intentDraft.extraction.method === "llm" ? "AI 의도 초안" : "구조화한 의도"}</h3>
-              <p>브리프 근거를 확인하고 항목을 수정하세요. 사용자가 확인하기 전까지 AI 추정은 계획에 적용되지 않습니다.</p></div>
-            {run.data?.validation?.warnings?.length ? (
-              <ul className="creative-hint" role="status" aria-label="AI 초안 검토 안내">
-                {run.data.validation.warnings.map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}
-              </ul>
-            ) : null}
-            <IntentEditor value={intentDraft} catalog={catalog.data} onChange={updateIntent} />
-            <label className="creative-field">음악 길이(초)
-              <input className="tk-input" type="number" min="1" max="900" value={intentDraft.music_seconds ?? ""}
-                onChange={(event) => updateIntent({ ...intentDraft, music_seconds: event.target.value ? Number(event.target.value) : null })} />
+          <form onSubmit={(event) => { event.preventDefault(); if (canCreate) create.mutate(); }}>
+            <label className="creative-field">만들고 싶은 콘텐츠
+              <textarea className="tk-textarea" value={brief} maxLength={6000} rows={5} required
+                onChange={(event) => setBrief(event.target.value)}
+                placeholder="주제, 전달할 내용, 분위기와 원하는 장면을 자유롭게 적어 주세요." />
             </label>
-            <div className="creative-intent-actions">
-              <Button type="button" busy={validation.isPending} onClick={() => validation.mutate({ intent: intentDraft, brief: brief.trim(), revision: intentRevisionRef.current })}>의도 검증 후 확인</Button>
-              {intentReviewed && <span role="status">검증을 통과했고 사용자가 확인했습니다.</span>}
+            <div className="creative-plan-create__options">
+              <label className="creative-field">계획 이름 <span className="creative-hint">선택</span>
+                <input className="tk-input" value={name} maxLength={120} onChange={(event) => setName(event.target.value)} placeholder="비워 두면 내용에서 정해요" />
+              </label>
+              <label className="creative-field">화면 비율 <span className="creative-hint">선택</span>
+                <select className="tk-input" aria-label="화면 비율" value={aspect} onChange={(event) => setAspect(event.target.value as typeof aspect)}>
+                  <option value="16:9">16:9 · 가로</option><option value="9:16">9:16 · 세로</option><option value="1:1">1:1 · 정사각형</option>
+                </select>
+              </label>
             </div>
-            {validationMatchesCurrent && validation.data?.validation && (validation.data.validation.errors.length > 0 || validation.data.validation.warnings.length > 0) &&
-              <ul className={validation.data.validation.errors.length ? "tk-error" : "creative-hint"} role={validation.data.validation.errors.length ? "alert" : "status"}>
-                {[...validation.data.validation.errors, ...validation.data.validation.warnings].map((issue, index) => <li key={`${issue.code}-${index}`}>{issue.message}</li>)}
-              </ul>}
-          </section>}
-          <DurationPicker value={displayedDuration} onChange={(value) => { setDuration(value); setDurationTouched(true); }} idPrefix="plan-new-picker" />
-          <label className="creative-field">화면 비율
-            <select className="tk-input" value={displayedAspect} onChange={(e) => { setAspect(e.target.value as "16:9" | "9:16" | "1:1"); setAspectTouched(true); }}><option>16:9</option><option>9:16</option><option>1:1</option></select>
-          </label>
-          {create.isError && <p className="tk-error" role="alert">{errorLine(create.error)}</p>}
-          <Button type="submit" variant="primary" busy={create.isPending} disabled={!ready}>계획 만들기</Button>
-        </form>
-        <h2>내 제작 계획</h2>
-        {list.isPending && <p role="status">계획을 불러오는 중</p>}
-        {list.isError && <p className="tk-error" role="alert">{errorLine(list.error)} <Button onClick={() => void list.refetch()}>다시 불러오기</Button></p>}
-        {list.data?.length === 0 && <div className="tk-empty tk-empty--boxed"><h3>아직 계획이 없어요</h3><p>콘텐츠를 설명하면 예상 길이와 장면 구성을 먼저 보여드려요.</p></div>}
-        <div className="creative-projects">{list.data?.map((p) => <Link key={p.id} className="creative-project" to={`/creative/plan/${p.id}`}>
-          <div><strong>{p.name}</strong><span>{p.duration.planned_seconds == null ? "길이 충돌" : formatSeconds(p.duration_check?.total_seconds ?? p.duration.planned_seconds)} · 장면 {p.scenes.length}개 · {p.approval && p.approval.revision === p.revision ? "승인됨" : "확인 전"}</span></div>
-        </Link>)}</div>
+            <details className="creative-plan-create__duration">
+              <summary>원하는 길이 (선택)</summary>
+              <DurationPicker value={duration} onChange={setDuration} idPrefix="plan-new-picker" />
+            </details>
+            <p className="creative-hint">계획을 검토·승인한 뒤 제작 준비에서 장면별 이미지와 음악을 올리거나, 지원 레시피의 자동 생성을 요청할 수 있어요. 별도 품질 목표는 아직 입력할 수 없으며, 계획의 제작 도구·실제 결과 검사에서 서버가 제공하는 기준을 확인합니다.</p>
+            {create.isError && <p className="tk-error" role="alert">{errorLine(create.error)}</p>}
+            <Button type="submit" variant="primary" busy={create.isPending} disabled={!canCreate}>장면 계획 만들기</Button>
+          </form>
+        </section>
+        </details>
+
+        <section aria-labelledby="my-plans-title">
+          <div className="creative-section-heading"><h2 id="my-plans-title">제작 계획</h2><span>장면 검토부터 렌더·결과 검사까지</span></div>
+          {plans.isPending && <p role="status">계획을 불러오는 중</p>}
+          {plans.isError && <p className="tk-error" role="alert">{errorLine(plans.error)} <Button onClick={() => void plans.refetch()}>다시 불러오기</Button></p>}
+          {plans.data?.length === 0 && <div className="tk-empty tk-empty--boxed"><h3>아직 계획이 없어요</h3><p>콘텐츠를 적으면 장면 구성부터 시작합니다.</p></div>}
+          <div className="creative-projects">{plans.data?.map((plan) => <Link key={plan.id} className="creative-project" to={`/creative/plan/${plan.id}`}>
+            <div><strong>{plan.name}</strong><span>{plan.duration.planned_seconds == null ? "길이 확인 필요" : formatSeconds(plan.duration_check?.total_seconds ?? plan.duration.planned_seconds)} · 장면 {plan.scenes.length}개 · {plan.approval?.revision === plan.revision ? "승인됨" : "검토 중"}</span></div>
+          </Link>)}</div>
+        </section>
+
+        <section aria-labelledby="legacy-projects-title">
+          <div className="creative-section-heading"><h2 id="legacy-projects-title">기존 프로젝트</h2><span>기존 URL과 편집 데이터를 그대로 엽니다</span></div>
+          {projects.isPending && <p role="status">프로젝트를 불러오는 중</p>}
+          {projects.isError && <p className="tk-error" role="alert">{errorLine(projects.error)} <Button onClick={() => void projects.refetch()}>다시 불러오기</Button></p>}
+          {projects.data?.length === 0 && <p className="creative-hint">기존 편집기 프로젝트가 없습니다.</p>}
+          <div className="creative-projects">{projects.data?.map((project: CreativeProject) => <Link key={project.id} className="creative-project" to={`/creative/${project.id}`}>
+            <div><strong>{project.name}</strong><span>{clock(project.duration)} · 장면 {project.scenes.length}개 · {project.render_jobs.some((job) => job.status === "succeeded") ? "완성 영상 있음" : "제작 중"}</span></div>
+          </Link>)}</div>
+        </section>
       </div></div>
     </div>
   );

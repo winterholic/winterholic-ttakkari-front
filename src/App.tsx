@@ -137,7 +137,8 @@ export function App() {
         <Route path="/wbs/:projectId/:view" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/github/*" element={<Suspense fallback={<RouteFallback />}><GithubPage /></Suspense>} />
         <Route path="/games" element={<GamesPage />} />
-        <Route path="/creative" element={<Suspense fallback={<RouteFallback />}><CreativePage /></Suspense>} />
+        <Route path="/creative" element={<Suspense fallback={<RouteFallback />}><CreativePlanNewPage /></Suspense>} />
+        <Route path="/creative/legacy" element={<Suspense fallback={<RouteFallback />}><CreativePage /></Suspense>} />
         <Route path="/creative/plan" element={<Suspense fallback={<RouteFallback />}><CreativePlanNewPage /></Suspense>} />
         <Route path="/creative/plan/:id" element={<Suspense fallback={<RouteFallback />}><CreativePlanDetailPage /></Suspense>} />
         <Route path="/creative/records" element={<Suspense fallback={<RouteFallback />}><ProductionRecordsPage /></Suspense>} />

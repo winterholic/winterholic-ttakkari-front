@@ -6,6 +6,17 @@ import pwa from "./src/vendor/ttakkari/pwa.json" with { type: "json" };
 export default defineConfig({
   // Local validation can explicitly avoid reading any .env files. Vercel uses its injected environment.
   envDir: process.env.TTAKKARI_NO_ENV_FILE ? false : undefined,
+  // Local content UI verification can keep /api same-origin and use a real or isolated API.
+  // Production continues to use Vercel's injected VITE_API_BASE and never this dev proxy.
+  server: {
+    proxy: {
+      "/api": {
+        target: process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8787",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
