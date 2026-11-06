@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 import { getReverseJob, retryReverseJob } from "../api/client";
-import type { ReverseDetail, ReverseStage } from "../api/reverseTypes";
+import { isReverseV2Result, type LegacyReverseResult, type ReverseStage } from "../api/reverseTypes";
 import { useForegroundResync } from "../hooks/useForegroundResync";
 import { PageHeader } from "../shell/PageHeader";
 import { Button, IconButton } from "../ui/Button";
@@ -43,7 +43,7 @@ function Evidence({ items }: { items: string[] }) {
     <ul>{items.map((e, i) => <li key={i} className="rv-path">{e}</li>)}</ul></details>;
 }
 
-function Result({ result }: { result: NonNullable<ReverseDetail["result"]> }) {
+function Result({ result }: { result: LegacyReverseResult }) {
   return <div className="rv-result">
     <section className="rv-section" aria-label="개요">
       <h2 className="tk-heading-4">개요</h2>
@@ -132,7 +132,8 @@ export function ReverseDetailPage() {
                     <h2 className="tk-heading-4">과정 타임라인</h2>
                     <Timeline stages={data.stages} />
                   </section>
-                  {data.result ? <Result result={data.result} />
+                  {data.result && !isReverseV2Result(data.result) ? <Result result={data.result} />
+                    : data.result ? <section className="rv-section" aria-label="작업 결과 요약"><h2 className="tk-heading-4">작업 결과 요약</h2><p className="rv-note">비교 근거와 실행 기록은 아래 재현 대시보드에 표시됩니다.</p></section>
                     : <p className="rv-note">{active ? "분석이 진행 중입니다. 잠시 후 결과가 나옵니다." : "결과가 없습니다."}</p>}
                 </>}
               </>}

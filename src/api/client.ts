@@ -1290,9 +1290,9 @@ export const getDesignSystemPreview = (system: string, p: { item?: string; revis
   json(`/api/design-systems/${encodeURIComponent(system)}/preview`, { query: p });
 
 // ---- 리버스 엔지니어링 (백엔드 ADR 0038). 요청→수집→정리의 전 과정을 단계별 근거와 함께 본다.
-import type { ReverseDetail, ReverseSummary } from "./reverseTypes";
+import type { ReverseDetail, ReverseMode, ReverseSummary, ReverseTargetType } from "./reverseTypes";
 export const listReverseJobs = (): Promise<{ items: ReverseSummary[] }> => json("/api/reverse");
-export const startReverseJob = (body: { description: string; workspace_id?: string }): Promise<ReverseSummary> =>
+export const startReverseJob = (body: { description: string; workspace_id?: string; title?: string; target_type?: ReverseTargetType; mode?: ReverseMode; references?: string[]; max_repair_attempts?: number }): Promise<ReverseSummary> =>
   json("/api/reverse", { method: "POST", json: body });
 export const messageReverseJob = (id: string, prompt: string): Promise<ReverseSummary> =>
   json(`/api/reverse/${encodeURIComponent(id)}/messages`, { method: "POST", json: { prompt } });

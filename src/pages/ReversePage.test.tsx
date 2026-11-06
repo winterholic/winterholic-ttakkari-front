@@ -53,7 +53,7 @@ const detail = {
 function mountList() {
   return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } }})}>
     <MemoryRouter initialEntries={["/reverse"]}>
-      <Routes><Route path="/reverse" element={<ReversePage />} /></Routes>
+      <Routes><Route path="/reverse" element={<ReversePage />} /><Route path="/reverse/:jobId" element={<div>상세 작업</div>} /></Routes>
     </MemoryRouter>
   </QueryClientProvider>);
 }
@@ -80,9 +80,16 @@ it("부가 기능에 등록되고 빈 목록·분석 시작을 안내한다", as
   expect(FEATURES.find((x) => x.root === "reverse")?.to).toBe("/reverse");
   mountList();
   expect(await screen.findByText("아직 시작한 작업이 없어요")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("분석할 대상과 재현 목표"), { target: { value: "이 계산기의 버튼과 계산 동작을 분석해 소스로 재현해줘." } });
-  fireEvent.click(screen.getByRole("button", { name: "분석·구현 시작" }));
-  await waitFor(() => expect(h.start).toHaveBeenCalledWith({ description: "이 계산기의 버튼과 계산 동작을 분석해 소스로 재현해줘.", workspace_id: undefined }));
+  fireEvent.change(screen.getByLabelText("대상과 원하는 결과"), { target: { value: "이 계산기의 버튼과 계산 동작을 분석해 소스로 재현해줘." } });
+  fireEvent.change(screen.getByLabelText(/짧은 제목/), { target: { value: "계산기 동작 재현" } });
+  fireEvent.change(screen.getByLabelText(/참고 URL·파일·문서/), { target: { value: "https://example.test/calc\nfixtures/calc.json" } });
+  fireEvent.click(screen.getByText("고급 설정").closest("summary")!);
+  fireEvent.change(screen.getByLabelText("대상 유형 · 추천 유형: 자동"), { target: { value: "web" } });
+  fireEvent.click(screen.getByRole("button", { name: "재현 작업 시작" }));
+  await waitFor(() => expect(h.start).toHaveBeenCalledWith({
+    description: "이 계산기의 버튼과 계산 동작을 분석해 소스로 재현해줘.", mode: "analyze_reconstruct",
+    title: "계산기 동작 재현", references: ["https://example.test/calc", "fixtures/calc.json"], target_type: "web",
+  }));
 });
 
 it("목록에서 상태·요약·실패 이유를 보고 지운다", async () => {
@@ -90,8 +97,24 @@ it("목록에서 상태·요약·실패 이유를 보고 지운다", async () =>
   mountList();
   expect(await screen.findByText("REA 개요")).toBeTruthy();
   expect(screen.getByText("복제 실패")).toBeTruthy();
-  fireEvent.click(screen.getAllByRole("button", { name: /지우기/ })[0]);
+  fireEvent.click(screen.getByText("REA 개요").closest("li")!.querySelector("button")!);
   await waitFor(() => expect(h.remove).toHaveBeenCalledWith("job-1"));
+});
+
+it("메인 작업 목록을 진행·수정 필요·최근 완료로 나누고 제목 검색을 적용한다", async () => {
+  h.list.mockResolvedValue({ items: [
+    { ...doneJob, kind: "reconstruction", status: "running", title: "현재 조사" },
+    { ...doneJob, id: "job-2", kind: "reconstruction", title: "불일치 수정", direct_comparison: { status: "mismatch", count: 1, matched: 0, mismatched: 1, unverified: 0 } },
+    { ...doneJob, id: "job-3", kind: "reconstruction", title: "완료한 작업", direct_comparison: { status: "match", count: 1, matched: 1, mismatched: 0, unverified: 0 } },
+  ] });
+  mountList();
+  expect(await screen.findByText("현재 조사")).toBeTruthy();
+  expect(screen.getByRole("region", { name: "진행 중" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "수정 필요" })).toBeTruthy();
+  expect(screen.getByRole("region", { name: "최근 완료" })).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("작업 검색"), { target: { value: "불일치" } });
+  expect(screen.getByText("불일치 수정")).toBeTruthy();
+  expect(screen.queryByText("현재 조사")).toBeNull();
 });
 
 it("상세에서 타임라인 근거와 최종 결과를 모두 본다", async () => {
@@ -133,14 +156,15 @@ it("부분 완료는 정적 정리 안내를 보여준다", async () => {
 
 it("자연어 설명은 여러 줄이고 작업공간을 선택할 수 있다", async () => {
   mountList();
-  const input = screen.getByLabelText("분석할 대상과 재현 목표");
+  const input = screen.getByLabelText("대상과 원하는 결과");
   expect(input.tagName).toBe("TEXTAREA");
   await screen.findByRole("option", { name: "우리 프로젝트" });
-  fireEvent.change(screen.getByLabelText("소스를 저장할 작업공간"), { target: { value: "ws-1" } });
+  fireEvent.change(screen.getByLabelText("작업공간"), { target: { value: "ws-1" } });
   const description = "웹앱의 검색 동작을 재현해줘.\n입력하면 결과가 바로 필터링돼야 해.";
   fireEvent.change(input, { target: { value: description } });
-  fireEvent.click(screen.getByRole("button", { name: "분석·구현 시작" }));
-  await waitFor(() => expect(h.start).toHaveBeenCalledWith({ description, workspace_id: "ws-1" }));
+  fireEvent.change(screen.getByLabelText(/목적·성공 기준/), { target: { value: "검색 결과가 입력 즉시 갱신되어야 함" } });
+  fireEvent.click(screen.getByRole("button", { name: "재현 작업 시작" }));
+  await waitFor(() => expect(h.start).toHaveBeenCalledWith({ description: `${description}\n\n목적·성공 기준: 검색 결과가 입력 즉시 갱신되어야 함`, workspace_id: "ws-1", mode: "analyze_reconstruct" }));
 });
 
 it("재현 작업은 소스 경로·관찰·검증·후속 설명을 보여준다", async () => {
@@ -152,8 +176,8 @@ it("재현 작업은 소스 경로·관찰·검증·후속 설명을 보여준�
       checks: [{ command: "pytest", exit_code: 0, log: "evidence/test.log" }], limitations: [] } });
   expect(await screen.findByText("src/main.py")).toBeTruthy();
   expect(screen.getByText("12 + 3 = 15")).toBeTruthy();
-  expect(screen.getByText("독립 검증 통과")).toBeTruthy();
-  fireEvent.change(screen.getByLabelText("추가 설명이나 수정 요청"), { target: { value: "소수 계산도 재현해줘." } });
+  expect(screen.getByText(/기존 검증 보고:/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("추가 설명·검사·수정 요청"), { target: { value: "소수 계산도 재현해줘." } });
   fireEvent.click(screen.getByRole("button", { name: "이어서 지시" }));
   await waitFor(() => expect(h.message).toHaveBeenCalledWith("job-1", "소수 계산도 재현해줘."));
 });
@@ -162,4 +186,27 @@ it("재현 작업의 부분 완료에는 막힌 검사의 이유를 표시한다
   mountDetail({ ...doneJob, kind: "reconstruction", status: "partial", error: "필수 회귀 검사가 실패했습니다.",
     result: null, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
   expect(await screen.findByRole("alert")).toHaveProperty("textContent", "필수 회귀 검사가 실패했습니다.");
+});
+
+it("v2 상세는 일치·불일치·미검증을 분리하고 비교 양쪽과 비어 있는 사례를 설명한다", async () => {
+  const v2 = { schema_version: 2 as const, latest: {
+    source: { status: "verified", files: ["src/main.py"] }, execution: { status: "verified", checks: [{ command: "pytest", exit_code: 0, log: "tests.log" }] },
+    direct_comparison: { status: "mismatch" as const, count: 2, matched: 1, mismatched: 1, unverified: 0 },
+    independent_verification: { status: "pending", run_id: "verify-1", verdict: null },
+    comparisons: [{ id: "one", behavior: "공백 이름", target_type: "cli" as const, input: { argv: ["tool", "two words"] }, pre_state: { cwd: "/tmp" },
+      original: { stdout: "two-words\\n", stderr: "", exit_code: 0 }, replica: { stdout: "two_words\\n", stderr: "", exit_code: 0 }, environment: { os: "linux" },
+      evidence_level: "direct" as const, evidence: [{ kind: "execution", path: ".reverse/one.json" }], verified_at: "2026-11-07T00:00:00Z", run_id: "run-1", result: "mismatch" as const,
+      difference: { field: "stdout", original: "two-words", replica: "two_words" } }],
+  }, history: [] };
+  mountDetail({ ...doneJob, kind: "reconstruction", result: v2, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+  expect(await screen.findByText("원본과 재현 결과 비교")).toBeTruthy();
+  expect(screen.getByText("원본 결과")).toBeTruthy(); expect(screen.getByText("재현 결과")).toBeTruthy();
+  expect(screen.getByText("Run ID").parentElement?.textContent).toContain("run-1");
+  expect(screen.getByText(/독립 검증:/).textContent).toContain("진행 중");
+});
+
+it("v2 직접 비교가 없는 응답은 0건·미검증 빈 상태를 보여준다", async () => {
+  mountDetail({ ...doneJob, kind: "reconstruction", result: { schema_version: 2, latest: { direct_comparison: { status: "unverified", count: 0, matched: 0, mismatched: 0, unverified: 0 }, comparisons: [] }, history: [] }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+  expect(await screen.findByText("비교 사례가 없습니다. 직접 비교는 0건이며 결과는 미검증입니다.")).toBeTruthy();
+  expect(screen.getByText(/독립 검증:/).textContent).toContain("기록 없음");
 });
