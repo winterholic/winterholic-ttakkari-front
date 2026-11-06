@@ -300,3 +300,102 @@ test("cancellation and terminal resume follow the server phases without approvin
   expect(calls.find((call) => call.url.endsWith("/run-live/resume"))?.key).toBeTruthy();
   expect(calls.some((call) => call.url.endsWith("/approve") || call.url.endsWith("/production/render"))).toBe(false);
 });
+
+test("submits a 6,000-character brief without a quality goal in full", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-brief-limit", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-brief-limit")) return { run_id: "run-brief-limit", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+  const briefText = "b".repeat(6000);
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: briefText } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const posts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(posts).toHaveLength(1);
+  const payload = posts[0].body as { brief: string; sources: Array<{ id: string; text: string }> };
+  expect(payload.brief).toHaveLength(6000);
+  expect(payload.brief).toBe(briefText);
+  expect(payload.sources).toHaveLength(1);
+  expect(payload.sources[0]).toEqual({ id: "brief", locator: "사용자 요청", text: briefText });
+});
+
+test("submits a 12,000-character additional source body in full", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-extra-source-limit", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-extra-source-limit")) return { run_id: "run-extra-source-limit", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+  const sourceText = "s".repeat(12000);
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  fireEvent.click(screen.getByText("추가 출처 본문 (선택)"));
+  fireEvent.change(screen.getByPlaceholderText("자료명 또는 URL"), { target: { value: "참고 자료" } });
+  fireEvent.change(screen.getByLabelText("출처 본문"), { target: { value: sourceText } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const posts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(posts).toHaveLength(1);
+  const payload = posts[0].body as { brief: string; sources: Array<{ id: string; locator: string; text: string }> };
+  expect(payload.sources).toHaveLength(2);
+  const sentSource = payload.sources.find((source) => source.locator === "참고 자료");
+  expect(sentSource?.text).toHaveLength(12000);
+  expect(sentSource?.text).toBe(sourceText);
+});
+
+test("submits a selected 12,000-character text document in full", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-document-limit", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-document-limit")) return { run_id: "run-document-limit", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+  const documentText = "d".repeat(12000);
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  fireEvent.change(screen.getByLabelText("텍스트 참고 문서 (.txt, .md)"), {
+    target: { files: [new File([documentText], "boundary.txt", { type: "text/plain" })] },
+  });
+  await screen.findByText(/읽기 완료/);
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const posts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(posts).toHaveLength(1);
+  const payload = posts[0].body as { sources: Array<{ locator: string; text: string }> };
+  expect(payload.sources).toHaveLength(2);
+  const sentDocument = payload.sources.find((source) => source.locator === "boundary.txt");
+  expect(sentDocument?.text).toHaveLength(12000);
+  expect(sentDocument?.text).toBe(documentText);
+});
+
+test("submits exactly ten sources including the user request", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-source-limit", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-source-limit")) return { run_id: "run-source-limit", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  fireEvent.change(screen.getByLabelText("텍스트 참고 문서 (.txt, .md)"), {
+    target: { files: Array.from({ length: 9 }, (_, index) => new File([`문서 본문 ${index}`], `doc-${index}.txt`, { type: "text/plain" })) },
+  });
+  expect(await screen.findAllByText(/읽기 완료/)).toHaveLength(9);
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const posts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(posts).toHaveLength(1);
+  const payload = posts[0].body as { sources: Array<{ id: string; locator: string; text: string }> };
+  expect(payload.sources).toHaveLength(10);
+  expect(payload.sources[0]).toEqual({ id: "brief", locator: "사용자 요청", text: "brief" });
+  expect(payload.sources.map((source) => source.text.length)).toEqual([
+    5,
+    ...Array.from({ length: 9 }, (_, index) => `문서 본문 ${index}`.length),
+  ]);
+  expect(payload.sources.slice(1).map(({ locator, text }) => ({ locator, text }))).toEqual(
+    Array.from({ length: 9 }, (_, index) => ({ locator: `doc-${index}.txt`, text: `문서 본문 ${index}` })),
+  );
+});

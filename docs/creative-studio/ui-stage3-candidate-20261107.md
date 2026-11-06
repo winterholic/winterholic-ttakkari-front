@@ -62,6 +62,15 @@
 - 상속 증거: Run `8f449b4e`에서 기존 13검사 통과, `tsc --noEmit` exit 0, 환경 변수 off build exit 0을 기록했다. 이번 변경에는 제품 source가 없으므로 타입·build를 재실행하지 않았다.
 - 브라우저 파일 선택은 미검증이다. 설정된 브라우저에 파일 업로드 도구가 없다는 기존 관측을 보존했고 로컬 브라우저를 실행하지 않았다. 모바일도 미검증이다. 남은 미디어 입력은 이미지·영상·음악·PDF이며 현재 UI의 파일 입력은 `.txt`/`.md` 텍스트 문서만 읽는다.
 
+## 후속 후보 허용 한도 제출 회귀
+
+- 현재 Run은 `0e3ad6c8-bd68-4d74-a48b-e16d23983fa2`, profile은 `회사 코덱스 ai2 (ai2@hyperez.io)`다. 시작 후보는 `a102d12205f8c46853bb4e93a9855da4b8bf85d2`였고 작업 트리는 clean이었다.
+- `StoryboardCreateFlow.test.tsx`에 성공 제출 payload 경계 검사를 추가했다. 품질 목표 없이 정확히 6,000자인 brief가 1회 POST되어 brief와 `brief` source 양쪽에 동일한 6,000자 내용으로 전달되는지 확인한다.
+- 12,000자 source 본문은 두 입력 경로를 각각 검사한다. 선택한 `.txt` 문서 경로는 브라우저에서 읽은 텍스트가 문서 locator 아래 요청 source에 전부 전달되는지 확인한다. 추가 출처 본문 경로는 직접 입력한 본문이 해당 locator의 요청 source에 전부 전달되는지 확인한다. 두 검사는 각 경로의 ASCII 12,000자 fixture만 보장하며, 다른 파일 형식이나 서버 저장·소비까지 증명하지 않는다.
+- 사용자의 brief source 1개와 선택 문서 9개를 제출해 POST 1회 및 요청 source 정확히 10개, 각 locator와 본문 보존을 확인한다. 기존 한도 테스트는 6,001자 brief와 목표 결합 초과, 12,001자 파일, 출처 위치 501자 및 brief 1개 + 추가 source 1개 + 문서 9개(총 11 source) 입력의 차단을 유지한다.
+- 검증: `node_modules/.bin/vitest run src/pages/creative/StoryboardCreateFlow.test.tsx` → 1 file / 15 tests passed. `node_modules/.bin/vitest run src/pages/creative` → 6 files / 79 tests passed. 기존 타입·build는 제품 source가 변경되지 않아 재실행하지 않았다.
+- 이 검사는 UI 컴포넌트의 mock fetch 경계까지 확인한다. 운영 서버 schema 검증, 모델 호출·실제 제작, 브라우저 UI, 모바일, 품질 결과는 미검증이다.
+
 ## 후속 Run 재이관 기록
 
 - 총괄의 source 대조와 현재 Run `2a95f0bd-d441-4e13-8816-1d10ce5e0a01` 상세에서 같은 회사 Codex ai2 profile을 확인했다. 시작 HEAD는 `ae0e32dc5e833d869eb1df58d50f7f74448bf8ef`이며, 새 후속 커밋의 부모다. 작업 경로와 feat 브랜치는 위와 같다.
