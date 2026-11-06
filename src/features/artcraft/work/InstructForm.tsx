@@ -116,13 +116,16 @@ export function InstructForm({ category, workspaceId, maxFiles, initialTemplate 
         <div className="acw-chips" role="group" aria-label="작업 예시 템플릿">
           {category.templates.map((t) => (
             <button key={t.id} type="button" className="acw-chip" aria-pressed={templateId === t.id} onClick={() => pick(t)}>
-              {t.title}
-              {t.min_files > 0 && <Icon name="paperclip" />}
+              <span className="acw-chip__title">{t.title}</span>
+              <span className="acw-chip__example">{t.example}</span>
+              {t.min_files > 0 && (
+                <span className="acw-chip__files"><Icon name="paperclip" />첨부 {t.min_files}개 이상</span>
+              )}
             </button>
           ))}
         </div>
         {tpl ? (
-          <p className="ac-note">{tpl.example}{tpl.min_files > 0 ? ` · 파일 ${tpl.min_files}개 이상 필요` : ""}</p>
+          <p className="ac-note">예시가 지시문에 채워졌어요. 보내기 전에 자유롭게 바꿀 수 있어요.{tpl.min_files > 0 ? ` 첨부 파일 ${tpl.min_files}개 이상이 필요해요.` : ""}</p>
         ) : (
           <p className="ac-note">템플릿을 누르면 지시문이 채워져요. 그대로 보내거나 고쳐서 보내세요. 직접 써도 돼요.</p>
         )}

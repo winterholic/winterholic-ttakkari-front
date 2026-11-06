@@ -181,6 +181,21 @@ it("최신 버전 확인이 막히면 서버가 알려 준 사유를 토스트�
   await waitFor(() => expect(h.remote).toHaveBeenCalled());
 });
 
+it("최신 버전 확인 시 저장된 조회 시각과 지금 진행 중인 확인을 따로 표시한다", async () => {
+  h.apps.mockResolvedValue(overview({
+    remote: {
+      checked_at: "2026-10-20T09:00:00+09:00",
+      attempted_at: "2026-11-06T10:00:00+09:00",
+      error: null,
+      checking: true,
+    },
+  }));
+  mount();
+  expect(await screen.findByText(/저장된 최신 버전 정보/)).toBeTruthy();
+  expect(screen.getByRole("status", { name: "최신 버전 확인 중" })).toBeTruthy();
+  expect(screen.getByTitle("2026-10-20T09:00:00+09:00")).toBeTruthy();
+});
+
 it("새로고침 버튼은 refresh=true 로 다시 읽는다", async () => {
   mount();
   await screen.findByRole("listitem", { name: "PhotoCraft" });

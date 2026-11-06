@@ -130,7 +130,8 @@ it("저장소를 쓸 수 없으면 허브가 이유를 알려 준다", async () 
 
 it("범주: 템플릿 버튼이 지시문을 채우고 파일이 모자라면 보낼 수 없다", async () => {
   mount("/artcraft/c/pdf");
-  fireEvent.click(await screen.findByRole("button", { name: "PDF 합치기" }));
+  expect(await screen.findByText("예: 계약서 3개를 한 파일로", { exact: false })).toBeTruthy();
+  fireEvent.click(await screen.findByRole("button", { name: /PDF 합치기/ }));
   const prompt = screen.getByRole("textbox", { name: "무엇을 시킬까요?" }) as HTMLTextAreaElement;
   expect(prompt.value).toBe("첨부한 PDF들을 하나로 합쳐 주세요.");
   expect(screen.getByRole("status").textContent).toContain("파일이 2개 이상 필요해요");
@@ -143,7 +144,7 @@ it("범주: 파일을 올리고 옵션을 골라 보내면 작업이 만들어�
   h.upload.mockImplementation((file: File) => Promise.resolve(art({ id: `up-${file.name}`, filename: file.name, source: "upload" })));
   h.create.mockResolvedValue(detail({ id: "t-new" }));
   mount("/artcraft/c/pdf");
-  fireEvent.click(await screen.findByRole("button", { name: "내용 요약" }));
+  fireEvent.click(await screen.findByRole("button", { name: /내용 요약/ }));
   fireEvent.click(screen.getByRole("radio", { name: "DOCX" }));
   fireEvent.click(screen.getByRole("radio", { name: "꼼꼼하게" }));
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -163,7 +164,7 @@ it("범주: 파일을 올리고 옵션을 골라 보내면 작업이 만들어�
 it("범주: 받지 않는 형식은 올리지 않고, 서버 오류는 화면에 보인다", async () => {
   h.create.mockRejectedValue(Object.assign(new Error("파일은 한 번에 10개까지 붙일 수 있어요."), { status: 422 }));
   mount("/artcraft/c/pdf");
-  await screen.findByRole("button", { name: "내용 요약" });
+  await screen.findByRole("button", { name: /내용 요약/ });
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(input, { target: { files: [new File(["x"], "run.exe")] } });
   expect(h.upload).not.toHaveBeenCalled();

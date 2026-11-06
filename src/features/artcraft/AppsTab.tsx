@@ -193,9 +193,20 @@ export function AppsTab({ data, onGoto }: { data: ArtcraftOverview; onGoto: (tab
           <Badge tone={updates ? "warning" : undefined}>업데이트 가능 {updates}</Badge>
         </p>
         <p className="ac-note">
-          {data.remote.checked_at ? `최신 버전은 ${ago(data.remote.checked_at)}에 확인했어요.` : "최신 버전을 아직 확인하지 않았어요."}
-          {data.remote.error && ` (${data.remote.error})`}
+          {data.remote.checked_at ? (
+            <>저장된 최신 버전 정보 · <time dateTime={data.remote.checked_at} title={data.remote.checked_at}>{ago(data.remote.checked_at)} 확인한 값</time></>
+          ) : "저장된 최신 버전 정보가 없어요."}
         </p>
+        {data.remote.checking && (
+          <p className="tk-status tk-status--agent" role="status" aria-label="최신 버전 확인 중">
+            <span className="tk-spinner tk-spinner--xs" aria-hidden="true" />최신 버전을 지금 확인하고 있어요.
+          </p>
+        )}
+        {!data.remote.checking && data.remote.error && data.remote.attempted_at && (
+          <p className="tk-error" role="alert">
+            마지막 확인 시도({ago(data.remote.attempted_at)})가 실패했어요. 이전에 저장된 버전 정보가 있으면 그대로 보여 줘요. {data.remote.error}
+          </p>
+        )}
         <div className="ac-actions">
           <Button size="sm" variant="ghost" busy={remote.isPending || data.remote.checking} onClick={() => remote.mutate()}>
             <Icon name="retry" />최신 버전 확인
