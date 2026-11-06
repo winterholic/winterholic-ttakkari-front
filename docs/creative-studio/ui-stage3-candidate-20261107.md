@@ -51,3 +51,13 @@
 | `src/pages/creative/StoryboardCreateFlow.test.tsx` | `fde74acaa7d7b8f56442e8c31fa0240beb410189185028fd816d6fd70e2daefd` |
 | `src/pages/creative/creativePlan.css` | `a5e3b1264d2cd996a0a382a9550e86529baebe48351ff49bea043eb5d816aa76` |
 | `vite.config.ts` | `9bfcf190e827c128907f3a1d712e0d4278151606370e089b48251dddb29dcde4` |
+
+## 통합 회귀 보정 기록
+
+- 현재 Run `309d0682-7b69-424b-bd26-35b596fdbe9d`의 profile은 `회사 코덱스 ai2 (ai2@hyperez.io)`다. 실제 작업 경로는 `/private/tmp/front-creative-integrate-ff45e98-c49233c2`, 시작 브랜치는 `feat/creative-text-sources-quality-20261107`, 시작 후보 full SHA는 `dd8f17adee48a66a69977dd0a59cef914f08c5e9`다. 시작 후보의 부모는 `a3b2b51ee88e1c37a0a44f60e8eac3cfdf8ed71d`; 후속 커밋 부모는 시작 후보 SHA다. 두 원 커밋은 수정하지 않았다.
+- 변경 경로는 `src/pages/creative/CreativePlanPage.late-review.test.tsx`와 이 문서다. 제품 source는 바꾸지 않았다.
+- 기존 단독 회귀는 `node_modules/.bin/vitest run src/pages/creative/CreativePlanPage.late-review.test.tsx`에서 실패했다. 기대 placeholder `/주제, 분위기/`가 실제 문구 `주제, 전달할 내용, 분위기와 원하는 장면을 자유롭게 적어 주세요.`와 맞지 않았다. 화면 경로를 확인하니 기본 입력은 `StoryboardCreateFlow`, 보조 구조화 계획 입력은 `CreativePlanNewPage`의 접힌 `<details>`였다. 이 후보에는 예전 `/intent/validate` 수동 의도 편집 UI가 없어 placeholder만 고치면 테스트가 다른 입력을 사용할 수 있었다.
+- 테스트는 기본 `.storyboard-create` 영역으로 scope해 텍스트 입력과 품질 목표를 검사하고, 지연 storyboard start 응답 뒤에도 두 초안과 미확정 상태가 유지되는지 확인한다. 결과: `node_modules/.bin/vitest run src/pages/creative/CreativePlanPage.late-review.test.tsx` → 1 file / 1 test passed. `node_modules/.bin/vitest run src/pages/creative` → 6 files / 76 tests passed.
+- 범위 한계: 이 보정은 현재 UI의 지연 storyboard start를 검증한다. 과거 intent validation 요청과 그에 대한 편집 경합은 현 후보에 해당 UI가 없어 이 후보에서 직접 재검증하지 않았다.
+- 상속 증거: Run `8f449b4e`에서 기존 13검사 통과, `tsc --noEmit` exit 0, 환경 변수 off build exit 0을 기록했다. 이번 변경에는 제품 source가 없으므로 타입·build를 재실행하지 않았다.
+- 브라우저 파일 선택은 미검증이다. 설정된 브라우저에 파일 업로드 도구가 없다는 기존 관측을 보존했고 로컬 브라우저를 실행하지 않았다. 모바일도 미검증이다. 남은 미디어 입력은 이미지·영상·음악·PDF이며 현재 UI의 파일 입력은 `.txt`/`.md` 텍스트 문서만 읽는다.
