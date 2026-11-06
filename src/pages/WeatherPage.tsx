@@ -176,7 +176,7 @@ function BriefingView({ item, isToday }: { item: WeatherBriefing; isToday: boole
       <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Weather data by Open-Meteo.com · CC BY 4.0</a>
       {item.analysis_status !== "succeeded" && <span className="weather-source__degraded">분석 {item.analysis_status ?? "대기"} · 표시 내용은 확인 가능한 예보 데이터 기반</span>}
       {item.analysis_engine && <span className="weather-source__engine">분석 엔진 <EngineBadge engine={item.analysis_engine} />{item.analysis_model && <small>{item.analysis_model}</small>}</span>}
-      {item.push_error && <span className="weather-source__missing">알림 전송 실패 · 다시 시도할 수 있습니다.</span>}
+      {item.push_error === "disabled_by_preference" ? <span>날씨 알림을 꺼 두었어요. 브리핑은 계속 볼 수 있어요.</span> : item.push_error && <span className="weather-source__missing">알림 전송 실패 · 다시 시도할 수 있습니다.</span>}
     </footer>
   </>;
 }

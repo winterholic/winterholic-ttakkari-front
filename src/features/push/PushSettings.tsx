@@ -5,6 +5,7 @@ import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
 import { PUSH_MESSAGE } from "./pushState";
 import { usePush } from "./usePush";
+import { NotificationPreferences } from "./NotificationPreferences";
 
 /** 사이드바·드로어 하단의 알림 버튼과 설정 다이얼로그. 스위치는 즉시 반영한다(docs/06 §5). */
 export function PushSettings() {
@@ -27,8 +28,8 @@ export function PushSettingsDialog({ open, onClose }: { open: boolean; onClose: 
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} size="sm" title="알림" id="push-settings">
-        <div className="tk-choices">
+      <Dialog open={open} onClose={onClose} size="sm" title="알림 설정" id="push-settings">
+        <div className="tk-choices push-settings-device">
           <label className="tk-switch tk-switch--row">
             <input
               type="checkbox"
@@ -37,7 +38,7 @@ export function PushSettingsDialog({ open, onClose }: { open: boolean; onClose: 
               disabled={!toggleable || busy}
               onChange={() => void (state === "on" ? disable() : enable())}
             />
-            푸시 알림 받기
+            이 기기에서 푸시 받기
           </label>
           <p className="tk-fieldset__help" data-testid="push-message">
             {PUSH_MESSAGE[state]}
@@ -58,6 +59,7 @@ export function PushSettingsDialog({ open, onClose }: { open: boolean; onClose: 
             테스트 알림
           </Button>
         </div>
+        {open && <NotificationPreferences />}
       </Dialog>
     </>
   );

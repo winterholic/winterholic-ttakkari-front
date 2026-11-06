@@ -142,3 +142,12 @@ it("makes the feature available from the existing More menu", () => {
   expect(screen.getByRole("link", { name: "날씨 브리핑" })).toBeTruthy();
   client.clear();
 });
+
+it.each([['disabled_by_preference', false], ['partial_delivery', true]] as const)("수신 설정으로 생략한 날씨 알림은 발송 실패로 표시하지 않는다: %s", async (push_error, failed) => {
+  vi.mocked(getWeatherBriefing).mockResolvedValue({ ...item, push_error });
+  const { client } = renderAt("/weather");
+  expect(await screen.findByText("수원은 흐리고 17도까지 오릅니다.")).toBeTruthy();
+  expect(Boolean(screen.queryByText(/알림 전송 실패/))).toBe(failed);
+  if (!failed) expect(screen.getByText("날씨 알림을 꺼 두었어요. 브리핑은 계속 볼 수 있어요.")).toBeTruthy();
+  client.clear();
+});
