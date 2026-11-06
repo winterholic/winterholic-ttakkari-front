@@ -223,4 +223,3 @@
 .game-next p { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
 .game-next > .tk-button { flex-shrink: 0; }
 @media (max-width: 640px) { .game-next { flex-direction: column; } .game-next > .tk-button { width: 100%; } }
-
