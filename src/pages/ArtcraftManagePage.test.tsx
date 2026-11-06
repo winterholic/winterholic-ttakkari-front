@@ -2,11 +2,12 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
-import type { ArtcraftApp, ArtcraftBug, ArtcraftBugList, ArtcraftJob, ArtcraftOverview } from "../api/artcraftTypes";
+import type { ArtcraftApp, ArtcraftBug, ArtcraftBugList, ArtcraftJob, ArtcraftOverview, ArtcraftUpdateInfo, ArtcraftUpdateState } from "../api/artcraftTypes";
 import { ApiError } from "../api/client";
 
 const h = vi.hoisted(() => ({
   apps: vi.fn(), remote: vi.fn(), smoke: vi.fn(), control: vi.fn(), job: vi.fn(), bugs: vi.fn(), setBug: vi.fn(), agent: vi.fn(),
+  updateInfo: vi.fn(), updateState: vi.fn(), applyUpdate: vi.fn(), rollbackUpdate: vi.fn(),
 }));
 vi.mock("../api/client", async (orig) => ({
   ...(await orig<typeof import("../api/client")>()),
@@ -18,6 +19,10 @@ vi.mock("../api/client", async (orig) => ({
   listArtcraftBugs: (...a: unknown[]) => h.bugs(...a),
   setArtcraftBug: (...a: unknown[]) => h.setBug(...a),
   getArtcraftAgentConfig: (...a: unknown[]) => h.agent(...a),
+  getArtcraftAppUpdate: (...a: unknown[]) => h.updateInfo(...a),
+  getArtcraftUpdateStatus: (...a: unknown[]) => h.updateState(...a),
+  applyArtcraftUpdate: (...a: unknown[]) => h.applyUpdate(...a),
+  rollbackArtcraftUpdate: (...a: unknown[]) => h.rollbackUpdate(...a),
 }));
 import { ArtcraftManagePage } from "./ArtcraftManagePage";
 import { FEATURES, moreFeatures } from "../shell/features";
@@ -48,6 +53,16 @@ const job = (over: Partial<ArtcraftJob> = {}): ArtcraftJob => ({
 const overview = (over: Partial<ArtcraftOverview> = {}): ArtcraftOverview => ({
   generated_at: "2026-10-18T00:00:00+00:00", stale: false, error: null, apps: [photo, vector],
   remote: { checked_at: null, attempted_at: null, error: null, checking: false }, jobs: [], ...over,
+});
+const updateInfo = (over: Partial<ArtcraftUpdateInfo> = {}): ArtcraftUpdateInfo => ({
+  app: "photocraft", title: "PhotoCraft", installed_version: "0.9.0", cli_version_line: "photocraft-cli 0.9.0",
+  latest_release: { tag: "v0.10.0", version: "0.10.0", published_at: "2026-11-06T10:00:00Z", asset_name: "photocraft-cli-0.10.0-macos-universal.zip" },
+  update_available: true, can_update: true, can_rollback: false, previous_version: null, busy: false, busy_reason: null,
+  latest_job: null, ...over,
+});
+const updateState = (over: Partial<ArtcraftUpdateState> = {}): ArtcraftUpdateState => ({
+  app: "photocraft", current_version: "0.9.0", previous_version: null, state: "idle", error: null,
+  last_status: null, history: [], ...over,
 });
 const bug = (over: Partial<ArtcraftBug> & { id: string; title: string }): ArtcraftBug => ({
   repos: ["storytold/photocraft"], apps: ["photocraft"], severity: "S1", kind: "pr", difficulty: "medium",
@@ -115,14 +130,101 @@ it("앱 카드에 버전·최신 릴리스·스모크·MCP·포트·인증을 �
   expect(screen.getByText("업데이트 가능 1")).toBeTruthy();
 });
 
-it("업데이트는 실행하지 않고 절차만 보여 준다", async () => {
+it("앱별 업데이트 계획을 확인하고 명시 확인 뒤 계약 태그로 적용한다", async () => {
+  h.updateInfo.mockResolvedValue(updateInfo());
+  h.updateState.mockResolvedValue(updateState());
+  h.applyUpdate.mockResolvedValue(job({ id: "update-1", kind: "update", action: "update-apply", apps: ["photocraft"], state: "queued", summary: "PhotoCraft 업데이트 대기" }));
   mount();
-  fireEvent.click(await within(await screen.findByRole("listitem", { name: "PhotoCraft" })).findByRole("button", { name: "업데이트 방법" }));
-  const dialog = await screen.findByRole("dialog", { name: /업데이트 방법/ });
-  expect(within(dialog).getByText(/gh release download -R storytold\/photocraft/)).toBeTruthy();
-  expect(within(dialog).getByText(/대신 실행하지 않아요/)).toBeTruthy();
-  expect(h.control).not.toHaveBeenCalled();
-  expect(h.smoke).not.toHaveBeenCalled();
+  fireEvent.click(await within(await screen.findByRole("listitem", { name: "PhotoCraft" })).findByRole("button", { name: "업데이트 관리" }));
+  const dialog = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 관리" });
+  expect(await within(dialog).findByText((_, el) => el?.textContent?.replace(/\s+/g, " ").trim() === "설치 버전 0.9.0 → 0.10.0")).toBeTruthy();
+  expect(within(dialog).getByText("photocraft-cli-0.10.0-macos-universal.zip")).toBeTruthy();
+  expect(h.updateInfo).toHaveBeenCalledWith("photocraft");
+  fireEvent.click(await within(dialog).findByRole("button", { name: "v0.10.0 업데이트" }));
+  const confirm = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 확인" });
+  expect(h.applyUpdate).not.toHaveBeenCalled();
+  fireEvent.click(within(confirm).getByRole("button", { name: "업데이트 적용" }));
+  await waitFor(() => expect(h.applyUpdate).toHaveBeenCalledWith("photocraft", { tag: "v0.10.0", confirm: true }));
+  expect(await screen.findByRole("status", { name: "진행 중인 작업" })).toBeTruthy();
+});
+
+it("업데이트가 409로 거절되면 이유를 유지하고 버전·상태를 다시 조회한다", async () => {
+  h.updateInfo.mockResolvedValue(updateInfo());
+  h.updateState.mockResolvedValue(updateState());
+  h.applyUpdate.mockRejectedValue(new ApiError(409, { code: "app_running", message: "PhotoCraft 앱이 현재 실행 중입니다." }));
+  mount();
+  fireEvent.click(await within(await screen.findByRole("listitem", { name: "PhotoCraft" })).findByRole("button", { name: "업데이트 관리" }));
+  const dialog = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 관리" });
+  fireEvent.click(await within(dialog).findByRole("button", { name: "v0.10.0 업데이트" }));
+  fireEvent.click(within(await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 확인" })).getByRole("button", { name: "업데이트 적용" }));
+  expect((await within(dialog).findByRole("alert")).textContent).toContain("PhotoCraft 앱이 현재 실행 중입니다.");
+  await waitFor(() => expect(h.updateInfo.mock.calls.filter(([name, refresh]) => name === "photocraft" && refresh === true)).toHaveLength(1));
+  await waitFor(() => expect(h.updateState.mock.calls.length).toBeGreaterThanOrEqual(2));
+});
+
+it("작업 상세가 유실돼도 persisted interrupted 상태와 관리 복구 경로를 보여 준다", async () => {
+  h.updateInfo.mockResolvedValue(updateInfo({ update_available: false, can_update: true }));
+  h.updateState.mockResolvedValue(updateState({
+    state: "interrupted", error: "서버 재시작으로 작업이 중단되었습니다.",
+    last_status: { job_id: "lost-update", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "interrupted", error: "서버 재시작으로 작업이 중단되었습니다.", at: "2026-11-06T14:40:15Z" },
+    history: [{ job_id: "lost-update", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "interrupted", error: "서버 재시작으로 작업이 중단되었습니다.", at: "2026-11-06T14:40:15Z" }],
+  }));
+  h.apps.mockResolvedValue(overview({ jobs: [job({ id: "lost-update", kind: "update", action: "update-apply", apps: ["photocraft"], state: "running" })] }));
+  h.job.mockRejectedValue(new ApiError(404, { code: "not_found", message: "작업을 찾을 수 없습니다." }));
+  mount();
+  expect(await screen.findByText("서버 재시작으로 작업이 중단되었습니다.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "업데이트 관리 열기" }));
+  const dialog = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 관리" });
+  expect(await within(dialog).findByText("중단")).toBeTruthy();
+  expect(within(dialog).getByText((_, el) => el?.textContent?.replace(/\s+/g, " ").trim() === "0.9.0 → 0.10.0")).toBeTruthy();
+});
+
+it("중단된 설치 복구 실패 상태를 드러내고 수동 버전 복구를 계속 제공한다", async () => {
+  h.updateInfo.mockResolvedValue(updateInfo({ can_rollback: true, previous_version: "0.8.5", update_available: false, can_update: true }));
+  h.updateState.mockResolvedValue(updateState({
+    state: "failed", previous_version: "0.8.5", error: "중단된 바이너리 복구 실패: 원본 링크를 확인할 수 없습니다.",
+    last_status: { job_id: "lost-update", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "failed", error: "중단된 바이너리 복구 실패: 원본 링크를 확인할 수 없습니다.", at: "2026-11-07T01:00:00Z" },
+    history: [{ job_id: "lost-update", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "failed", error: "중단된 바이너리 복구 실패: 원본 링크를 확인할 수 없습니다.", at: "2026-11-07T01:00:00Z" }],
+  }));
+  h.apps.mockResolvedValue(overview({ jobs: [job({ id: "lost-update", kind: "update", action: "update-apply", apps: ["photocraft"], state: "running" })] }));
+  h.job.mockRejectedValue(new ApiError(404, { code: "not_found", message: "작업을 찾을 수 없습니다." }));
+  mount();
+  expect(await screen.findByRole("status", { name: "업데이트 복구 실패" })).toBeTruthy();
+  expect(screen.getByText("중단된 바이너리 복구 실패: 원본 링크를 확인할 수 없습니다.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "업데이트 관리 열기" }));
+  const dialog = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 관리" });
+  expect(await within(dialog).findByRole("button", { name: "0.8.5으로 복구" })).toBeTruthy();
+  expect(within(dialog).getAllByRole("alert").some((el) => el.textContent?.includes("중단된 바이너리 복구 실패"))).toBe(true);
+});
+
+it("업데이트 정보 새로 확인은 refresh=true로 갱신하고 바쁜 앱에서는 적용을 막는다", async () => {
+  h.updateInfo.mockResolvedValue(updateInfo({ busy: true, busy_reason: "PhotoCraft 앱이 현재 실행 중입니다.", can_update: false }));
+  h.updateState.mockResolvedValue(updateState());
+  mount();
+  fireEvent.click(await within(await screen.findByRole("listitem", { name: "PhotoCraft" })).findByRole("button", { name: "업데이트 관리" }));
+  const dialog = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 관리" });
+  expect((await within(dialog).findByRole("alert")).textContent).toContain("PhotoCraft 앱이 현재 실행 중입니다.");
+  expect(within(dialog).getByRole("button", { name: "v0.10.0 업데이트" }).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(within(dialog).getByRole("button", { name: "최신 정보 확인" }));
+  await waitFor(() => expect(h.updateInfo).toHaveBeenLastCalledWith("photocraft", true));
+});
+
+it("이전 버전이 있을 때 확인 뒤 롤백하고 실패한 서버 job 상태를 표시한다", async () => {
+  h.updateInfo.mockResolvedValue(updateInfo({ can_rollback: true, previous_version: "0.8.0", update_available: false, can_update: true }));
+  h.updateState.mockResolvedValue(updateState({ previous_version: "0.8.0" }));
+  h.rollbackUpdate.mockResolvedValue(job({ id: "rollback-1", kind: "update", action: "update-rollback", apps: ["photocraft"], state: "queued" }));
+  h.job.mockResolvedValue(job({ id: "rollback-1", kind: "update", action: "update-rollback", apps: ["photocraft"], state: "failed", summary: "복구 검증 실패", output: "이전 버전 복구에 실패했어요." }));
+  mount();
+  fireEvent.click(await within(await screen.findByRole("listitem", { name: "PhotoCraft" })).findByRole("button", { name: "업데이트 관리" }));
+  const dialog = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 관리" });
+  await within(dialog).findByText("아직 업데이트 기록이 없어요.");
+  expect(dialog.textContent).toContain("복구 가능 0.8.0");
+  fireEvent.click(within(dialog).getByRole("button", { name: "0.8.0으로 복구" }));
+  const confirm = await screen.findByRole("dialog", { name: "PhotoCraft 이전 버전 복구 확인" });
+  fireEvent.click(within(confirm).getByRole("button", { name: "이전 버전으로 복구" }));
+  await waitFor(() => expect(h.rollbackUpdate).toHaveBeenCalledWith("photocraft", { confirm: true }));
+  expect(await screen.findByText("복구 검증 실패")).toBeTruthy();
+  expect(await screen.findByText("이전 버전 복구에 실패했어요.")).toBeTruthy();
 });
 
 it("앱 종료는 확인 뒤에만 confirm 과 함께 요청한다", async () => {
@@ -179,6 +281,21 @@ it("최신 버전 확인이 막히면 서버가 알려 준 사유를 토스트�
   await screen.findByRole("listitem", { name: "PhotoCraft" });
   fireEvent.click(screen.getByRole("button", { name: /최신 버전 확인/ }));
   await waitFor(() => expect(h.remote).toHaveBeenCalled());
+});
+
+it("최신 버전 확인 시 저장된 조회 시각과 지금 진행 중인 확인을 따로 표시한다", async () => {
+  h.apps.mockResolvedValue(overview({
+    remote: {
+      checked_at: "2026-10-20T09:00:00+09:00",
+      attempted_at: "2026-11-06T10:00:00+09:00",
+      error: null,
+      checking: true,
+    },
+  }));
+  mount();
+  expect(await screen.findByText(/저장된 최신 버전 정보/)).toBeTruthy();
+  expect(screen.getByRole("status", { name: "최신 버전 확인 중" })).toBeTruthy();
+  expect(screen.getByTitle("2026-10-20T09:00:00+09:00")).toBeTruthy();
 });
 
 it("새로고침 버튼은 refresh=true 로 다시 읽는다", async () => {

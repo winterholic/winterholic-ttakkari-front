@@ -60,14 +60,3 @@ export function copyText(text: string, what: string) {
     () => toast({ message: "복사하지 못했어요. 길게 눌러 직접 복사해 주세요.", tone: "danger" }),
   );
 }
-
-/** STATUS.md §6 의 수동 업데이트 절차. 이 화면은 설치·업데이트를 실행하지 않고 절차만 보여 준다. */
-export function updateSteps(app: string): string {
-  return [
-    "cd ~/development/projects/artcraft",
-    "bin/artcraft status --remote",
-    `gh release download -R storytold/${app} --dir downloads/${app} --clobber -p '*macos-universal*' -p SHA256SUMS.txt`,
-    "# SHA256 확인 후 dist/cli/<앱>/ 에 CLI 를 풀고 bin/<앱>-cli 링크를 새 폴더로 바꾸고, DMG 의 .app 을 dist/app/ 에 복사",
-    `bin/artcraft smoke ${app} && python3 scripts/gen_status.py`,
-  ].join("\n");
-}

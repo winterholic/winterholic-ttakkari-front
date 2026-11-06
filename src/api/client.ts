@@ -1261,6 +1261,7 @@ export const getHarnessLayers = (session: HarnessSession, engine: LayerEngine, p
 import type {
   ArtcraftAgentConfig, ArtcraftBug, ArtcraftBugList, ArtcraftBugStatus, ArtcraftCatalog, ArtcraftCategoryId, ArtcraftJob,
   ArtcraftOutputPage, ArtcraftOverview, ArtcraftRoundIn, ArtcraftSmokeMode, ArtcraftTaskDetail, ArtcraftTaskIn, ArtcraftTaskSummary,
+  ArtcraftUpdateInfo, ArtcraftUpdateState,
 } from "./artcraftTypes";
 export const getArtcraftApps = (refresh = false): Promise<ArtcraftOverview> => json("/api/artcraft/apps", { query: { refresh: refresh || undefined } });
 export const checkArtcraftRemote = (): Promise<ArtcraftJob> => json("/api/artcraft/remote-check", { method: "POST" });
@@ -1269,6 +1270,14 @@ export const runArtcraftSmoke = (body: { apps?: string[]; mode: ArtcraftSmokeMod
 export const controlArtcraftApp = (app: string, body: { action: "start" | "stop"; confirm?: boolean }): Promise<ArtcraftJob> =>
   json(`/api/artcraft/apps/${encodeURIComponent(app)}/gui`, { method: "POST", json: body });
 export const getArtcraftJob = (id: string): Promise<ArtcraftJob> => json(`/api/artcraft/jobs/${encodeURIComponent(id)}`);
+export const getArtcraftAppUpdate = (app: string, refresh = false): Promise<ArtcraftUpdateInfo> =>
+  json(`/api/artcraft/apps/${encodeURIComponent(app)}/update`, { query: { refresh: refresh || undefined } });
+export const applyArtcraftUpdate = (app: string, body: { tag?: string; confirm: true }): Promise<ArtcraftJob> =>
+  json(`/api/artcraft/apps/${encodeURIComponent(app)}/update`, { method: "POST", json: body });
+export const rollbackArtcraftUpdate = (app: string, body: { confirm: true }): Promise<ArtcraftJob> =>
+  json(`/api/artcraft/apps/${encodeURIComponent(app)}/update/rollback`, { method: "POST", json: body });
+export const getArtcraftUpdateStatus = (app: string): Promise<ArtcraftUpdateState> =>
+  json(`/api/artcraft/apps/${encodeURIComponent(app)}/update/status`);
 export const listArtcraftBugs = (): Promise<ArtcraftBugList> => json("/api/artcraft/bugs");
 export const setArtcraftBug = (id: string, body: { status: ArtcraftBugStatus; note?: string; url?: string }): Promise<ArtcraftBug> =>
   json(`/api/artcraft/bugs/${encodeURIComponent(id)}`, { method: "PUT", json: body });

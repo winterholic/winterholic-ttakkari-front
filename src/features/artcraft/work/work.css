@@ -61,12 +61,15 @@
 
 /* 지시 폼 */
 .acw-form { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; }
-.acw-chips { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); min-width: 0; }
-.acw-chip { position: relative; display: inline-flex; align-items: center; gap: var(--tk-space-1); min-height: 2.25rem; max-width: 100%; box-sizing: border-box; padding: 0 var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-full); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / 1.2 var(--tk-font-family-sans); text-align: start; cursor: pointer; }
+.acw-chips { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-2); min-width: 0; }
+.acw-chip { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: var(--tk-space-1); min-height: var(--tk-size-touch-target-min); min-width: 0; max-width: 100%; box-sizing: border-box; padding: var(--tk-space-2) var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-default); color: var(--tk-color-text-primary); font: var(--tk-font-weight-medium) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); text-align: start; cursor: pointer; }
+.acw-chip__title { font-weight: var(--tk-font-weight-semibold); }
+.acw-chip__example { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-regular); line-height: var(--tk-font-line-height-normal); overflow-wrap: anywhere; }
+.acw-chip__files { display: inline-flex; align-items: center; gap: var(--tk-space-1); color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-medium); }
 .acw-chip .tk-icon { color: var(--tk-color-text-tertiary); }
 .acw-chip[aria-pressed="true"] { border-color: var(--tk-color-border-brand, var(--tk-color-interactive-focus-ring)); background: var(--tk-color-surface-brand-subtle); color: var(--tk-color-text-brand); }
 .acw-chip:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: var(--tk-focus-ring-offset); }
-@media (pointer: coarse) { .acw-chip { min-height: var(--tk-size-touch-target-min); } }
+@media (min-width: 640px) { .acw-chips { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .acw-attach { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2) var(--tk-space-3); min-width: 0; }
 .acw-submit { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; padding-bottom: var(--tk-space-4); }
 

@@ -6,7 +6,7 @@ import type { ArtcraftCatalog, ArtcraftCategory, ArtcraftRound, ArtcraftTaskDeta
 import type { ArtifactOut } from "../api/types";
 
 const h = vi.hoisted(() => ({
-  catalog: vi.fn(), tasks: vi.fn(), outputs: vi.fn(), create: vi.fn(), task: vi.fn(), round: vi.fn(), upload: vi.fn(), cancel: vi.fn(), patch: vi.fn(),
+  catalog: vi.fn(), tasks: vi.fn(), outputs: vi.fn(), create: vi.fn(), task: vi.fn(), round: vi.fn(), upload: vi.fn(), cancel: vi.fn(), patch: vi.fn(), artifact: vi.fn(), download: vi.fn(),
 }));
 vi.mock("../api/client", async (orig) => ({
   ...(await orig<typeof import("../api/client")>()),
@@ -20,7 +20,8 @@ vi.mock("../api/client", async (orig) => ({
   cancelRun: (...a: unknown[]) => h.cancel(...a),
   patchArtcraftTask: (...a: unknown[]) => h.patch(...a),
   contentBlob: () => Promise.resolve(new Blob(["x"])),
-  getArtifact: () => Promise.reject(new Error("not used")),
+  getArtifact: (...a: unknown[]) => h.artifact(...a),
+  downloadLink: (...a: unknown[]) => h.download(...a),
 }));
 import { ArtcraftPage } from "./ArtcraftPage";
 import { ArtcraftCategoryPage } from "./ArtcraftCategoryPage";
@@ -47,7 +48,7 @@ const catalog = (): ArtcraftCatalog => ({
   available: true, unavailable_reason: null, workspace_id: "ws-1", workspace_error: null, limits: { files: 10, prompt: 8000 },
 });
 const art = (over: Partial<ArtifactOut> & { id: string; filename: string }): ArtifactOut => ({
-  workspace_id: "ws-1", session_id: "s-1", run_id: "r-1", mime_type: "application/pdf", kind: "pdf", source: "agent_output", area: "files", rel_path: null,
+  workspace_id: "ws-1", session_id: "s-1", run_id: "r-1", mime_type: "application/pdf", kind: "pdf", category: "document", source: "agent_output", origin: "agent", area: "agent", keep_reason: null, keep_evidence: null, rel_path: "r-1/merged.pdf",
   storage_mode: "copy", size_bytes: 2048, sha256: "a".repeat(64), preview_status: "not_required", preview_mime: null, preview_error: null,
   export_policy: "allow", downloadable: true, retention_until: null, created_at: "2026-10-18T01:00:00+00:00", ...over,
 });
@@ -84,12 +85,16 @@ function mount(path: string) {
 
 beforeEach(() => {
   localStorage.clear();
+  HTMLDialogElement.prototype.showModal ??= function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close ??= function () { this.removeAttribute("open"); this.dispatchEvent(new Event("close")); };
   HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;
   URL.createObjectURL = vi.fn(() => "blob:x");
   h.catalog.mockResolvedValue(catalog());
   h.tasks.mockResolvedValue({ items: [] });
   h.outputs.mockResolvedValue({ items: [], has_more: false });
   h.task.mockResolvedValue(detail());
+  h.artifact.mockResolvedValue(art({ id: "a-1", filename: "merged.pdf" }));
+  h.download.mockResolvedValue({ url: "/api/download/signed" });
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -130,7 +135,8 @@ it("저장소를 쓸 수 없으면 허브가 이유를 알려 준다", async () 
 
 it("범주: 템플릿 버튼이 지시문을 채우고 파일이 모자라면 보낼 수 없다", async () => {
   mount("/artcraft/c/pdf");
-  fireEvent.click(await screen.findByRole("button", { name: "PDF 합치기" }));
+  expect(await screen.findByText("예: 계약서 3개를 한 파일로", { exact: false })).toBeTruthy();
+  fireEvent.click(await screen.findByRole("button", { name: /PDF 합치기/ }));
   const prompt = screen.getByRole("textbox", { name: "무엇을 시킬까요?" }) as HTMLTextAreaElement;
   expect(prompt.value).toBe("첨부한 PDF들을 하나로 합쳐 주세요.");
   expect(screen.getByRole("status").textContent).toContain("파일이 2개 이상 필요해요");
@@ -143,7 +149,7 @@ it("범주: 파일을 올리고 옵션을 골라 보내면 작업이 만들어�
   h.upload.mockImplementation((file: File) => Promise.resolve(art({ id: `up-${file.name}`, filename: file.name, source: "upload" })));
   h.create.mockResolvedValue(detail({ id: "t-new" }));
   mount("/artcraft/c/pdf");
-  fireEvent.click(await screen.findByRole("button", { name: "내용 요약" }));
+  fireEvent.click(await screen.findByRole("button", { name: /내용 요약/ }));
   fireEvent.click(screen.getByRole("radio", { name: "DOCX" }));
   fireEvent.click(screen.getByRole("radio", { name: "꼼꼼하게" }));
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -163,7 +169,7 @@ it("범주: 파일을 올리고 옵션을 골라 보내면 작업이 만들어�
 it("범주: 받지 않는 형식은 올리지 않고, 서버 오류는 화면에 보인다", async () => {
   h.create.mockRejectedValue(Object.assign(new Error("파일은 한 번에 10개까지 붙일 수 있어요."), { status: 422 }));
   mount("/artcraft/c/pdf");
-  await screen.findByRole("button", { name: "내용 요약" });
+  await screen.findByRole("button", { name: /내용 요약/ });
   const input = document.querySelector('input[type="file"]') as HTMLInputElement;
   fireEvent.change(input, { target: { files: [new File(["x"], "run.exe")] } });
   expect(h.upload).not.toHaveBeenCalled();
@@ -211,6 +217,17 @@ it("작업 상세: 라운드의 지시·결과·결과 파일을 보이고 이�
   await waitFor(() => expect(h.round).toHaveBeenCalledTimes(1));
   expect(h.round).toHaveBeenCalledWith("t-1", { prompt: "더 줄여 주세요", input_artifact_ids: [], use_previous: true });
   expect(await screen.findByText("2번째 지시")).toBeTruthy();
+});
+
+it("task_detail 결과 파일을 미리보기에서 열고 내려받는다", async () => {
+  const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  mount("/artcraft/t/t-1");
+  fireEvent.click(await screen.findByRole("button", { name: "merged.pdf 열기" }));
+  expect(await screen.findByRole("dialog")).toBeTruthy();
+  expect(await screen.findByRole("button", { name: "원본 다운로드" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "원본 다운로드" }));
+  await waitFor(() => expect(h.download).toHaveBeenCalledWith("a-1", "original"));
+  anchorClick.mockRestore();
 });
 
 it("작업 상세: 진행 중이면 상태·진행 라벨과 취소 버튼, 실패하면 이유와 다시 하기", async () => {

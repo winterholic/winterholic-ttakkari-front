@@ -1,15 +1,18 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { checkArtcraftRemote, controlArtcraftApp, getArtcraftJob, runArtcraftSmoke } from "../../api/client";
-import type { ArtcraftApp, ArtcraftJob, ArtcraftOverview } from "../../api/artcraftTypes";
+import {
+  applyArtcraftUpdate, checkArtcraftRemote, controlArtcraftApp, getArtcraftAppUpdate, getArtcraftJob,
+  getArtcraftUpdateStatus, rollbackArtcraftUpdate, runArtcraftSmoke,
+} from "../../api/client";
+import type { ArtcraftApp, ArtcraftJob, ArtcraftOverview, ArtcraftUpdateInfo, ArtcraftUpdateRecord } from "../../api/artcraftTypes";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
-import { ago, copyText, updateSteps } from "./format";
+import { ago } from "./format";
 
 const ACTIVE = new Set(["queued", "running"]);
 const isActive = (j: ArtcraftJob | undefined) => Boolean(j && ACTIVE.has(j.state));
@@ -19,15 +22,23 @@ const JOB_TITLE: Record<string, string> = {
   "smoke-full": "GUI 포함 스모크",
   "gui-start": "앱 실행",
   "gui-stop": "앱 종료",
+  "update-apply": "앱 업데이트",
+  "update-rollback": "이전 버전 복구",
 };
-const JOB_TONE = { queued: "info", running: "info", succeeded: "success", failed: "danger", timeout: "danger" } as const;
-const JOB_STATE = { queued: "대기", running: "진행 중", succeeded: "완료", failed: "실패", timeout: "시간 초과" } as const;
+const JOB_TONE = { queued: "info", running: "info", succeeded: "success", failed: "danger", timeout: "danger", interrupted: "danger" } as const;
+const JOB_STATE = { queued: "대기", running: "진행 중", succeeded: "완료", failed: "실패", timeout: "시간 초과", interrupted: "중단" } as const;
 
-function JobBanner({ jobId, onDone, onDismiss }: { jobId: string; onDone: () => void; onDismiss: () => void }) {
+function JobBanner({ jobId, updateApp, onDone, onDismiss, onRecover }: { jobId: string; updateApp?: ArtcraftApp; onDone: () => void; onDismiss: () => void; onRecover: () => void }) {
   const job = useQuery({
     queryKey: ["artcraft", "job", jobId],
     queryFn: () => getArtcraftJob(jobId),
     refetchInterval: (q) => (isActive(q.state.data) || !q.state.data ? 1500 : false),
+  });
+  const updateState = useQuery({
+    queryKey: [...updateKey(updateApp?.app ?? ""), "status"],
+    queryFn: () => getArtcraftUpdateStatus(updateApp!.app),
+    enabled: Boolean(updateApp),
+    refetchInterval: (q) => q.state.data && ["queued", "running"].includes(q.state.data.state) ? 1500 : false,
   });
   const state = job.data?.state;
   useEffect(() => {
@@ -35,10 +46,42 @@ function JobBanner({ jobId, onDone, onDismiss }: { jobId: string; onDone: () => 
     // 끝난 순간 한 번만 목록을 새로 읽는다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
+  const record = updateState.data?.last_status;
+  const recoveredStatus = record && (record.status === "failed" || record.status === "succeeded" || record.status === "interrupted") ? record.status : null;
+  if (updateApp && updateState.data?.state === "failed") {
+    return (
+      <div className="ac-job" role="status" aria-label="업데이트 복구 실패">
+        <div className="ac-job__head"><span className="ac-job__title">{updateApp.title} 이전 설치를 복구하지 못했어요.</span><Badge tone="danger">실패</Badge></div>
+        {updateState.data.error && <p className="tk-error" role="alert">{updateState.data.error}</p>}
+        <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>
+      </div>
+    );
+  }
+  if (updateApp && updateState.data?.state === "interrupted") {
+    return (
+      <div className="ac-job" role="status" aria-label="업데이트 복구 상태">
+        <div className="ac-job__head"><span className="ac-job__title">{updateApp.title} 업데이트 작업이 서버 재시작으로 중단됐어요.</span><Badge tone="danger">중단</Badge></div>
+        {updateState.data.error && <p className="ac-job__summary">{updateState.data.error}</p>}
+        <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>
+      </div>
+    );
+  }
+  if (job.isError && updateApp && recoveredStatus && record) {
+    const labels = { succeeded: "완료", failed: "실패", interrupted: "중단" } as const;
+    return (
+      <div className="ac-job" role="status" aria-label="업데이트 결과">
+        <div className="ac-job__head"><span className="ac-job__title">{updateApp.title} 업데이트</span><Badge tone={recoveredStatus === "succeeded" ? "success" : "danger"}>{labels[recoveredStatus]}</Badge></div>
+        {record.error && <p className="ac-job__summary">{record.error}</p>}
+        <p className="ac-job__summary">{record.from_version ?? "알 수 없음"} → {record.to_version ?? "알 수 없음"}</p>
+        <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>
+      </div>
+    );
+  }
   if (job.isError) {
     return (
       <div className="ac-job" role="status">
         <p className="ac-job__title">작업 상태를 읽지 못했어요. 서버가 다시 시작되면 작업 기록이 지워져요.</p>
+        {updateApp && <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>}
         <Button size="xs" variant="ghost" onClick={onDismiss}>닫기</Button>
       </div>
     );
@@ -61,6 +104,159 @@ function JobBanner({ jobId, onDone, onDismiss }: { jobId: string; onDone: () => 
         </details>
       )}
     </div>
+  );
+}
+
+const updateKey = (app: string) => ["artcraft", "app-update", app] as const;
+const UPDATE_STATE: Record<string, string> = {
+  idle: "대기", queued: "대기", running: "진행 중", succeeded: "완료", failed: "실패", interrupted: "중단",
+};
+
+function UpdateRecord({ record }: { record: ArtcraftUpdateRecord }) {
+  const action = record.action === "update-rollback" ? "이전 버전 복구" : "업데이트";
+  return (
+    <li className="ac-update__history-item">
+      <div className="ac-update__history-head">
+        <strong>{action}</strong>
+        <Badge tone={record.status === "succeeded" ? "success" : record.status === "failed" || record.status === "interrupted" ? "danger" : "info"}>
+          {UPDATE_STATE[record.status] ?? record.status}
+        </Badge>
+        <time className="ac-sub" dateTime={record.at}>{ago(record.at)}</time>
+      </div>
+      <p className="ac-sub">{record.from_version ?? "알 수 없음"} → {record.to_version ?? "알 수 없음"}</p>
+      {record.error && <p className="tk-error" role="alert">{record.error}</p>}
+    </li>
+  );
+}
+
+function AppUpdateDialog({ app, onClose, onJobStarted }: { app: ArtcraftApp; onClose: () => void; onJobStarted: (job: ArtcraftJob) => void }) {
+  const qc = useQueryClient();
+  const [confirm, setConfirm] = useState<"update" | "rollback" | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const preview = useQuery({ queryKey: updateKey(app.app), queryFn: () => getArtcraftAppUpdate(app.app) });
+  const history = useQuery({
+    queryKey: [...updateKey(app.app), "status"],
+    queryFn: () => getArtcraftUpdateStatus(app.app),
+    refetchInterval: (q) => q.state.data && ["queued", "running"].includes(q.state.data.state) ? 1500 : false,
+  });
+  const refresh = useMutation({
+    mutationFn: () => getArtcraftAppUpdate(app.app, true),
+    onSuccess: (value) => {
+      qc.setQueryData(updateKey(app.app), value);
+      void qc.invalidateQueries({ queryKey: ["artcraft", "apps"] });
+    },
+    onError: (e) => setActionError(errorText(e).message),
+  });
+  const apply = useMutation({
+    mutationFn: (value: ArtcraftUpdateInfo) => applyArtcraftUpdate(app.app, {
+      ...(value.latest_release?.tag ? { tag: value.latest_release.tag } : {}), confirm: true,
+    }),
+    onSuccess: (job) => {
+      setActionError(null);
+      void qc.invalidateQueries({ queryKey: [...updateKey(app.app), "status"] });
+      onJobStarted(job);
+      onClose();
+    },
+    onError: (e) => {
+      setActionError(errorText(e).message);
+      setConfirm(null);
+      void qc.invalidateQueries({ queryKey: updateKey(app.app) });
+      void qc.invalidateQueries({ queryKey: [...updateKey(app.app), "status"] });
+      refresh.mutate();
+    },
+  });
+  const rollback = useMutation({
+    mutationFn: () => rollbackArtcraftUpdate(app.app, { confirm: true }),
+    onSuccess: (job) => {
+      setActionError(null);
+      void qc.invalidateQueries({ queryKey: [...updateKey(app.app), "status"] });
+      onJobStarted(job);
+      onClose();
+    },
+    onError: (e) => {
+      setActionError(errorText(e).message);
+      setConfirm(null);
+      void qc.invalidateQueries({ queryKey: updateKey(app.app) });
+      void qc.invalidateQueries({ queryKey: [...updateKey(app.app), "status"] });
+      refresh.mutate();
+    },
+  });
+  const value = preview.data;
+  const isBusy = value?.busy ?? app.update_busy ?? false;
+  const canUpdate = Boolean(value?.can_update && value.update_available && !isBusy);
+  const canRollback = Boolean(value?.can_rollback && !isBusy);
+  const loadingError = preview.isError ? errorText(preview.error).message : history.isError ? errorText(history.error).message : null;
+  const refreshPreview = () => { setActionError(null); refresh.mutate(); };
+
+  return (
+    <>
+      <Dialog open={confirm === null} onClose={() => { if (confirm === null) onClose(); }} size="lg" title={`${app.title} 업데이트 관리`} modal>
+        <div className="ac-stack">
+          {preview.isPending ? <p role="status"><span className="tk-spinner tk-spinner--xs" aria-hidden="true" />앱 버전과 업데이트 가능 여부를 확인하고 있어요.</p> : value && (
+            <>
+              <div className="ac-card ac-update__plan">
+                <h3>앱 버전</h3>
+                <p>설치 버전 <span className="ac-mono">{value.installed_version ?? "확인할 수 없음"}</span>
+                  {value.latest_release?.version && <> → <span className="ac-mono">{value.latest_release.version}</span></>}
+                </p>
+                {value.latest_release?.tag && <p>공식 릴리스 <span className="ac-mono">{value.latest_release.tag}</span></p>}
+                {value.latest_release?.asset_name && <p className="ac-sub">받을 파일: <span className="ac-mono">{value.latest_release.asset_name}</span></p>}
+                {value.latest_release?.published_at && <p className="ac-sub">릴리스 날짜 <time dateTime={value.latest_release.published_at}>{ago(value.latest_release.published_at)}</time></p>}
+                {value.busy && <p className="tk-status tk-status--agent" role="alert">지금 적용할 수 없어요. {value.busy_reason ?? "이 앱을 사용 중인 작업이 있어요."}</p>}
+                {!value.latest_release && <p className="ac-note">최신 릴리스 정보가 없어요. 최신 정보를 다시 확인해 주세요.</p>}
+                {value.latest_release && !value.update_available && <p className="ac-note">현재 설치된 버전이 최신이에요.</p>}
+              </div>
+              <div className="ac-actions">
+                <Button size="sm" variant="ghost" busy={refresh.isPending} onClick={refreshPreview}><Icon name="retry" />최신 정보 확인</Button>
+                {value.update_available && value.latest_release && <Button size="sm" disabled={!canUpdate} onClick={() => canUpdate && setConfirm("update")}>v{value.latest_release.version} 업데이트</Button>}
+                {value.can_update && value.update_available && !isBusy && !canUpdate && <p className="ac-note">업데이트 계획을 확인할 수 없어 적용을 잠갔어요.</p>}
+                {canRollback && <Button size="sm" variant="ghost" onClick={() => setConfirm("rollback")}>{value.previous_version ? `${value.previous_version}으로 복구` : "이전 버전으로 복구"}</Button>}
+              </div>
+            </>
+          )}
+          {loadingError && <p className="tk-error" role="alert">{loadingError}</p>}
+          {(preview.isError || loadingError) && <Button size="sm" variant="ghost" onClick={() => { void preview.refetch(); void history.refetch(); }}>다시 불러오기</Button>}
+          {history.data && (
+            <section className="ac-update__history" aria-label="업데이트 이력">
+              <h3>업데이트 이력</h3>
+              <p className="ac-sub">현재 설치 버전 {history.data.current_version ?? "확인할 수 없음"}
+                {history.data.previous_version && ` · 복구 가능 ${history.data.previous_version}`}
+              </p>
+              {history.data.error && <p className="tk-error" role="alert">{history.data.error}</p>}
+              {history.data.history.length > 0 ? <ol className="ac-update__history-list">{history.data.history.slice(-5).reverse().map((record) => <UpdateRecord key={`${record.job_id}-${record.at}`} record={record} />)}</ol>
+                : <p className="ac-note">아직 업데이트 기록이 없어요.</p>}
+            </section>
+          )}
+          {actionError && <p className="tk-error" role="alert">요청을 처리하지 못했어요. {actionError}</p>}
+        </div>
+      </Dialog>
+      <Dialog
+        open={confirm === "update"}
+        onClose={() => setConfirm(null)}
+        size="sm"
+        title={`${app.title} 업데이트 확인`}
+        modal
+        footer={<div className="tk-button-group tk-button-group--end">
+          <Button variant="ghost" onClick={() => setConfirm(null)}>취소</Button>
+          <Button busy={apply.isPending} disabled={!value || !canUpdate} onClick={() => value && apply.mutate(value)}>업데이트 적용</Button>
+        </div>}
+      >
+        <p>공식 릴리스 {value?.latest_release?.tag ?? "최신 버전"}을 설치하고 적용 후 검사를 실행해요. 검사가 실패하면 백엔드가 이전 설치판 복구를 시도합니다.</p>
+      </Dialog>
+      <Dialog
+        open={confirm === "rollback"}
+        onClose={() => setConfirm(null)}
+        size="sm"
+        title={`${app.title} 이전 버전 복구 확인`}
+        modal
+        footer={<div className="tk-button-group tk-button-group--end">
+          <Button variant="ghost" onClick={() => setConfirm(null)}>취소</Button>
+          <Button variant="danger" busy={rollback.isPending} disabled={!canRollback} onClick={() => rollback.mutate()}>이전 버전으로 복구</Button>
+        </div>}
+      >
+        <p>현재 버전을 보존된 이전 버전 <span className="ac-mono">{value?.previous_version}</span>으로 바꿔요. 앱이 사용 중이면 백엔드가 요청을 거절합니다.</p>
+      </Dialog>
+    </>
   );
 }
 
@@ -150,7 +346,7 @@ function AppCard({ app, locked, onStart, onStop, onSmoke, onUpdate, onGoto }: {
         )}
         <Button size="sm" variant="ghost" disabled={locked} onClick={onSmoke}><Icon name="circle-check" />스모크</Button>
         <Button size="sm" variant="ghost" onClick={() => onGoto("agent", app.app)}><Icon name="terminal" />MCP 설정</Button>
-        {latest.update_available && <Button size="sm" variant="ghost" onClick={onUpdate}><Icon name="download" />업데이트 방법</Button>}
+        <Button size="sm" variant="ghost" onClick={onUpdate}><Icon name="download" />업데이트 관리</Button>
       </div>
     </li>
   );
@@ -164,20 +360,27 @@ export function AppsTab({ data, onGoto }: { data: ArtcraftOverview; onGoto: (tab
   const [dismissed, setDismissed] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [update, setUpdate] = useState<ArtcraftApp | null>(null);
+  const [updateJobApp, setUpdateJobApp] = useState<string | null>(null);
   const activeJob = data.jobs.find(isActive);
+  const recoveryApp = updateJobApp ?? (activeJob?.kind === "update" ? activeJob.apps[0] : null);
   // 새로고침으로 돌아와도 서버에서 도는 작업을 이어서 본다
   const shownId = jobId ?? (activeJob && activeJob.id !== dismissed ? activeJob.id : null);
   // 최신 버전 확인은 다른 작업과 겹쳐도 된다. 스모크·앱 실행·종료만 서로 막는다.
   const locked = data.jobs.some((j) => isActive(j) && j.kind !== "remote");
   const refetch = () => void qc.invalidateQueries({ queryKey: ["artcraft", "apps"] });
+  const refetchUpdates = () => {
+    refetch();
+    void qc.invalidateQueries({ queryKey: ["artcraft", "app-update"] });
+  };
   const onError = (e: unknown) => toast({ message: errorText(e).message, tone: "danger" });
-  const started = (job: ArtcraftJob) => {
+  const started = (job: ArtcraftJob, appName?: string) => {
     setJobId(job.id);
+    setUpdateJobApp(appName ?? null);
     refetch();
   };
-  const remote = useMutation({ mutationFn: () => checkArtcraftRemote(), onSuccess: started, onError });
-  const smoke = useMutation({ mutationFn: (v: Parameters<typeof runArtcraftSmoke>[0]) => runArtcraftSmoke(v), onSuccess: started, onError });
-  const control = useMutation({ mutationFn: (v: { app: string; action: "start" | "stop"; confirm?: boolean }) => controlArtcraftApp(v.app, v), onSuccess: started, onError });
+  const remote = useMutation({ mutationFn: () => checkArtcraftRemote(), onSuccess: (job) => started(job), onError });
+  const smoke = useMutation({ mutationFn: (v: Parameters<typeof runArtcraftSmoke>[0]) => runArtcraftSmoke(v), onSuccess: (job) => started(job), onError });
+  const control = useMutation({ mutationFn: (v: { app: string; action: "start" | "stop"; confirm?: boolean }) => controlArtcraftApp(v.app, v), onSuccess: (job) => started(job), onError });
 
   const updates = data.apps.filter((a) => a.latest.update_available).length;
   const running = data.apps.filter((a) => a.gui.running).length;
@@ -193,9 +396,20 @@ export function AppsTab({ data, onGoto }: { data: ArtcraftOverview; onGoto: (tab
           <Badge tone={updates ? "warning" : undefined}>업데이트 가능 {updates}</Badge>
         </p>
         <p className="ac-note">
-          {data.remote.checked_at ? `최신 버전은 ${ago(data.remote.checked_at)}에 확인했어요.` : "최신 버전을 아직 확인하지 않았어요."}
-          {data.remote.error && ` (${data.remote.error})`}
+          {data.remote.checked_at ? (
+            <>저장된 최신 버전 정보 · <time dateTime={data.remote.checked_at} title={data.remote.checked_at}>{ago(data.remote.checked_at)} 확인한 값</time></>
+          ) : "저장된 최신 버전 정보가 없어요."}
         </p>
+        {data.remote.checking && (
+          <p className="tk-status tk-status--agent" role="status" aria-label="최신 버전 확인 중">
+            <span className="tk-spinner tk-spinner--xs" aria-hidden="true" />최신 버전을 지금 확인하고 있어요.
+          </p>
+        )}
+        {!data.remote.checking && data.remote.error && data.remote.attempted_at && (
+          <p className="tk-error" role="alert">
+            마지막 확인 시도({ago(data.remote.attempted_at)})가 실패했어요. 이전에 저장된 버전 정보가 있으면 그대로 보여 줘요. {data.remote.error}
+          </p>
+        )}
         <div className="ac-actions">
           <Button size="sm" variant="ghost" busy={remote.isPending || data.remote.checking} onClick={() => remote.mutate()}>
             <Icon name="retry" />최신 버전 확인
@@ -209,7 +423,17 @@ export function AppsTab({ data, onGoto }: { data: ArtcraftOverview; onGoto: (tab
         </div>
         {data.stale && <p className="tk-error" role="alert">상태를 새로 읽지 못해 이전 값을 보여 줘요. {data.error}</p>}
       </div>
-      {shownId && <JobBanner jobId={shownId} onDone={refetch} onDismiss={() => { setDismissed(shownId); setJobId(null); }} />}
+      {shownId && <JobBanner
+        jobId={shownId}
+        updateApp={recoveryApp ? data.apps.find((a) => a.app === recoveryApp) : undefined}
+        onDone={refetchUpdates}
+        onDismiss={() => { setDismissed(shownId); setJobId(null); }}
+        onRecover={() => {
+          const target = data.apps.find((a) => a.app === recoveryApp);
+          if (target) setUpdate(target);
+          void qc.invalidateQueries({ queryKey: [...updateKey(recoveryApp ?? ""), "status"] });
+        }}
+      />}
       <ul className="ac-list">
         {data.apps.map((app) => (
           <AppCard
@@ -261,18 +485,7 @@ export function AppsTab({ data, onGoto }: { data: ArtcraftOverview; onGoto: (tab
         <p>13개 앱의 창을 차례로 열었다가 닫아요. 몇 분 걸리고 Mac Studio 화면에 창이 보여요. 화면이 잠겨 있으면 스크린샷 확인이 실패할 수 있어요.</p>
         <p>이미 실행 중인 앱이 있으면 그 앱이 닫히지 않도록 시작하지 않아요. 먼저 종료해 주세요.</p>
       </Dialog>
-      <Dialog open={Boolean(update)} onClose={() => setUpdate(null)} size="lg" title={update ? `${update.title} 업데이트 방법` : "업데이트 방법"}>
-        {update && (
-          <div className="ac-stack">
-            <p>
-              설치된 <span className="ac-mono">v{update.installed.release}</span>보다 새 릴리스 <span className="ac-mono">{update.latest.tag}</span>가 있어요.
-              이 화면은 설치·업데이트를 대신 실행하지 않아요(설치 상태를 망가뜨릴 수 있어서요). Mac Studio 터미널이나 에이전트에서 아래 절차를 따르세요.
-            </p>
-            <pre className="ac-pre" tabIndex={0}>{updateSteps(update.app)}</pre>
-            <Button size="sm" onClick={() => copyText(updateSteps(update.app), "업데이트 절차")}><Icon name="copy" />절차 복사</Button>
-          </div>
-        )}
-      </Dialog>
+      {update && <AppUpdateDialog app={update} onClose={() => setUpdate(null)} onJobStarted={(job) => started(job, update.app)} />}
     </section>
   );
 }
