@@ -96,3 +96,7 @@
 
 
 후보 반입 전 `e070bc0` desktop 5장은 좌측 계정 영역에 계정 식별자가 보여 제외했다. mobile 5장은 해당 식별자가 보이지 않아 보존했다. audit 관측 결과는 문서에 유지하되 제외 screenshot 자체는 보존 증거로 인용하지 않는다.
+
+## Native select 키보드 재현 — desktop 캡처는 비공개 보충 ZIP 전용
+
+2026-11-06 17:36:37.978Z, source `a028be2`에서 가능한 조치 select에 Tab으로 focus한 뒤 native `ArrowDown`/`Enter`를 보냈다. 선택값은 `모든 조치`, 50/50으로 유지됐다. 같은 항목을 browser tool fallback으로 `reprocess` 선택하면 `재처리 가능`, 46/50으로 바뀌었다. 따라서 screenshot은 keyboard 성공 근거가 아니다. 캡처에 계정명이 보여 `ui-a028be2-review-action-filter-selectoption-1440x900.png`는 공개 후보에서 제외하고 비공개 보충 ZIP에만 넣었다. 상세 표본과 도구 한계는 `../ui-integration-verification-20261107.md`를 참조한다.

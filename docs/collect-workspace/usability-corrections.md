@@ -24,3 +24,7 @@
 - 수정 후 green: `TTAKKARI_NO_ENV_FILE=1 pnpm exec vitest run src/features/collector/CollectWorkspaceBoundaryAudit.test.tsx src/features/collector/Missions.test.tsx src/features/collector/ResearchPanel.test.tsx src/features/collector/ReviewIndependentAudit.test.tsx src/features/collector/ReviewWorkspace.test.tsx --reporter=dot` — 5개 파일, 31개 테스트 통과.
 - 변경 TS/TSX ESLint — 종료 코드 0, 진단 없음. `node scripts/ui-lint.mjs` — `ui-lint ok · 위반 138건(기준선 138건 이하, 새로 늘지 않음)`. `git diff --check` — 종료 코드 0.
 - 실화면 브라우저 검증과 운영 쓰기는 미검증·미실행이다. 브라우저는 독립 감사 소유이므로 열지 않았다.
+
+## 2026-11-07 후속 문서 교차참조
+
+UI-01은 적재 처리 수와 trace 응답 문서 목록의 단위가 달랐던 과거 표시 이슈다. 고정 `794d0e9`에서 각각의 단위와 3,000 상한을 표기하고 desktop/mobile 두 viewport에서 확인한 증거는 `ui-independent-audit.md`의 794d0e9 영향 화면 감사에 있다. 통합 후보의 좁은 UI 확인은 UI-01을 재검증하지 않았다. 서로 다른 관측 시점의 수치 차이는 교정 성과로 해석하지 않는다. 정리된 질문 7번의 actionability 답변과 화면 경로는 `ui-integration-verification-20261107.md`에서 관리한다.

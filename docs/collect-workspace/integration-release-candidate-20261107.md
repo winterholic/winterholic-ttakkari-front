@@ -73,15 +73,15 @@ Vercel 공식 MCP 연결 도구는 현재 사용할 수 없었다. 설치된 Ver
 
 저장소의 `vercel.json`에서 확인 가능한 범위는 `framework=vite`, `pnpm install --frozen-lockfile`, `pnpm build`, `dist` 출력 및 SPA rewrite다. 저장소에는 `.vercel/project.json`이 없다. README는 local dev용 `VITE_API_BASE` 설정 예시만 제공한다. production Vercel project, main 연동, `VITE_API_BASE` 존재/target, 현재 production revision은 미검증이다. `vercel.json`은 프로젝트 연결이나 env target의 증거가 아니다.
 
-## UI 감사 상태, 게시 전 남은 단계
+## UI 감사 중간 상태 snapshot
 
 원본 `a028be2` UI 감사 재개 결과는 **부분**이다. completion fixture에서 21 missions, 200 sources, 20 jobs 및 8개 빈 job item page 등 실제/synthetic 경계를 기록했다. 가능 조치 filter keyboard 선택은 선택값 변경을 확인하지 못해 미통과로 남아 있고, 감사자의 미추적 mobile 상세 screenshot이 원본 worktree에 있다. 현재 profile 확인 기록은 `회사 코덱스 ai2`이며 이메일은 비식별 처리했다. 이 감사가 R1–R10 제품 승인이나 게시 승인을 뜻하지 않는다.
 
 아직 하지 않은 단계:
 
-- 하지 않음: UI 감사자가 키보드 필터 및 남은 질문/표본을 마무리하고 결과를 기록한다. 이 후보에는 감사 완료를 나타내는 것으로 추정해 새로 쓰지 않았다.
+- 당시 미완료: UI 감사자의 키보드 필터/질문 확인. 이후 `ui-integration-verification-20261107.md`의 좁은 후보 UI 결과와 `ui-independent-audit.md`의 8c0a286 native select 후속을 이양받아 아래 최종 UI 기록으로 갱신했다. 키보드 입력 자체는 여전히 미검증이다.
 - 하지 않음: Vercel production project/main 연동 및 `VITE_API_BASE` target readback. CLI 인증을 사용할 수 없어서 미검증이다.
-- 하지 않음: main push, production deploy, Vercel 설정 쓰기, production 수집 GET/mutation, backend/DB/policy/queue 작업. 이 작업 카드의 금지 범위다.
+- 이 snapshot 시점에는 main push와 production deploy를 하지 않았다. 후속 게시 여부는 이 문서 뒤의 `최종 UI 문서 반영 및 게시`와 이번 Run 전달 보고서에 기록한다.
 
 UI 감사 완료 후 동일 후보를 다시 확인할 첫 명령:
 
@@ -145,3 +145,14 @@ GH_TOKEN="$(gh auth token --hostname github.com --user winterholic)" gh api "rep
 ```
 
 Production 배포 ID가 반환되면 결과 상세는 `GET /repos/winterholic/winterholic-ttakkari-front/deployments/{id}/statuses`에서 `environment`, `state`, `created_at`, `environment_url` host만 출력해 읽는다. 배포는 확인하지 않은 채로 성공으로 간주하지 않는다. 이 후속에서도 main push나 production deploy를 실행하지 않았다.
+
+
+## 최종 UI 문서 반영 및 게시 준비 — 2026-11-07
+
+기획에서 최종 UI 좁은 검증을 수신했다. `ui-integration-verification-20261107.md`에 7번 질문 원문 `지금 무엇을 해야 하는가?`와 경로·가능 조치·표본 한계를 기록하고, 큐/50 loaded/468 audit sample의 구분은 보충 질문으로 분리했다. 최초 변경 전 기준은 원본 `e2d89e6` baseline 8장이고, `e070bc0` 화면은 중간 스냅샷임을 명시했다. UI-01 단위 표시 개선은 고정 `794d0e9`에서 두 viewport로 확인한 과거 결과로 연결했으며 이번 Run에서는 재검증하지 않았다.
+
+원본 `8c0a286` native select 감사도 비식별 상태로 반영했다. Tab으로 select focus를 확인한 뒤 `ArrowDown`/`Enter`가 값을 바꾸지 않았고 browser tool fallback은 `reprocess`로 46/50을 보였지만, 이를 native keyboard 통과로 쓰지 않았다. 실제 `topic_key` 그룹 연결, 완료 후 부족 실표본, 실제 dedupe 관계 ID와 운영 쓰기는 미검증/미실행이다. 확인된 신규 제품 결함은 없다.
+
+비공개 보충 ZIP `collect-workspace-baseline-comparison-20261107.zip`에는 최초 `e2d89e6` 기준 8 PNG와 저장소 screenshot 34 PNG, 출처 manifest 2종이 있다. 계정명이 있는 desktop PNG는 이 사용자 전달물에만 포함했으며 공개 후보에는 추가하지 않았다. 통합 후보 10 PNG ZIP은 이미 공유된 `collect-workspace-integration-evidence.zip` 링크를 참조하고 이 Run에서 읽거나 복사하지 않았다.
+
+이 단계에서는 문서 변경만 stage하며, 제품/의존성은 기존 `86 tests`와 build 결과 이후 변경하지 않았다. UI 감사 결과 수신으로 기존 push 보류 사유가 해소되어 최신 `origin/main` 확인 후 일반 fast-forward push를 진행한다. VITE_API_BASE 존재/target은 미검증으로 남기고 설정 변경 없이 게시한다.

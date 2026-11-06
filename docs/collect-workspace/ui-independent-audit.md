@@ -227,3 +227,11 @@ Review는 baseline fixture `2,310 total / 50 loaded`; sources/jobs는 completion
 후보 반입 전 screenshot 검토에서 desktop 캡처 5장은 계정 식별자 노출로 보존하지 않고, 해당 식별자가 없는 mobile 캡처 5장만 보존했다.
 
 이번 캡처는 2026-11-06 17:17–17:23 UTC (2026-11-07 02:17–02:23 KST), checkout `04eec5d` 및 adapter `e070bc0` 입력이다. 바뀐 mission/source/job sample 및 미완료 keyboard filter 결과만 담았다. 기존 794d0e9 통과 화면을 재사용하고 review form 열기, plan preview, 이전 synthetic pagination은 반복하지 않았다. 캡처와 원본 screenshot 시각은 manifest에서 구분한다. 이 감사는 UX/표본 판정이지 R1–R10 제품 승인이나 배포 완료 증거가 아니다. 제품 파일은 수정하지 않았다.
+
+## 2026-11-07 KST — native select 단일 재현 후 tool fallback
+
+이 후속은 configured `ttakkari_browser`의 기존 baseline saved review fixture와 local inert mock에서 수행됐다. 운영 UI/수집 API는 사용하지 않았다. 비공개 캡처의 출처는 manifest에 적었으며 계정명이 보여 공개 후보 PNG에는 포함하지 않았다.
+
+skip link를 포함해 Tab으로 이동하고 18번째 Tab 이후 가능한 조치 native select에 focus된 `[active]` snapshot을 확인했다. `ArrowDown`/`Enter` 뒤에도 선택값은 `모든 조치`, 50/50이었다. 같은 `reprocess`를 browser tool의 `select_option` fallback으로 선택했을 때는 `재처리 가능`, 46/50으로 바뀌었다. fallback 캡처는 키보드 성공 증거가 아니다.
+
+`Review.tsx`의 controlled native select `onChange`는 filter state 변경에 연결되고, fallback 뒤 선택값과 표시 행수가 바뀌었다. 이 관측에서는 제품 결함을 재현하지 못했다. native keyboard 입력이 선택값을 바꾸지 않은 결과는 configured browser의 keyboard 전달 한계 가능성으로 남기며, 실제 키보드 동작을 통과로 판정하지 않는다. 한국어 값 선택에 영문 단축키를 사용하지 않았고, 이번 후속 Run에서 다시 키보드를 시험하지 않았다.
