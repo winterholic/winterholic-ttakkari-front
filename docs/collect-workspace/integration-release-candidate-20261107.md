@@ -94,3 +94,54 @@ git -C /Users/winterholic/development/projects/winterholic-ttakkari/front-collec
 ```sh
 git -C /Users/winterholic/development/projects/winterholic-ttakkari/front-collect-release-candidate-20261107 push origin release/collect-workspace-20261107:main
 ```
+
+## 2026-11-07 후속 읽기 확인 — GitHub/Vercel 연결 metadata
+
+### Run profile gate
+
+현재 Run을 owner Run API로 먼저 조회했다. 민감한 Run 식별자는 기록하지 않고 allowlist 필드만 출력했다.
+
+```text
+ttk get /api/runs/<current-run-id> | python3 -c '... status, profile만 출력 ...'
+{"status": "running", "profile": "회사 코덱스 ai2 (이메일 비식별)"}
+```
+
+profile은 요청된 회사 Codex ai2여서 metadata 확인을 계속했다. 계정 토글은 하지 않았다.
+
+### origin/main의 배포 연결
+
+현재 fetch 기준 origin/main은 `a86544548c006c41bb4a9a49ab0cd0ab8a09713e`; 격리 후보는 `1fa18fd9ebc42caa4e90c4a03125883e264bb03e`다. 후보는 main을 포함하고 `origin/main...candidate = 0 26`, merge-base는 `a86544548c006c41bb4a9a49ab0cd0ab8a09713e`다. 충돌 해결 제품 범위는 위 통합 표와 같으며 후보는 collector 5개 파일(Missions, CSS, missionProjects, 그 test, CollectPage test)을 main과 통합했다. 그 외 Artcraft, notifications/push, weather 변경은 origin/main에서 온 항목이다. 후보 제품·의존성은 앞서 검증한 `6d9fc8a` 이후 변경되지 않았다.
+
+저장소 `winterholic/winterholic-ttakkari-front`에서 현재 main commit metadata를 읽었다. CLI 인증 부재와 달리 GitHub API는 `winterholic` 계정별 읽기 인증으로 조회했다. API 출력은 필요한 metadata만 남기고 URL은 host만 출력했다.
+
+```text
+GET /repos/winterholic/winterholic-ttakkari-front/commits/a86544548c006c41bb4a9a49ab0cd0ab8a09713e/check-runs
+{"total_count":0,"checks":[]}
+
+GET /repos/winterholic/winterholic-ttakkari-front/commits/a86544548c006c41bb4a9a49ab0cd0ab8a09713e/status
+{"state":"success","statuses":[{"context":"Vercel","state":"success","created_at":"2026-11-06T17:09:26Z","target_host":"vercel.com"}]}
+
+GET /repos/winterholic/winterholic-ttakkari-front/deployments?sha=a86544548c006c41bb4a9a49ab0cd0ab8a09713e
+[{"id":7606079686,"environment":"Production","ref":"a86544548c006c41bb4a9a49ab0cd0ab8a09713e","creator":"vercel[bot]","created_at":"2026-11-06T17:09:26Z"}]
+
+GET /repos/winterholic/winterholic-ttakkari-front/deployments/7606079686/statuses
+[{"environment":"Production","state":"success","created_at":"2026-11-06T17:09:27Z","environment_host":"ttakkari-q28uuif3p-winterholics-projects.vercel.app"}]
+```
+
+따라서 main의 `a865445`가 Vercel `Production` deployment metadata에 연결되고 해당 배포 상태가 success인 것은 확인했다. GitHub check-runs endpoint는 0건이며 commit status context `Vercel`은 success다. 이 metadata는 연결과 배포 상태를 입증하지만, Vercel 프로젝트 내부 setting을 조회한 것은 아니다. 후보 `1fa18fd`는 push되지 않아 후보 자체의 GitHub deployment/check 결과는 아직 없다.
+
+### `VITE_API_BASE`
+
+`VITE_API_BASE`의 Vercel production 존재/target은 **미검증**으로 유지한다. 현재 도구 중 Vercel 환경변수 이름/target을 비밀 값 없이 읽는 지원 경로가 없다. 앞서 인증 부재가 확인된 Vercel CLI를 반복하지 않았고, local README 예시나 `vercel.json`으로 production env를 추정하지 않았다. 값은 읽거나 출력하지 않았다.
+
+### 게시 후 확인 명령과 결과 경로
+
+키보드 후속 감사가 완료되고 게시가 승인된 뒤 실행할 main 게시 명령은 이전 절과 같다. push 후 아래 GitHub API 경로에서 후보 commit의 `Vercel` commit status와 `Production` deployment를 조회할 수 있다. SHA는 현재 release branch tip에서 가져오며, `GH_TOKEN` 변수에는 값을 출력하지 않는다.
+
+```sh
+candidate_sha="$(git -C /Users/winterholic/development/projects/winterholic-ttakkari/front-collect-release-candidate-20261107 rev-parse release/collect-workspace-20261107)"
+GH_TOKEN="$(gh auth token --hostname github.com --user winterholic)" gh api "repos/winterholic/winterholic-ttakkari-front/commits/${candidate_sha}/status" --jq '{state,statuses:[.statuses[]|{context,state,created_at}]}'
+GH_TOKEN="$(gh auth token --hostname github.com --user winterholic)" gh api "repos/winterholic/winterholic-ttakkari-front/deployments?sha=${candidate_sha}&per_page=20" --jq '[.[]|select(.environment=="Production")|{id,sha,ref,environment,created_at}]'
+```
+
+Production 배포 ID가 반환되면 결과 상세는 `GET /repos/winterholic/winterholic-ttakkari-front/deployments/{id}/statuses`에서 `environment`, `state`, `created_at`, `environment_url` host만 출력해 읽는다. 배포는 확인하지 않은 채로 성공으로 간주하지 않는다. 이 후속에서도 main push나 production deploy를 실행하지 않았다.
