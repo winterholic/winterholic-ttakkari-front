@@ -13,3 +13,14 @@
 - `TTAKKARI_NO_ENV_FILE=1 pnpm exec eslint src/pages/CollectPage.tsx src/features/collector/Review.tsx src/features/collector/MissionTrace.tsx src/pages/CollectPage.test.tsx src/features/collector/ReviewWorkspace.test.tsx` — 종료 코드 0, 진단 없음.
 - `node scripts/ui-lint.mjs` — 기준선 위반 138건 이하, 신규 위반 증가 없음. `git diff --check` — 종료 코드 0, 출력 없음.
 - 실제 브라우저 화면과 반응형 계측은 독립 감사 Run `b91696c3` 소유이므로 미검증이다. 높이/스크롤 개선 수치는 추정하지 않았다. 이 작업에서 운영 mutation은 실행하지 않았다.
+
+## 2026-11-07 독립 API 감사 후속
+
+- 제품 코드 revision: `78635d328b983b1dbda8dab41450c5ace5607996`.
+- backend source checkout `d74300c5963920c524d35680b7a6b844132cedac`의 `src/ttakkari/collector/missions.py`에서 `precise_waiting = pending + processing`, `precise_unresolved = unresolved`를 확인했다. `pipeline.py`는 `canonical_candidate`에 후보 envelope 식별자를 문자열로 기록한다. 따라서 구형 대기 집계는 “대기·처리 합계”로 표시하고, 정밀 triage 개별값이 있으면 그 값을 우선한다. 누락된 개별값은 미확인으로 남긴다.
+- 결함 A: `ResearchPanel`과 임무 화면에서 구형 `counts.precise_waiting`/`precise_unresolved`를 놓치던 경로를 공유 `preciseEvalSummary`로 교정했다. triage의 0도 유지하고 pending/processing/unresolved를 임의 계산하지 않는다.
+- 결함 B: `CollectDedupe.canonical_candidate`를 `string | null`로 맞췄다. 독립 경계와 Review fixture는 실제 문자열 ID를 사용하며, 기술 상세에서 식별자를 원문 필드로 표시하고 링크나 승인 상태로 해석하지 않는 것을 확인한다.
+- 수정 전 red: `TTAKKARI_NO_ENV_FILE=1 pnpm exec vitest run src/features/collector/CollectWorkspaceBoundaryAudit.test.tsx src/features/collector/ReviewWorkspace.test.tsx --reporter=dot` — 의도한 구형 집계 assertion 2건 실패, 나머지 12건 통과.
+- 수정 후 green: `TTAKKARI_NO_ENV_FILE=1 pnpm exec vitest run src/features/collector/CollectWorkspaceBoundaryAudit.test.tsx src/features/collector/Missions.test.tsx src/features/collector/ResearchPanel.test.tsx src/features/collector/ReviewIndependentAudit.test.tsx src/features/collector/ReviewWorkspace.test.tsx --reporter=dot` — 5개 파일, 31개 테스트 통과.
+- 변경 TS/TSX ESLint — 종료 코드 0, 진단 없음. `node scripts/ui-lint.mjs` — `ui-lint ok · 위반 138건(기준선 138건 이하, 새로 늘지 않음)`. `git diff --check` — 종료 코드 0.
+- 실화면 브라우저 검증과 운영 쓰기는 미검증·미실행이다. 브라우저는 독립 감사 소유이므로 열지 않았다.
