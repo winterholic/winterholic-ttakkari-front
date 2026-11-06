@@ -100,6 +100,22 @@ export interface PlanScene {
   info_weight: number;
   essential: boolean;
   narrative_goal: string;
+  characters?: string[];
+  environment?: string[];
+  camera?: string[];
+  motion?: string[];
+  audio?: string[];
+  required_skills?: string[];
+  selected_tools?: string[];
+  selected_models?: string[];
+  dependencies?: string[];
+  output_assets?: string[];
+  quality_checks?: string[];
+  style_dna?: string | null;
+  strategy?: string;
+  strategy_rationale?: { reason?: string; source?: string; model?: string | null; scope?: string; feasibility?: string; alternatives?: Array<{ strategy: string; engine?: string; reason?: string; scope?: string }>; cost_latency_quality?: Record<string, unknown> } | null;
+  selected_engine?: string | null;
+  shots?: Array<{ shot_id: string; index?: number; title?: string; action: string; layers?: string[]; strategy?: string; required_capabilities?: string[]; selected_providers?: string[]; camera?: string[]; motion?: string[]; seconds?: number; start_time?: number; end_time?: number; cost_latency_quality?: Record<string, unknown> }>;
 }
 
 export interface MatchGap {
@@ -186,6 +202,8 @@ export interface ProductionSegment {
   project_id: string | null;
   job_id: string | null;
   run_key: string | null;
+  output_sha256?: string | null;
+  result_id?: string | null;
   metrics: { elapsed_seconds: number | null; peak_rss_bytes: number | null; cached_scenes: number | null } | null;
 }
 
@@ -223,15 +241,89 @@ export interface ProductionAssets {
   complete: boolean;
 }
 
+export interface QualityStage {
+  verdict: "pass" | "fail" | "unknown" | string;
+  uncertainty?: number;
+  reason?: string;
+  checks?: Array<{ criterion_id: string; scene_id: string; verdict: string; uncertainty?: number; observations?: Array<Record<string, unknown>> }>;
+  evaluators?: Array<{ id: string; version: string; source: string; independent?: boolean }>;
+}
+
+export interface QualityDefect {
+  scene_id: string;
+  shot_id?: string | null;
+  code: string;
+  layer: string;
+  summary?: string;
+  evidence?: Array<{ kind?: string; path?: string; sha256?: string; start_time?: number; end_time?: number; detail?: string }>;
+  [key: string]: unknown;
+}
+
+export interface PartialRepairPlan {
+  schema_version: number;
+  status: "blocked" | "planned" | "not_needed" | string;
+  plan_revision?: number;
+  plan_sha256?: string;
+  output_sha256?: string | null;
+  caption_mode?: "narration" | "title_only" | null;
+  proposal_sha256?: string;
+  actions: Array<{ scene_id: string; shot_id?: string | null; code: string; layer: string; strategy: string; strategy_switched?: boolean; requires_reevaluation?: string[] }>;
+  blocked: Array<{ defect?: QualityDefect; reason: string; action?: Record<string, unknown> }>;
+  invalidate: { scene_ids: string[]; shot_ids: string[]; layers: string[]; segment_ids: string[]; final: boolean; quality_evidence: boolean };
+  preserve: { scene_ids: string[]; shot_ids: string[]; segment_run_keys: Record<string, string>; asset_groups: string[]; asset_keys: string[] };
+  cache_contract?: string;
+}
+
+export interface QualityReport {
+  schema_version: number;
+  output_sha256?: string | null;
+  rubric?: { sha256?: string; criteria?: Array<{ id: string; stage: string; target?: string; description?: string }>; targets?: Array<{ scene_id: string }> };
+  rubric_matches_record?: boolean;
+  rubric_timing?: string;
+  machine_qa: QualityStage;
+  semantic_qa: QualityStage;
+  viewing_qa: QualityStage;
+  overall_verdict: string;
+  defects: QualityDefect[];
+  repair_plan: PartialRepairPlan;
+}
+
+export interface ProductionRevision {
+  plan_id: string;
+  revision: number;
+  scenes: PlanScene[] | null;
+  snapshot_available: boolean;
+  producer_style_reviews: Array<Record<string, unknown>>;
+  quality_report: QualityReport | null;
+  review_execution: { status: string; execution_id?: string; verdict?: string; output_sha256?: string } | null;
+  final: { id: string | null; status: string | null; sha256: string | null; name: string | null };
+  segments: Array<{ id: string; scene_ids: string[]; run_key: string | null; status: string; sha256: string | null }>;
+  repairs: Array<Record<string, unknown>>;
+  changes?: Array<{ scene_id: string; shot_id?: string | null; layer: string; field: string; before: string; after: string }>;
+}
+
+export interface ProductionResultLink {
+  url: string;
+  expires_at: string;
+  sha256: string;
+  revision: number;
+  result_id: string;
+}
+
 /** 승인된 계획의 제작 상태. 서버가 엔진 프로젝트의 실제 작업 상태를 읽어 계산한다. */
 export interface ProductionView {
   plan_id: string;
   plan_revision: number;
+  caption_mode?: "narration" | "title_only" | null;
   state: ProductionState;
   dispatchable: boolean;
   reasons: string[];
   assets: ProductionAssets;
   asset_generation_blockers?: string[];
+  quality_report?: QualityReport | null;
+  repair_plan?: PartialRepairPlan | null;
+  review_execution?: { status: string; execution_id?: string; verdict?: string; output_sha256?: string } | null;
+  history?: Array<{ revision: number; dispatched_at: string; final: string | null; final_sha256: string | null; snapshot_available: boolean }>;
   asset_generation: {
     id: string;
     plan_revision: number;
@@ -246,7 +338,7 @@ export interface ProductionView {
     receipt: Record<string, unknown> | null;
     error: string | null;
   } | null;
-  engine: { adapter: string; version: string | null } | null;
+  engine: { adapter: string; version: string | null; mode?: string; producers?: string[] } | null;
   style?: { style_dna: string | null; applied: Record<string, string>; ignored: string[] };
   outdated_segments: string[];
   segments: ProductionSegment[];
@@ -323,6 +415,38 @@ export interface IntentRunResult extends IntentRunStart {
   review_required?: boolean;
 }
 
+export interface StoryboardRequest {
+  brief: string;
+  sources: Array<{ id: string; locator: string; text: string }>;
+  engine: "qwen-local" | "codex";
+  model?: string;
+}
+export interface StoryboardDraft {
+  summary: string;
+  catalog_ids: string[];
+  knowledge: Array<{ source_id: string; quote: string; application: string }>;
+  scenes: Array<{
+    scene_id: string; title: string; narration: string; seconds: number; strategy: string;
+    preset: string | null; rationale: string; source_ids: string[];
+    alternatives: Array<{ strategy: string; rationale: string }>;
+    shots: Array<{ shot_id: string; action: string; layers: string[]; required_capabilities: string[] }>;
+  }>;
+}
+export interface StoryboardRunStart {
+  run_id: string; session_id: string; engine: string; model: string | null;
+  status: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "interrupted";
+  resumed_from?: string;
+}
+export interface StoryboardRunResult extends Omit<StoryboardRunStart, "resumed_from"> {
+  phase: string;
+  error: string | null;
+  review_required: boolean;
+  storyboard: StoryboardDraft | null;
+  sources: StoryboardRequest["sources"];
+  output_sha256?: string;
+  resumed_from?: string | null;
+}
+
 export interface CreativeCatalog {
   catalogs: Record<string, { name: string; entries: Array<{ id: string; name: string }> }>;
 }
@@ -358,6 +482,14 @@ export const intentRunResume = (runId: string, requestKey: string) =>
     headers: { "Idempotency-Key": requestKey },
     json: {},
   });
+export const storyboardRunStart = (body: StoryboardRequest, requestKey: string) =>
+  json<StoryboardRunStart>(`${root}/storyboard/runs`, { method: "POST", headers: { "Idempotency-Key": requestKey }, json: body });
+export const storyboardRunGet = (runId: string) => json<StoryboardRunResult>(`${root}/storyboard/runs/${runId}`);
+export const storyboardRunResume = (runId: string, requestKey: string) =>
+  json<StoryboardRunStart>(`${root}/storyboard/runs/${runId}/resume`, { method: "POST", headers: { "Idempotency-Key": requestKey }, json: {} });
+export const storyboardRunCancel = (runId: string) => json<{ status: string }>(`${root}/storyboard/runs/${runId}/cancel`, { method: "POST" });
+export const storyboardRunAccept = (runId: string, outputSha256: string) =>
+  json<CreativePlan>(`${root}/storyboard/runs/${runId}/accept`, { method: "POST", json: { reviewed_output_sha256: outputSha256 } });
 export const intentValidate = (brief: string, intent: CreativeIntent) =>
   json<IntentRunResult["validation"]>(`${root}/intent/validate`, { method: "POST", json: { brief, intent } });
 export const planEdit = (
@@ -367,8 +499,8 @@ export const planEdit = (
 export const planApprove = (id: string, revision: number) =>
   json<CreativePlan>(`${root}/plans/${id}/approve`, { method: "POST", json: { revision } });
 export const productionGet = (id: string) => json<ProductionView>(`${root}/plans/${id}/production`);
-export const productionDispatch = (id: string, revision: number) =>
-  json<ProductionView>(`${root}/plans/${id}/production`, { method: "POST", json: { revision } });
+export const productionDispatch = (id: string, revision: number, captionMode: "narration" | "title_only" = "narration") =>
+  json<ProductionView>(`${root}/plans/${id}/production?caption_mode=${captionMode}`, { method: "POST", json: { revision } });
 export const productionRender = (id: string, revision: number) =>
   json<ProductionView>(`${root}/plans/${id}/production/render`, { method: "POST", json: { revision } });
 export const productionGenerateAssets = (id: string, revision: number) =>
@@ -385,4 +517,17 @@ export const productionUpload = (id: string, kind: "scene" | "music", file: File
 export const productionMediaUrl = async (id: string, mediaId: string) => {
   const link = await json<{ url: string }>(`${root}/plans/${id}/production/media-link`, { method: "POST", json: { id: mediaId } });
   return apiUrl(link.url);
+};
+
+export const productionReview = (id: string, revision: number) =>
+  json<{ status: string; execution_id?: string; verdict?: string; output_sha256?: string }>(`${root}/plans/${id}/production/review`, { method: "POST", json: { revision } });
+export const productionRepairPlan = (id: string, revision: number, defects: QualityDefect[]) =>
+  json<PartialRepairPlan>(`${root}/plans/${id}/production/repair-plan`, { method: "POST", json: { revision, defects } });
+export const productionRepairApply = (id: string, revision: number, proposalSha256: string, updates: Array<{ scene_id: string; shot_id?: string | null; layer: "captions"; field: "title" | "narration"; text: string }>) =>
+  json<{ status: "applied_needs_approval" | "blocked"; source_revision?: number; revision?: number; changes?: Array<{ scene_id: string; shot_id?: string | null; layer: string; field: string; before: string; after: string }>; preserve?: PartialRepairPlan["preserve"]; quality_state?: string }>(`${root}/plans/${id}/production/repair`, { method: "POST", json: { revision, proposal_sha256: proposalSha256, updates } });
+export const productionRevision = (id: string, revision: number) =>
+  json<ProductionRevision>(`${root}/plans/${id}/production/revisions/${revision}`);
+export const productionResultUrl = async (id: string, revision: number, resultId = "final"): Promise<ProductionResultLink> => {
+  const link = await json<ProductionResultLink>(`${root}/plans/${id}/production/result-link`, { method: "POST", json: { revision, result_id: resultId } });
+  return { ...link, url: apiUrl(link.url) };
 };
