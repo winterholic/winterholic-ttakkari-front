@@ -31,6 +31,17 @@
 .ac-job__summary { margin: 0; font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
 .ac-job__log summary { cursor: pointer; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); }
 
+.ac-update__plan h3, .ac-update__history h3 { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.ac-update__plan > p { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
+.ac-update__history { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
+.ac-update__history > p { margin: 0; }
+.ac-update__history-list { display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+.ac-update__history-item { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.ac-update__history-item > p { margin: 0; overflow-wrap: anywhere; }
+.ac-update__history-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); min-width: 0; }
+.ac-update__history-head strong { color: var(--tk-color-text-primary); font-size: var(--tk-font-size-sm); }
+.ac-update__history-head time { margin-inline-start: auto; }
+
 .ac-pre { margin: 0; max-height: 22rem; overflow: auto; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); color: var(--tk-color-text-primary); font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .ac-pills { box-sizing: border-box; display: inline-flex; flex-wrap: wrap; align-self: flex-start; min-width: 0; max-width: 100%; gap: var(--tk-space-1); padding: var(--tk-space-1); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }

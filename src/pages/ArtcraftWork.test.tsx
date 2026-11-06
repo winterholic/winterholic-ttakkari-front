@@ -6,7 +6,7 @@ import type { ArtcraftCatalog, ArtcraftCategory, ArtcraftRound, ArtcraftTaskDeta
 import type { ArtifactOut } from "../api/types";
 
 const h = vi.hoisted(() => ({
-  catalog: vi.fn(), tasks: vi.fn(), outputs: vi.fn(), create: vi.fn(), task: vi.fn(), round: vi.fn(), upload: vi.fn(), cancel: vi.fn(), patch: vi.fn(),
+  catalog: vi.fn(), tasks: vi.fn(), outputs: vi.fn(), create: vi.fn(), task: vi.fn(), round: vi.fn(), upload: vi.fn(), cancel: vi.fn(), patch: vi.fn(), artifact: vi.fn(), download: vi.fn(),
 }));
 vi.mock("../api/client", async (orig) => ({
   ...(await orig<typeof import("../api/client")>()),
@@ -20,7 +20,8 @@ vi.mock("../api/client", async (orig) => ({
   cancelRun: (...a: unknown[]) => h.cancel(...a),
   patchArtcraftTask: (...a: unknown[]) => h.patch(...a),
   contentBlob: () => Promise.resolve(new Blob(["x"])),
-  getArtifact: () => Promise.reject(new Error("not used")),
+  getArtifact: (...a: unknown[]) => h.artifact(...a),
+  downloadLink: (...a: unknown[]) => h.download(...a),
 }));
 import { ArtcraftPage } from "./ArtcraftPage";
 import { ArtcraftCategoryPage } from "./ArtcraftCategoryPage";
@@ -47,7 +48,7 @@ const catalog = (): ArtcraftCatalog => ({
   available: true, unavailable_reason: null, workspace_id: "ws-1", workspace_error: null, limits: { files: 10, prompt: 8000 },
 });
 const art = (over: Partial<ArtifactOut> & { id: string; filename: string }): ArtifactOut => ({
-  workspace_id: "ws-1", session_id: "s-1", run_id: "r-1", mime_type: "application/pdf", kind: "pdf", source: "agent_output", area: "files", rel_path: null,
+  workspace_id: "ws-1", session_id: "s-1", run_id: "r-1", mime_type: "application/pdf", kind: "pdf", category: "document", source: "agent_output", origin: "agent", area: "agent", keep_reason: null, keep_evidence: null, rel_path: "r-1/merged.pdf",
   storage_mode: "copy", size_bytes: 2048, sha256: "a".repeat(64), preview_status: "not_required", preview_mime: null, preview_error: null,
   export_policy: "allow", downloadable: true, retention_until: null, created_at: "2026-10-18T01:00:00+00:00", ...over,
 });
@@ -84,12 +85,16 @@ function mount(path: string) {
 
 beforeEach(() => {
   localStorage.clear();
+  HTMLDialogElement.prototype.showModal ??= function () { this.setAttribute("open", ""); };
+  HTMLDialogElement.prototype.close ??= function () { this.removeAttribute("open"); this.dispatchEvent(new Event("close")); };
   HTMLCanvasElement.prototype.getContext = (() => null) as typeof HTMLCanvasElement.prototype.getContext;
   URL.createObjectURL = vi.fn(() => "blob:x");
   h.catalog.mockResolvedValue(catalog());
   h.tasks.mockResolvedValue({ items: [] });
   h.outputs.mockResolvedValue({ items: [], has_more: false });
   h.task.mockResolvedValue(detail());
+  h.artifact.mockResolvedValue(art({ id: "a-1", filename: "merged.pdf" }));
+  h.download.mockResolvedValue({ url: "/api/download/signed" });
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
@@ -212,6 +217,17 @@ it("작업 상세: 라운드의 지시·결과·결과 파일을 보이고 이�
   await waitFor(() => expect(h.round).toHaveBeenCalledTimes(1));
   expect(h.round).toHaveBeenCalledWith("t-1", { prompt: "더 줄여 주세요", input_artifact_ids: [], use_previous: true });
   expect(await screen.findByText("2번째 지시")).toBeTruthy();
+});
+
+it("task_detail 결과 파일을 미리보기에서 열고 내려받는다", async () => {
+  const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  mount("/artcraft/t/t-1");
+  fireEvent.click(await screen.findByRole("button", { name: "merged.pdf 열기" }));
+  expect(await screen.findByRole("dialog")).toBeTruthy();
+  expect(await screen.findByRole("button", { name: "원본 다운로드" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "원본 다운로드" }));
+  await waitFor(() => expect(h.download).toHaveBeenCalledWith("a-1", "original"));
+  anchorClick.mockRestore();
 });
 
 it("작업 상세: 진행 중이면 상태·진행 라벨과 취소 버튼, 실패하면 이유와 다시 하기", async () => {

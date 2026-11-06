@@ -6,7 +6,7 @@ export type ArtcraftAuthMode = "none" | "token" | "key" | "file" | "unknown";
 export type ArtcraftBugStatus = "candidate" | "selected" | "in_progress" | "reported" | "resolved" | "deferred" | "excluded";
 export type ArtcraftBugKind = "issue" | "pr" | "security";
 export type ArtcraftBugSection = "summary" | "impact" | "repro" | "evidence" | "suggestion" | "unverified";
-export type ArtcraftJobState = "queued" | "running" | "succeeded" | "failed" | "timeout";
+export type ArtcraftJobState = "queued" | "running" | "succeeded" | "failed" | "timeout" | "interrupted";
 export type ArtcraftSmokeMode = "cli" | "full";
 
 export interface ArtcraftSmoke {
@@ -40,11 +40,56 @@ export interface ArtcraftApp {
   auth: { mode: ArtcraftAuthMode; label: string; protected: boolean };
   healthy: boolean;
   known_bugs: string[];
+  /** 앱별 업데이트 API 계약의 선택 필드(`/api/artcraft/apps`). */
+  can_rollback?: boolean;
+  previous_version?: string | null;
+  update_busy?: boolean;
+}
+
+export interface ArtcraftUpdateLatestRelease {
+  tag: string;
+  version: string;
+  published_at: string | null;
+  asset_name: string | null;
+  sha256?: string | null;
+}
+export interface ArtcraftUpdateInfo {
+  app: string;
+  title: string;
+  installed_version: string | null;
+  cli_version_line: string | null;
+  latest_release: ArtcraftUpdateLatestRelease | null;
+  update_available: boolean;
+  can_update: boolean;
+  can_rollback: boolean;
+  previous_version: string | null;
+  busy: boolean;
+  busy_reason: string | null;
+  latest_job: ArtcraftJob | null;
+}
+export type ArtcraftUpdateStatus = "queued" | "running" | "succeeded" | "failed" | "interrupted";
+export interface ArtcraftUpdateRecord {
+  job_id: string;
+  action: "update-apply" | "update-rollback" | string;
+  from_version?: string | null;
+  to_version?: string | null;
+  status: ArtcraftUpdateStatus;
+  error: string | null;
+  at: string;
+}
+export interface ArtcraftUpdateState {
+  app: string;
+  current_version: string | null;
+  previous_version: string | null;
+  state: "idle" | "queued" | "running" | "interrupted";
+  error: string | null;
+  last_status: ArtcraftUpdateRecord | null;
+  history: ArtcraftUpdateRecord[];
 }
 
 export interface ArtcraftJob {
   id: string;
-  kind: "remote" | "smoke" | "gui";
+  kind: "remote" | "smoke" | "gui" | "update";
   action: string;
   apps: string[];
   mode: ArtcraftSmokeMode | null;
