@@ -12,6 +12,8 @@ process.env.VITE_API_BASE = `http://127.0.0.1:${port}`;
 let mode = "plan";
 let job = null;
 let jobPolls = 0;
+let updateHistory = [];
+let installedVersion = "0.9.0";
 const now = "2026-11-07T00:30:00Z";
 
 const app = {
@@ -24,17 +26,25 @@ const app = {
   can_rollback: true, previous_version: "0.8.5", update_busy: false,
 };
 const updateInfo = () => ({
-  app: app.app, title: app.title, installed_version: "0.9.0", cli_version_line: "photocraft-cli 0.9.0",
-  latest_release: { tag: "v0.10.0", version: "0.10.0", published_at: "2026-11-06T10:00:00Z", asset_name: "photocraft-cli-0.10.0-macos-universal.zip", sha256: "a".repeat(64) },
-  update_available: true, can_update: mode !== "busy", can_rollback: true, previous_version: "0.8.5",
+  app: app.app, title: app.title, installed_version: installedVersion, cli_version_line: `photocraft-cli ${installedVersion}`,
+  latest_release: { tag: "v0.10.0", version: "0.10.0", published_at: "2026-11-06T10:00:00Z", asset_name: "photocraft-cli-0.10.0-macos-universal.zip" },
+  update_available: installedVersion !== "0.10.0", can_update: mode !== "busy", can_rollback: true, previous_version: "0.8.5",
   busy: mode === "busy", busy_reason: mode === "busy" ? "PhotoCraft 앱이 현재 실행 중입니다." : null, latest_job: job,
 });
-const record = (status, error = null) => ({ job_id: "fixture-update-1", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status, error, at: now });
+const record = ({ job_id, action, from_version, to_version, status, error = null }) => ({
+  job_id, action, ...(from_version ? { from_version } : {}), ...(to_version ? { to_version } : {}), status, error, at: now,
+});
 const updateStatus = () => {
-  const status = mode === "interrupted" ? record("interrupted", "서버 재시작 뒤 작업을 복구했습니다.")
-    : mode === "failure" ? record("failed", "MCP initialize 검증 실패. 이전 설치를 복구했습니다.")
-      : job && ["succeeded", "failed"].includes(job.state) ? record(job.state, job.state === "failed" ? "사후 검증 실패. 이전 버전을 복구했습니다." : null) : null;
-  return { app: app.app, current_version: status?.status === "succeeded" ? "0.10.0" : "0.9.0", previous_version: "0.8.5", state: mode === "interrupted" ? "interrupted" : job && ["queued", "running"].includes(job.state) ? job.state : "idle", error: status?.error ?? null, last_status: status, history: status ? [status] : [] };
+  const status = mode === "interrupted"
+    ? record({ job_id: "fixture-update-1", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "interrupted", error: "서버 재시작 뒤 작업을 복구했습니다." })
+    : updateHistory.at(-1) ?? null;
+  const state = mode === "interrupted" ? "interrupted" : job && ["queued", "running"].includes(job.state) ? job.state : "idle";
+  return {
+    app: app.app,
+    current_version: installedVersion,
+    previous_version: "0.8.5", state, error: status?.error ?? null, last_status: status,
+    history: mode === "interrupted" ? [status] : updateHistory,
+  };
 };
 const artifact = {
   id: "fixture-artifact-1", workspace_id: "fixture-workspace", session_id: "fixture-session", run_id: "fixture-run-2",
@@ -69,6 +79,7 @@ const send = (res, status, value, headers = {}) => {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.end(JSON.stringify(value));
 };
+const sendApiError = (res, status, code, message) => send(res, status, { detail: { code, message } });
 const readBody = async (req) => {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
@@ -90,6 +101,11 @@ const fixturePlugin = {
           mode = selected;
           job = null;
           jobPolls = 0;
+          updateHistory = [];
+          installedVersion = "0.9.0";
+          app.installed.release = installedVersion;
+          app.installed.cli_version = `photocraft-cli ${installedVersion}`;
+          app.latest.update_available = true;
           app.update_busy = selected === "busy";
         }
         return next();
@@ -108,22 +124,39 @@ const fixturePlugin = {
         if (path === `/api/artcraft/apps/${app.app}/update/status` && req.method === "GET") return send(res, 200, updateStatus());
         if (path === `/api/artcraft/apps/${app.app}/update` && req.method === "POST") {
           const body = await readBody(req);
-          if (mode === "conflict" || mode === "busy") return send(res, 409, { code: "app_running", message: "PhotoCraft 앱이 현재 실행 중입니다." });
-          if (body.confirm !== true) return send(res, 428, { code: "confirm_required", message: "확인이 필요합니다." });
+          if (mode === "conflict" || mode === "busy") return sendApiError(res, 409, "app_running", "PhotoCraft 앱이 현재 실행 중입니다.");
+          if (body.confirm !== true) return sendApiError(res, 428, "confirm_required", "확인이 필요합니다.");
           job = fixtureJob(); jobPolls = 0;
           return send(res, 202, job);
         }
         if (path === `/api/artcraft/apps/${app.app}/update/rollback` && req.method === "POST") {
-          if ((await readBody(req)).confirm !== true) return send(res, 428, { code: "confirm_required", message: "확인이 필요합니다." });
+          if ((await readBody(req)).confirm !== true) return sendApiError(res, 428, "confirm_required", "확인이 필요합니다.");
           job = { ...fixtureJob(), id: "fixture-rollback-1", action: "update-rollback", mode: "rollback" }; jobPolls = 0;
           return send(res, 202, job);
         }
         const jobMatch = path.match(/^\/api\/artcraft\/jobs\/([^/]+)$/);
         if (jobMatch && req.method === "GET") {
-          if (mode === "interrupted" || !job) return send(res, 404, { code: "not_found", message: "작업을 찾을 수 없습니다." });
+          if (mode === "interrupted" || !job) return sendApiError(res, 404, "not_found", "작업을 찾을 수 없습니다.");
           jobPolls += 1;
-          const endState = mode === "failure" ? "failed" : "succeeded";
-          job = { ...job, state: jobPolls < 30 ? "running" : endState, started_at: now, finished_at: jobPolls < 30 ? null : now, summary: jobPolls < 30 ? null : endState === "failed" ? "검증 실패 후 이전 버전으로 복구했어요." : "업데이트와 MCP 검증을 마쳤어요.", output: jobPolls < 30 ? "스테이징 및 사후 검증 중" : endState === "failed" ? "MCP initialize 실패 · rollback succeeded" : "CLI 0.10.0 · MCP initialize ok" };
+          const action = job.action;
+          const endState = mode === "failure" && action === "update-apply" ? "failed" : "succeeded";
+          const finished = jobPolls >= 30;
+          job = {
+            ...job, state: finished ? endState : "running", started_at: now, finished_at: finished ? now : null,
+            summary: !finished ? null : action === "update-rollback" ? "PhotoCraft 0.8.5로 복구했어요." : endState === "failed" ? "검증 실패 후 이전 버전으로 복구했어요." : "PhotoCraft 0.10.0 업데이트와 MCP 검증을 마쳤어요.",
+            output: !finished ? "스테이징 및 사후 검증 중" : action === "update-rollback" ? "PhotoCraft 0.8.5 · rollback succeeded" : endState === "failed" ? "MCP initialize 실패 · update failed after restoring 0.9.0" : "CLI 0.10.0 · MCP initialize ok",
+          };
+          if (finished && !updateHistory.some((entry) => entry.job_id === job.id)) {
+            updateHistory.push(record({
+              job_id: job.id, action, ...(action === "update-apply" ? { from_version: "0.9.0" } : {}),
+              to_version: action === "update-rollback" ? "0.8.5" : "0.10.0", status: endState,
+              error: endState === "failed" ? "MCP initialize 검증 실패. 이전 설치를 복구했습니다." : null,
+            }));
+            if (endState === "succeeded") installedVersion = action === "update-rollback" ? "0.8.5" : "0.10.0";
+            app.installed.release = installedVersion;
+            app.installed.cli_version = `photocraft-cli ${installedVersion}`;
+            app.latest.update_available = installedVersion !== "0.10.0";
+          }
           return send(res, 200, job);
         }
         if (path === "/api/artcraft/catalog" && req.method === "GET") return send(res, 200, catalog);
@@ -144,10 +177,10 @@ const fixturePlugin = {
         if (path === `/api/artifacts/${artifact.id}/content` && req.method === "GET") return send(res, 200, "# 보정 결과\n\n밝기와 색감을 자연스럽게 조정했습니다.\n", { "Content-Type": "text/markdown; charset=utf-8" });
         if (path === `/api/artifacts/${artifact.id}/download-link` && req.method === "POST") return send(res, 200, { url: `/api/artifacts/${artifact.id}/download` });
         if (path === `/api/artifacts/${artifact.id}/download` && req.method === "GET") return send(res, 200, "# 보정 결과\n\n밝기와 색감을 자연스럽게 조정했습니다.\n", { "Content-Type": "text/markdown; charset=utf-8", "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(artifact.filename)}` });
-        return send(res, 404, { code: "fixture_not_found", message: `로컬 fixture 경로 없음: ${req.method} ${path}` });
+        return sendApiError(res, 404, "fixture_not_found", `로컬 fixture 경로 없음: ${req.method} ${path}`);
       } catch (error) {
         console.error("ArtCraft fixture error", error);
-        return send(res, 500, { code: "fixture_error", message: "로컬 fixture 처리 오류" });
+        return sendApiError(res, 500, "fixture_error", "로컬 fixture 처리 오류");
       }
     });
   },

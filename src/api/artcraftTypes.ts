@@ -51,7 +51,6 @@ export interface ArtcraftUpdateLatestRelease {
   version: string;
   published_at: string | null;
   asset_name: string | null;
-  sha256?: string | null;
 }
 export interface ArtcraftUpdateInfo {
   app: string;
@@ -81,7 +80,7 @@ export interface ArtcraftUpdateState {
   app: string;
   current_version: string | null;
   previous_version: string | null;
-  state: "idle" | "queued" | "running" | "interrupted";
+  state: "idle" | "queued" | "running" | "failed" | "interrupted";
   error: string | null;
   last_status: ArtcraftUpdateRecord | null;
   history: ArtcraftUpdateRecord[];

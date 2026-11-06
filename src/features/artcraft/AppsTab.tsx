@@ -48,6 +48,15 @@ function JobBanner({ jobId, updateApp, onDone, onDismiss, onRecover }: { jobId: 
   }, [state]);
   const record = updateState.data?.last_status;
   const recoveredStatus = record && (record.status === "failed" || record.status === "succeeded" || record.status === "interrupted") ? record.status : null;
+  if (updateApp && updateState.data?.state === "failed") {
+    return (
+      <div className="ac-job" role="status" aria-label="업데이트 복구 실패">
+        <div className="ac-job__head"><span className="ac-job__title">{updateApp.title} 이전 설치를 복구하지 못했어요.</span><Badge tone="danger">실패</Badge></div>
+        {updateState.data.error && <p className="tk-error" role="alert">{updateState.data.error}</p>}
+        <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>
+      </div>
+    );
+  }
   if (updateApp && updateState.data?.state === "interrupted") {
     return (
       <div className="ac-job" role="status" aria-label="업데이트 복구 상태">

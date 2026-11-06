@@ -179,6 +179,24 @@ it("작업 상세가 유실돼도 persisted interrupted 상태와 관리 복구 
   expect(within(dialog).getByText((_, el) => el?.textContent?.replace(/\s+/g, " ").trim() === "0.9.0 → 0.10.0")).toBeTruthy();
 });
 
+it("중단된 설치 복구 실패 상태를 드러내고 수동 버전 복구를 계속 제공한다", async () => {
+  h.updateInfo.mockResolvedValue(updateInfo({ can_rollback: true, previous_version: "0.8.5", update_available: false, can_update: true }));
+  h.updateState.mockResolvedValue(updateState({
+    state: "failed", previous_version: "0.8.5", error: "중단된 바이너리 복구 실패: 원본 링크를 확인할 수 없습니다.",
+    last_status: { job_id: "lost-update", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "failed", error: "중단된 바이너리 복구 실패: 원본 링크를 확인할 수 없습니다.", at: "2026-11-07T01:00:00Z" },
+    history: [{ job_id: "lost-update", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "failed", error: "중단된 바이너리 복구 실패: 원본 링크를 확인할 수 없습니다.", at: "2026-11-07T01:00:00Z" }],
+  }));
+  h.apps.mockResolvedValue(overview({ jobs: [job({ id: "lost-update", kind: "update", action: "update-apply", apps: ["photocraft"], state: "running" })] }));
+  h.job.mockRejectedValue(new ApiError(404, { code: "not_found", message: "작업을 찾을 수 없습니다." }));
+  mount();
+  expect(await screen.findByRole("status", { name: "업데이트 복구 실패" })).toBeTruthy();
+  expect(screen.getByText("중단된 바이너리 복구 실패: 원본 링크를 확인할 수 없습니다.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "업데이트 관리 열기" }));
+  const dialog = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 관리" });
+  expect(await within(dialog).findByRole("button", { name: "0.8.5으로 복구" })).toBeTruthy();
+  expect(within(dialog).getAllByRole("alert").some((el) => el.textContent?.includes("중단된 바이너리 복구 실패"))).toBe(true);
+});
+
 it("업데이트 정보 새로 확인은 refresh=true로 갱신하고 바쁜 앱에서는 적용을 막는다", async () => {
   h.updateInfo.mockResolvedValue(updateInfo({ busy: true, busy_reason: "PhotoCraft 앱이 현재 실행 중입니다.", can_update: false }));
   h.updateState.mockResolvedValue(updateState());
