@@ -1297,6 +1297,8 @@ export const startReverseJob = (body: { description: string; workspace_id?: stri
 export const messageReverseJob = (id: string, prompt: string): Promise<ReverseSummary> =>
   json(`/api/reverse/${encodeURIComponent(id)}/messages`, { method: "POST", json: { prompt } });
 export const getReverseJob = (id: string): Promise<ReverseDetail> => json(`/api/reverse/${encodeURIComponent(id)}`);
+export const patchReverseJob = (id: string, body: { title?: string; target_type?: ReverseTargetType; mode?: ReverseMode }): Promise<ReverseSummary> =>
+  json(`/api/reverse/${encodeURIComponent(id)}`, { method: "PATCH", json: body });
 export const deleteReverseJob = (id: string): Promise<{ id: string; deleted: boolean }> =>
   json(`/api/reverse/${encodeURIComponent(id)}`, { method: "DELETE" });
 export const retryReverseJob = (id: string): Promise<ReverseSummary> =>

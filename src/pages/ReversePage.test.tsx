@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 
-const h = vi.hoisted(() => ({ list: vi.fn(), start: vi.fn(), get: vi.fn(), remove: vi.fn(), retry: vi.fn(), workspaces: vi.fn(), message: vi.fn() }));
+const h = vi.hoisted(() => ({ list: vi.fn(), start: vi.fn(), get: vi.fn(), remove: vi.fn(), retry: vi.fn(), workspaces: vi.fn(), message: vi.fn(), patch: vi.fn(), resolveArtifact: vi.fn(), content: vi.fn() }));
 vi.mock("../api/client", async (orig) => ({
   ...(await orig<typeof import("../api/client")>()),
   listReverseJobs: (...a: unknown[]) => h.list(...a),
@@ -13,6 +13,9 @@ vi.mock("../api/client", async (orig) => ({
   getReverseJob: (...a: unknown[]) => h.get(...a),
   deleteReverseJob: (...a: unknown[]) => h.remove(...a),
   retryReverseJob: (...a: unknown[]) => h.retry(...a),
+  patchReverseJob: (...a: unknown[]) => h.patch(...a),
+  resolveArtifactLink: (...a: unknown[]) => h.resolveArtifact(...a),
+  contentBlob: (...a: unknown[]) => h.content(...a),
 }));
 import { ReversePage } from "./ReversePage";
 import { ReverseDetailPage } from "./ReverseDetailPage";
@@ -72,6 +75,9 @@ beforeEach(() => {
   h.workspaces.mockResolvedValue([{ id: "ws-1", name: "우리 프로젝트", root_path: "/work/project" }]);
   h.start.mockResolvedValue(doneJob);
   h.remove.mockResolvedValue({ id: "job-1", deleted: true });
+  h.patch.mockResolvedValue({ ...doneJob, status: "queued" });
+  h.resolveArtifact.mockResolvedValue({ id: "artifact-1" });
+  h.content.mockResolvedValue({ text: async () => "# README\n실행: pytest -q" } as Blob);
   h.get.mockResolvedValue(detail);
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -209,4 +215,46 @@ it("v2 직접 비교가 없는 응답은 0건·미검증 빈 상태를 보여준
   mountDetail({ ...doneJob, kind: "reconstruction", result: { schema_version: 2, latest: { direct_comparison: { status: "unverified", count: 0, matched: 0, mismatched: 0, unverified: 0 }, comparisons: [] }, history: [] }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
   expect(await screen.findByText("비교 사례가 없습니다. 직접 비교는 0건이며 결과는 미검증입니다.")).toBeTruthy();
   expect(screen.getByText(/독립 검증:/).textContent).toContain("기록 없음");
+});
+
+it("실제 public API의 최상위 latest·history·result_state를 v2 결과로 복원하고 skipped를 표시한다", async () => {
+  const apiJob = { ...doneJob, kind: "reconstruction", mode: "analyze", workspace_id: "ws-1", session_id: "session-1",
+    result: null, plan: ["README 확인"], result_state: { direct_comparison: { status: "unverified", count: 0, matched: 0, mismatched: 0, unverified: 0 }, independent_verification: { status: "unverified" } },
+    latest: { run_id: "run-current", source: { status: "unverified", files: [] }, direct_comparison: { status: "unverified", count: 0, matched: 0, mismatched: 0, unverified: 0 }, comparisons: [], report: { summary: "분석 결과", observations: [{ finding: "README의 실행법", evidence: "README.md", evidence_level: "document" }] } },
+    history: [{ run_id: "run-old", comparisons: [{ id: "old", behavior: "기존 사례", target_type: "web", input: {}, pre_state: {}, original: null, replica: {}, environment: {}, evidence_level: "unknown", evidence: [{ kind: "visual_assessment", path: "visual.json" }], verified_at: null, run_id: "run-old", result: "unverified", difference: null }] }],
+    reconstruction: { summary: "분석 결과", source_files: [], observations: [{ finding: "README의 실행법", evidence: "README.md", evidence_level: "document" }], hypotheses: [{ finding: "버튼은 SPA일 수 있음", evidence_level: "inferred" }], unknowns: ["원본 동작 미실행"], checks: [{ command: "pytest -q", exit_code: 0, log: "logs/tests.log" }], limitations: [] },
+    stages: [{ key: "implement", label: "구현", status: "skipped", started_at: null, finished_at: null, evidence: [], notes: [] }] };
+  mountDetail(apiJob);
+  expect(await screen.findByRole("region", { name: "이전 비교 회차" })).toBeTruthy();
+  expect(screen.getAllByText(/run-old/).length).toBeGreaterThan(0);
+  fireEvent.click(screen.getAllByText(/run-old/)[0].closest("summary")!);
+  expect(screen.getAllByText(/시각 평가/).length).toBeGreaterThan(0);
+  expect(screen.getByText(/근거 수준 미상/)).toBeTruthy();
+  fireEvent.click(screen.getByText("관찰·수정·재검증 활동 단계").closest("summary")!);
+  expect(screen.getByText(/건너뜀/)).toBeTruthy();
+  expect(screen.getByText(/문서 근거/)).toBeTruthy();
+  expect(screen.getByText(/추론 근거/)).toBeTruthy();
+  expect(screen.getByText("visual.json")).toBeTruthy();
+});
+
+it("분석에서 재현 전환은 PATCH로 저장하고 제목·유형·모드도 PATCH로 저장한다", async () => {
+  h.patch.mockResolvedValue({ ...doneJob, mode: "reconstruct" });
+  mountDetail({ ...doneJob, kind: "reconstruction", mode: "analyze", title: "분석", result: null, latest: null, history: [], stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+  fireEvent.click(await screen.findByRole("button", { name: "분석에서 재현으로 전환" }));
+  await waitFor(() => expect(h.patch).toHaveBeenCalledWith("job-1", { mode: "reconstruct" }));
+  fireEvent.change(screen.getByLabelText("작업 제목"), { target: { value: "수정 제목" } });
+  fireEvent.change(screen.getByLabelText("대상 유형"), { target: { value: "api" } });
+  fireEvent.change(screen.getByLabelText("실행 방식"), { target: { value: "analyze_reconstruct" } });
+  fireEvent.click(screen.getByRole("button", { name: "변경 저장" }));
+  await waitFor(() => expect(h.patch).toHaveBeenLastCalledWith("job-1", { title: "수정 제목", target_type: "api", mode: "analyze_reconstruct" }));
+});
+
+it("Workspace API에서 README와 검사 로그 본문을 읽어 표시한다", async () => {
+  mountDetail({ ...doneJob, kind: "reconstruction", workspace_id: "ws-1", session_id: "session-1", result: null, latest: null, history: [], stages, rounds: [], activity: [], outputs: [],
+    reconstruction: { summary: "작업", source_files: ["README.md"], observations: [], checks: [{ command: "pytest -q", exit_code: 0, log: "logs/tests.log" }], limitations: [] } });
+  fireEvent.click(await screen.findByRole("button", { name: "README.md 미리보기" }));
+  await waitFor(() => expect(h.resolveArtifact).toHaveBeenCalledWith({ path: "README.md", workspace_id: "ws-1", session_id: "session-1" }));
+  expect(await screen.findByText(/README[\s\S]*실행: pytest -q/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "로그 읽기" }));
+  await waitFor(() => expect(h.resolveArtifact).toHaveBeenCalledWith({ path: "logs/tests.log", workspace_id: "ws-1", session_id: "session-1" }));
 });

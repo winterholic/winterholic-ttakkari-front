@@ -1,13 +1,18 @@
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { cancelRun, downloadLink, messageReverseJob, retryReverseJob } from "../../api/client";
-import { isReverseV2Result, type ReverseComparison, type ReverseDetail, type ReverseSnapshot } from "../../api/reverseTypes";
+import { cancelRun, contentBlob, downloadLink, messageReverseJob, patchReverseJob, resolveArtifactLink, retryReverseJob } from "../../api/client";
+import { reverseEvidenceLabel, reverseV2FromDetail, type ReverseComparison, type ReverseDetail, type ReverseMode, type ReverseSnapshot, type ReverseTargetType } from "../../api/reverseTypes";
 import { Button } from "../../ui/Button";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
 
 function json(value: unknown) { return value == null ? "기록 없음" : JSON.stringify(value, null, 2); }
+function visualLabel(value?: string | null) {
+  if (value === "match" || value === "passed") return "시각 평가: 일치";
+  if (value === "mismatch" || value === "failed") return "시각 평가: 차이 발견";
+  return "시각 평가: 미검증";
+}
 function statusLabel(value?: string | null) {
   if (value === "verified" || value === "passed" || value === "match") return "확인됨";
   if (value === "mismatch" || value === "failed") return "차이 발견";
@@ -31,11 +36,18 @@ function ResultSide({ label, value }: { label: string; value: Record<string, unk
   </>}</div>;
 }
 function Comparison({ item }: { item: ReverseComparison }) {
-  const label = item.result === "match" ? "일치" : item.result === "mismatch" ? "불일치" : "미검증";
+  const functional = item.functional_result ?? item.result;
+  const label = functional === "match" ? "기능: 일치" : functional === "mismatch" ? "기능: 불일치" : "기능: 미검증";
+  const visualEvidence = item.evidence?.filter((e) => e.kind === "visual_assessment") ?? [];
   return <article className="rv-comparison" data-result={item.result}>
-    <header className="rv-comparison__head"><div><span className="rv-compare-chip" data-result={item.result}>{label}</span><h3>{item.behavior || item.id}</h3></div>
-      <span className="rv-note">근거 수준: {item.evidence_level === "direct" ? "직접" : item.evidence_level === "observed" ? "관찰" : "추론"}</span></header>
+    <header className="rv-comparison__head"><div><span className="rv-compare-chip" data-result={functional}>{label}</span><h3>{item.behavior || item.id}</h3></div>
+      <span className="rv-note">근거 수준: {reverseEvidenceLabel(item.evidence_level)}</span></header>
     {item.difference && <p className="rv-difference"><strong>차이</strong> {json(item.difference)}</p>}
+    {(item.visual_result || visualEvidence.length > 0) && <div className="rv-visual-assessment" aria-label="시각 평가">
+      <strong>{visualLabel(item.visual_result)}</strong><p className="rv-note">시각 평가는 기능 결과와 별도로 기록됩니다.</p>
+      {item.visual_assessment && <pre className="rv-code-block">{json(item.visual_assessment)}</pre>}
+      {visualEvidence.map((e) => <code className="rv-path" key={e.path}>{e.path}</code>)}
+    </div>}
     <div className="rv-compare-grid"><ResultSide label="원본 결과" value={item.original} /><ResultSide label="재현 결과" value={item.replica} /></div>
     <details className="rv-disclosure rv-raw-disclosure"><summary>입력·환경·증거·Run 세부 정보</summary>
       <dl className="rv-meta-grid"><dt>입력 (stdin / argv / request)</dt><dd><pre>{json(item.input)}</pre></dd>
@@ -50,6 +62,12 @@ function Comparison({ item }: { item: ReverseComparison }) {
 /** V2 comparison evidence and existing workspace controls for reconstruction runs. */
 export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline?: ReactNode }) {
   const [prompt, setPrompt] = useState("");
+  const [title, setTitle] = useState(job.title ?? "");
+  const [targetType, setTargetType] = useState<ReverseTargetType>(job.target_type ?? "auto");
+  const [mode, setMode] = useState<ReverseMode>(job.mode ?? "auto");
+  const [fileContents, setFileContents] = useState<Record<string, string>>({});
+  const [readingPath, setReadingPath] = useState<string | null>(null);
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const qc = useQueryClient();
   const active = ["queued", "running", "waiting"].includes(job.status);
@@ -61,6 +79,10 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["reverse"] }),
     onError: (e) => toast({ message: errorText(e).message, tone: "danger" }),
   });
+  const saveSettings = useMutation({ mutationFn: (body: { title?: string; target_type?: ReverseTargetType; mode?: ReverseMode }) => patchReverseJob(job.id, body),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["reverse"] }); toast({ message: "작업 설정을 저장했어요.", tone: "success" }); },
+    onError: (e) => toast({ message: errorText(e).message, tone: "danger" }),
+  });
   const stop = useMutation({ mutationFn: () => cancelRun(job.rounds![job.rounds!.length - 1].id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["reverse"] }),
     onError: (e) => toast({ message: errorText(e).message, tone: "danger" }),
@@ -68,8 +90,9 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
   const download = async (id: string) => { try { const link = await downloadLink(id); window.location.assign(link.url); }
     catch (e) { toast({ message: errorText(e).message, tone: "danger" }); } };
   const result = job.reconstruction;
-  const v2 = isReverseV2Result(job.result) ? job.result : null;
+  const v2 = reverseV2FromDetail(job);
   const latest = v2?.latest;
+  const history = v2?.history ?? [];
   const counts = countComparisons(latest);
   const independent = latest?.independent_verification ?? (job.verifier_session_id
     ? { status: result?.verification ?? "pending", run_id: job.verifier_session_id, verdict: result?.verification ?? null }
@@ -79,6 +102,20 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
   const suggestions = counts.mismatched > 0 ? ["불일치 차이 수정", "경계·오류 입력 추가 검사"]
     : independent?.status !== "passed" ? ["독립 검증 또는 추가 검사 요청", "대상 설명과 반례 보충"] : ["새 반례 탐색", "설명 보충"];
   const ask = (text: string) => { setPrompt(text); requestAnimationFrame(() => promptRef.current?.focus()); };
+  const readWorkspaceFile = async (path: string) => {
+    if (fileContents[path] !== undefined || readingPath) return;
+    setReadingPath(path); setFileErrors((current) => ({ ...current, [path]: "" }));
+    try {
+      const artifact = await resolveArtifactLink({ path, workspace_id: job.workspace_id, session_id: job.session_id });
+      const body = await contentBlob(artifact.id).then((blob) => blob.text());
+      setFileContents((current) => ({ ...current, [path]: body }));
+    } catch (error) {
+      const message = errorText(error).message;
+      setFileErrors((current) => ({ ...current, [path]: message }));
+      toast({ message, tone: "danger" });
+    } finally { setReadingPath(null); }
+  };
+  const switchToReconstruct = () => saveSettings.mutate({ mode: "reconstruct" });
   const statusCopy = job.status === "done" ? "작업이 종료되었습니다. 직접 비교와 독립 검증은 별도 근거로 표시합니다."
     : job.status === "needs_input" ? "대상 접근이나 동작 정보가 필요합니다. 설명을 보충해 주세요."
       : job.status === "partial" ? "일부 단계가 끝나지 않았습니다. 실패한 검사와 미확인 항목을 확인하세요."
@@ -108,6 +145,20 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
       </div>
     </section>
 
+    <section className="rv-section" aria-label="작업 설정">
+      <h2 className="tk-heading-4">작업 설정</h2>
+      <div className="rv-settings-grid">
+        <label className="rv-label">작업 제목<input className="tk-input" value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+        <label className="rv-label">대상 유형<select className="tk-input" value={targetType} onChange={(event) => setTargetType(event.target.value as ReverseTargetType)}>
+          {[["auto", "자동"], ["cli", "CLI"], ["api", "API"], ["web", "웹"], ["source", "소스"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select></label>
+        <label className="rv-label">실행 방식<select className="tk-input" value={mode} onChange={(event) => setMode(event.target.value as ReverseMode)}>
+          {[["auto", "자동"], ["analyze", "분석"], ["reconstruct", "재현"], ["analyze_reconstruct", "분석 후 재현"]].map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+        </select></label>
+        <Button variant="ghost" disabled={active || saveSettings.isPending} busy={saveSettings.isPending} onClick={() => saveSettings.mutate({ title: title.trim(), target_type: targetType, mode })}>변경 저장</Button>
+      </div>
+    </section>
+
     <section className="rv-section" aria-label="대상과 작업공간">
       <h2 className="tk-heading-4">대상과 작업공간</h2><p className="rv-prose">{job.target}</p>
       {job.output_path && <code className="rv-path">{job.output_path}</code>}
@@ -125,15 +176,22 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
     {result && <section className="rv-section" aria-label="소스·관찰·검증">
       <h2 className="tk-heading-4">재현 소스와 실행 증거</h2><p className="rv-prose">{result.summary}</p>
       <div className="rv-evidence-columns"><div><h3>소스 파일</h3>{result.source_files.length ? <ul className="rv-source-list">{result.source_files.map((file) => <li key={file}><code className="rv-path">{file}</code>
-          {job.session_id ? <Link to={`/workspace/${job.session_id}`} aria-label={`${file} 작업공간에서 보기`}>Workspace 열기</Link> : <span className="rv-note">Workspace 세션 미제공</span>}</li>)}</ul> : <p className="rv-note">소스 파일 목록이 없습니다.</p>}
-          <p className="rv-note">파일 본문 API가 제공되지 않아 미리보기는 응답에 포함된 파일만 표시합니다.</p></div>
-        <div><h3>검사·실행</h3>{result.checks.length ? result.checks.map((check, i) => <div className="rv-check" key={`${check.command}-${i}`}>
-          <code>{check.command}</code><span>종료 코드 {check.exit_code}</span><details className="rv-disclosure"><summary>로그 보기</summary><pre className="rv-code-block">{check.log}</pre></details>
-        </div>) : <p className="rv-note">실행 검사가 기록되지 않았습니다.</p>}</div></div>
-      {result.source_preview?.length ? <details className="rv-disclosure"><summary>주요 파일 미리보기 {result.source_preview.length}건</summary>
-        {result.source_preview.map((file) => <div className="rv-file-preview" key={file.path}><h3><code>{file.path}</code></h3><pre className="rv-code-block">{file.content}</pre></div>)}</details> : null}
-      <div><h3>관찰된 사실</h3>{result.observations.length ? result.observations.map((o, i) => <div className="rv-block" key={i}><p>{o.finding}</p><p className="rv-note">출처·근거: {o.evidence}</p></div>) : <p className="rv-note">관찰 기록이 없습니다.</p>}</div>
-      {result.hypotheses?.length ? <div><h3>추론·가설</h3>{result.hypotheses.map((o, i) => <div className="rv-block" key={i}><p>{o.finding}</p><p className="rv-note">근거: {o.evidence || "미기록"}</p></div>)}</div> : null}
+          <div className="rv-row rv-row--wrap"><Button variant="ghost" size="sm" aria-label={`${file} 미리보기`} disabled={readingPath !== null || !job.workspace_id && !job.session_id} busy={readingPath === file} onClick={() => void readWorkspaceFile(file)}>미리보기</Button>
+            {job.session_id ? <Link to={`/workspace/${job.session_id}`} aria-label={`${file} 작업공간에서 보기`}>Workspace 열기</Link> : null}</div>
+          {fileErrors[file] && <p className="tk-error" role="alert">파일 읽기 실패: {fileErrors[file]}</p>}
+          {fileContents[file] !== undefined && <details className="rv-file-preview" open><summary><code>{file}</code> 내용</summary><pre className="rv-code-block">{fileContents[file]}</pre></details>}</li>)}</ul> : <p className="rv-note">소스 파일 목록이 없습니다.</p>}
+          {result.source_preview?.length ? <details className="rv-disclosure"><summary>응답에 포함된 미리보기 {result.source_preview.length}건</summary>
+            {result.source_preview.map((file) => <div className="rv-file-preview" key={file.path}><h3><code>{file.path}</code></h3><pre className="rv-code-block">{file.content}</pre></div>)}</details> : null}</div>
+        <div><h3>검사·실행</h3>{result.checks.length ? result.checks.map((check, i) => {
+          return <div className="rv-check" key={`${check.command}-${i}`}>
+            <code>{check.command}</code><span>종료 코드 {check.exit_code}</span>
+            <Button variant="ghost" size="sm" disabled={readingPath !== null || !job.workspace_id && !job.session_id} busy={readingPath === check.log} onClick={() => void readWorkspaceFile(check.log)}>로그 읽기</Button>
+            {fileErrors[check.log] && <p className="tk-error" role="alert">로그 읽기 실패: {fileErrors[check.log]}</p>}
+            {fileContents[check.log] !== undefined && <details className="rv-disclosure" open><summary>{check.log} 본문</summary><pre className="rv-code-block">{fileContents[check.log]}</pre></details>}
+          </div>;
+        }) : <p className="rv-note">실행 검사가 기록되지 않았습니다.</p>}</div></div>
+      <div><h3>관찰·참고 기록</h3>{result.observations.length ? result.observations.map((o, i) => <div className="rv-block" key={i}><p><span className="rv-evidence-level">{reverseEvidenceLabel(o.evidence_level)}</span> {o.finding}</p><p className="rv-note">출처·근거: {o.evidence}</p></div>) : <p className="rv-note">관찰 기록이 없습니다.</p>}</div>
+      {result.hypotheses?.length ? <div><h3>추론·가설</h3>{result.hypotheses.map((o, i) => <div className="rv-block" key={i}><p><span className="rv-evidence-level">{reverseEvidenceLabel(o.evidence_level ?? "inferred")}</span> {o.finding}</p><p className="rv-note">근거: {o.evidence || "미기록"}</p></div>)}</div> : null}
       {(result.unknowns?.length || result.limitations.length) ? <div><h3>미확인·한계</h3><ul className="rv-limits">{[...(result.unknowns ?? []), ...result.limitations].map((l, i) => <li key={i}>{l}</li>)}</ul></div> : <p className="rv-note">추가 미확인 항목 없음(응답 기록 기준)</p>}
     </section>}
 
@@ -147,8 +205,8 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         {label === "실행 검사" && (latest.execution?.checks?.length ? <ul>{latest.execution.checks.map((c, i) => <li key={i}><code>{c.command}</code>: {c.exit_code ?? "미실행"}{c.reason ? ` · ${c.reason}` : ""}</li>)}</ul> : <p>검사 기록 없음</p>)}
       </div>)}</div></section>}
 
-    {!!v2?.history?.length && <section className="rv-section" aria-label="이전 비교 회차"><h2 className="tk-heading-4">이전 결과</h2>
-      <div className="rv-history">{v2.history.map((snapshot, i) => { const c = countComparisons(snapshot); return <details key={snapshot.run_id || i}>
+    {!!history.length && <section className="rv-section" aria-label="이전 비교 회차"><h2 className="tk-heading-4">이전 결과</h2>
+      <div className="rv-history">{history.map((snapshot, i) => { const c = countComparisons(snapshot); return <details key={snapshot.run_id || i}>
         <summary>{snapshot.created_at || snapshot.run_id || `이전 회차 ${i + 1}`} · 비교 {c.count}건 · 일치 {c.matched} · 불일치 {c.mismatched} · 미검증 {c.unverified}</summary>
         {snapshot.comparisons?.length ? snapshot.comparisons.map((item) => <Comparison item={item} key={item.id} />) : <p className="rv-note">저장된 비교 사례가 없습니다.</p>}
       </details>; })}</div></section>}
@@ -164,7 +222,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
 
     <section className="rv-start" aria-label="후속 작업"><h2 className="tk-heading-4">다음 작업</h2>
       <div className="rv-action-row">{suggestions.map((s) => <Button key={s} variant="ghost" disabled={active} onClick={() => ask(s === "불일치 차이 수정" ? `직접 비교에서 불일치한 항목을 근거와 함께 확인하고 수정해 주세요.\n${mismatches.map((c) => `- ${c.behavior}: ${json(c.difference)}`).join("\n")}` : s)}>{s}</Button>)}
-        {job.mode === "analyze" && <Button variant="ghost" disabled={active} onClick={() => ask("기존 관찰과 증거를 이어받아 재현 작업으로 전환하고 소스와 검사를 작성해 주세요.")}>분석에서 재현으로 전환</Button>}</div>
+        {job.mode === "analyze" && <Button variant="ghost" busy={saveSettings.isPending} disabled={active || saveSettings.isPending} onClick={switchToReconstruct}>분석에서 재현으로 전환</Button>}</div>
       <label className="rv-label" htmlFor="rv-followup">추가 설명·검사·수정 요청</label>
       <textarea ref={promptRef} id="rv-followup" rows={4} maxLength={40000} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="차이를 고치거나, 추가 검사를 요청하거나, 관찰된 사실과 추론을 보충해 주세요." />
       <p className="rv-note">{active ? "진행 중인 작업을 마치거나 중지하면 이어서 지시할 수 있어요." : "같은 작업공간과 기록을 이어서 사용합니다."}</p>

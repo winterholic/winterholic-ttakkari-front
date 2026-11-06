@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router";
 import { getReverseJob, retryReverseJob } from "../api/client";
-import { isReverseV2Result, type LegacyReverseResult, type ReverseStage } from "../api/reverseTypes";
+import { isReverseV2Result, reverseV2FromDetail, type LegacyReverseResult, type ReverseStage } from "../api/reverseTypes";
 import { useForegroundResync } from "../hooks/useForegroundResync";
 import { PageHeader } from "../shell/PageHeader";
 import { Button, IconButton } from "../ui/Button";
@@ -13,7 +13,7 @@ import { Reconstruction } from "../features/reverse/Reconstruction";
 import "./reverse.css";
 
 const STAGE_STATE: Record<ReverseStage["status"], string> = {
-  pending: "대기", running: "진행 중", waiting: "모델 대기 중", done: "완료", failed: "실패",
+  pending: "대기", running: "진행 중", waiting: "모델 대기 중", done: "완료", failed: "실패", skipped: "건너뜀",
 };
 const RETRYABLE = new Set(["waiting", "partial", "failed"]);
 
@@ -133,7 +133,7 @@ export function ReverseDetailPage() {
                     <Timeline stages={data.stages} />
                   </section>
                   {data.result && !isReverseV2Result(data.result) ? <Result result={data.result} />
-                    : data.result ? <section className="rv-section" aria-label="작업 결과 요약"><h2 className="tk-heading-4">작업 결과 요약</h2><p className="rv-note">비교 근거와 실행 기록은 아래 재현 대시보드에 표시됩니다.</p></section>
+                    : reverseV2FromDetail(data) ? <section className="rv-section" aria-label="작업 결과 요약"><h2 className="tk-heading-4">작업 결과 요약</h2><p className="rv-note">비교 근거와 실행 기록은 아래 재현 대시보드에 표시됩니다.</p></section>
                     : <p className="rv-note">{active ? "분석이 진행 중입니다. 잠시 후 결과가 나옵니다." : "결과가 없습니다."}</p>}
                 </>}
               </>}
