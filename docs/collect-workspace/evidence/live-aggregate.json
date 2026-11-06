@@ -1,0 +1,6155 @@
+{
+  "observed_at": "2026-11-06T15:45:30.683372+00:00",
+  "backend_source_revision": "5f5cbd997addcb4ea084ab908790f8f6eec54122",
+  "client": "ttk get (owner authenticated)",
+  "requests": {
+    "/api/assistant/collect/missions": {
+      "http": "200",
+      "limit": 50,
+      "offset": 0,
+      "has_more": false,
+      "items": 21
+    },
+    "/api/assistant/collect/review": {
+      "http": "200",
+      "total": 2310,
+      "limit": 50,
+      "offset": 0,
+      "items": [
+        {
+          "id": "anon-e6f96c109a9b5d534927",
+          "status": "held",
+          "reason_codes": [
+            "l0_mostly_short_lines"
+          ],
+          "text_chars": 647
+        },
+        {
+          "id": "anon-60d0208b3138d47453d7",
+          "status": "held",
+          "reason_codes": [
+            "l0_mostly_short_lines"
+          ],
+          "text_chars": 444
+        },
+        {
+          "id": "anon-7d3f235c7899f9cef0fe",
+          "status": "held",
+          "reason_codes": [
+            "l0_symbol_heavy"
+          ],
+          "text_chars": 1034
+        },
+        {
+          "id": "anon-ade9807b74d999fa0c08",
+          "status": "held",
+          "reason_codes": [
+            "l0_symbol_heavy",
+            "l0_low_alpha_ratio"
+          ],
+          "text_chars": 615
+        },
+        {
+          "id": "anon-4401884a9e2062982f4c",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 96
+        },
+        {
+          "id": "anon-0869fd035897fd2d5ee3",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 96
+        },
+        {
+          "id": "anon-793b7972a67824044165",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 96
+        },
+        {
+          "id": "anon-80f4501f1e2c54c5f2ea",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 96
+        },
+        {
+          "id": "anon-369a025815539cbd52f6",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 189
+        },
+        {
+          "id": "anon-864a2bbb360750085587",
+          "status": "held",
+          "reason_codes": [
+            "l0_symbol_heavy"
+          ],
+          "text_chars": 2740
+        },
+        {
+          "id": "anon-fd35e43b5d8816ba2176",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 148
+        },
+        {
+          "id": "anon-ff4d1140348ec93c52be",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 82
+        },
+        {
+          "id": "anon-7050200fb8934d3348cc",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 90
+        },
+        {
+          "id": "anon-29cf676371a56a3e4fcc",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 162
+        },
+        {
+          "id": "anon-ae1c24317fc607624354",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 34746
+        },
+        {
+          "id": "anon-6a3a471efd51bef557b7",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 262879
+        },
+        {
+          "id": "anon-e223edc1a8f62cf67c12",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 262879
+        },
+        {
+          "id": "anon-8bd70bf7426e466826d7",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 39
+        },
+        {
+          "id": "anon-11af1067d174a167bab2",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 4056
+        },
+        {
+          "id": "anon-99d20a592c622e7739f4",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 4722
+        },
+        {
+          "id": "anon-e8531e64eb0adfc5b756",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 2772
+        },
+        {
+          "id": "anon-f3fc1ef15a3c691b2978",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 33
+        },
+        {
+          "id": "anon-cbcd110fd0adeea0d1ff",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 34
+        },
+        {
+          "id": "anon-dcef606ffa53c73f6782",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 33
+        },
+        {
+          "id": "anon-f4e3c2b48d765e35c05e",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 36
+        },
+        {
+          "id": "anon-f3bbc1ab8279b53c3242",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 34
+        },
+        {
+          "id": "anon-86e4d7f6d5b334322ea7",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 32
+        },
+        {
+          "id": "anon-5be1dac56b9996b21875",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 32
+        },
+        {
+          "id": "anon-3ffc47f65e8783485600",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 33
+        },
+        {
+          "id": "anon-1a58ab1a4845a3773cfc",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 31
+        },
+        {
+          "id": "anon-3fdf7cdcdc2b403ff58d",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 34
+        },
+        {
+          "id": "anon-3bca5e77dea4304280c9",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 33
+        },
+        {
+          "id": "anon-36eb2e5a822aa6fbc889",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 34
+        },
+        {
+          "id": "anon-1da5eb736cdca57b94aa",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 33
+        },
+        {
+          "id": "anon-b6b4b172ea1c70b68a15",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 48
+        },
+        {
+          "id": "anon-28fd5fac5d9e9645a0d4",
+          "status": "accepted",
+          "reason_codes": [
+            "l0_pass",
+            "l1_off",
+            "review_needed",
+            "review:low_relevance"
+          ],
+          "text_chars": 50401
+        },
+        {
+          "id": "anon-a71088eecac50c14cb6e",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 56
+        },
+        {
+          "id": "anon-6e28f3ed0b9cae66cfcb",
+          "status": "accepted",
+          "reason_codes": [
+            "l0_pass",
+            "l1_off",
+            "review_needed",
+            "relevance_confirmed_by_semantic",
+            "review:ml_low_quality_likelihood"
+          ],
+          "text_chars": 26098
+        },
+        {
+          "id": "anon-b32168d72c77d5e65926",
+          "status": "accepted",
+          "reason_codes": [
+            "l0_pass",
+            "l1_off",
+            "triage:accepted",
+            "relevance_confirmed_by_semantic"
+          ],
+          "text_chars": 20456
+        },
+        {
+          "id": "anon-62c456cb50541c5f01e0",
+          "status": "held",
+          "reason_codes": [
+            "l0_mostly_short_lines"
+          ],
+          "text_chars": 202
+        },
+        {
+          "id": "anon-edeb48f7b62b434f1ca2",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short",
+            "exact_duplicate"
+          ],
+          "text_chars": 157
+        },
+        {
+          "id": "anon-ff045107a23d18dbcdd0",
+          "status": "held",
+          "reason_codes": [
+            "l0_too_short"
+          ],
+          "text_chars": 157
+        },
+        {
+          "id": "anon-555258333047425a2a51",
+          "status": "accepted",
+          "reason_codes": [
+            "l0_pass",
+            "l1_off",
+            "review_needed",
+            "review:low_relevance"
+          ],
+          "text_chars": 137022
+        },
+        {
+          "id": "anon-7ae3285d674cc12fc0bb",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 471
+        },
+        {
+          "id": "anon-cc5ee1906caeea010dec",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 469
+        },
+        {
+          "id": "anon-2c2f9895f9ee5c98f422",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 484
+        },
+        {
+          "id": "anon-37c98b8468d65532b436",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 474
+        },
+        {
+          "id": "anon-0f6355db401492d623e2",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 497
+        },
+        {
+          "id": "anon-e933c4a3e2bc995a405a",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 494
+        },
+        {
+          "id": "anon-2b916d161515ab6a08fe",
+          "status": "held",
+          "reason_codes": [
+            "exact_duplicate"
+          ],
+          "text_chars": 8903
+        }
+      ]
+    },
+    "/api/assistant/collect/review/audit": {
+      "http": "200",
+      "day": "2026-11-07",
+      "per_group": 2,
+      "groups_by_reason": {
+        "l0_too_short": {
+          "held": 860,
+          "sampled": 158,
+          "groups": 121
+        },
+        "l0_symbol_heavy": {
+          "held": 3,
+          "sampled": 3,
+          "groups": 3
+        },
+        "l0_mostly_short_lines": {
+          "held": 169,
+          "sampled": 53,
+          "groups": 39
+        },
+        "exact_duplicate": {
+          "held": 651,
+          "sampled": 83,
+          "groups": 53
+        },
+        "l0_repetitive": {
+          "held": 62,
+          "sampled": 28,
+          "groups": 17
+        },
+        "near_duplicate": {
+          "held": 115,
+          "sampled": 20,
+          "groups": 13
+        },
+        "l0_repeated_lines": {
+          "held": 283,
+          "sampled": 102,
+          "groups": 88
+        },
+        "triage:irrelevant_to_goal": {
+          "held": 14,
+          "sampled": 10,
+          "groups": 6
+        },
+        "l0_link_heavy": {
+          "held": 3,
+          "sampled": 3,
+          "groups": 3
+        },
+        "l0_low_alpha_ratio": {
+          "held": 10,
+          "sampled": 6,
+          "groups": 5
+        },
+        "news_stale": {
+          "held": 5,
+          "sampled": 2,
+          "groups": 1
+        }
+      },
+      "sample_count": 468,
+      "sample_ids": [
+        "anon-4401884a9e2062982f4c",
+        "anon-3ffc47f65e8783485600",
+        "anon-3fdf7cdcdc2b403ff58d",
+        "anon-f3fc1ef15a3c691b2978",
+        "anon-86e4d7f6d5b334322ea7"
+      ]
+    },
+    "/api/assistant/collect/summary": {
+      "http": "200",
+      "funnel": {
+        "discovered": 22,
+        "fetched": 10289,
+        "extracted": 9461,
+        "accepted": 7286,
+        "held": 2186,
+        "blocked": 338,
+        "failed": 647,
+        "not_modified": 424,
+        "delivered": 7151,
+        "awaiting_delivery": 0,
+        "awaiting_review": 2310
+      },
+      "jobs": {
+        "succeeded": 1016,
+        "failed": 33,
+        "cancelled": 609,
+        "partial": 727,
+        "queued": 142,
+        "running": 1,
+        "policy_blocked": 55
+      },
+      "outbox": {
+        "delivered": 7279,
+        "failed": 7
+      },
+      "runtime": {
+        "loop_available": true,
+        "paused": false,
+        "reason": null,
+        "since": null
+      },
+      "budget": {
+        "day": "2026-11-07",
+        "timezone": "Asia/Seoul",
+        "teacher_enabled": false,
+        "tokens": {
+          "limit": 60000,
+          "used": 0,
+          "remaining": 60000
+        },
+        "calls": {
+          "limit": 20,
+          "used": 0,
+          "remaining": 20
+        },
+        "micro_usd": {
+          "limit": 1000000,
+          "used": 0,
+          "remaining": 1000000
+        },
+        "unsettled": 0,
+        "per_job": {
+          "tokens": 12000,
+          "calls": 4,
+          "micro_usd": 200000
+        }
+      },
+      "waiting": [
+        {
+          "job_id": "anon-4b30e5670c166074943f",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-c1dd1fc96ef362bae7e9",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-c525c0b8007be3fc3f02",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-e7a1ef33c26564a8f541",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-d74037b72a8ea606da72",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-f59bebb280d267ebee57",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-7cd203184199cee8444d",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-7d7db67fc9e0738c2b7d",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-73f3a1d74043d3965f19",
+          "status": "policy_blocked",
+          "not_before": null
+        },
+        {
+          "job_id": "anon-343d07419396d221cf98",
+          "status": "policy_blocked",
+          "not_before": null
+        }
+      ]
+    },
+    "/api/assistant/collect/quality": {
+      "http": "200",
+      "reviewed_items": 0,
+      "accepted": 0,
+      "rejected": 0,
+      "training_requires": {
+        "minimum_examples": 20,
+        "minimum_source_groups": 5,
+        "permissions": "train allowed at collection and now",
+        "labels": "both classes in train and validation"
+      },
+      "factuality": "unmeasured",
+      "teacher_enabled": false,
+      "model": {
+        "status": null,
+        "quality_gate": null,
+        "metrics": null
+      }
+    },
+    "/api/assistant/collect/sources": {
+      "http": "200",
+      "runtime_enabled": true,
+      "ml_spending_enabled": false,
+      "items": [
+        {
+          "id": "anon-af406290588bcd60943a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-b66c7ba26760ba2eec11",
+          "version": 1
+        },
+        {
+          "id": "anon-5835ab689ff034b5e52f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-bfe256081c03ade4e7f6",
+          "version": 1
+        },
+        {
+          "id": "anon-bbcd4ea186472c98c47b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8a2061fdaa94a01727d5",
+          "version": 1
+        },
+        {
+          "id": "anon-8c70f09781f0f543b7cf",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-b6a5b2143cb59c619651",
+          "version": 1
+        },
+        {
+          "id": "anon-e645949e0d677f025a86",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-261a03c81937172d423c",
+          "version": 1
+        },
+        {
+          "id": "anon-1ad86afd73450713c8b5",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-e81a6fe8141c04e3877e",
+          "version": 1
+        },
+        {
+          "id": "anon-998b50f6d24a17502067",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-24ce986cbebbea7127d9",
+          "version": 1
+        },
+        {
+          "id": "anon-eb7386a75b59d7257500",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8668fe4e0348df62644b",
+          "version": 1
+        },
+        {
+          "id": "anon-8b49c690a12d85ebb41f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8acc2509054252717c50",
+          "version": 1
+        },
+        {
+          "id": "anon-f5ec68b5c2c100d64d2f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-3ccd6845b55849c9c56e",
+          "version": 1
+        },
+        {
+          "id": "anon-43b43fba294dc195bd35",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-37c7a3dcc571d5bfbb83",
+          "version": 1
+        },
+        {
+          "id": "anon-9e149852f9101951f87b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f7e855276f0b404ae077",
+          "version": 1
+        },
+        {
+          "id": "anon-0ebc02161562ed5e251a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-075c3ff8b824a23d8ea4",
+          "version": 1
+        },
+        {
+          "id": "anon-22552310b214b826ed4b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-5f8563790d6d4794acf9",
+          "version": 1
+        },
+        {
+          "id": "anon-a192db701c3ce461eaa6",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f73b79b1a90cfc1dc52d",
+          "version": 1
+        },
+        {
+          "id": "anon-f28f26c03564122cef71",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-e578c8005a4972717a54",
+          "version": 1
+        },
+        {
+          "id": "anon-87f158e73f938a545112",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-54e880ed51007dd283f0",
+          "version": 1
+        },
+        {
+          "id": "anon-3907345f2f009178071f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-bef28a7b4b64fc756bfd",
+          "version": 1
+        },
+        {
+          "id": "anon-d3514383f1e0b299c8dd",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-83379675bdc08b7c1847",
+          "version": 1
+        },
+        {
+          "id": "anon-f3cc16660d58f39e14e9",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-7810f4518607b5edb786",
+          "version": 1
+        },
+        {
+          "id": "anon-37a7babad80ff23d7f56",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-454ffaf576f61b7b99c8",
+          "version": 1
+        },
+        {
+          "id": "anon-105ff3e46cca3ba6f07a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-eb3e887aafa638e1fb1c",
+          "version": 1
+        },
+        {
+          "id": "anon-e5b6fa0a67cd06fda6de",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-43712c985b99316cb167",
+          "version": 1
+        },
+        {
+          "id": "anon-970fd8f918ba45d6bf1c",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2c44d799fa75a6020609",
+          "version": 1
+        },
+        {
+          "id": "anon-6643d323930e5e778723",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-736836b74c8b507860b5",
+          "version": 1
+        },
+        {
+          "id": "anon-44f1e52e02f056556521",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-11ef1b261b76968f8d33",
+          "version": 1
+        },
+        {
+          "id": "anon-a1d4a1f5369e267c2e64",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-b9d62e695cda529a53e5",
+          "version": 1
+        },
+        {
+          "id": "anon-440f2c94254e67fc6577",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-202be7823e6ad808173a",
+          "version": 1
+        },
+        {
+          "id": "anon-db0f8b1a9f749017164f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-41e8f94c7ad0ad76a8e4",
+          "version": 1
+        },
+        {
+          "id": "anon-ac10778fbd20efb13534",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-5ddbd7f5524683aae81d",
+          "version": 1
+        },
+        {
+          "id": "anon-3bdc74baf49b822aeed4",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2f624906d6a7262a272f",
+          "version": 1
+        },
+        {
+          "id": "anon-995f8472f2cd98fe2de2",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-5203cf781b367568097f",
+          "version": 1
+        },
+        {
+          "id": "anon-79ef01539aa23471ad55",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-87e67c10c3ea78fd22c4",
+          "version": 1
+        },
+        {
+          "id": "anon-364cf07c3fe2516062a9",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-05735adaa95e4d0ae8ff",
+          "version": 1
+        },
+        {
+          "id": "anon-9f46cf20f88298836bf4",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-ded91e1236e770d34d0d",
+          "version": 1
+        },
+        {
+          "id": "anon-5c2d67142d3da0b7ba69",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-5e64235bd37e7dd636af",
+          "version": 1
+        },
+        {
+          "id": "anon-4a81bf265e67fe70c7a5",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-a7510061f7fd95b27388",
+          "version": 1
+        },
+        {
+          "id": "anon-37327fbeb407bd0750c1",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8d12ac04af0ec64b09c2",
+          "version": 1
+        },
+        {
+          "id": "anon-a67008b85c76b51ca406",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-89379bd429e08a95aae7",
+          "version": 1
+        },
+        {
+          "id": "anon-3d6706d789e5393334e8",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-17fac0f590afd93cf18f",
+          "version": 1
+        },
+        {
+          "id": "anon-82d7e53c66af67c97832",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-e9fb49a7ceb3a62477a6",
+          "version": 1
+        },
+        {
+          "id": "anon-753d9b08287eff3b54ad",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-d1273df05113ae96a047",
+          "version": 1
+        },
+        {
+          "id": "anon-99af8e0793e27da75173",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-28adde485daa69daa052",
+          "version": 1
+        },
+        {
+          "id": "anon-8d63fd65696780e1e542",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-1273e66fce35a22c8ac8",
+          "version": 1
+        },
+        {
+          "id": "anon-46ddeae89ca34a560b46",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-928c5cf0ee74517b2bc8",
+          "version": 1
+        },
+        {
+          "id": "anon-9f3456e1f89e9957bc00",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-56c61128937d8f43b1a6",
+          "version": 1
+        },
+        {
+          "id": "anon-6d1110a187d70185052a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-27b79cdc5089b2e5a17a",
+          "version": 1
+        },
+        {
+          "id": "anon-98343247acfa84c9b262",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-504c9bb8a03b6b63a903",
+          "version": 1
+        },
+        {
+          "id": "anon-ea931a9ffb7a68f34c69",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-c1846833c28260027e14",
+          "version": 1
+        },
+        {
+          "id": "anon-b303e91cae31d2d0b11d",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-31c456a6fa41f8ebedb0",
+          "version": 1
+        },
+        {
+          "id": "anon-a90c19312801130a109b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2ac2f10dd3b397896677",
+          "version": 1
+        },
+        {
+          "id": "anon-c7075b76c64410d1d423",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-a39668bfaa303d495e9d",
+          "version": 1
+        },
+        {
+          "id": "anon-a59e7bef2e5b88c1f279",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-6ad1f9e9f576feedc3b0",
+          "version": 1
+        },
+        {
+          "id": "anon-234e5bf1f3788061d22b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-79872417487cca965a9f",
+          "version": 1
+        },
+        {
+          "id": "anon-673e95712e0838c76f25",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-77df8bfe7053234b5d77",
+          "version": 1
+        },
+        {
+          "id": "anon-c3952f25ce1da1493b82",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-146bf7c8ed1619381d8a",
+          "version": 1
+        },
+        {
+          "id": "anon-caf2eb347c654fe7d79f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-7872bfe55b7681d2ce29",
+          "version": 1
+        },
+        {
+          "id": "anon-70250a9ce6940a9f185e",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-264c1f75063291fc0941",
+          "version": 1
+        },
+        {
+          "id": "anon-90647ccc659be1b93ed1",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-d296ddced537e6f216a9",
+          "version": 1
+        },
+        {
+          "id": "anon-7c0a16b27d9e7814d6b3",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-95867d4a26d1c307b784",
+          "version": 1
+        },
+        {
+          "id": "anon-766f993e5a4ee00880c8",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-12fe120678b2d8570560",
+          "version": 1
+        },
+        {
+          "id": "anon-9fd21c4718b82f5a2dee",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-9846ae382cc6e896d334",
+          "version": 1
+        },
+        {
+          "id": "anon-f580b6e859d03b3cdd69",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f1a1f5a99ca8565a0aaf",
+          "version": 1
+        },
+        {
+          "id": "anon-e9e844c052cd629e6593",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-40ef1c59b9d5104769a1",
+          "version": 1
+        },
+        {
+          "id": "anon-0793a3d44c7000c0dd04",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-5185e33547455a8e0147",
+          "version": 1
+        },
+        {
+          "id": "anon-6c87219e734417cbd2fb",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-cccdeaa9170b57442b76",
+          "version": 1
+        },
+        {
+          "id": "anon-d84f02076a1c8c0ba97a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-9d4d4ae4c85cd09cbcbd",
+          "version": 1
+        },
+        {
+          "id": "anon-a3229124c3699ee1f7b4",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-922fe560bd7375278d04",
+          "version": 1
+        },
+        {
+          "id": "anon-87dfc6fe28d4f0491394",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-ea51916719b6e1f634e5",
+          "version": 1
+        },
+        {
+          "id": "anon-b91c04d35700f24b0f10",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f43d09d7cf065acd8ba6",
+          "version": 1
+        },
+        {
+          "id": "anon-ea5ed4ffc2a0fe6f287f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2d4b8123272ce762950d",
+          "version": 1
+        },
+        {
+          "id": "anon-d066b18682496f2da12a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-84145bdc75ee984e170a",
+          "version": 1
+        },
+        {
+          "id": "anon-8e3b0b8116d0cca1fa23",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-221e7d4ce3a5e248eb82",
+          "version": 1
+        },
+        {
+          "id": "anon-c45fb16564b3b6384804",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-6cf04d4b2d3162cb39cc",
+          "version": 1
+        },
+        {
+          "id": "anon-05a89714e1b80d2ea340",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8f669300cccdb53d02fc",
+          "version": 1
+        },
+        {
+          "id": "anon-7ef56eb4698d8274c45f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-38abf4a3cb89b668237f",
+          "version": 1
+        },
+        {
+          "id": "anon-ce3d6cabdd4e1354d176",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-3c33f1c98721f3d818ec",
+          "version": 1
+        },
+        {
+          "id": "anon-6d67fa9d43e57d28237c",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f6f4895e317cfa17dd2a",
+          "version": 1
+        },
+        {
+          "id": "anon-e5c584298d4e28d5782a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-32bf3bb2538ffa90a1f9",
+          "version": 1
+        },
+        {
+          "id": "anon-f2ee151dae042bf84d93",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-92e5e36dedf456304777",
+          "version": 1
+        },
+        {
+          "id": "anon-0ccb4cd45e2f75e02e07",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-83a07b31624171d7bc03",
+          "version": 1
+        },
+        {
+          "id": "anon-39f34b5db87c1f21e032",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-6cf855dd18c1ab6a45d0",
+          "version": 1
+        },
+        {
+          "id": "anon-ab5bf593b58feea0eff5",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-d84a0a579abfb1896bf0",
+          "version": 1
+        },
+        {
+          "id": "anon-900d12cde7218b762cd7",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-b4c9ab2cd5ecc0ce375c",
+          "version": 1
+        },
+        {
+          "id": "anon-d22f76938047a4721c4d",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-880be63bd41937b152e4",
+          "version": 1
+        },
+        {
+          "id": "anon-d63051c6c830b1bf3259",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-d6f6def55fc92554e40c",
+          "version": 1
+        },
+        {
+          "id": "anon-82424305b4514489fca1",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-23ec6f20dbdf3190d8c5",
+          "version": 1
+        },
+        {
+          "id": "anon-e02be6f9e9b0e72a0fa0",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-e97f68acef094db819a0",
+          "version": 1
+        },
+        {
+          "id": "anon-8153df8e028abe6b8d4c",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-15e582b451e43d6662d7",
+          "version": 1
+        },
+        {
+          "id": "anon-514f25ebdaad62116578",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-ece1eff0dee0b853595d",
+          "version": 1
+        },
+        {
+          "id": "anon-dc3d9a332bc1db32343d",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8ee93f66cbe0838cebb4",
+          "version": 1
+        },
+        {
+          "id": "anon-0b5bb39be3b98011b369",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-93fcfb26b43df7e3a591",
+          "version": 1
+        },
+        {
+          "id": "anon-9f03fa23ef745f1c79d4",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-c807872112079b1decbb",
+          "version": 1
+        },
+        {
+          "id": "anon-c4da06923b09d866cda2",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-4749fcbdc8f2163eb677",
+          "version": 1
+        },
+        {
+          "id": "anon-704f0a1ddc3fec4a40c5",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8c4e66ce22d553dada5e",
+          "version": 1
+        },
+        {
+          "id": "anon-a59671c4bd4d2d0e93e5",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-ac9df3399c586462b7a4",
+          "version": 1
+        },
+        {
+          "id": "anon-1b2323fefc40094d9497",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-6c38181721b61d758beb",
+          "version": 1
+        },
+        {
+          "id": "anon-8fdfbeec8173d2eb898e",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-d5a63f58cf9cb8c26c12",
+          "version": 1
+        },
+        {
+          "id": "anon-804a48bfcaf694d4e0d0",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-fbd99bfb3f71ce9781de",
+          "version": 1
+        },
+        {
+          "id": "anon-e3de671c329893e82e20",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-dca8a017228e547fbf00",
+          "version": 1
+        },
+        {
+          "id": "anon-b8e7a23183abb6d41f21",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-382e0b806f27fc6e477f",
+          "version": 1
+        },
+        {
+          "id": "anon-3a83851eb37ee4528193",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-c4898094ba16ae68db64",
+          "version": 1
+        },
+        {
+          "id": "anon-f620c07d98d63c660246",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-1d4331327c7a97cd6577",
+          "version": 1
+        },
+        {
+          "id": "anon-30984cea244eb2f70ca8",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-0fae588f17ab6fd18b44",
+          "version": 1
+        },
+        {
+          "id": "anon-cba4476e83b7aa020140",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-faa7e7a69fb0e20fbc9f",
+          "version": 1
+        },
+        {
+          "id": "anon-8eb7e527b02b8d76f0ac",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-1d8e59d1c3ab7486eeab",
+          "version": 1
+        },
+        {
+          "id": "anon-66a9410a20b477cc3866",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-17df81ff2b233b5c1165",
+          "version": 1
+        },
+        {
+          "id": "anon-cecff543966ccccfdd94",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-73b2271748055b9a2812",
+          "version": 1
+        },
+        {
+          "id": "anon-b90bb3cf35a591f25fc6",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-bcde53738110b9e81698",
+          "version": 1
+        },
+        {
+          "id": "anon-eaa8e9e382927aca0597",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f8b2538eabe33282764b",
+          "version": 1
+        },
+        {
+          "id": "anon-2ab9c1163752b7fbe5f8",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-3b720632b42ba7567c7a",
+          "version": 1
+        },
+        {
+          "id": "anon-41be30aa331004925cca",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-5ebf1dd59e29fe82aa65",
+          "version": 1
+        },
+        {
+          "id": "anon-f9bfc981493d05ea2733",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-bef9a3e9bea8077c02bf",
+          "version": 1
+        },
+        {
+          "id": "anon-ebe113f8afc55ad1e120",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-a860b7c92614a099dd54",
+          "version": 1
+        },
+        {
+          "id": "anon-3dc6cc8e1a6715422583",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-0feafb345c14137baea9",
+          "version": 1
+        },
+        {
+          "id": "anon-6edafd1fc962c8fa04a7",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-d079dea1e5e958141584",
+          "version": 1
+        },
+        {
+          "id": "anon-8d822800a202c074b618",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-3dac1d863231d2760d62",
+          "version": 1
+        },
+        {
+          "id": "anon-bd410f313a0a98fd5aa8",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-db82bbf9ba206d045a15",
+          "version": 1
+        },
+        {
+          "id": "anon-f3e040c0797ed3c0ad03",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-47346abb31fa374da2e1",
+          "version": 1
+        },
+        {
+          "id": "anon-07a2859d9b4c43e47c59",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-950b70028664fc6cce7f",
+          "version": 1
+        },
+        {
+          "id": "anon-b4cec8b2ad1ce26df52a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-84a1aba39e32d3182728",
+          "version": 1
+        },
+        {
+          "id": "anon-81e3c153e3aa93c536e3",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-18dddada28340ad56993",
+          "version": 1
+        },
+        {
+          "id": "anon-c4abd41bcfe00804a5ce",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-5e36b8b037fbe8c656e4",
+          "version": 1
+        },
+        {
+          "id": "anon-5fa1a8734b781f97d61f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-11de48afb8a3b0743109",
+          "version": 1
+        },
+        {
+          "id": "anon-37047cdef81e2c6de0bb",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-9819072bdfd025d76b42",
+          "version": 1
+        },
+        {
+          "id": "anon-1235b50beebc2e689b79",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-04fd7bbed3e42e379050",
+          "version": 1
+        },
+        {
+          "id": "anon-ff98c9202dfafc94e317",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-59e4202e23190b15267d",
+          "version": 1
+        },
+        {
+          "id": "anon-00d5adc00d1f99073a82",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-b0d0982860b973733f30",
+          "version": 1
+        },
+        {
+          "id": "anon-31fbbe444792e1073d77",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2b17692f720e4388eeb5",
+          "version": 1
+        },
+        {
+          "id": "anon-498b7bc315c966a68342",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-c10bae0f73b9204cad68",
+          "version": 1
+        },
+        {
+          "id": "anon-03a5ed8838df522cbe80",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-a7dc2a6cfae81a5f3914",
+          "version": 1
+        },
+        {
+          "id": "anon-3db873ade293e8c6466f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-bd6a6677614295a4160c",
+          "version": 1
+        },
+        {
+          "id": "anon-2f4d84832e2edb16a82b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f1fcfd3f945f4ebc5c06",
+          "version": 1
+        },
+        {
+          "id": "anon-06e79edec429b0e2a77b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-7c1d995b83e51b490d55",
+          "version": 1
+        },
+        {
+          "id": "anon-70d5537b16b28445c150",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-dc845b61aae42e9a7f05",
+          "version": 1
+        },
+        {
+          "id": "anon-32f62226860fa7db9e0a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2de8c4ff5aba1194a206",
+          "version": 1
+        },
+        {
+          "id": "anon-839bbb17245688d3a2d7",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-cba7a183c3ceba6fdb50",
+          "version": 1
+        },
+        {
+          "id": "anon-061e9660018a8a91968b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2e5edb828179c6a8850f",
+          "version": 1
+        },
+        {
+          "id": "anon-f3f8c4f3baf2f1e2a75d",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-5365135a5867ecf64021",
+          "version": 1
+        },
+        {
+          "id": "anon-bb2011d550d9f9128418",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-7d7f6757cd6f586f3644",
+          "version": 1
+        },
+        {
+          "id": "anon-9eee48c8222605b7df4a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-abeacd4e020dc3d10561",
+          "version": 1
+        },
+        {
+          "id": "anon-3f213aadcf983444043e",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-550eb2e92606f42484fc",
+          "version": 1
+        },
+        {
+          "id": "anon-57425a442678457e886a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-14f060c46b7ed7252f73",
+          "version": 1
+        },
+        {
+          "id": "anon-55b4cc9ab43545c84ad6",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-dcd7a58e40b23fc3ecd3",
+          "version": 1
+        },
+        {
+          "id": "anon-08fa609d7da72315e5f8",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-da6b1a0daa5b040f26fb",
+          "version": 1
+        },
+        {
+          "id": "anon-1142960fe0cce173d11c",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f64a1890c0197a695cda",
+          "version": 1
+        },
+        {
+          "id": "anon-f57f339f606a482df2b9",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-92dd714b98d107ef75a6",
+          "version": 1
+        },
+        {
+          "id": "anon-24b35bc13e86840baafc",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-ba349390cc9a3212e76f",
+          "version": 1
+        },
+        {
+          "id": "anon-24c70e0cb247ca06d8d4",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-24d6869d83bf8230bb0f",
+          "version": 1
+        },
+        {
+          "id": "anon-efab2c28409b9016ef29",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8e1998e5c9051abf413a",
+          "version": 1
+        },
+        {
+          "id": "anon-505e1bcbc3095e38372e",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-c12338c690f6d3b702a5",
+          "version": 1
+        },
+        {
+          "id": "anon-97502a0b93f7970259ac",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-ebf7825981ed54254b98",
+          "version": 1
+        },
+        {
+          "id": "anon-563f1cba6e12986bb87c",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-70fc3bcc2748f849ee4c",
+          "version": 1
+        },
+        {
+          "id": "anon-4fdee5074b7cb9b8f386",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-422e0723df68010e03dd",
+          "version": 1
+        },
+        {
+          "id": "anon-2d6492d946a0f81e3f87",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-d8eb9eddaa42243fdc42",
+          "version": 1
+        },
+        {
+          "id": "anon-a125b7d88dd027aac66f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-fdabce2d8ce1bff3e29d",
+          "version": 1
+        },
+        {
+          "id": "anon-2f9d165666b729d622f7",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-9dd337bd59ce11119a59",
+          "version": 1
+        },
+        {
+          "id": "anon-3b70d551a007a817154b",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2e16db88983c099f414b",
+          "version": 1
+        },
+        {
+          "id": "anon-642386136c79ee6d5326",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-a2a6b0665ac54e91b06a",
+          "version": 1
+        },
+        {
+          "id": "anon-839aa41dcf099d3b206f",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-4461cd16a8406a21b739",
+          "version": 1
+        },
+        {
+          "id": "anon-10c2e00814945e17a6b4",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-dfd49ee435a76cec3dbc",
+          "version": 1
+        },
+        {
+          "id": "anon-7251795dd441c811d865",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-8ebf81f161a61e324921",
+          "version": 1
+        },
+        {
+          "id": "anon-fb352afeb735e8490a6c",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-76aeb517a6e8ecb1b7c2",
+          "version": 1
+        },
+        {
+          "id": "anon-db7013a6389e5ab67d49",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-a1a9bb3fb6bae5dfe6e2",
+          "version": 1
+        },
+        {
+          "id": "anon-23858b70d7ed2994ab69",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-56b61ff14c9a6edc88ce",
+          "version": 1
+        },
+        {
+          "id": "anon-7e49400588a6d3b010a2",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-3af1358b7b8a63f3a1c1",
+          "version": 1
+        },
+        {
+          "id": "anon-e1d676f64765edae7aa7",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-cc34133e2a748ef23209",
+          "version": 1
+        },
+        {
+          "id": "anon-66ecd20b381838b9c868",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-e5274f4fa7a5e832550a",
+          "version": 1
+        },
+        {
+          "id": "anon-217eb1c5197aef81fe46",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-593921ca6254ab1681f0",
+          "version": 1
+        },
+        {
+          "id": "anon-b0cbad752ce9dbe6f5d7",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-753fc01afab241a19aa5",
+          "version": 1
+        },
+        {
+          "id": "anon-54e001343da9c7513365",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-45ac870830b12ce84b93",
+          "version": 1
+        },
+        {
+          "id": "anon-92c0e6a5df8463a571b8",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-4a2777749bf2f48ee7dd",
+          "version": 1
+        },
+        {
+          "id": "anon-703735afbcaca408b549",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-b8220a6cb2f7e528c148",
+          "version": 1
+        },
+        {
+          "id": "anon-861675c4478fdfe79332",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-bcb6c6a3a33a9060a0d9",
+          "version": 1
+        },
+        {
+          "id": "anon-e9c6d90f8f0273f6ee90",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-df54142bac7130deae9c",
+          "version": 1
+        },
+        {
+          "id": "anon-79299881b4b146e38688",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-9c12e95048d8403733b5",
+          "version": 1
+        },
+        {
+          "id": "anon-c32d4ad2dbc6487198b9",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-47613003446a21007d07",
+          "version": 1
+        },
+        {
+          "id": "anon-a42bf2af8e82eb7877e4",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-fe7db7266c96e3597ccb",
+          "version": 1
+        },
+        {
+          "id": "anon-34bcf3875e7480384028",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-223246e16d5af6da60ae",
+          "version": 1
+        },
+        {
+          "id": "anon-d12daf489cd803b5f490",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-0f8e6fa40592b1db1bc1",
+          "version": 1
+        },
+        {
+          "id": "anon-5eccd69294761bf78671",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-ec0fc507b7441a324aa5",
+          "version": 1
+        },
+        {
+          "id": "anon-356f707027c47ac8ebff",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-6a449a54bfa289fd74c5",
+          "version": 1
+        },
+        {
+          "id": "anon-bde9cf6d37e6531d9c8c",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-88f6ae6229ef17fb8162",
+          "version": 1
+        },
+        {
+          "id": "anon-7d88b442bc81adb9be0a",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f2bba96ac703245abefa",
+          "version": 1
+        },
+        {
+          "id": "anon-5407836efac89cde3215",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-4acd64a4756e695a7711",
+          "version": 1
+        },
+        {
+          "id": "anon-2f1240e0e9fc50f146e6",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-f3855f90dd120ba5dfa1",
+          "version": 1
+        },
+        {
+          "id": "anon-607ab559ec5ad4dbd131",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-6769e45736a6da1342b3",
+          "version": 1
+        },
+        {
+          "id": "anon-541547057fc1c7799852",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-b9af34e13f5c9689c77d",
+          "version": 1
+        },
+        {
+          "id": "anon-bd9888e8514a6e185fe7",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-87021994819637d6d92c",
+          "version": 1
+        },
+        {
+          "id": "anon-06d5a8c9e48d90f4045e",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-cb17c674811e4267aa40",
+          "version": 1
+        },
+        {
+          "id": "anon-0fe28362e202a658ac60",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-2748981004ccda0ee22f",
+          "version": 1
+        },
+        {
+          "id": "anon-bb011a44fbf346be072e",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-bf0803a3d3cd684cefd7",
+          "version": 1
+        },
+        {
+          "id": "anon-80a3f260cc16de86c739",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-51d05fa11d4ff3dee510",
+          "version": 1
+        },
+        {
+          "id": "anon-0e11ca97dbb68b5455c2",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-d618f7ef3fb7ec1a22ca",
+          "version": 1
+        },
+        {
+          "id": "anon-ccab6d043b6454b3095e",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-33dfff41743beca06d42",
+          "version": 1
+        },
+        {
+          "id": "anon-f3faa8facd68d626e973",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-7f58e3c140221f13c109",
+          "version": 1
+        },
+        {
+          "id": "anon-f09b443fe2b8090d5734",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-a4cbadc7a18dd1a37fe9",
+          "version": 1
+        },
+        {
+          "id": "anon-c6259c849e2a1b677205",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-1d0df30e2c0e3d6b47b3",
+          "version": 1
+        },
+        {
+          "id": "anon-17972448a4b5e5f38a72",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-3ea36b0fe5e68478c0c4",
+          "version": 1
+        },
+        {
+          "id": "anon-a53c1cc8d0f626b7e404",
+          "enabled": true,
+          "auto_import": true,
+          "interval_minutes": null,
+          "next_run_at": null,
+          "last_job_id": "anon-3e697f3a4faf5f041879",
+          "version": 1
+        }
+      ]
+    },
+    "/api/assistant/collect/jobs": {
+      "http": "200",
+      "jobs": [
+        {
+          "job_id": "anon-05902a84b8b3ddddf773",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:24:00.565401+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-fb1c250942293765e11c",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:20:58.813913+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-c1e2186b3b0df3841d61",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:19:28.517217+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-6b4bf4486e7fd13358c0",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:17:05.011541+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-d3cbdb79346bd06e9846",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:15:17.264885+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-fc3949c7553953029b8f",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:12:17.721527+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-723eceb6f10b93f09867",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:08:32.978444+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-27af3922e332574982f1",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:05:49.528932+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-b66c7ba26760ba2eec11",
+          "status": "queued",
+          "stage": "intake",
+          "created_at": "2026-11-06T15:05:49.517917+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-bfe256081c03ade4e7f6",
+          "status": "queued",
+          "stage": "intake",
+          "created_at": "2026-11-06T15:05:49.503088+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-b1aa3db66b0c625fd257",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:03:23.598524+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-a5a267482735babd3b8b",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T15:01:36.198111+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-30566aa50162c24b3764",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T14:58:17.132541+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-1a93b15af37ac3ce646b",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T14:55:58.176944+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-ec89cafe5bbe28b2fb86",
+          "status": "queued",
+          "stage": "mission_prepare",
+          "created_at": "2026-11-06T12:02:45.500212+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-8a2061fdaa94a01727d5",
+          "status": "queued",
+          "stage": "intake",
+          "created_at": "2026-11-06T11:10:41.581916+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-b6a5b2143cb59c619651",
+          "status": "queued",
+          "stage": "intake",
+          "created_at": "2026-11-06T11:10:41.575064+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-261a03c81937172d423c",
+          "status": "queued",
+          "stage": "intake",
+          "created_at": "2026-11-06T11:10:41.568085+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-e81a6fe8141c04e3877e",
+          "status": "queued",
+          "stage": "intake",
+          "created_at": "2026-11-06T11:10:41.560937+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        },
+        {
+          "job_id": "anon-24ce986cbebbea7127d9",
+          "status": "queued",
+          "stage": "intake",
+          "created_at": "2026-11-06T11:10:41.553838+00:00",
+          "attempts": 0,
+          "cancel_requested": false,
+          "cursor": null
+        }
+      ],
+      "next_cursor": true
+    }
+  },
+  "missions": {
+    "http": "200",
+    "limit": 50,
+    "offset": 0,
+    "has_more": false,
+    "items": [
+      {
+        "id": "anon-6afc271229234a610a45",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:24:00.524568+00:00",
+        "updated_at": "2026-11-06T15:24:00.568285+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:24:00.528354+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-15791328bb68cca4acf3",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:20:58.781265+00:00",
+        "updated_at": "2026-11-06T15:20:58.814824+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:20:58.784897+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 80,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 6,
+          "met": 0,
+          "weak": 6,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-576588d2fe8a48d42b65",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:19:28.494252+00:00",
+        "updated_at": "2026-11-06T15:19:28.517847+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:19:28.496328+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-4da9fe792b1aeb81ccc7",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:17:04.970121+00:00",
+        "updated_at": "2026-11-06T15:17:05.016033+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:17:04.975449+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 80,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 3,
+          "met": 0,
+          "weak": 3,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-d2550aefe21b20d42c66",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:15:17.230641+00:00",
+        "updated_at": "2026-11-06T15:15:17.267812+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:15:17.236220+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-bc46b08e9e93c8b45eaf",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:12:17.665199+00:00",
+        "updated_at": "2026-11-06T15:12:17.723655+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:12:17.671786+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-48ff1cc47ce662caa367",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:08:32.934742+00:00",
+        "updated_at": "2026-11-06T15:08:32.980293+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:08:32.939753+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-8c22d7f8a5dd69208574",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:05:49.464612+00:00",
+        "updated_at": "2026-11-06T15:05:49.527875+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:05:49.467527+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 80,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 13,
+          "met": 0,
+          "weak": 13,
+          "documents": 0,
+          "events": 3,
+          "discarded": 0,
+          "jobs": {
+            "total": 3,
+            "failed": 0,
+            "running": 0,
+            "queued": 3
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 2
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "active",
+          "2": "active",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending",
+          "8": "pending",
+          "9": "pending",
+          "10": "pending",
+          "11": "pending",
+          "12": "pending",
+          "13": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-a3eb05a7f9b65965b6a6",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:03:23.546899+00:00",
+        "updated_at": "2026-11-06T15:03:23.599501+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:03:23.557946+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-0e20816cb6444cf44810",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T15:01:36.057295+00:00",
+        "updated_at": "2026-11-06T15:01:36.200715+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T15:01:36.060739+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-9cdf753e68671bd2532a",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T14:58:17.047353+00:00",
+        "updated_at": "2026-11-06T14:58:17.136614+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T14:58:17.052073+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-39b05960e5c9940a8be1",
+        "title": "[redacted]",
+        "title_fingerprint": "c3fc7f5ce94c95f3",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T14:55:57.822732+00:00",
+        "updated_at": "2026-11-06T14:55:58.177958+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T14:55:57.827418+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 1,
+          "discarded": 0,
+          "jobs": {
+            "total": 1,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 0
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "pending",
+          "2": "pending",
+          "3": "pending",
+          "4": "pending",
+          "5": "pending",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 0
+      },
+      {
+        "id": "anon-a38e9a0d04b28ee637e5",
+        "title": "[redacted]",
+        "title_fingerprint": "42ac01645f3f7b5e",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T11:01:56.358963+00:00",
+        "updated_at": "2026-11-06T11:21:05.332966+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T11:01:56.361559+00:00",
+            "page_budget": 2000,
+            "pages_used": 223,
+            "collected": 216,
+            "unchanged": 0,
+            "imported": 181,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 223,
+          "acquired": 216,
+          "accepted": 182,
+          "held": 34,
+          "failed": 0,
+          "blocked": 7,
+          "duplicate": 15,
+          "imported": 181,
+          "pending_delivery": 0,
+          "not_imported": 1,
+          "review_needed": 153,
+          "auto_accepted": 29,
+          "auto_held": 34,
+          "precise_waiting": 172,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 29,
+          "review_needed": 153,
+          "held": 34,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 172,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 5,
+          "weak": 2,
+          "documents": 181,
+          "events": 300,
+          "discarded": 42,
+          "jobs": {
+            "total": 352,
+            "failed": 0,
+            "running": 1,
+            "queued": 127
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 421
+            },
+            {
+              "key": "acquire",
+              "count": 217
+            },
+            {
+              "key": "judge",
+              "count": 182
+            },
+            {
+              "key": "load",
+              "count": 181
+            },
+            {
+              "key": "ontology",
+              "count": 181
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 181
+          },
+          "ontology_documents": 181,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {
+                "succeeded": 181
+              }
+            },
+            {
+              "stage": "chunking",
+              "states": {
+                "succeeded": 181
+              }
+            },
+            {
+              "stage": "extracting",
+              "states": {
+                "degraded": 181
+              }
+            },
+            {
+              "stage": "linking",
+              "states": {
+                "succeeded": 181
+              }
+            },
+            {
+              "stage": "indexing",
+              "states": {
+                "succeeded": 181
+              }
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {
+                "succeeded": 181
+              }
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "met",
+          "2": "met",
+          "3": "met",
+          "4": "met",
+          "5": "met",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 1
+      },
+      {
+        "id": "anon-d85711d49a95a26934d3",
+        "title": "[redacted]",
+        "title_fingerprint": "6612fb087f4204e0",
+        "goal": "[redacted]",
+        "status": "running",
+        "created_at": "2026-11-06T11:01:56.107280+00:00",
+        "updated_at": "2026-11-06T12:02:45.504698+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T11:01:56.112145+00:00",
+            "page_budget": 2000,
+            "pages_used": 78,
+            "collected": 65,
+            "unchanged": 0,
+            "imported": 56,
+            "in_progress": true
+          }
+        ],
+        "counts": {
+          "discovered": 78,
+          "acquired": 65,
+          "accepted": 59,
+          "held": 6,
+          "failed": 4,
+          "blocked": 9,
+          "duplicate": 1,
+          "imported": 56,
+          "pending_delivery": 0,
+          "not_imported": 3,
+          "review_needed": 36,
+          "auto_accepted": 23,
+          "auto_held": 6,
+          "precise_waiting": 39,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 23,
+          "review_needed": 36,
+          "held": 6,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 39,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 5,
+          "weak": 2,
+          "documents": 56,
+          "events": 170,
+          "discarded": 19,
+          "jobs": {
+            "total": 80,
+            "failed": 0,
+            "running": 0,
+            "queued": 1
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 107
+            },
+            {
+              "key": "acquire",
+              "count": 65
+            },
+            {
+              "key": "judge",
+              "count": 59
+            },
+            {
+              "key": "load",
+              "count": 56
+            },
+            {
+              "key": "ontology",
+              "count": 56
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 56
+          },
+          "ontology_documents": 56,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {
+                "succeeded": 56
+              }
+            },
+            {
+              "stage": "chunking",
+              "states": {
+                "succeeded": 56
+              }
+            },
+            {
+              "stage": "extracting",
+              "states": {
+                "degraded": 56
+              }
+            },
+            {
+              "stage": "linking",
+              "states": {
+                "succeeded": 56
+              }
+            },
+            {
+              "stage": "indexing",
+              "states": {
+                "succeeded": 56
+              }
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {
+                "succeeded": 56
+              }
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "met",
+          "2": "met",
+          "3": "met",
+          "4": "met",
+          "5": "met",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 1
+      },
+      {
+        "id": "anon-34648602ed43571bff08",
+        "title": "[redacted]",
+        "title_fingerprint": "42ac01645f3f7b5e",
+        "goal": "[redacted]",
+        "status": "cancelled",
+        "created_at": "2026-11-06T08:59:19.439146+00:00",
+        "updated_at": "2026-11-06T09:14:36.194510+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T08:59:19.441978+00:00",
+            "page_budget": 2000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": false
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 0,
+          "events": 30,
+          "discarded": 0,
+          "jobs": {
+            "total": 17,
+            "failed": 1,
+            "running": 0,
+            "queued": 0
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 422
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "active",
+          "2": "active",
+          "3": "active",
+          "4": "active",
+          "5": "active",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 1
+      },
+      {
+        "id": "anon-57b51a61fa5562cd3228",
+        "title": "[redacted]",
+        "title_fingerprint": "6612fb087f4204e0",
+        "goal": "[redacted]",
+        "status": "cancelled",
+        "created_at": "2026-11-06T08:59:19.271032+00:00",
+        "updated_at": "2026-11-06T09:14:35.947215+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-06T08:59:19.276442+00:00",
+            "page_budget": 2000,
+            "pages_used": 225,
+            "collected": 225,
+            "unchanged": 0,
+            "imported": 134,
+            "in_progress": false
+          }
+        ],
+        "counts": {
+          "discovered": 1008,
+          "acquired": 225,
+          "accepted": 134,
+          "held": 91,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 88,
+          "imported": 134,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 130,
+          "auto_accepted": 4,
+          "auto_held": 91,
+          "precise_waiting": 25,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 4,
+          "review_needed": 130,
+          "held": 91,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 25,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 71,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 7,
+          "met": 0,
+          "weak": 7,
+          "documents": 134,
+          "events": 246,
+          "discarded": 91,
+          "jobs": {
+            "total": 9,
+            "failed": 1,
+            "running": 0,
+            "queued": 0
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 107
+            },
+            {
+              "key": "acquire",
+              "count": 225
+            },
+            {
+              "key": "judge",
+              "count": 134
+            },
+            {
+              "key": "load",
+              "count": 134
+            },
+            {
+              "key": "ontology",
+              "count": 134
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 134
+          },
+          "ontology_documents": 134,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {
+                "succeeded": 134
+              }
+            },
+            {
+              "stage": "chunking",
+              "states": {
+                "succeeded": 134
+              }
+            },
+            {
+              "stage": "extracting",
+              "states": {
+                "degraded": 134
+              }
+            },
+            {
+              "stage": "linking",
+              "states": {
+                "succeeded": 134
+              }
+            },
+            {
+              "stage": "indexing",
+              "states": {
+                "succeeded": 134
+              }
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {
+                "succeeded": 134
+              }
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "partial",
+          "2": "active",
+          "3": "active",
+          "4": "active",
+          "5": "active",
+          "6": "pending",
+          "7": "pending"
+        },
+        "search_rounds": 1
+      },
+      {
+        "id": "anon-45c75a1a81b464aabf54",
+        "title": "[redacted]",
+        "title_fingerprint": "42ac01645f3f7b5e",
+        "goal": "[redacted]",
+        "status": "cancelled",
+        "created_at": "2026-11-05T22:59:12.040467+00:00",
+        "updated_at": "2026-11-06T08:22:06.113602+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-05T22:59:12.049746+00:00",
+            "page_budget": 2000,
+            "pages_used": 2000,
+            "collected": 1875,
+            "unchanged": 0,
+            "imported": 1467,
+            "in_progress": false
+          }
+        ],
+        "counts": {
+          "discovered": 38468,
+          "acquired": 1875,
+          "accepted": 1468,
+          "held": 400,
+          "failed": 36,
+          "blocked": 96,
+          "duplicate": 104,
+          "imported": 1467,
+          "pending_delivery": 0,
+          "not_imported": 1,
+          "review_needed": 1467,
+          "auto_accepted": 1,
+          "auto_held": 400,
+          "precise_waiting": 485,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 80,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 1,
+          "review_needed": 1467,
+          "held": 400,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 485,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 956,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 6,
+          "met": 3,
+          "weak": 3,
+          "documents": 1467,
+          "events": 300,
+          "discarded": 85,
+          "jobs": {
+            "total": 127,
+            "failed": 3,
+            "running": 0,
+            "queued": 0
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 93
+            },
+            {
+              "key": "acquire",
+              "count": 1875
+            },
+            {
+              "key": "judge",
+              "count": 1468
+            },
+            {
+              "key": "load",
+              "count": 1467
+            },
+            {
+              "key": "ontology",
+              "count": 1464
+            }
+          ],
+          "grades": {
+            "공식 표준": 3,
+            "연구·이론": 6,
+            "기업·기관 권장": 10,
+            "경험·실무 글": 1448
+          },
+          "ontology_documents": 1467,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {
+                "succeeded": 1467
+              }
+            },
+            {
+              "stage": "chunking",
+              "states": {
+                "succeeded": 1467
+              }
+            },
+            {
+              "stage": "extracting",
+              "states": {
+                "degraded": 1467
+              }
+            },
+            {
+              "stage": "linking",
+              "states": {
+                "failed": 2,
+                "succeeded": 1465
+              }
+            },
+            {
+              "stage": "indexing",
+              "states": {
+                "succeeded": 1467
+              }
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {
+                "succeeded": 1464,
+                "failed": 1,
+                "skipped": 2
+              }
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "met",
+          "2": "met",
+          "3": "met",
+          "4": "blocked",
+          "5": "active",
+          "6": "active"
+        },
+        "search_rounds": 1
+      },
+      {
+        "id": "anon-ae9aa200cca10ae849b7",
+        "title": "[redacted]",
+        "title_fingerprint": "6612fb087f4204e0",
+        "goal": "[redacted]",
+        "status": "cancelled",
+        "created_at": "2026-11-05T22:02:26.372173+00:00",
+        "updated_at": "2026-11-06T08:22:05.690325+00:00",
+        "run_seq": 1,
+        "runs": [
+          {
+            "run_seq": 1,
+            "trigger": "initial",
+            "started_at": "2026-11-05T22:02:26.378122+00:00",
+            "page_budget": 2000,
+            "pages_used": 2000,
+            "collected": 1836,
+            "unchanged": 0,
+            "imported": 1493,
+            "in_progress": false
+          }
+        ],
+        "counts": {
+          "discovered": 25756,
+          "acquired": 1836,
+          "accepted": 1493,
+          "held": 307,
+          "failed": 98,
+          "blocked": 99,
+          "duplicate": 207,
+          "imported": 1493,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 1493,
+          "auto_accepted": 0,
+          "auto_held": 307,
+          "precise_waiting": 378,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 2000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 80,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 1493,
+          "held": 307,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 378,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 1086,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 3,
+          "met": 3,
+          "weak": 0,
+          "documents": 1493,
+          "events": 300,
+          "discarded": 150,
+          "jobs": {
+            "total": 83,
+            "failed": 2,
+            "running": 0,
+            "queued": 0
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 47
+            },
+            {
+              "key": "acquire",
+              "count": 1836
+            },
+            {
+              "key": "judge",
+              "count": 1493
+            },
+            {
+              "key": "load",
+              "count": 1493
+            },
+            {
+              "key": "ontology",
+              "count": 1493
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 201,
+            "경험·실무 글": 1292
+          },
+          "ontology_documents": 1493,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {
+                "succeeded": 1493
+              }
+            },
+            {
+              "stage": "chunking",
+              "states": {
+                "succeeded": 1493
+              }
+            },
+            {
+              "stage": "extracting",
+              "states": {
+                "degraded": 1493
+              }
+            },
+            {
+              "stage": "linking",
+              "states": {
+                "succeeded": 1493
+              }
+            },
+            {
+              "stage": "indexing",
+              "states": {
+                "succeeded": 1493
+              }
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {
+                "succeeded": 1493
+              }
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "met",
+          "2": "met",
+          "3": "met"
+        },
+        "search_rounds": 1
+      },
+      {
+        "id": "anon-21eee7a431745b22e649",
+        "title": "[redacted]",
+        "title_fingerprint": "96422d6f90d3e34b",
+        "goal": "[redacted]",
+        "status": "cancelled",
+        "created_at": "2026-11-04T22:38:56.999814+00:00",
+        "updated_at": "2026-11-05T15:16:04.810729+00:00",
+        "run_seq": 3,
+        "runs": [
+          {
+            "run_seq": 3,
+            "trigger": "rerun",
+            "started_at": "2026-11-05T15:15:41.470081+00:00",
+            "page_budget": 3600,
+            "pages_used": 5,
+            "collected": 5,
+            "unchanged": 0,
+            "imported": 1,
+            "in_progress": false
+          }
+        ],
+        "counts": {
+          "discovered": 69851,
+          "acquired": 4903,
+          "accepted": 2939,
+          "held": 1244,
+          "failed": 466,
+          "blocked": 104,
+          "duplicate": 483,
+          "imported": 2939,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 2926,
+          "auto_accepted": 13,
+          "auto_held": 1244,
+          "precise_waiting": 1353,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 3600,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 80,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 13,
+          "review_needed": 2926,
+          "held": 1244,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 1353,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 2205,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 51,
+          "met": 15,
+          "weak": 36,
+          "documents": 1652,
+          "events": 300,
+          "discarded": 96,
+          "jobs": {
+            "total": 839,
+            "failed": 3,
+            "running": 0,
+            "queued": 0
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 570
+            },
+            {
+              "key": "acquire",
+              "count": 4903
+            },
+            {
+              "key": "judge",
+              "count": 2939
+            },
+            {
+              "key": "load",
+              "count": 2939
+            },
+            {
+              "key": "ontology",
+              "count": 1782
+            }
+          ],
+          "grades": {
+            "공식 표준": 128,
+            "연구·이론": 317,
+            "기업·기관 권장": 1097,
+            "경험·실무 글": 110
+          },
+          "ontology_documents": 1652,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {
+                "succeeded": 1783
+              }
+            },
+            {
+              "stage": "chunking",
+              "states": {
+                "succeeded": 1783
+              }
+            },
+            {
+              "stage": "extracting",
+              "states": {
+                "degraded": 1783
+              }
+            },
+            {
+              "stage": "linking",
+              "states": {
+                "succeeded": 1783
+              }
+            },
+            {
+              "stage": "indexing",
+              "states": {
+                "failed": 1,
+                "succeeded": 1782
+              }
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {
+                "succeeded": 1782,
+                "skipped": 1
+              }
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "partial",
+          "2": "partial",
+          "3": "partial",
+          "4": "partial",
+          "5": "blocked",
+          "6": "active",
+          "7": "partial",
+          "8": "active",
+          "9": "active",
+          "10": "active",
+          "11": "partial",
+          "12": "active",
+          "13": "active",
+          "14": "blocked",
+          "15": "active",
+          "16": "partial",
+          "17": "active",
+          "18": "active",
+          "19": "active",
+          "20": "active",
+          "21": "active",
+          "22": "active",
+          "23": "partial",
+          "24": "partial",
+          "25": "blocked",
+          "26": "active",
+          "27": "partial",
+          "28": "active",
+          "29": "partial",
+          "30": "active",
+          "31": "active",
+          "32": "partial",
+          "33": "active",
+          "34": "active",
+          "35": "blocked",
+          "36": "met",
+          "37": "met",
+          "38": "met",
+          "39": "met",
+          "40": "met",
+          "41": "met",
+          "42": "met",
+          "43": "met",
+          "44": "met",
+          "45": "met",
+          "46": "met",
+          "47": "met",
+          "48": "met",
+          "49": "met",
+          "50": "met",
+          "51": "pending"
+        },
+        "search_rounds": 1
+      },
+      {
+        "id": "anon-5b48f9352f43548b87ee",
+        "title": "[redacted]",
+        "title_fingerprint": "96422d6f90d3e34b",
+        "goal": "[redacted]",
+        "status": "cancelled",
+        "created_at": "2026-11-04T18:53:40.948510+00:00",
+        "updated_at": "2026-11-04T22:38:56.396967+00:00",
+        "run_seq": 3,
+        "runs": [
+          {
+            "run_seq": 3,
+            "trigger": "rerun",
+            "started_at": "2026-11-04T19:58:31.874753+00:00",
+            "page_budget": 1000,
+            "pages_used": 999,
+            "collected": 960,
+            "unchanged": 0,
+            "imported": 835,
+            "in_progress": false
+          }
+        ],
+        "counts": {
+          "discovered": 16801,
+          "acquired": 960,
+          "accepted": 837,
+          "held": 96,
+          "failed": 43,
+          "blocked": 23,
+          "duplicate": 7,
+          "imported": 835,
+          "pending_delivery": 0,
+          "not_imported": 2,
+          "review_needed": 820,
+          "auto_accepted": 17,
+          "auto_held": 96,
+          "precise_waiting": 895,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 1000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 80,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 17,
+          "review_needed": 820,
+          "held": 96,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 895,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 46,
+          "met": 18,
+          "weak": 28,
+          "documents": 835,
+          "events": 300,
+          "discarded": 48,
+          "jobs": {
+            "total": 1022,
+            "failed": 17,
+            "running": 0,
+            "queued": 0
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 2157
+            },
+            {
+              "key": "acquire",
+              "count": 960
+            },
+            {
+              "key": "judge",
+              "count": 837
+            },
+            {
+              "key": "load",
+              "count": 835
+            },
+            {
+              "key": "ontology",
+              "count": 834
+            }
+          ],
+          "grades": {
+            "공식 표준": 6,
+            "연구·이론": 11,
+            "기업·기관 권장": 42,
+            "경험·실무 글": 776
+          },
+          "ontology_documents": 835,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {
+                "succeeded": 835
+              }
+            },
+            {
+              "stage": "chunking",
+              "states": {
+                "succeeded": 835
+              }
+            },
+            {
+              "stage": "extracting",
+              "states": {
+                "degraded": 835
+              }
+            },
+            {
+              "stage": "linking",
+              "states": {
+                "succeeded": 835
+              }
+            },
+            {
+              "stage": "indexing",
+              "states": {
+                "failed": 1,
+                "succeeded": 834
+              }
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {
+                "succeeded": 834,
+                "skipped": 1
+              }
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "partial",
+          "2": "partial",
+          "3": "partial",
+          "4": "met",
+          "5": "met",
+          "6": "met",
+          "7": "met",
+          "8": "partial",
+          "9": "active",
+          "10": "active",
+          "11": "active",
+          "12": "active",
+          "13": "active",
+          "14": "active",
+          "15": "active",
+          "16": "active",
+          "17": "active",
+          "18": "active",
+          "19": "active",
+          "20": "active",
+          "21": "partial",
+          "22": "active",
+          "23": "partial",
+          "24": "active",
+          "25": "active",
+          "26": "active",
+          "27": "active",
+          "28": "active",
+          "29": "partial",
+          "30": "active",
+          "31": "active",
+          "32": "met",
+          "33": "met",
+          "34": "met",
+          "35": "met",
+          "36": "met",
+          "37": "met",
+          "38": "met",
+          "39": "met",
+          "40": "met",
+          "41": "met",
+          "42": "met",
+          "43": "met",
+          "44": "met",
+          "45": "met",
+          "46": "pending"
+        },
+        "search_rounds": 2
+      },
+      {
+        "id": "anon-65389518f233a4117bb2",
+        "title": "[redacted]",
+        "title_fingerprint": "96422d6f90d3e34b",
+        "goal": "[redacted]",
+        "status": "failed",
+        "created_at": "2026-10-26T22:08:34.158013+00:00",
+        "updated_at": "2026-10-31T14:13:30.948140+00:00",
+        "run_seq": 6,
+        "runs": [
+          {
+            "run_seq": 6,
+            "trigger": "rerun",
+            "started_at": "2026-10-31T14:11:15.551159+00:00",
+            "page_budget": 1000,
+            "pages_used": 0,
+            "collected": 0,
+            "unchanged": 0,
+            "imported": 0,
+            "in_progress": false
+          }
+        ],
+        "counts": {
+          "discovered": 0,
+          "acquired": 0,
+          "accepted": 0,
+          "held": 0,
+          "failed": 0,
+          "blocked": 0,
+          "duplicate": 0,
+          "imported": 0,
+          "pending_delivery": 0,
+          "not_imported": 0,
+          "review_needed": 0,
+          "auto_accepted": 0,
+          "auto_held": 0,
+          "precise_waiting": 0,
+          "precise_unresolved": 0
+        },
+        "plan": {
+          "mode": "research",
+          "schedule": null,
+          "budget": {
+            "depth": 3,
+            "pages": 1000,
+            "papers": 20,
+            "rounds": 3,
+            "seconds": 1800,
+            "searches": 16,
+            "model_calls": 0
+          }
+        },
+        "triage": {
+          "accepted": 0,
+          "review_needed": 0,
+          "held": 0,
+          "reasons": {},
+          "policy": {
+            "mode": "conservative",
+            "model": "ttakkari/lightweight-multiaxis-v1",
+            "revision": "2026.10.25",
+            "status": "active",
+            "verified": false
+          },
+          "precise_eval": {
+            "pending": 0,
+            "processing": 0,
+            "unresolved": 0,
+            "skipped_cap": 0,
+            "evaluated": 0,
+            "failed": 0,
+            "budget_denied": 0,
+            "cap_per_job": 25,
+            "engine": "unavailable",
+            "engine_detail": "collector_teacher_enabled is False; teacher/evaluator is disabled",
+            "note": "bounded local qwen evaluator for uncertain candidates"
+          }
+        },
+        "trace_http": "200",
+        "trace_counts": {
+          "requirements": 4,
+          "met": 0,
+          "weak": 4,
+          "documents": 0,
+          "events": 56,
+          "discarded": 0,
+          "jobs": {
+            "total": 6,
+            "failed": 6,
+            "running": 0,
+            "queued": 0
+          },
+          "stages": [
+            {
+              "key": "discover",
+              "count": 28
+            },
+            {
+              "key": "acquire",
+              "count": 0
+            },
+            {
+              "key": "judge",
+              "count": 0
+            },
+            {
+              "key": "load",
+              "count": 0
+            },
+            {
+              "key": "ontology",
+              "count": 0
+            }
+          ],
+          "grades": {
+            "공식 표준": 0,
+            "연구·이론": 0,
+            "기업·기관 권장": 0,
+            "경험·실무 글": 0
+          },
+          "ontology_documents": 0,
+          "ontology_stage_states": [
+            {
+              "stage": "parsing",
+              "states": {}
+            },
+            {
+              "stage": "chunking",
+              "states": {}
+            },
+            {
+              "stage": "extracting",
+              "states": {}
+            },
+            {
+              "stage": "linking",
+              "states": {}
+            },
+            {
+              "stage": "indexing",
+              "states": {}
+            },
+            {
+              "stage": "canonicalizing",
+              "states": {}
+            }
+          ]
+        },
+        "requirement_states": {
+          "1": "active",
+          "2": "active",
+          "3": "pending",
+          "4": "pending"
+        },
+        "search_rounds": 1
+      }
+    ]
+  }
+}
