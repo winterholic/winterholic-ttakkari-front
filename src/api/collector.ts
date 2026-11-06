@@ -56,11 +56,20 @@ export interface CollectBudget {
 export interface ReviewItem {
   id: string; url: string; source_key: string; status: string; reason_codes: string[]; language: string | null;
   text_chars: number | null; preview: string; signals: Record<string, unknown>; can_reprocess: boolean;
+  dedupe?: CollectDedupe | null;
+}
+export interface CollectDedupe {
+  exact_of?: string | null;
+  cluster_id?: string | null;
+  canonical_candidate?: string | null;
+  canonical_status?: string | null;
+  algorithm_version?: string | null;
 }
 export interface CollectItemDetail {
   id: string; url: string; final_url: string | null; status: string; stage: string; http_status: number | null;
   language: string | null; text_chars: number | null; reason_codes: string[]; preview: string;
-  decision: { state: string; reason_codes: string[] } | null;
+  decision?: { state: string; reason_codes: string[] } | null;
+  dedupe?: CollectDedupe | null;
   quality: Record<string, { score: number | null; status?: string }> | null;
   versions: { parser: string | null; normalizer: string | null };
   hashes: { raw_sha256: string | null; text_sha256: string | null; payload: string | null };
