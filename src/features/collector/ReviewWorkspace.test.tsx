@@ -42,9 +42,8 @@ it("검토 화면은 전체 총량과 현재 로드 범위를 구분하고 필�
   expect(await screen.findByRole("heading", { name: "서버 검토 대기 120건" })).toBeTruthy();
   expect(screen.getByText(/현재 2건을 불러왔습니다.*전체/)).toBeTruthy();
   expect(screen.getByText(/자동 평가와 불확실성은 목록 API에 값이 없어 미확인입니다/)).toBeTruthy();
-  expect(screen.getByText(/정밀 판정 엔진·모델·상태: API 미제공 · 미확인/)).toBeTruthy();
-  expect(screen.getByText(/정밀 평가 대기 건수: API 미제공 · 미확인/)).toBeTruthy();
-  expect(screen.getByText(/중복 관계 대상: 미제공/)).toBeTruthy();
+  expect(screen.getByText(/이 검토 응답에는 정밀 판정 엔진·모델·상태와 정밀 평가 대기 건수가 없습니다 · 미확인/)).toBeTruthy();
+  expect(screen.getByText(/중복 관계 대상: 미확인/)).toBeTruthy();
   fireEvent.change(screen.getByLabelText("자료 검색"), { target: { value: "other.test" } });
   expect(screen.queryByText("https://example.com/a")).toBeNull();
   expect(screen.getByText("https://other.test/b")).toBeTruthy();
@@ -111,6 +110,43 @@ it("재처리 API 실패를 성공으로 보이지 않고 오류로 알린다", 
   expect(screen.getByRole("alert").textContent).not.toContain("source_policy_missing");
 });
 
+it("중복 근거의 선택 필드를 기술 상세에 보존하고 대상 링크를 추정하지 않는다", async () => {
+  api.collectReviewQueue.mockResolvedValue({ items: [row({ reason_codes: ["exact_duplicate"], dedupe: {
+    exact_of: "item-canonical-7", cluster_id: "cluster-4", canonical_candidate: false,
+    canonical_status: "accepted", algorithm_version: "dedupe-v3",
+  } })], total: 1, limit: 20, offset: 0 });
+  api.collectItemDetail.mockResolvedValue({ id: "i1", url: "https://example.com/a", final_url: null, status: "held", stage: "dedupe", http_status: null,
+    language: "ko", text_chars: 420, reason_codes: ["exact_duplicate"], preview: "", decision: null,
+    dedupe: { exact_of: "item-canonical-7", cluster_id: "cluster-4", canonical_candidate: false, canonical_status: "accepted", algorithm_version: "dedupe-v3" },
+    quality: {}, versions: { parser: null, normalizer: null }, hashes: { raw_sha256: null, text_sha256: null, payload: null },
+    rights: { purposes: [] }, reviews: [], deliveries: [] });
+  mount(<Review />);
+  await screen.findByText("https://example.com/a");
+  expect(screen.getByText(/중복 관계 대상: item-canonical-7/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "근거와 처리 이력" }));
+  fireEvent.click(await screen.findByText("원 코드·중복 근거·처리 이력 보기"));
+  const technical = screen.getByText(/"canonical_candidate": false/);
+  expect(technical.textContent).toContain("\"cluster_id\": \"cluster-4\"");
+  expect(technical.textContent).toContain("\"canonical_status\": \"accepted\"");
+  expect(technical.textContent).toContain("\"algorithm_version\": \"dedupe-v3\"");
+  expect(technical.closest("li")?.querySelector("a")).toBeNull();
+});
+
+it("다음 검토 페이지가 실패해도 기존 항목과 필터를 보존하고 다시 시도한다", async () => {
+  api.collectReviewQueue.mockResolvedValueOnce({ items: [row()], total: 3, limit: 1, offset: 0 })
+    .mockRejectedValueOnce(new Error("offline"))
+    .mockResolvedValueOnce({ items: [row({ id: "i2", url: "https://example.com/b", source_key: "example.com" })], total: 3, limit: 1, offset: 1 });
+  mount(<Review />);
+  await screen.findByText("https://example.com/a");
+  fireEvent.change(screen.getByLabelText("출처"), { target: { value: "example.com" } });
+  fireEvent.click(screen.getByRole("button", { name: "다음 1건 불러오기" }));
+  expect(await screen.findByText(/다음 페이지를 불러오지 못했어요/)).toBeTruthy();
+  expect(screen.getByText("https://example.com/a")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "다음 페이지 다시 시도" }));
+  expect(await screen.findByText("https://example.com/b")).toBeTruthy();
+  expect(screen.getByLabelText("출처")).toBeTruthy();
+});
+
 it("운영 화면은 사용자 조치 총량과 자동 평가 대기·정책 차단의 미분리 상태를 명시한다", async () => {
   api.collectSummary.mockResolvedValue(summary);
   api.collectRuntime.mockResolvedValue({ loop_available: true, general_consume_enabled: true, paused: false, reason: null, since: null, pilot: null, pilot_enabled: false, ml_spending_enabled: false });
@@ -119,8 +155,8 @@ it("운영 화면은 사용자 조치 총량과 자동 평가 대기·정책 차
   expect(screen.getByText("서버 검토 대기 총량").parentElement?.textContent).toContain("52건");
   expect(screen.getByText(/사용자 조치가 필요한 자료의 전체 수는 API에서 분리 제공하지 않습니다/)).toBeTruthy();
   expect(screen.getByText(/자동 평가 대기와 정책 차단은 별도 총량이 제공되지 않습니다/)).toBeTruthy();
-  expect(screen.getByText(/정밀 판정 엔진·모델·실행 상태: API 미제공 · 미확인/)).toBeTruthy();
-  expect(screen.getByText(/정밀 평가 대기 건수: API 미제공 · 미확인/)).toBeTruthy();
+  expect(screen.getByText(/이 현황 응답에는 정밀 판정 엔진·모델·실행 상태가 없습니다 · 미확인/)).toBeTruthy();
+  expect(screen.getByText(/이 현황 응답에는 정밀 평가 대기 건수가 없습니다 · 미확인/)).toBeTruthy();
   expect(screen.queryByText(/규칙 검사만 하므로 수집량이 늘어도 모델 비용은 0/)).toBeNull();
   expect(screen.queryByText(/모델 호출은 꺼져 있어요/)).toBeNull();
   expect(document.body.textContent).not.toMatch(/Qwen|로컬 실행|teacher_enabled/);

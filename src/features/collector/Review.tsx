@@ -16,6 +16,7 @@ const labelReason = (code: string) => COLLECT_REASON[code] ?? "사유 확인 필
 const humanStatus = (status: string) => STATUS[status] ?? "상태 확인 필요";
 const reviewDecision = (decision: string) => ({ accept: "유용함", reject: "유용하지 않음", hold: "판단 보류" }[decision] ?? "판정 확인 필요");
 const isPolicyBlocked = (item: ReviewItem) => item.reason_codes.some(code => POLICY_REASON.test(code));
+const canReprocessItem = (item: ReviewItem) => item.status === "held" && item.can_reprocess && !isPolicyBlocked(item);
 const userFailure = (error: unknown) => {
   const message = failure(error);
   if (COLLECT_REASON[message] || STATUS[message]) return COLLECT_REASON[message] ?? STATUS[message];
@@ -31,7 +32,8 @@ function Detail({ id, scope }: { id: string; scope?: KbScope }) {
   const qualityScores = qualityValues.map(([, value]) => value.score).filter((value): value is number => value != null);
   return <dl className="kb-facts">
     <div className="kb-facts__row"><dt>가져온 주소</dt><dd className="kb-hash">{d.final_url || d.url}</dd></div>
-    <div className="kb-facts__row"><dt>판정</dt><dd>{d.decision ? `${humanStatus(d.decision.state)} · ${d.decision.reason_codes.map(labelReason).join(", ") || "추가 사유 없음"}` : "판정 정보 없음"}</dd></div>
+    <div className="kb-facts__row"><dt>판정</dt><dd>{d.decision ? `${reviewDecision(d.decision.state)} · ${d.decision.reason_codes.map(labelReason).join(", ") || "추가 사유 없음"}`
+      : (d.status || d.reason_codes.length) ? `${humanStatus(d.status)} · ${d.reason_codes.map(labelReason).join(", ") || "추가 사유 없음"}` : "판정 정보 없음"}</dd></div>
     <div className="kb-facts__row"><dt>상세 품질 값</dt><dd>{qualityValues.length ? `평가 항목 ${qualityValues.length}개${qualityScores.length ? ` · 점수 ${qualityScores.join(", ")}` : " · 점수 미제공"} · 항목 의미와 불확실성 별도 제공 안 됨` : "품질 값 미제공 · 자동 평가 여부 미확인"}</dd></div>
     <div className="kb-facts__row"><dt>정밀 판정 실행 상태</dt><dd>엔진·모델·실행 상태 API 미제공 · 미확인</dd></div>
     <div className="kb-facts__row"><dt>권리</dt><dd>{d.rights.license_id || "라이선스 확인 안 됨"} · {(d.rights.purposes || []).map(purpose => PURPOSE_LABEL[purpose] ?? "허용 목적 확인 필요").join(", ") || "허용 목적 정보 없음"}</dd></div>
@@ -42,7 +44,7 @@ function Detail({ id, scope }: { id: string; scope?: KbScope }) {
     <div className="kb-facts__row"><dt>전달</dt><dd>{d.deliveries.length ? d.deliveries.map(x => `전달 상태: ${humanStatus(x.outcome || x.status)}`).join(" · ") : "없음"}</dd></div>
     <div className="kb-facts__row"><dt>기술 상세</dt><dd><details className="review-technical"><summary>원 코드·중복 근거·처리 이력 보기</summary>
       <pre>{JSON.stringify({ status: d.status, stage: d.stage, http_status: d.http_status, reason_codes: d.reason_codes,
-        decision: d.decision, quality: d.quality, rights: d.rights, deliveries: d.deliveries }, null, 2)}</pre>
+        decision: d.decision, dedupe: d.dedupe ?? null, quality: d.quality, rights: d.rights, deliveries: d.deliveries }, null, 2)}</pre>
     </details></dd></div>
   </dl>;
 }
@@ -66,10 +68,10 @@ function Row({ item, scope }: { item: ReviewItem; scope?: KbScope }) {
     <div className="kb-badges"><Badge>{humanStatus(item.status)}</Badge>{item.language && <Badge>{item.language === "ko" ? "한국어" : item.language === "en" ? "영어" : "언어 확인 필요"}</Badge>}{item.text_chars != null && <Badge>{formatChars(item.text_chars)}</Badge>}</div>
     <p className="kb-note">출처: {item.source_key || "출처 정보 없음"}</p>
     {item.reason_codes.length > 0 && <p className="kb-note">보류·판정 사유: {item.reason_codes.map(labelReason).join(" · ")}</p>}
-    {item.reason_codes.some(code => DUPLICATE_REASON.test(code)) && <p className="kb-note">중복 관계 대상: 미제공 · 중복 근거는 기술 상세에서 확인</p>}
+    {item.reason_codes.some(code => DUPLICATE_REASON.test(code)) && <p className="kb-note">중복 관계 대상: {item.dedupe?.exact_of ?? "미확인"} · 중복 근거는 기술 상세에서 확인</p>}
     <p className="kb-note">자동 평가: 목록 응답에 값이 없습니다 · 불확실성 확인 불가</p>
     {item.preview && <p className="kb-passage__body collect-clamp">{item.preview}</p>}
-    {item.status === "held" && item.can_reprocess && !policyBlocked && <div className="kb-actions">
+    {canReprocessItem(item) && <div className="kb-actions">
       <Button size="sm" variant="ghost" busy={reprocess.isPending} onClick={() => reprocess.mutate()}>원문으로 다시 처리</Button>
       {reprocess.isPending && <span className="kb-note" role="status">재처리 요청을 보내고 있어요.</span>}
       {reprocess.isSuccess && <span className="kb-note" role="status">재처리 작업을 등록했어요. 실행 탭에서 진행 상태를 볼 수 있어요.</span>}
@@ -115,7 +117,7 @@ export function Review({ scope }: { scope?: KbScope } = {}) {
     const matchesSearch = !needle || [item.url, item.source_key, item.preview].some(value => value.toLocaleLowerCase().includes(needle));
     const matchesReason = !filters.reason || item.reason_codes.includes(filters.reason);
     const matchesSource = !filters.source || item.source_key === filters.source;
-    const matchesAction = !filters.action || (filters.action === "reprocess" ? item.can_reprocess && !isPolicyBlocked(item) : !item.can_reprocess || isPolicyBlocked(item));
+    const matchesAction = !filters.action || (filters.action === "reprocess" ? canReprocessItem(item) : !canReprocessItem(item));
     return matchesSearch && matchesReason && matchesSource && matchesAction;
   }), [rows, search, filters]);
   if (sample) return <div className="review-workspace"><Button size="sm" variant="ghost" onClick={() => setSample(false)}>검토 대기 목록으로</Button><Audit scope={scope} /></div>;
@@ -127,7 +129,7 @@ export function Review({ scope }: { scope?: KbScope } = {}) {
     <div className="kb-actions review-workspace__heading"><div><h2>서버 검토 대기 {total.toLocaleString("ko-KR")}건</h2><p className="kb-note">전체 큐 총량입니다. 사용자 조치 필요·자동 평가 대기·정책 차단의 전체 분류는 API에서 제공하지 않습니다.</p></div>
       <Button size="sm" variant="primary" onClick={() => setSample(true)}>보류 표본 감사</Button></div>
     <p className="review-workspace__scope">현재 {rows.length.toLocaleString("ko-KR")}건을 불러왔습니다. 아래 검색·필터는 불러온 항목에만 적용됩니다. 전체 큐를 보려면 더 불러오세요.</p>
-    <p className="kb-note">정밀 판정 엔진·모델·상태: API 미제공 · 미확인. 정밀 평가 대기 건수: API 미제공 · 미확인(사용자 조치 필요 수와 별도).</p>
+    <p className="kb-note">이 검토 응답에는 정밀 판정 엔진·모델·상태와 정밀 평가 대기 건수가 없습니다 · 미확인(사용자 조치 필요 수와 별도).</p>
     <div className="review-filters" aria-label="검토 필터">
       <label>자료 검색<input className="tk-input" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="주소·출처·미리보기" /></label>
       <label>보류 사유<select className="tk-input" value={filters.reason} onChange={event => setFilter("reason", event.target.value)}><option value="">모든 사유</option>{[...new Set(rows.flatMap(item => item.reason_codes))].map(code => <option key={code} value={code}>{labelReason(code)}</option>)}</select></label>
@@ -140,7 +142,7 @@ export function Review({ scope }: { scope?: KbScope } = {}) {
     {filtered.length > 0 && <p className="review-workspace__scope" aria-live="polite">불러온 {rows.length}건 중 {filtered.length}건 표시</p>}
     <ul className="kb-hits">{filtered.map(item => <Row key={item.id} item={item} scope={scope} />)}</ul>
     {query.isError && <p className="tk-error" role="alert">다음 페이지를 불러오지 못했어요: {userFailure(query.error)}</p>}
-    {query.hasNextPage && <Button variant="ghost" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>다음 {query.data?.pages[query.data.pages.length - 1]?.limit ?? ""}건 불러오기</Button>}
+    {query.hasNextPage && <Button variant="ghost" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>{query.isFetchNextPageError ? "다음 페이지 다시 시도" : `다음 ${query.data?.pages[query.data.pages.length - 1]?.limit ?? ""}건 불러오기`}</Button>}
     {!query.hasNextPage && rows.length > 0 && <p className="kb-note">전체 {total.toLocaleString("ko-KR")}건 중 {rows.length.toLocaleString("ko-KR")}건을 불러왔습니다.</p>}
   </section>;
 }

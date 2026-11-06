@@ -96,31 +96,31 @@ function unholdFailure(error: unknown): string {
 
 function engineLabel(engine: string): string {
   if (engine === "ready") return "준비됨";
-  if (engine === "busy") return "로컬 모델 사용 중 · 대기";
-  if (engine === "unavailable" || engine === "enabled_without_registered_engine") return "사용할 수 없음";
+  if (engine === "busy") return "사용 상태 확인 중";
+  if (engine === "unavailable") return "엔진 사용 불가";
+  if (engine === "enabled_without_registered_engine") return "등록된 엔진 확인 안 됨";
   if (engine === "enabled") return "사용 가능";
   return "확인 필요";
 }
 
-function preciseQueue(mission: CollectionMission): { waiting: number; unresolved: number } {
+function preciseQueue(mission: CollectionMission): { pending?: number; processing?: number; unresolved?: number } {
   const precise = mission.triage?.precise_eval;
-  const waiting = mission.counts.precise_waiting ?? (precise?.pending ?? 0) + (precise?.processing ?? 0);
-  const unresolved = mission.counts.precise_unresolved ?? precise?.unresolved ?? 0;
-  return { waiting, unresolved };
+  return { pending: precise?.pending, processing: precise?.processing, unresolved: precise?.unresolved };
 }
 
+const preciseCount = (value: number | undefined) => value == null ? "미확인" : `${value.toLocaleString("ko-KR")}건`;
+
 function preciseSummary(mission: CollectionMission): string {
-  const { waiting, unresolved } = preciseQueue(mission);
-  const parts = [`대기 ${waiting.toLocaleString("ko-KR")}건`];
-  if (unresolved > 0) parts.push(`결과 확인 불가 ${unresolved.toLocaleString("ko-KR")}건`);
-  return parts.join(" · ");
+  const { pending, processing, unresolved } = preciseQueue(mission);
+  return `대기 ${preciseCount(pending)} · 처리 중 ${preciseCount(processing)} · 결과 확인 불가 ${preciseCount(unresolved)}`;
 }
 
 function PreciseNotice({ mission }: { mission: CollectionMission }) {
-  const { waiting, unresolved } = preciseQueue(mission);
+  const { pending, processing, unresolved } = preciseQueue(mission);
   return <>
-    {waiting > 0 && <p className="kb-note" role="status" aria-label="정밀평가 대기">정밀평가 대기 {waiting.toLocaleString("ko-KR")}건 · 결과에 따라 도서관 적재가 늘 수 있음</p>}
-    {unresolved > 0 && <p className="kb-note" role="status" aria-label="정밀평가 확인 불가">정밀평가 결과 확인 불가 {unresolved.toLocaleString("ko-KR")}건 · 운영자 확인 필요</p>}
+    {pending != null && <p className="kb-note" role="status" aria-label="정밀평가 대기">정밀평가 대기 {preciseCount(pending)} · 결과에 따라 도서관 적재가 달라질 수 있음</p>}
+    {processing != null && <p className="kb-note" role="status" aria-label="정밀평가 처리 중">정밀평가 처리 중 {preciseCount(processing)}</p>}
+    {unresolved != null && <p className="kb-note" role="status" aria-label="정밀평가 확인 불가">정밀평가 결과 확인 불가 {preciseCount(unresolved)} · 운영자 확인 필요</p>}
   </>;
 }
 

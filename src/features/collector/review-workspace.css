@@ -3,7 +3,7 @@
 .review-workspace__heading { align-items: start; }
 .review-workspace__heading > div { display: grid; gap: var(--tk-space-1); min-width: 0; }
 .review-workspace__heading h2 { margin: 0; font-size: var(--tk-font-size-lg); }
-.review-workspace__scope { margin: 0; padding: var(--tk-space-2) var(--tk-space-3); border-inline-start: var(--tk-border-width-thick, 3px) solid var(--tk-color-border-brand); background: var(--tk-color-surface-brand-subtle); color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
+.review-workspace__scope { margin: 0; padding: var(--tk-space-2) var(--tk-space-3); border-inline-start: var(--tk-space-px) solid var(--tk-color-border-brand); background: var(--tk-color-surface-brand-subtle); color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
 .review-filters { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-3); }
 .review-filters label { display: grid; gap: var(--tk-space-1); min-width: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
 .review-filters .tk-input { width: 100%; min-width: 0; box-sizing: border-box; min-height: var(--tk-size-touch-target-min); }

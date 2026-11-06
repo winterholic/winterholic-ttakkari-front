@@ -8,6 +8,11 @@ import type { SearchStats } from "./researchLabels";
 import "./review-workspace.css";
 
 const count = (n: number | undefined) => (n ?? 0).toLocaleString("ko-KR");
+const providedCount = (n: number | undefined) => n == null ? "미확인" : `${n.toLocaleString("ko-KR")}건`;
+const engineAvailability = (engine: string | undefined) => ({
+  ready: "사용 가능", enabled: "사용 가능", busy: "사용 상태 확인 중",
+  unavailable: "사용 불가", enabled_without_registered_engine: "등록된 엔진 확인 안 됨",
+} as Record<string, string>)[engine ?? ""] ?? "미확인";
 
 /** 계획 안의 간단한 조사 범위 목록. 상태 문구는 상세 패널과 같은 표를 쓴다. */
 export function CoverageTopics({ coverage }: { coverage: CollectionCoverageEntry[] }) {
@@ -105,9 +110,11 @@ export function ResearchPanel({ mission }: { mission: CollectionMission }) {
   const claimCount = plan.context_links?.claims?.length ?? 0;
   const hasContext = Boolean(plan.context?.text?.trim() || plan.context_links);
   const searchBudget = research?.search_budget ?? plan.budget.searches;
+  const preciseEval = mission.triage?.precise_eval;
   return <section className="mission-research" aria-label="자율 조사">
     <h3>자율 조사</h3>
-    <p className="kb-note">정밀 판정 엔진·모델·실행 상태: 조사 응답에 없음 · 미확인. 정밀 평가 대기 건수도 제공되지 않으며 사용자 검토 대기와 분리됩니다.</p>
+    <p className="kb-note">엔진 가용 상태: {engineAvailability(preciseEval?.engine)} · 모델명·세부 실행 상태: 조사 응답에서 미확인</p>
+    <p className="kb-note">정밀 평가: 대기 {providedCount(preciseEval?.pending)} · 처리 중 {providedCount(preciseEval?.processing)} · 결과 확인 불가 {providedCount(preciseEval?.unresolved)}. 사용자 검토 대기와 별도입니다.</p>
     {research && <>
       <p className="kb-note" aria-label="조사 라운드">후속 조사 라운드 {count(research.round)}회 점검{plan.budget.rounds ? `(상한 ${count(plan.budget.rounds)}회)` : ""} · 검색 {count(research.searches_used)}{searchBudget ? `/${count(searchBudget)}` : ""}회 사용</p>
       <p className="kb-note" role="status" aria-label="조사 종료 사유">{stopText(research.stop, plan.budget.rounds)}</p>

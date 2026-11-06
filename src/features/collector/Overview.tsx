@@ -58,8 +58,8 @@ export function Overview({ scope }: { scope?: KbScope } = {}) {
       <div><span>서버 검토 대기 총량</span><strong>{reviewTotal.toLocaleString("ko-KR")}건</strong></div>
       <p className="kb-note">사용자 조치가 필요한 자료의 전체 수는 API에서 분리 제공하지 않습니다. 화면에서 불러온 큐 항목 수와 전체 총량을 따로 확인하세요.</p>
       <p className="kb-note">자동 평가 대기와 정책 차단은 별도 총량이 제공되지 않습니다. 정책·권리·robots 차단은 재처리로 우회하지 마세요.</p>
-      <p className="kb-note">정밀 판정 엔진·모델·실행 상태: API 미제공 · 미확인.</p>
-      <p className="kb-note">정밀 평가 대기 건수: API 미제공 · 미확인. 사용자 조치 필요 총량과는 별도 항목이며, 두 수를 서로 대신해 해석하지 않습니다.</p>
+      <p className="kb-note">이 현황 응답에는 정밀 판정 엔진·모델·실행 상태가 없습니다 · 미확인.</p>
+      <p className="kb-note">이 현황 응답에는 정밀 평가 대기 건수가 없습니다 · 미확인. 사용자 조치 필요 총량과는 별도 항목이며, 두 수를 서로 대신해 해석하지 않습니다.</p>
       <p className="kb-note">운영 단계별 건수(서로 더하지 않음): 차단 {data.funnel.blocked} · 실패 {data.funnel.failed} · 전달 대기 {data.funnel.awaiting_delivery}</p>
     </section>
     {reviewTotal === 0 && data.funnel.blocked === 0 && data.funnel.failed === 0 && data.funnel.awaiting_delivery === 0 && <p className="kb-empty">현재 표시할 검토 대기나 운영 문제가 없습니다. 출처를 등록하면 수집 상태가 여기에 나타납니다.</p>}
