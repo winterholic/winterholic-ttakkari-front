@@ -51,6 +51,7 @@ function Detail({ id, scope }: { id: string; scope?: KbScope }) {
 
 function Row({ item, scope }: { item: ReviewItem; scope?: KbScope }) {
   const [open, setOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const queryClient = useQueryClient();
   const policyBlocked = isPolicyBlocked(item);
   const reprocess = useMutation({
@@ -65,11 +66,10 @@ function Row({ item, scope }: { item: ReviewItem; scope?: KbScope }) {
   const priority = policyBlocked ? "정책 확인 먼저" : item.reason_codes.some(code => DUPLICATE_REASON.test(code)) ? "중복 관계 확인" : item.status === "held" ? "보류 사유 확인" : "일반 검토";
   return <li className="kb-hit review-item">
     <div className="review-item__head"><p className="kb-hash">{item.url}</p><Badge>{priority}</Badge></div>
-    <div className="kb-badges"><Badge>{humanStatus(item.status)}</Badge>{item.language && <Badge>{item.language === "ko" ? "한국어" : item.language === "en" ? "영어" : "언어 확인 필요"}</Badge>}{item.text_chars != null && <Badge>{formatChars(item.text_chars)}</Badge>}</div>
-    <p className="kb-note">출처: {item.source_key || "출처 정보 없음"}</p>
-    {item.reason_codes.length > 0 && <p className="kb-note">보류·판정 사유: {item.reason_codes.map(labelReason).join(" · ")}</p>}
+    <div className="kb-badges">{item.language && <Badge>{item.language === "ko" ? "한국어" : item.language === "en" ? "영어" : "언어 확인 필요"}</Badge>}{item.text_chars != null && <Badge>{formatChars(item.text_chars)}</Badge>}</div>
+    <p className="review-item__meta"><span>출처 <strong>{item.source_key || "정보 없음"}</strong></span><span>상태 <strong>{humanStatus(item.status)}</strong></span></p>
+    <p className="kb-note">사유: {item.reason_codes.length ? item.reason_codes.map(labelReason).join(" · ") : "제공되지 않음"}</p>
     {item.reason_codes.some(code => DUPLICATE_REASON.test(code)) && <p className="kb-note">중복 관계 대상: {item.dedupe?.exact_of ?? "미확인"} · 중복 근거는 기술 상세에서 확인</p>}
-    <p className="kb-note">자동 평가: 목록 응답에 값이 없습니다 · 불확실성 확인 불가</p>
     {item.preview && <p className="kb-passage__body collect-clamp">{item.preview}</p>}
     {canReprocessItem(item) && <div className="kb-actions">
       <Button size="sm" variant="ghost" busy={reprocess.isPending} onClick={() => reprocess.mutate()}>원문으로 다시 처리</Button>
@@ -78,9 +78,13 @@ function Row({ item, scope }: { item: ReviewItem; scope?: KbScope }) {
       {reprocess.isError && <span className="tk-error" role="alert">재처리 작업을 등록하지 못했어요: {userFailure(reprocess.error)}</span>}
     </div>}
     {policyBlocked && <p className="kb-note">권리·정책·robots 차단 사유가 있어 재처리를 표시하지 않습니다. 정책 확인은 우회할 수 없어요.</p>}
-    <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "기술 상세 닫기" : "근거와 처리 이력"}</Button>
+    <div className="review-item__next-actions">
+      <Button size="sm" aria-expanded={reviewOpen} onClick={() => setReviewOpen(!reviewOpen)}>{reviewOpen ? "판정·적재 검토 닫기" : "판정·적재 검토 열기"}</Button>
+      <Button size="sm" variant="ghost" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? "기술 상세 닫기" : "근거와 처리 이력"}</Button>
+      <span className="kb-note">{canReprocessItem(item) ? "가능 조치: 원문 재처리" : policyBlocked ? "가능 조치: 정책 확인 후 결정" : "가능 조치: 판정 기록·기술 근거 확인"}</span>
+    </div>
     {open && <Detail id={item.id} scope={scope} />}
-    <ItemReview id={item.id} scope={scope} />
+    {reviewOpen && <div className="review-item__review"><ItemReview id={item.id} scope={scope} /></div>}
   </li>;
 }
 
@@ -125,6 +129,15 @@ export function Review({ scope }: { scope?: KbScope } = {}) {
   if (query.isError && !query.data) return <div className="kb-error"><p className="tk-error" role="alert">{userFailure(query.error)}</p><Button onClick={() => void query.refetch()}>다시 시도</Button></div>;
   const total = query.data?.pages[0]?.total ?? 0;
   const setFilter = (key: FilterKey, value: string) => setFilters(current => ({ ...current, [key]: value }));
+  const loadNextLabel = query.isFetchNextPageError ? "다음 페이지 다시 시도" : `다음 ${query.data?.pages[query.data.pages.length - 1]?.limit ?? ""}건 불러오기`;
+  const pagination = (position: "top" | "bottom") => query.hasNextPage
+    ? <div className={`review-pagination review-pagination--${position}`}>
+      {position === "top" && query.isFetchNextPageError && <p className="tk-error" role="alert">다음 페이지를 불러오지 못했어요: {userFailure(query.error)}</p>}
+      <Button variant="ghost" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>{loadNextLabel}</Button>
+    </div>
+    : position === "bottom" && rows.length > 0
+      ? <p className="kb-note">전체 {total.toLocaleString("ko-KR")}건 중 {rows.length.toLocaleString("ko-KR")}건을 불러왔습니다.</p>
+      : null;
   return <section className="kb-results review-workspace" aria-label="검토 대기">
     <div className="kb-actions review-workspace__heading"><div><h2>서버 검토 대기 {total.toLocaleString("ko-KR")}건</h2><p className="kb-note">전체 큐 총량입니다. 사용자 조치 필요·자동 평가 대기·정책 차단의 전체 분류는 API에서 제공하지 않습니다.</p></div>
       <Button size="sm" variant="primary" onClick={() => setSample(true)}>보류 표본 감사</Button></div>
@@ -136,13 +149,12 @@ export function Review({ scope }: { scope?: KbScope } = {}) {
       <label>출처<select className="tk-input" value={filters.source} onChange={event => setFilter("source", event.target.value)}><option value="">모든 출처</option>{[...new Set(rows.map(item => item.source_key))].sort().map(source => <option key={source}>{source}</option>)}</select></label>
       <label>가능 조치<select className="tk-input" value={filters.action} onChange={event => setFilter("action", event.target.value)}><option value="">모든 조치</option><option value="reprocess">재처리 가능</option><option value="none">재처리 불가</option></select></label>
     </div>
-    <p className="kb-note">자동 평가와 불확실성은 목록 API에 값이 없어 미확인입니다. 각 자료의 기술 상세에서 상세 품질 값이 제공될 때만 확인할 수 있습니다. 우선 확인 표시는 사유 기반 제안이며 서버 순위나 자동 점수가 아닙니다.</p>
+    <p className="review-workspace__shared-note">자동 평가와 불확실성은 목록 API에서 제공되지 않아 미확인입니다. 우선 확인 표시는 사유 기반 제안이며 서버 순위나 자동 점수가 아닙니다. 각 행에서 출처·상태·사유·미리보기와 가능한 조치를 확인하고, 판정·적재는 필요한 자료에서만 펼치세요.</p>
+    {pagination("top")}
     {rows.length === 0 && <p className="kb-empty">검토할 자료가 없어요.</p>}
     {rows.length > 0 && filtered.length === 0 && <p className="kb-empty">불러온 {rows.length}건 중 조건에 맞는 자료가 없습니다.</p>}
     {filtered.length > 0 && <p className="review-workspace__scope" aria-live="polite">불러온 {rows.length}건 중 {filtered.length}건 표시</p>}
     <ul className="kb-hits">{filtered.map(item => <Row key={item.id} item={item} scope={scope} />)}</ul>
-    {query.isError && <p className="tk-error" role="alert">다음 페이지를 불러오지 못했어요: {userFailure(query.error)}</p>}
-    {query.hasNextPage && <Button variant="ghost" busy={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>{query.isFetchNextPageError ? "다음 페이지 다시 시도" : `다음 ${query.data?.pages[query.data.pages.length - 1]?.limit ?? ""}건 불러오기`}</Button>}
-    {!query.hasNextPage && rows.length > 0 && <p className="kb-note">전체 {total.toLocaleString("ko-KR")}건 중 {rows.length.toLocaleString("ko-KR")}건을 불러왔습니다.</p>}
+    {pagination("bottom")}
   </section>;
 }

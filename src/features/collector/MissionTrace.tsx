@@ -25,6 +25,13 @@ const STATE_HINT: Record<string, (documents: number, need: number) => string> = 
 const PAGE = 50;
 const ITEM_STATUS: Record<string, string> = { held: "보류", failed: "실패", blocked: "접근 제한" };
 const count = (value: number) => value.toLocaleString("ko-KR");
+const STAGE_UNIT: Record<string, string> = {
+  discover: "계획 출처 수 (검색 횟수는 상세에 별도 표기)",
+  acquire: "처리한 개별 수집 자료 수",
+  judge: "수락 판정을 받은 개별 자료 수",
+  load: "도서관 적재 처리된 고유 자료 수",
+  ontology: "문서별 온톨로지 단계 성공·저하 처리 수",
+};
 const time = (iso: string | null) => iso ? new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul" }).format(new Date(iso)) : "";
 
 function Goal({ trace }: { trace: Trace }) {
@@ -61,8 +68,8 @@ function SupplementAll({ trace, supplement }: { trace: Trace; supplement?: Suppl
 
 function Stages({ trace }: { trace: Trace }) {
   return <ol className="trace-stages" aria-label="처리 단계">
-    {trace.stages.map(stage => <li key={stage.key} data-stage={stage.key}><span>{stage.label}</span><strong>{count(stage.count)}</strong><small>{stage.detail}</small></li>)}
-    <li className="trace-stages__note">단계별 건수는 단계마다 집계 단위와 누적 범위가 다를 수 있습니다. 서로 다른 모수이므로 전환율로 비교하지 않습니다.</li>
+    {trace.stages.map(stage => <li key={stage.key} data-stage={stage.key}><span>{stage.label}</span><strong>{count(stage.count)}</strong><small>{STAGE_UNIT[stage.key] ?? "단계 집계 수"}</small><small>{stage.detail}</small></li>)}
+    <li className="trace-stages__note">탐색은 출처 후보, 획득·판별·적재는 개별 자료, 온톨로지는 처리 단계를 셉니다. 단계별 모수가 달라 전환율로 비교하지 않습니다.</li>
   </ol>;
 }
 
@@ -76,12 +83,13 @@ function Failures({ trace }: { trace: Trace }) {
 }
 
 function FeaturedDocuments({ trace }: { trace: Trace }) {
-  return <section className="trace-card" aria-label="대표 적재 자료">
-    <h3>도서관에 실제 적재된 자료 <small>{count(trace.documents.length)}건</small></h3>
+  return <section className="trace-card" aria-label="추적 응답 문서 대표 항목">
+    <h3>추적 응답 문서 목록 <small>{count(trace.documents.length)}건 · 최대 3,000건 응답</small></h3>
     {trace.documents.length > 0
       ? <ul className="trace-docs">{trace.documents.slice(0, 3).map(doc => <DocLink key={doc.document_id} doc={doc} />)}</ul>
-      : <p className="kb-note">도서관 적재 확인 자료가 아직 없습니다.</p>}
-    {trace.documents.length > 3 && <p className="kb-note">대표 자료 3건을 표시합니다. 전체 {count(trace.documents.length)}건은 자료·품질 탭에서 검색할 수 있습니다.</p>}
+      : <p className="kb-note">추적 응답의 문서 목록에 자료가 없습니다.</p>}
+    {trace.documents.length > 3 && <p className="kb-note">대표 자료 3건을 표시합니다. 응답 문서 목록 {count(trace.documents.length)}건은 자료·품질 탭에서 검색할 수 있습니다. API 응답 최대는 3,000건입니다.</p>}
+    {trace.documents.length <= 3 && <p className="kb-note">응답 문서 목록이며 전체 누계가 아닙니다. API 응답 최대는 3,000건입니다.</p>}
   </section>;
 }
 
@@ -149,8 +157,9 @@ function Documents({ trace }: { trace: Trace }) {
   const found = trace.documents.filter(d => (!target || (target === "-" ? !d.target : d.target === target)) && (!grade || d.grade === grade)
     && (!needle || d.title.toLowerCase().includes(needle) || d.url.toLowerCase().includes(needle)));
   const reset = () => setShown(PAGE);
-  return <section className="trace-card" aria-label="도서관에 저장된 자료">
-    <h3>도서관에 저장된 자료 <small>{count(trace.documents.length)}건</small></h3>
+  return <section className="trace-card" aria-label="추적 응답 문서 목록">
+    <h3>추적 응답 문서 목록 <small>{count(trace.documents.length)}건 · 최대 3,000건 응답</small></h3>
+    <p className="kb-note">추적 API가 반환한 문서 목록 범위이며 전체 누계가 아닙니다. 적재 처리 자료 수와 다른 모수입니다.</p>
     <div className="trace-filters">
       <input className="tk-input" type="search" aria-label="자료 검색" placeholder="제목이나 주소로 검색" value={text} onChange={e => { setText(e.target.value); reset(); }} />
       <select className="tk-input" aria-label="대상" value={target} onChange={e => { setTarget(e.target.value); reset(); }}>
@@ -158,7 +167,7 @@ function Documents({ trace }: { trace: Trace }) {
       <select className="tk-input" aria-label="출처 등급" value={grade} onChange={e => { setGrade(e.target.value); reset(); }}>
         <option value="">모든 등급</option>{Object.keys(trace.grades).map(label => <option key={label} value={label}>{label} ({trace.grades[label]})</option>)}</select>
     </div>
-    {found.length === 0 ? <p className="kb-note">조건에 맞는 자료가 없습니다.</p>
+    {found.length === 0 ? <p className="kb-note">조건에 맞는 응답 문서가 없습니다.</p>
       : <ul className="trace-docs">{found.slice(0, shown).map(d => <DocLink key={d.document_id} doc={d} />)}</ul>}
     {found.length > shown && <Button type="button" onClick={() => setShown(shown + PAGE)}>더 보기 ({count(found.length - shown)}건 남음)</Button>}
   </section>;
@@ -201,12 +210,13 @@ function Summary({ trace }: { trace: Trace }) {
   const met = trace.requirements.filter(r => r.status === "met").length;
   const loaded = trace.documents.length;
   const acquired = trace.stages.find(stage => stage.key === "acquire")?.count ?? 0;
+  const imported = trace.stages.find(stage => stage.key === "load")?.count;
   const percent = requirementFulfillment(trace.goal, trace.requirements);
   const canShowRatio = percent !== null;
   return <section className="trace-summary" aria-label="진행 요약">
     {canShowRatio && <div className="trace-summary__bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? 0} aria-label="목표량을 충족한 요구 항목 비율"><span style={{ width: `${percent ?? 0}%` }} /></div>}
-    <p><strong>{met}/{total}</strong>개 요구 항목 상태가 목표량 도달{!canShowRatio && " (조사 목적·목표량 조건이 없어 비율 미계산)"} · 확보 단계 집계 <strong>{count(acquired)}</strong> · 도서관 적재 확인 자료 <strong>{count(loaded)}</strong>{trace.jobs.failed > 0 && <> · 실패 작업 <strong>{trace.jobs.failed}</strong></>}{trace.jobs.queued + trace.jobs.running > 0 && <> · 대기·진행 작업 {trace.jobs.queued + trace.jobs.running}</>}</p>
-    <p className="kb-note">확보 단계의 집계 단위는 위 단계 설명을 따릅니다. 적재 수는 도서관 문서 목록의 미션 누계입니다. 서로 다른 모수로 전환율을 계산하지 않습니다.</p>
+    <p><strong>{met}/{total}</strong>개 요구 항목 상태가 목표량 도달{!canShowRatio && " (조사 목적·목표량 조건이 없어 비율 미계산)"} · 획득 처리 개별 자료 <strong>{count(acquired)}</strong>건{imported != null && <> · 적재 처리 자료 <strong>{count(imported)}</strong>건</>}{trace.jobs.failed > 0 && <> · 실패 작업 <strong>{trace.jobs.failed}</strong></>}{trace.jobs.queued + trace.jobs.running > 0 && <> · 대기·진행 작업 {trace.jobs.queued + trace.jobs.running}</>}</p>
+    <p className="kb-note"><span>응답 문서 목록 <strong>{count(loaded)}</strong>건</span> · 추적 API가 반환한 최대 3,000건 범위의 문서 목록 수입니다. 전체 누계가 아니며 적재 처리 자료 수와 다를 수 있어 전환율로 비교하지 않습니다.</p>
   </section>;
 }
 

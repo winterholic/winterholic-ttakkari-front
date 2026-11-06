@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useNavigate, useSearchParams } from "react-router";
 
 const api = vi.hoisted(() => ({
   list: vi.fn(),
@@ -68,13 +68,62 @@ const mount = (url = "/collect", queryClient = new QueryClient({ defaultOptions:
   return queryClient;
 };
 
+function HistoryControls() {
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  return <div><button onClick={() => navigate(-1)}>뒤로 테스트</button><output>{params.get("view") ?? "projects"}</output></div>;
+}
+
 it("첫 화면은 자연어 임무 입력이고 범위 토글이나 출처 설정을 요구하지 않는다", async () => {
   mount();
   expect(await screen.findByLabelText("무엇을 수집하고 싶으세요?")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "회사" })).toBeNull();
   expect(screen.queryByText("운영 현황")).toBeNull();
-  expect(screen.getByRole("button", { name: "내역" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "새 수집" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: "수집 프로젝트" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "새 연구 계획" }).getAttribute("aria-pressed")).toBe("true");
+});
+
+it("최상위 프로젝트·검토·운영 선택은 화면과 URL에 반영되고 뒤로가기로 복구된다", async () => {
+  render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><MemoryRouter initialEntries={["/collect"]}><CollectPage /><HistoryControls /></MemoryRouter></QueryClientProvider>);
+  expect(await screen.findByLabelText("무엇을 수집하고 싶으세요?")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "자료·품질 검토" }));
+  expect(await screen.findByText("검토")).toBeTruthy();
+  expect(screen.queryByLabelText("무엇을 수집하고 싶으세요?")).toBeNull();
+  expect(screen.getByText("review").textContent).toBe("review");
+  fireEvent.click(screen.getByRole("button", { name: "운영·진단" }));
+  expect(await screen.findByRole("button", { name: "운영 현황" })).toBeTruthy();
+  expect(screen.getByText("overview").textContent).toBe("overview");
+  fireEvent.click(screen.getByRole("button", { name: "뒤로 테스트" }));
+  expect(await screen.findByText("검토")).toBeTruthy();
+  expect(screen.getByText("review").textContent).toBe("review");
+});
+
+it.each([
+  ["overview", "운영 현황"], ["sources", "출처 설정"], ["runs", "실행 이력"], ["quality", "품질 설정"],
+] as const)("기존 view=%s URL은 프로젝트 목록을 마운트하지 않고 해당 화면을 연다", async (view, target) => {
+  mount(`/collect?view=${view}`);
+  expect(await screen.findByText(target, { selector: "p" })).toBeTruthy();
+  expect(screen.queryByLabelText("무엇을 수집하고 싶으세요?")).toBeNull();
+  expect(screen.getByRole("button", { name: "프로젝트·자료" }).getAttribute("aria-pressed")).toBe("false");
+});
+
+it("view=review 직접 URL은 프로젝트 목록 대신 검토 대기 화면을 연다", async () => {
+  mount("/collect?view=review");
+  expect(await screen.findByText("검토")).toBeTruthy();
+  expect(screen.queryByLabelText("무엇을 수집하고 싶으세요?")).toBeNull();
+  expect(screen.getByRole("button", { name: "자료·품질 검토" }).getAttribute("aria-pressed")).toBe("true");
+});
+
+it("trace 문서 목록과 적재 처리 수를 서로 다른 모수와 응답 범위로 표시한다", async () => {
+  api.trace.mockResolvedValue({ ...trace, stages: [
+    { key: "acquire", label: "획득", count: 12, detail: "자료 12개 처리 · 접근 제한 1 · 실패 0" },
+    { key: "load", label: "도서관 적재", count: 7, detail: "고유 자료 7개 적재 · 전달 대기 0" },
+  ] });
+  mount("/collect?mission=m1&tab=overview");
+  const summary = await screen.findByRole("region", { name: "진행 요약" });
+  expect(summary.textContent).toContain("적재 처리 자료 7건");
+  expect(summary.textContent).toContain("응답 문서 목록 2건");
+  expect(summary.textContent).toContain("최대 3,000건");
 });
 
 it("사용자 맥락과 목적을 한 번에 제출하고 실제 적재 결과를 연다", async () => {
@@ -87,7 +136,7 @@ it("사용자 맥락과 목적을 한 번에 제출하고 실제 적재 결과�
   // 시작하면 곧바로 그 임무의 상세 화면(개요 탭)으로 넘어간다.
   expect(await screen.findByText("원문 적재와 의미·관계 처리는 별도로 진행됩니다.")).toBeTruthy();
   expect(screen.queryByLabelText("무엇을 수집하고 싶으세요?")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "자료" }));
+  fireEvent.click(screen.getByRole("button", { name: "자료·품질" }));
   expect(await screen.findByText("설계 원전")).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "수집 결과" })).getByRole("link", { name: "도서관에서 보기" }).getAttribute("href")).toContain("doc=d1");
 });
@@ -97,7 +146,7 @@ it("임무 목록 오류에는 재시도 경로가 있고 운영 설정은 접�
   mount();
   expect(await screen.findByText(/연결을 확인/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "다시 불러오기" })).toBeTruthy();
-  expect(screen.getByText("운영·고급 설정")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "운영·진단" })).toBeTruthy();
 });
 
 it("진행 중인 임무는 일시정지와 취소를 지원하고 상태에 맞는 버튼을 제공한다", async () => {
@@ -202,7 +251,7 @@ it("한 응답의 회차 이력과 결과별 품질 축을 함께 보여주고 �
   expect(screen.getByText(/-0\.4.*확률값 아님/)).toBeTruthy();
   expect(screen.getByText(/도서관에 적재됨/)).toBeTruthy();
   expect(screen.getByText(/판정 기준: 미검증/)).toBeTruthy();
-  expect(screen.getByText(/정밀 평가 엔진: 사용할 수 없음/)).toBeTruthy();
+  expect(document.body.textContent).toContain("정밀 평가 엔진: 엔진 사용 불가");
   expect(screen.queryByText(/저품질.*%/)).toBeNull();
 });
 
@@ -238,7 +287,7 @@ it("보류 복구에서 권리 거부를 사용자 문장으로 보여주고 임
   mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText("설계 원전")).toBeTruthy();
   fireEvent.click(await screen.findByRole("button", { name: "보류 복구" }));
-  expect(await screen.findByText("이 자료를 도서관에 적재할 권리를 확인해 주세요.")).toBeTruthy();
+  expect(await screen.findByText(/권한 또는 출처 정책으로 복구할 수 없습니다/)).toBeTruthy();
   expect(screen.queryByText("knowledge_permission_missing")).toBeNull();
   expect(screen.getByRole("button", { name: "보류 복구" })).toBeTruthy();
 });
@@ -277,16 +326,17 @@ it("정밀평가 대기·확인 불가 건수와 엔진 상태를 정확히 표�
   });
   api.detail.mockResolvedValue(withEngine("busy"));
   mount("/collect?mission=m1&tab=docs");
-  expect(await screen.findByText("정밀평가 대기 3건 · 결과에 따라 도서관 적재가 늘 수 있음")).toBeTruthy();
+  expect(await screen.findByLabelText("정밀평가 대기")).toBeTruthy();
+  expect(screen.getByLabelText("정밀평가 대기").textContent).toContain("결과에 따라 도서관 적재가 달라질 수 있음");
   expect(screen.getByText("정밀평가 결과 확인 불가 1건 · 운영자 확인 필요")).toBeTruthy();
-  expect(screen.getByLabelText("품질 판정 집계").textContent).toContain("정밀평가 대기 3건 · 결과 확인 불가 1건");
+  expect(screen.getByLabelText("품질 판정 집계").textContent).toContain("대기 2건 · 처리 중 1건 · 결과 확인 불가 1건");
   fireEvent.click(screen.getByText("품질 축과 평가 상태"));
-  expect(screen.getByText("정밀 평가 엔진: 로컬 모델 사용 중 · 대기")).toBeTruthy();
+  expect(document.body.textContent).toContain("정밀 평가 엔진: 사용 상태 확인 중");
   expect(screen.queryByText(/내부-상세-문구/)).toBeNull();
   expect(document.body.textContent).not.toContain("내부-상세-문구");
 });
 
-it.each([["ready", "준비됨"], ["unavailable", "사용할 수 없음"], ["enabled_without_registered_engine", "사용할 수 없음"], ["surprise", "확인 필요"]])(
+it.each([["ready", "준비됨"], ["unavailable", "엔진 사용 불가"], ["enabled_without_registered_engine", "등록된 엔진 확인 안 됨"], ["surprise", "확인 필요"]])(
   "정밀평가 엔진 %s 는 %s 로 표시한다", async (engine, label) => {
     api.detail.mockResolvedValue({
       ...mission, counts: { ...mission.counts, precise_waiting: 0, precise_unresolved: 0 },
@@ -295,7 +345,7 @@ it.each([["ready", "준비됨"], ["unavailable", "사용할 수 없음"], ["enab
     });
     mount("/collect?mission=m1&tab=docs");
     fireEvent.click(await screen.findByText("품질 축과 평가 상태"));
-    expect(screen.getByText("정밀 평가 엔진: " + label)).toBeTruthy();
+    expect(document.body.textContent).toContain("정밀 평가 엔진: " + label);
     expect(screen.queryByLabelText("정밀평가 대기")).toBeNull();
   });
 
@@ -304,7 +354,7 @@ it("연구 블록이 없는 응답은 자율 조사 영역 없이 기존 품질�
   mount("/collect?mission=m1&tab=docs");
   expect(await screen.findByText(/마지막 갱신 회차: 2회차/)).toBeTruthy();
   expect(screen.queryByLabelText("자율 조사")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "요약" }));
+  fireEvent.click(screen.getByRole("button", { name: "요약·진행" }));
   expect(await screen.findByLabelText("처리 단계")).toBeTruthy();
 });
 
@@ -318,15 +368,15 @@ it("연구 응답은 요약만 기본으로 보이고 계획 범위와 남은 �
       { reason: "no_search_candidates", message: "검색에서 수집할 출처를 찾지 못했습니다." }],
   });
   mount("/collect?mission=m1&tab=docs");
-  const results = await screen.findByRole("region", { name: "수집 결과" });
-  const gaps = screen.getByRole("region", { name: "남은 범위" });
-  expect(results.compareDocumentPosition(gaps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  await screen.findByText("설계 원전");
+  fireEvent.click(screen.getByRole("button", { name: "요약·진행" }));
+  const gaps = screen.getByRole("region", { name: "문제와 해결 행동" });
+  expect(gaps.textContent).toContain("다음 행동");
   expect(screen.getByText(/실패한 검색 2건 · 원인: 응답 시간 초과/)).toBeTruthy();
   expect(screen.getByText(/검색은 성공했지만 수집할 출처를 찾지 못했습니다\(검색 실패와 다름\)/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "요약" }));
   expect(await screen.findByLabelText("자율 조사")).toBeTruthy();
   expect(screen.getByLabelText("조사 종료 사유").textContent).toContain("검색 예산을 모두 써서");
-  fireEvent.click(screen.getByRole("button", { name: "지시문" }));
+  fireEvent.click(screen.getByRole("button", { name: "조사 지시문·계획" }));
   fireEvent.click(await screen.findByText("계획과 조사 범위"));
   const plan = screen.getByLabelText("수집 계획");
   expect(plan.textContent).toContain("후보 없음");
@@ -340,18 +390,18 @@ it("임무 화면은 탭마다 한 가지씩 보여준다: 요약(단계·실패
   const alert = screen.getByLabelText("실패한 작업");
   expect(alert.textContent).toContain("handler_error · boom");
   expect(alert.textContent).toContain("missions.py:10 prepare");
-  expect(screen.queryByLabelText("요청한 내용")).toBeNull();
+  expect(screen.getByLabelText("요청한 내용")).toBeTruthy();
 
-  fireEvent.click(screen.getByRole("button", { name: "대상별" }));
+  fireEvent.click(screen.getByRole("button", { name: "확보 분야" }));
   const requirements = await screen.findByLabelText("요구한 대상과 분야");
   expect(requirements.querySelector('[data-status="met"]')?.textContent).toContain("IBM Carbon");
   expect(requirements.querySelector('[data-status="blocked"]')?.textContent).toContain("Apple Human Interface Guidelines");
   expect(screen.queryByLabelText("처리 단계")).toBeNull();
 
-  fireEvent.click(screen.getByRole("button", { name: "자료" }));
+  fireEvent.click(screen.getByRole("button", { name: "자료·품질" }));
   expect((await screen.findByLabelText("버려지거나 보류된 자료")).textContent).toContain("low_information_density");
 
-  fireEvent.click(screen.getByRole("button", { name: "지시문" }));
+  fireEvent.click(screen.getByRole("button", { name: "조사 지시문·계획" }));
   expect((await screen.findByLabelText("요청한 내용")).textContent).toContain("IBM Carbon, Material Design 과 Apple HIG");
 });
 
@@ -377,14 +427,14 @@ it("수집이 진행 중이면 보충 버튼은 눌리지 않는다", async () =
   expect(screen.getByText("수집이 끝난 뒤에 보충할 수 있습니다.")).toBeTruthy();
 });
 
-it("자료 탭은 도서관에 저장된 자료를 대상·검색어로 걸러 보여 준다", async () => {
+it("자료 탭은 추적 응답 문서 목록을 대상·검색어로 걸러 보여 준다", async () => {
   mount("/collect?mission=m1&tab=docs");
-  const docs = await screen.findByLabelText("도서관에 저장된 자료");
+  const docs = await screen.findByLabelText("추적 응답 문서 목록");
   expect(docs.textContent).toContain("Carbon 타이포그래피");
   expect(docs.textContent).toContain("어느 블로그 글");
   fireEvent.change(screen.getByLabelText("대상"), { target: { value: "t:carbon" } });
   expect(docs.textContent).not.toContain("어느 블로그 글");
   fireEvent.change(screen.getByLabelText("대상"), { target: { value: "" } });
   fireEvent.change(screen.getByLabelText("자료 검색"), { target: { value: "없는검색어" } });
-  expect(docs.textContent).toContain("조건에 맞는 자료가 없습니다");
+  expect(docs.textContent).toContain("조건에 맞는 응답 문서가 없습니다");
 });

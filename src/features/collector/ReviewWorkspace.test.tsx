@@ -41,7 +41,7 @@ it("검토 화면은 전체 총량과 현재 로드 범위를 구분하고 필�
   mount(<Review />);
   expect(await screen.findByRole("heading", { name: "서버 검토 대기 120건" })).toBeTruthy();
   expect(screen.getByText(/현재 2건을 불러왔습니다.*전체/)).toBeTruthy();
-  expect(screen.getByText(/자동 평가와 불확실성은 목록 API에 값이 없어 미확인입니다/)).toBeTruthy();
+  expect(screen.getByText(/자동 평가와 불확실성은 목록 API에서 제공되지 않아 미확인입니다/)).toBeTruthy();
   expect(screen.getByText(/이 검토 응답에는 정밀 판정 엔진·모델·상태와 정밀 평가 대기 건수가 없습니다 · 미확인/)).toBeTruthy();
   expect(screen.getByText(/중복 관계 대상: 미확인/)).toBeTruthy();
   fireEvent.change(screen.getByLabelText("자료 검색"), { target: { value: "other.test" } });
@@ -75,6 +75,8 @@ it("ItemReview는 이유를 요구하고 사용자 판단과 적재 요청의 �
   api.importCollectItem.mockResolvedValue({});
   mount(<Review />);
   await screen.findByText("https://example.com/a");
+  expect(screen.queryByLabelText("자료의 유용성 검토")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "판정·적재 검토 열기" }));
   const accept = screen.getByRole("button", { name: "유용함" });
   expect((accept as HTMLButtonElement).disabled).toBe(true);
   fireEvent.change(screen.getByLabelText("자료의 유용성 검토"), { target: { value: "본문을 확인했고 주제와 직접 관련됩니다." } });
@@ -84,6 +86,18 @@ it("ItemReview는 이유를 요구하고 사용자 판단과 적재 요청의 �
   fireEvent.click(screen.getByRole("button", { name: "검토한 자료 도서관에 적재" }));
   await screen.findByText(/적재 요청을 등록했어요/);
   expect(api.importCollectItem).toHaveBeenCalledWith("i1", undefined);
+});
+
+it("대량 목록에서는 판정 폼을 기본 접고 공통 자동 평가 안내와 행별 다음 조치를 남긴다", async () => {
+  api.collectReviewQueue.mockResolvedValue({ items: Array.from({ length: 50 }, (_, index) => row({ id: `i${index}`, url: `https://example.com/${index}` })), total: 2310, limit: 50, offset: 0 });
+  mount(<Review />);
+  await screen.findByText("https://example.com/0");
+  expect(screen.getAllByText(/자동 평가와 불확실성은 목록 API에서 제공되지 않아 미확인입니다/)).toHaveLength(1);
+  expect(screen.getAllByRole("button", { name: "판정·적재 검토 열기" })).toHaveLength(50);
+  expect(screen.queryByLabelText("자료의 유용성 검토")).toBeNull();
+  expect(screen.getByText("https://example.com/0").closest("li")?.textContent).toContain("가능 조치: 원문 재처리");
+  fireEvent.click(screen.getAllByRole("button", { name: "판정·적재 검토 열기" })[0]);
+  expect(screen.getAllByLabelText("자료의 유용성 검토")).toHaveLength(1);
 });
 
 it("재처리 요청 중·성공 상태를 행에 알린다", async () => {
@@ -138,11 +152,13 @@ it("다음 검토 페이지가 실패해도 기존 항목과 필터를 보존하
     .mockResolvedValueOnce({ items: [row({ id: "i2", url: "https://example.com/b", source_key: "example.com" })], total: 3, limit: 1, offset: 1 });
   mount(<Review />);
   await screen.findByText("https://example.com/a");
+  expect(screen.getAllByRole("button", { name: "다음 1건 불러오기" })).toHaveLength(2);
   fireEvent.change(screen.getByLabelText("출처"), { target: { value: "example.com" } });
-  fireEvent.click(screen.getByRole("button", { name: "다음 1건 불러오기" }));
+  fireEvent.click(screen.getAllByRole("button", { name: "다음 1건 불러오기" })[0]);
   expect(await screen.findByText(/다음 페이지를 불러오지 못했어요/)).toBeTruthy();
   expect(screen.getByText("https://example.com/a")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "다음 페이지 다시 시도" }));
+  expect(screen.getAllByRole("button", { name: "다음 페이지 다시 시도" })).toHaveLength(2);
+  fireEvent.click(screen.getAllByRole("button", { name: "다음 페이지 다시 시도" })[0]);
   expect(await screen.findByText("https://example.com/b")).toBeTruthy();
   expect(screen.getByLabelText("출처")).toBeTruthy();
 });
