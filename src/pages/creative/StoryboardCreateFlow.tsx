@@ -132,7 +132,7 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
         <Button variant="primary" busy={accept.isPending} disabled={!reviewed || accept.isPending} onClick={() => accept.mutate()}>이 출력으로 미승인 계획 만들기</Button>
       </>}
       {notice && !data?.storyboard && <p className="creative-notice" role="status">{notice}</p>}
-      {data && data.status !== "queued" && data.status !== "running" && <Button onClick={() => { setRun(null); setNotice(""); }}>다른 요청 작성</Button>}
+      {data && data.status !== "queued" && data.status !== "running" && <Button onClick={() => { setRun(null); setRequestKey(makeKey()); setNotice(""); }}>다른 요청 작성</Button>}
     </section>}
   </section>;
 }

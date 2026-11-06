@@ -85,11 +85,36 @@ test("a 503 retry reuses the same idempotency key and never creates a lexical pl
   expect((await screen.findByRole("alert")).textContent).toMatch(/HTTP 503|503|engine unavailable/);
   fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
   await screen.findByText(/실행 상태/);
-  expect(calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST")).toHaveLength(2);
-  expect(calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST").map((call) => call.key)).toEqual([
-    calls[0].key, calls[0].key,
-  ]);
+  const startRequests = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(startRequests).toHaveLength(2);
+  expect(startRequests[1].key).toBe(startRequests[0].key);
+  expect(startRequests[1].body).toEqual(startRequests[0].body);
   expect(calls.some((call) => call.url.endsWith("/plans") && call.method === "POST")).toBe(false);
+});
+
+test("starting another request rotates the idempotency key even when the brief is unchanged", async () => {
+  let starts = 0;
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") {
+      starts++;
+      return { run_id: `run-${starts}`, status: "queued", engine: "codex", model: null, session_id: "session" };
+    }
+    if (url.endsWith("/storyboard/runs/run-1")) return { run_id: "run-1", status: "failed", phase: "failed", review_required: true, sources: [], storyboard: null, error: "temporary failure" };
+    if (url.endsWith("/storyboard/runs/run-2")) return { run_id: "run-2", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "같은 brief를 새로 제출" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  fireEvent.click(await screen.findByRole("button", { name: "다른 요청 작성" }));
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const requestStarts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(requestStarts).toHaveLength(2);
+  expect(requestStarts[1].body).toEqual(requestStarts[0].body);
+  expect(requestStarts[1].key).not.toBe(requestStarts[0].key);
 });
 
 test("cancellation and terminal resume follow the server phases without approving or rendering", async () => {
