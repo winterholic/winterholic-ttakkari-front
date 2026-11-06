@@ -56,6 +56,165 @@ test("submits the supported storyboard request once, reviews output and accepts 
   expect(accept?.body).toEqual({ reviewed_output_sha256: "a".repeat(64) });
   expect(calls.some((c) => c.url.endsWith("/approve") || c.url.endsWith("/production/render"))).toBe(false);
 });
+test("submits selected text documents and an explicit optional quality goal through supported fields", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-doc", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-doc")) return { run_id: "run-doc", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "제품 소개 영상" } });
+  fireEvent.change(screen.getByLabelText("품질 목표 (선택)"), { target: { value: "초보자도 핵심 기능을 바로 이해하도록" } });
+  const document = new File(["첫 장면은 제품 사용 전의 불편을 보여 줍니다."], "기획 메모.md", { type: "text/markdown" });
+  fireEvent.change(screen.getByLabelText("텍스트 참고 문서 (.txt, .md)"), { target: { files: [document] } });
+  await screen.findByText(/읽기 완료/);
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const start = calls.find((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(start?.body).toEqual({
+    brief: "사용자 요청:\n제품 소개 영상\n\n사용자 품질 목표 (보장 아님):\n초보자도 핵심 기능을 바로 이해하도록",
+    engine: "codex",
+    sources: [
+      { id: "brief", locator: "사용자 요청", text: "사용자 요청:\n제품 소개 영상\n\n사용자 품질 목표 (보장 아님):\n초보자도 핵심 기능을 바로 이해하도록" },
+      { id: expect.stringMatching(/^file-/), locator: "기획 메모.md", text: "첫 장면은 제품 사용 전의 불편을 보여 줍니다." },
+    ],
+  });
+  expect(Object.keys(start?.body as object).sort()).toEqual(["brief", "engine", "sources"].sort());
+  expect(start?.key).toBeTruthy();
+});
+
+test("reports unsupported, empty and oversized reference documents and prevents submission", async () => {
+  const calls = stub((url, init) => url.endsWith("/storyboard/runs") && init?.method === "POST"
+    ? { run_id: "run-invalid", status: "queued", engine: "codex", model: null, session_id: "session" }
+    : []);
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  const input = screen.getByLabelText("텍스트 참고 문서 (.txt, .md)");
+
+  fireEvent.change(input, { target: { files: [new File(["pdf bytes"], "scan.pdf", { type: "application/pdf" })] } });
+  expect(await screen.findByText(/지원하지 않는 형식/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "scan.pdf 제거" }));
+
+  fireEvent.change(input, { target: { files: [new File([" \n  "], "empty.txt", { type: "text/plain" })] } });
+  expect(await screen.findByText(/문서가 비어 있습니다/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "empty.txt 제거" }));
+
+  fireEvent.change(input, { target: { files: [new File(["x".repeat(12001)], "long.txt", { type: "text/plain" })] } });
+  expect(await screen.findByText(/12,000자 한도/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: "AI 장면 구성 만들기" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(calls.some((call) => call.method === "POST" && call.url.endsWith("/storyboard/runs"))).toBe(false);
+});
+
+test("applies combined brief, source locator and ten-source limits without truncating", async () => {
+  const calls = stub((url, init) => url.endsWith("/storyboard/runs") && init?.method === "POST"
+    ? { run_id: "run-limits", status: "queued", engine: "codex", model: null, session_id: "session" }
+    : { run_id: "run-limits", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null });
+  mount();
+  const brief = screen.getByLabelText("만들고 싶은 콘텐츠");
+  fireEvent.change(brief, { target: { value: "x".repeat(6001) } });
+  expect(await screen.findByText(/brief는 6,000자 이하/)).toBeTruthy();
+  expect((brief as HTMLTextAreaElement).value).toHaveLength(6001);
+  fireEvent.change(brief, { target: { value: "x".repeat(6000) } });
+  fireEvent.change(screen.getByLabelText("품질 목표 (선택)"), { target: { value: "목표" } });
+  expect(await screen.findByText(/brief는 6,000자 이하/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: "AI 장면 구성 만들기" }) as HTMLButtonElement).disabled).toBe(true);
+
+  fireEvent.change(screen.getByLabelText("품질 목표 (선택)"), { target: { value: "" } });
+  fireEvent.click(screen.getByText("추가 출처 본문 (선택)"));
+  fireEvent.change(screen.getByPlaceholderText("자료명 또는 URL"), { target: { value: "x".repeat(501) } });
+  fireEvent.change(screen.getByLabelText("출처 본문"), { target: { value: "출처 본문" } });
+  expect(await screen.findByText(/출처 위치는 500자 이하/)).toBeTruthy();
+
+  fireEvent.change(screen.getByPlaceholderText("자료명 또는 URL"), { target: { value: "x".repeat(500) } });
+  const input = screen.getByLabelText("텍스트 참고 문서 (.txt, .md)");
+  fireEvent.change(input, { target: { files: Array.from({ length: 9 }, (_, index) => new File([`본문 ${index}`], `doc-${index}.txt`, { type: "text/plain" })) } });
+  expect(await screen.findByText(/10개 이하여야/)).toBeTruthy();
+  expect((screen.getByRole("button", { name: "AI 장면 구성 만들기" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(calls.some((call) => call.method === "POST" && call.url.endsWith("/storyboard/runs"))).toBe(false);
+});
+
+test("freezes the brief, quality goal and file selector while the request is starting", async () => {
+  let finish!: (response: Response) => void;
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { finish = resolve; })));
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await waitFor(() => expect((screen.getByLabelText("만들고 싶은 콘텐츠") as HTMLTextAreaElement).disabled).toBe(true));
+  expect((screen.getByLabelText("품질 목표 (선택)") as HTMLTextAreaElement).disabled).toBe(true);
+  expect((screen.getByLabelText("텍스트 참고 문서 (.txt, .md)") as HTMLInputElement).disabled).toBe(true);
+  finish(new Response(JSON.stringify({ run_id: "run-freeze", status: "queued", engine: "codex", model: null, session_id: "session" }), { status: 200 }));
+  await screen.findByText(/실행 상태/);
+});
+
+test("shows a read failure and preserves selected inputs and key for a failed request retry", async () => {
+  let starts = 0;
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") {
+      starts++;
+      return starts === 1
+        ? new Response('{"detail":"engine unavailable"}', { status: 503 })
+        : { run_id: "run-input-retry", status: "queued", engine: "codex", model: null, session_id: "session" };
+    }
+    return { run_id: "run-input-retry", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+  });
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  const failedRead = new File(["unreadable"], "failed.txt", { type: "text/plain" });
+  failedRead.text = () => Promise.reject(new Error("read denied"));
+  fireEvent.change(screen.getByLabelText("텍스트 참고 문서 (.txt, .md)"), { target: { files: [failedRead] } });
+  expect(await screen.findByText(/파일을 읽지 못했습니다/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "failed.txt 제거" }));
+  fireEvent.change(screen.getByLabelText("텍스트 참고 문서 (.txt, .md)"), {
+    target: { files: [new File(["실제 문서 본문"], "notes.txt", { type: "text/plain" })] },
+  });
+  await screen.findByText(/읽기 완료/);
+  fireEvent.change(screen.getByLabelText("품질 목표 (선택)"), { target: { value: "한 가지 핵심을 명확히 전달" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/503/);
+  const first = calls.find((call) => call.method === "POST" && call.url.endsWith("/storyboard/runs"));
+  expect((screen.getByLabelText("품질 목표 (선택)") as HTMLTextAreaElement).value).toBe("한 가지 핵심을 명확히 전달");
+  expect(screen.getByText("notes.txt")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+  const retries = calls.filter((call) => call.method === "POST" && call.url.endsWith("/storyboard/runs"));
+  expect(retries).toHaveLength(2);
+  expect(retries[1].key).toBe(first?.key);
+  expect(retries[1].body).toEqual(first?.body);
+});
+
+test("rotates the idempotency key when a failed request is edited with a goal and reference document", async () => {
+  let starts = 0;
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") {
+      starts++;
+      return starts === 1
+        ? new Response('{"detail":"engine unavailable"}', { status: 503 })
+        : { run_id: "run-edited-retry", status: "queued", engine: "codex", model: null, session_id: "session" };
+    }
+    return { run_id: "run-edited-retry", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+  });
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  expect((await screen.findByRole("alert")).textContent).toMatch(/503/);
+  const originalKey = calls.find((call) => call.method === "POST")?.key;
+
+  fireEvent.change(screen.getByLabelText("품질 목표 (선택)"), { target: { value: "첫 화면에서 핵심을 보여 주기" } });
+  fireEvent.change(screen.getByLabelText("텍스트 참고 문서 (.txt, .md)"), {
+    target: { files: [new File(["출처 본문"], "source.txt", { type: "text/plain" })] },
+  });
+  await screen.findByText(/읽기 완료/);
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const requests = calls.filter((call) => call.method === "POST" && call.url.endsWith("/storyboard/runs"));
+  expect(requests).toHaveLength(2);
+  expect(requests[1].key).not.toBe(originalKey);
+  expect(requests[1].body).toMatchObject({ brief: expect.stringContaining("사용자 품질 목표"), sources: [
+    { id: "brief" }, { locator: "source.txt", text: "출처 본문" },
+  ] });
+});
 
 test("keeps the brief when the server rejects the new endpoint", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response('{"detail":"Not Found"}', { status: 404 })));
@@ -142,26 +301,101 @@ test("cancellation and terminal resume follow the server phases without approvin
   expect(calls.some((call) => call.url.endsWith("/approve") || call.url.endsWith("/production/render"))).toBe(false);
 });
 
-test("a stale accept refreshes the hash and requires a new review", async () => {
-  let reads = 0;
+test("submits a 6,000-character brief without a quality goal in full", async () => {
   const calls = stub((url, init) => {
-    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-stale", status: "queued", engine: "codex", model: null, session_id: "session" };
-    if (url.endsWith("/storyboard/runs/run-stale/accept")) return new Response('{"detail":"storyboard output changed"}', { status: 409 });
-    if (url.endsWith("/storyboard/runs/run-stale")) {
-      reads++;
-      return { run_id: "run-stale", status: "succeeded", phase: "completed_needs_review", review_required: true, sources: [{ id: "brief", locator: "사용자 요청", text: "brief" }], storyboard: story, output_sha256: reads === 1 ? "a".repeat(64) : "b".repeat(64), error: null };
-    }
-    return { id: "plan" };
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-brief-limit", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-brief-limit")) return { run_id: "run-brief-limit", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+  const briefText = "b".repeat(6000);
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: briefText } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const posts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(posts).toHaveLength(1);
+  const payload = posts[0].body as { brief: string; sources: Array<{ id: string; text: string }> };
+  expect(payload.brief).toHaveLength(6000);
+  expect(payload.brief).toBe(briefText);
+  expect(payload.sources).toHaveLength(1);
+  expect(payload.sources[0]).toEqual({ id: "brief", locator: "사용자 요청", text: briefText });
+});
+
+test("submits a 12,000-character additional source body in full", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-extra-source-limit", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-extra-source-limit")) return { run_id: "run-extra-source-limit", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+  const sourceText = "s".repeat(12000);
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  fireEvent.click(screen.getByText("추가 출처 본문 (선택)"));
+  fireEvent.change(screen.getByPlaceholderText("자료명 또는 URL"), { target: { value: "참고 자료" } });
+  fireEvent.change(screen.getByLabelText("출처 본문"), { target: { value: sourceText } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const posts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(posts).toHaveLength(1);
+  const payload = posts[0].body as { brief: string; sources: Array<{ id: string; locator: string; text: string }> };
+  expect(payload.sources).toHaveLength(2);
+  const sentSource = payload.sources.find((source) => source.locator === "참고 자료");
+  expect(sentSource?.text).toHaveLength(12000);
+  expect(sentSource?.text).toBe(sourceText);
+});
+
+test("submits a selected 12,000-character text document in full", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-document-limit", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-document-limit")) return { run_id: "run-document-limit", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
+  });
+  const documentText = "d".repeat(12000);
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  fireEvent.change(screen.getByLabelText("텍스트 참고 문서 (.txt, .md)"), {
+    target: { files: [new File([documentText], "boundary.txt", { type: "text/plain" })] },
+  });
+  await screen.findByText(/읽기 완료/);
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await screen.findByText(/실행 상태/);
+
+  const posts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(posts).toHaveLength(1);
+  const payload = posts[0].body as { sources: Array<{ locator: string; text: string }> };
+  expect(payload.sources).toHaveLength(2);
+  const sentDocument = payload.sources.find((source) => source.locator === "boundary.txt");
+  expect(sentDocument?.text).toHaveLength(12000);
+  expect(sentDocument?.text).toBe(documentText);
+});
+
+test("submits exactly ten sources including the user request", async () => {
+  const calls = stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-source-limit", status: "queued", engine: "codex", model: null, session_id: "session" };
+    if (url.endsWith("/storyboard/runs/run-source-limit")) return { run_id: "run-source-limit", status: "running", phase: "running", review_required: true, sources: [], storyboard: null, error: null };
+    return [];
   });
   mount();
   fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "brief" } });
+  fireEvent.change(screen.getByLabelText("텍스트 참고 문서 (.txt, .md)"), {
+    target: { files: Array.from({ length: 9 }, (_, index) => new File([`문서 본문 ${index}`], `doc-${index}.txt`, { type: "text/plain" })) },
+  });
+  expect(await screen.findAllByText(/읽기 완료/)).toHaveLength(9);
   fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
-  await screen.findByText("구성 요약");
-  fireEvent.click(screen.getByRole("checkbox", { name: /출력 SHA/ }));
-  fireEvent.click(screen.getByRole("button", { name: "이 출력으로 미승인 계획 만들기" }));
-  expect((await screen.findByRole("status")).textContent).toMatch(/최신 서버 응답/);
-  await waitFor(() => expect(screen.getByText(`검토 대기 · SHA-256 ${"b".repeat(64)}`)).toBeTruthy());
-  expect((screen.getByRole("checkbox", { name: /출력 SHA/ }) as HTMLInputElement).checked).toBe(false);
-  expect((screen.getByRole("button", { name: "이 출력으로 미승인 계획 만들기" }) as HTMLButtonElement).disabled).toBe(true);
-  expect(calls.filter((call) => call.url.endsWith("/accept"))).toHaveLength(1);
+  await screen.findByText(/실행 상태/);
+
+  const posts = calls.filter((call) => call.url.endsWith("/storyboard/runs") && call.method === "POST");
+  expect(posts).toHaveLength(1);
+  const payload = posts[0].body as { sources: Array<{ id: string; locator: string; text: string }> };
+  expect(payload.sources).toHaveLength(10);
+  expect(payload.sources[0]).toEqual({ id: "brief", locator: "사용자 요청", text: "brief" });
+  expect(payload.sources.map((source) => source.text.length)).toEqual([
+    5,
+    ...Array.from({ length: 9 }, (_, index) => `문서 본문 ${index}`.length),
+  ]);
+  expect(payload.sources.slice(1).map(({ locator, text }) => ({ locator, text }))).toEqual(
+    Array.from({ length: 9 }, (_, index) => ({ locator: `doc-${index}.txt`, text: `문서 본문 ${index}` })),
+  );
 });

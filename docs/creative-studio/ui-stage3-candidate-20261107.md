@@ -51,3 +51,41 @@
 | `src/pages/creative/StoryboardCreateFlow.test.tsx` | `fde74acaa7d7b8f56442e8c31fa0240beb410189185028fd816d6fd70e2daefd` |
 | `src/pages/creative/creativePlan.css` | `a5e3b1264d2cd996a0a382a9550e86529baebe48351ff49bea043eb5d816aa76` |
 | `vite.config.ts` | `9bfcf190e827c128907f3a1d712e0d4278151606370e089b48251dddb29dcde4` |
+
+## 통합 회귀 보정 기록
+
+- 현재 Run `309d0682-7b69-424b-bd26-35b596fdbe9d`의 profile은 `회사 코덱스 ai2 (ai2@hyperez.io)`다. 실제 작업 경로는 `/private/tmp/front-creative-integrate-ff45e98-c49233c2`, 시작 브랜치는 `feat/creative-text-sources-quality-20261107`, 시작 후보 full SHA는 `dd8f17adee48a66a69977dd0a59cef914f08c5e9`다. 시작 후보의 부모는 `a3b2b51ee88e1c37a0a44f60e8eac3cfdf8ed71d`; 후속 커밋 부모는 시작 후보 SHA다. 두 원 커밋은 수정하지 않았다.
+- 변경 경로는 `src/pages/creative/CreativePlanPage.late-review.test.tsx`와 이 문서다. 제품 source는 바꾸지 않았다.
+- 기존 단독 회귀는 `node_modules/.bin/vitest run src/pages/creative/CreativePlanPage.late-review.test.tsx`에서 실패했다. 기대 placeholder `/주제, 분위기/`가 실제 문구 `주제, 전달할 내용, 분위기와 원하는 장면을 자유롭게 적어 주세요.`와 맞지 않았다. 화면 경로를 확인하니 기본 입력은 `StoryboardCreateFlow`, 보조 구조화 계획 입력은 `CreativePlanNewPage`의 접힌 `<details>`였다. 이 후보에는 예전 `/intent/validate` 수동 의도 편집 UI가 없어 placeholder만 고치면 테스트가 다른 입력을 사용할 수 있었다.
+- 테스트는 기본 `.storyboard-create` 영역으로 scope해 텍스트 입력과 품질 목표를 검사하고, 지연 storyboard start 응답 뒤에도 두 초안과 미확정 상태가 유지되는지 확인한다. 결과: `node_modules/.bin/vitest run src/pages/creative/CreativePlanPage.late-review.test.tsx` → 1 file / 1 test passed. `node_modules/.bin/vitest run src/pages/creative` → 6 files / 76 tests passed.
+- 범위 한계: 이 보정은 현재 UI의 지연 storyboard start를 검증한다. 과거 intent validation 요청과 그에 대한 편집 경합은 현 후보에 해당 UI가 없어 이 후보에서 직접 재검증하지 않았다.
+- 상속 증거: Run `8f449b4e`에서 기존 13검사 통과, `tsc --noEmit` exit 0, 환경 변수 off build exit 0을 기록했다. 이번 변경에는 제품 source가 없으므로 타입·build를 재실행하지 않았다.
+- 브라우저 파일 선택은 미검증이다. 설정된 브라우저에 파일 업로드 도구가 없다는 기존 관측을 보존했고 로컬 브라우저를 실행하지 않았다. 모바일도 미검증이다. 남은 미디어 입력은 이미지·영상·음악·PDF이며 현재 UI의 파일 입력은 `.txt`/`.md` 텍스트 문서만 읽는다.
+
+## 후속 후보 허용 한도 제출 회귀
+
+- 현재 Run은 `0e3ad6c8-bd68-4d74-a48b-e16d23983fa2`, profile은 `회사 코덱스 ai2 (ai2@hyperez.io)`다. 시작 후보는 `a102d12205f8c46853bb4e93a9855da4b8bf85d2`였고 작업 트리는 clean이었다.
+- `StoryboardCreateFlow.test.tsx`에 성공 제출 payload 경계 검사를 추가했다. 품질 목표 없이 정확히 6,000자인 brief가 1회 POST되어 brief와 `brief` source 양쪽에 동일한 6,000자 내용으로 전달되는지 확인한다.
+- 12,000자 source 본문은 두 입력 경로를 각각 검사한다. 선택한 `.txt` 문서 경로는 브라우저에서 읽은 텍스트가 문서 locator 아래 요청 source에 전부 전달되는지 확인한다. 추가 출처 본문 경로는 직접 입력한 본문이 해당 locator의 요청 source에 전부 전달되는지 확인한다. 두 검사는 각 경로의 ASCII 12,000자 fixture만 보장하며, 다른 파일 형식이나 서버 저장·소비까지 증명하지 않는다.
+- 사용자의 brief source 1개와 선택 문서 9개를 제출해 POST 1회 및 요청 source 정확히 10개, 각 locator와 본문 보존을 확인한다. 기존 한도 테스트는 6,001자 brief와 목표 결합 초과, 12,001자 파일, 출처 위치 501자 및 brief 1개 + 추가 source 1개 + 문서 9개(총 11 source) 입력의 차단을 유지한다.
+- 검증: `node_modules/.bin/vitest run src/pages/creative/StoryboardCreateFlow.test.tsx` → 1 file / 15 tests passed. `node_modules/.bin/vitest run src/pages/creative` → 6 files / 79 tests passed. 기존 타입·build는 제품 source가 변경되지 않아 재실행하지 않았다.
+- 이 검사는 UI 컴포넌트의 mock fetch 경계까지 확인한다. 운영 서버 schema 검증, 모델 호출·실제 제작, 브라우저 UI, 모바일, 품질 결과는 미검증이다.
+
+## 후속 Run 재이관 기록
+
+- 총괄의 source 대조와 현재 Run `2a95f0bd-d441-4e13-8816-1d10ce5e0a01` 상세에서 같은 회사 Codex ai2 profile을 확인했다. 시작 HEAD는 `ae0e32dc5e833d869eb1df58d50f7f74448bf8ef`이며, 새 후속 커밋의 부모다. 작업 경로와 feat 브랜치는 위와 같다.
+- `CreativePlanNewPage` (`CreativePlanPage.tsx:1029–1110`)는 `StoryboardCreateFlow`와 보조 `planCreate`만 렌더한다. 제품 화면 검색에서 `직접 의도 작성`, `근거 문구`, `의도 검증 후 확인`은 발견되지 않아 과거 intent validation UI 경로가 제거된 것을 확인했다. 이를 되살리거나 해당 문구에 대한 의미 없는 assertion을 유지하지 않았다.
+- 이전 보정의 지연 start 검사는 `freezes the brief, quality goal and file selector while the request is starting` (`StoryboardCreateFlow.test.tsx:138`)의 기존 계약과 중복되므로 제거했다. 이 13검사 중 요청 동결 계약은 그대로 두고 수정하지 않았다.
+- 대응하는 도달 가능한 계약 두 개를 `StoryboardCreateFlow.late-review.test.tsx`로 이관했다. 지연 파일 읽기 후 제거된 문서가 최신 brief 제출에 되살아나지 않는지, 완료 결과가 사용자 확인 전에는 미승인인지 함께 검사한다. stale accept/409 뒤 새 SHA가 오면 이전 확인을 해제하고 새 확인 전 accept를 비활성화하는 회귀도 이 파일로 옮겨 강화했다.
+- 검증: `node_modules/.bin/vitest run src/pages/creative/StoryboardCreateFlow.late-review.test.tsx` → 1 file / 2 tests passed. `node_modules/.bin/vitest run src/pages/creative` → 6 files / 75 tests passed. `git diff --check` → exit 0. 제품 source 변경 없음; 타입/build는 Run `8f449b4e`의 source 동일 증거를 재사용한다.
+- 이 재이관은 과거 `/intent/validate` 경합을 같은 API 계약으로 검증한 것은 아니다. 대신 현 제품에서 도달 가능한 최신 입력 보존과 미승인/재검토 계약으로 옮겼다. 과거 intent validation UI 전용 경합은 현재 제품에 없어 별도 미충족 계약으로 남긴다.
+
+## 원격 통합·배포 후속 (2026-11-07)
+
+- 현재 통합 Run `3d808fe3-0baa-44f9-a547-b4e622bcb540`은 `ttk get /api/runs/3d808fe3-0baa-44f9-a547-b4e622bcb540`에서 profile `회사 코덱스 ai2 (ai2@hyperez.io)`로 확인했다. 시작 HEAD는 `6b2f1f372b98e161e9c909ad9f738b3554ad0053`, 부모는 `a102d12205f8c46853bb4e93a9855da4b8bf85d2`, 시작 트리는 clean이었다.
+- `github_accounts` 결과는 `winterholic` active/success, `daeseon-dev` inactive/success다. 토글은 바꾸지 않았으며 fetch/push는 `winterholic` per-command credential만 사용한다.
+- `git fetch origin main:refs/remotes/origin/main` 결과 `origin/main=a3b2b51ee88e1c37a0a44f60e8eac3cfdf8ed71d`. `git merge-base origin/main HEAD`도 같은 SHA이고 `git rev-list --left-right --count origin/main...HEAD`는 `0 4`; 따라서 후보는 원격 main의 fast-forward 후보다. 공통 조상 이후 `origin/main` 경로 delta는 0개다. 신규 원격 기능 delta가 없어 격리 재검증 분기에는 해당하지 않는다.
+- 후보는 `origin/main` 대비 4개 커밋 앞서며 4개 경로를 추가/변경한다: 이 후보 문서, `src/pages/creative/StoryboardCreateFlow.tsx`, `src/pages/creative/StoryboardCreateFlow.test.tsx`, `src/pages/creative/StoryboardCreateFlow.late-review.test.tsx` (이전 late-review 테스트 경로 1개는 제거). 79검사에는 구현79 run의 전체 Creative 79 passed가 포함되고, 독립 75검사 및 별도 허용 경계4검사는 lead handoff의 실제 이벤트 대조 기록을 재사용한다.
+- source 지문 표의 `StoryboardCreateFlow.tsx=f4bb…`는 최초 구현 SHA `048f20d205e6086b4d713b9fa893b46c2830bcf8`의 역사적 지문이다. 후속 feature commit `dd8f17adee48a66a69977dd0a59cef914f08c5e9`부터 현재 후보까지 실제 파일 SHA-256은 `5ce098cb24a03a2bc83afee4397a5c009ad5dae03953c7b01e5116f01f653e15`로 동일하다. 현재 구현79 전체검사 이후 제품 소스, `package.json`, `pnpm-lock.yaml`은 변경되지 않았다. 타입/build는 후속 Run `8f449b4e`에 기록된 동일 source 근거를 재사용하며 이번에는 중복 실행하지 않는다.
+- 배포 전 증거: `git merge-base --is-ancestor origin/main HEAD` exit 0; `git status --short --branch`는 `## feat/creative-text-sources-quality-20261107`만 출력; `git diff --check` exit 0. 이 시점 push는 아직 실행하지 않았다.
+- 최종 통합 SHA, push 원격 SHA, 표준 프런트엔드 deployment ID/state 및 공개 URL 로그인 경계는 push 후 관측값으로 아래에 추가한다. 실제 인증 제작과 공개 도메인의 지정 SHA 연결은 이 Run에서 검증하지 않는다.
