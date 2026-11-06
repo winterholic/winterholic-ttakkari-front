@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 
@@ -19,7 +20,37 @@ vi.mock("../api/client", async (orig) => ({
 }));
 import { ReversePage } from "./ReversePage";
 import { ReverseDetailPage } from "./ReverseDetailPage";
+import { Reconstruction } from "../features/reverse/Reconstruction";
 import { FEATURES } from "../shell/features";
+
+const expectedCapture = new Uint8Array(readFileSync(`${process.cwd()}/src/features/reverse/test-fixtures/capture-expected.png`));
+const sameSizeOtherShaCapture = new Uint8Array(readFileSync(`${process.cwd()}/src/features/reverse/test-fixtures/capture-same-size-other-sha.png`));
+async function sha256(bytes: Uint8Array) {
+  const input = new ArrayBuffer(bytes.length);
+  new Uint8Array(input).set(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", input);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function captureJob({ round = 1, sha, sessionId = `impl-session-r${round}`, outputPath = "/work/project/reverse-engineering/job-1", workspaceId = "ws-1" }:
+  { round?: number; sha: string; sessionId?: string; outputPath?: string; workspaceId?: string }) {
+  const item = { id: "same-web-case", behavior: `회차 ${round} 캡처`, target_type: "web" as const,
+    original: { screenshot: { path: "captures/original.png", sha256: sha, size_bytes: expectedCapture.length, format: "png" as const } },
+    replica: { screenshot: { path: "captures/replica.png", sha256: sha, size_bytes: expectedCapture.length, format: "png" as const } },
+    input: {}, pre_state: {}, environment: {}, evidence_level: "observed" as const,
+    evidence: [{ kind: "web_capture", integrity: { status: "verified" }, provenance: { status: "unverified", reason: "fixture" } }],
+    result: "match" as const, functional_result: "match" as const, visual_result: "match" as const, difference: null,
+    run_id: `impl-run-r${round}` };
+  return { ...doneJob, id: "job-capture-identity", kind: "reconstruction", status: "done", workspace_id: workspaceId,
+    output_path: outputPath, session_id: sessionId, verifier_session_id: `verifier-session-r${round}`,
+    result: { schema_version: 2, latest: { run_id: `impl-run-r${round}`, comparisons: [item] } },
+    stages, rounds: [], activity: [], outputs: [], reconstruction: null };
+}
+
+function renderReconstruction(job: ReturnType<typeof captureJob>) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(<QueryClientProvider client={client}><MemoryRouter><Reconstruction job={job as never} /></MemoryRouter></QueryClientProvider>);
+}
 
 const doneJob = {
   id: "job-1", target: "https://github.com/morluto/rea.git", kind: "git_url", status: "done",
@@ -390,8 +421,9 @@ it("result_state의 기능·시각 요약을 구현과 verifier별로 합산하�
 
 it("웹 캡처는 기능·시각·무결성·관찰 출처를 분리하고 역할별 PNG를 요청 시 읽는다", async () => {
   const outputPath = "/work/project/reverse-engineering/job-1";
-  const png = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
-  const captureRef = (path: string) => ({ path, sha256: "a".repeat(64), size_bytes: png.length,
+  const png = expectedCapture;
+  const captureSha = await sha256(png);
+  const captureRef = (path: string) => ({ path, sha256: captureSha, size_bytes: png.length,
     viewport: { width: 390, height: 844, device_scale_factor: 1 }, format: "png" as const });
   const evidence = { kind: "web_capture", path: "captures/web.json",
     capture: { path: "captures/web.json", sha256: "b".repeat(64), size_bytes: 512 },
@@ -454,6 +486,78 @@ it("웹 캡처는 기능·시각·무결성·관찰 출처를 분리하고 역�
     .toContain("원본 PNG: captures/impl-original.png · 재현 PNG: captures/impl-replica.png");
 });
 
+it("4096바이트의 다른 유효 PNG는 실제 SHA-256이 달라 미리보기에서 거부한다", async () => {
+  expect(expectedCapture).toHaveLength(4096);
+  expect(sameSizeOtherShaCapture).toHaveLength(4096);
+  const expectedSha = await sha256(expectedCapture);
+  const otherSha = await sha256(sameSizeOtherShaCapture);
+  expect(expectedSha).toBe("a3d513e88935c15e2df081463311d1716cd97b35cf7327c24a03141798f1d955");
+  expect(otherSha).toBe("15b951ed6868d526a751d5af59a616ce8a68759cfab86a4c328493130ee97c49");
+  h.content.mockResolvedValue(new Blob([sameSizeOtherShaCapture], { type: "image/png" }));
+  const createObjectURL = vi.fn(() => "blob:tampered");
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
+  renderReconstruction(captureJob({ sha: expectedSha }));
+
+  fireEvent.click(await screen.findByRole("button", { name: "원본 캡처 미리보기" }));
+  expect((await screen.findByRole("alert")).textContent).toContain("SHA-256");
+  expect(screen.queryByRole("img", { name: "회차 1 캡처 · 원본 캡처" })).toBeNull();
+  expect(createObjectURL).not.toHaveBeenCalled();
+});
+
+it("새 회차는 같은 경로의 이전 URL·loading을 지우고 늦은 이전 응답은 새 이미지를 덮지 않는다", async () => {
+  const round1Sha = await sha256(expectedCapture);
+  const round2Sha = await sha256(sameSizeOtherShaCapture);
+  let resolveLate!: (blob: Blob) => void;
+  h.content.mockResolvedValueOnce(new Blob([expectedCapture], { type: "image/png" }));
+  h.content.mockResolvedValueOnce(new Blob([sameSizeOtherShaCapture], { type: "image/png" }));
+  h.content.mockReturnValueOnce(new Promise<Blob>((resolve) => { resolveLate = resolve; }));
+  h.content.mockResolvedValueOnce(new Blob([sameSizeOtherShaCapture], { type: "image/png" }));
+  let urlNo = 0;
+  const createObjectURL = vi.fn(() => `blob:round-${++urlNo}`);
+  const revokeObjectURL = vi.fn();
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL }));
+  const first = captureJob({ round: 1, sha: round1Sha });
+  const view = renderReconstruction(first);
+  const oldOriginalButton = await screen.findByRole("button", { name: "원본 캡처 미리보기" });
+  fireEvent.click(oldOriginalButton);
+  expect(await screen.findByRole("img", { name: "회차 1 캡처 · 원본 캡처" })).toBeTruthy();
+
+  view.rerender(<QueryClientProvider client={new QueryClient()}><MemoryRouter>
+    <Reconstruction job={captureJob({ round: 1, sha: round2Sha }) as never} />
+  </MemoryRouter></QueryClientProvider>);
+  expect(revokeObjectURL).toHaveBeenCalledWith("blob:round-1");
+  expect(screen.queryByRole("img", { name: "회차 1 캡처 · 원본 캡처" })).toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: "원본 캡처 미리보기" }));
+  expect(await screen.findByRole("img", { name: "회차 1 캡처 · 원본 캡처" })).toBeTruthy();
+
+  const oldReplicaButton = screen.getByRole("button", { name: "재현 캡처 미리보기" });
+  h.resolveArtifact.mockRejectedValueOnce(new Error("회차 1 전송 실패"));
+  fireEvent.click(oldReplicaButton);
+  expect((await screen.findByRole("alert")).textContent).toContain("회차 1 전송 실패");
+  expect((oldReplicaButton as HTMLButtonElement).disabled).toBe(false);
+  fireEvent.click(oldReplicaButton);
+  await waitFor(() => expect(h.content).toHaveBeenCalledTimes(3));
+
+  view.rerender(<QueryClientProvider client={new QueryClient()}><MemoryRouter>
+    <Reconstruction job={captureJob({ round: 2, sha: round2Sha, sessionId: "impl-session-r1" }) as never} />
+  </MemoryRouter></QueryClientProvider>);
+  expect(revokeObjectURL).toHaveBeenCalledWith("blob:round-2");
+  expect(screen.queryByRole("img", { name: "회차 1 캡처 · 원본 캡처" })).toBeNull();
+  expect(screen.queryByRole("alert")).toBeNull();
+  const newOriginalButton = await screen.findByRole("button", { name: "원본 캡처 미리보기" }) as HTMLButtonElement;
+  expect(newOriginalButton.disabled).toBe(false);
+  fireEvent.click(newOriginalButton);
+  expect(await screen.findByRole("img", { name: "회차 2 캡처 · 원본 캡처" })).toBeTruthy();
+  expect(h.resolveArtifact).toHaveBeenLastCalledWith({ path: "/work/project/reverse-engineering/job-1/captures/original.png",
+    workspace_id: "ws-1", session_id: "impl-session-r1" });
+
+  resolveLate(new Blob([sameSizeOtherShaCapture], { type: "image/png" }));
+  await waitFor(() => expect(h.content).toHaveBeenCalledTimes(4));
+  expect(createObjectURL).toHaveBeenCalledTimes(3);
+  expect(screen.queryByRole("img", { name: "회차 1 캡처 · 재현 캡처" })).toBeNull();
+  expect((screen.getByRole("img", { name: "회차 2 캡처 · 원본 캡처" }) as HTMLImageElement).src).toContain("blob:round-3");
+});
+
 it("무결성이 확인되지 않거나 캡처 참조가 빠진 웹 증거는 미검증으로 남기고 이미지 경로를 열지 않는다", async () => {
   const unsafe = { id: "unsafe", behavior: "경로 반례", target_type: "web" as const, input: {}, pre_state: {},
     original: { screenshot: { path: "../outside.png", sha256: "a".repeat(64), size_bytes: 20, format: "png" } },
@@ -478,7 +582,7 @@ it("무결성이 확인되지 않거나 캡처 참조가 빠진 웹 증거는 �
 });
 
 it("캡처 artifact 읽기 실패를 알리고 같은 경로를 다시 요청할 수 있다", async () => {
-  const screenshot = { path: "captures/original.png", sha256: "a".repeat(64), size_bytes: 8, format: "png" as const };
+  const screenshot = { path: "captures/original.png", sha256: await sha256(expectedCapture), size_bytes: expectedCapture.length, format: "png" as const };
   const item = { id: "web-retry", behavior: "읽기 실패", target_type: "web" as const, input: {}, pre_state: {},
     original: { screenshot }, replica: {}, environment: {}, evidence_level: "observed" as const,
     evidence: [{ kind: "web_capture", capture: { path: "captures/web.json" },
@@ -488,7 +592,7 @@ it("캡처 artifact 읽기 실패를 알리고 같은 경로를 다시 요청할
   h.resolveArtifact.mockRejectedValueOnce(new Error("artifact not found"));
   const createObjectURL = vi.fn(() => "blob:retry-capture");
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
-  const png = new Blob([new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])], { type: "image/png" });
+  const png = new Blob([expectedCapture], { type: "image/png" });
   h.content.mockResolvedValue(png);
   mountDetail({ ...doneJob, kind: "reconstruction", workspace_id: "ws-1", output_path: "/work/job", session_id: "impl-session",
     result: { schema_version: 2, latest: { comparisons: [item] } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });

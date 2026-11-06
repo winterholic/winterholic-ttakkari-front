@@ -65,35 +65,50 @@ function ResultSide({ label, value }: { label: string; value: Record<string, unk
     <details className="rv-disclosure"><summary>{label} 전체 기록</summary><pre className="rv-code-block">{json(value)}</pre></details>
   </>}</div>;
 }
-function CapturePair({ item, evidence, job, role }: {
-  item: ReverseComparison; evidence?: ReverseEvidenceItem; job: ReverseDetail; role: "implementation" | "verifier";
+function CapturePair({ item, evidence, job, role, identity }: {
+  item: ReverseComparison; evidence?: ReverseEvidenceItem; job: ReverseDetail; role: "implementation" | "verifier"; identity: string;
 }) {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const ownedUrls = useRef(new Set<string>());
+  const mounted = useRef(true);
+  const currentIdentity = useRef(identity);
+  currentIdentity.current = identity;
   const sessionId = role === "verifier" ? job.verifier_session_id : job.session_id;
-  useEffect(() => () => { ownedUrls.current.forEach((url) => URL.revokeObjectURL(url)); }, []);
+  useEffect(() => () => {
+    mounted.current = false;
+    ownedUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    ownedUrls.current.clear();
+  }, []);
   const integrityVerified = evidence?.integrity?.status === "verified";
   const load = async (side: "original" | "replica", ref?: ReverseScreenshotReference | null) => {
     if (!ref || !safeRelativePng(ref) || !integrityVerified || !job.output_path || !job.workspace_id || !sessionId) return;
     const key = `${side}:${ref.path}`;
     if (urls[key] || loading) return;
+    const requestIdentity = currentIdentity.current;
     setLoading(key); setErrors((current) => ({ ...current, [key]: "" }));
     try {
       const artifact = await resolveArtifactLink({ path: outputArtifactPath(ref.path, job.output_path), workspace_id: job.workspace_id, session_id: sessionId });
       const blob = await contentBlob(artifact.id);
-      const signature = new Uint8Array(await blob.slice(0, 8).arrayBuffer());
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      if (!mounted.current || currentIdentity.current !== requestIdentity) return;
+      const signature = bytes.slice(0, 8);
       const pngSignature = [137, 80, 78, 71, 13, 10, 26, 10];
       if (signature.some((byte, index) => byte !== pngSignature[index]) || blob.size !== ref.size_bytes) {
         throw new Error("읽은 파일이 기록된 PNG 캡처와 일치하지 않습니다.");
       }
+      const digest = await crypto.subtle.digest("SHA-256", bytes);
+      if (!mounted.current || currentIdentity.current !== requestIdentity) return;
+      const actualSha256 = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+      if (!ref.sha256 || actualSha256 !== ref.sha256.toLowerCase()) throw new Error("읽은 파일의 SHA-256이 기록된 PNG 캡처와 일치하지 않습니다.");
       const url = URL.createObjectURL(blob);
+      if (!mounted.current) { URL.revokeObjectURL(url); return; }
       ownedUrls.current.add(url);
       setUrls((current) => ({ ...current, [key]: url }));
     } catch (error) {
-      setErrors((current) => ({ ...current, [key]: errorText(error).message }));
-    } finally { setLoading(null); }
+      if (mounted.current && currentIdentity.current === requestIdentity) setErrors((current) => ({ ...current, [key]: errorText(error).message }));
+    } finally { if (mounted.current && currentIdentity.current === requestIdentity) setLoading(null); }
   };
   const canResolve = integrityVerified && !!job.output_path && !!job.workspace_id && !!sessionId;
   const sides = [
@@ -115,17 +130,27 @@ function CapturePair({ item, evidence, job, role }: {
             onClick={() => void load(key, ref)}> {label} 캡처 미리보기</Button>
           {errors[cacheKey] && <p className="tk-error" role="alert">캡처 미리보기 실패: {errors[cacheKey]}</p>}
           {urls[cacheKey] && !errors[cacheKey] && <img className="rv-capture__image" src={urls[cacheKey]} alt={`${item.behavior} · ${label} 캡처`}
-            onError={() => setErrors((current) => ({ ...current, [cacheKey]: "이미지를 표시할 수 없습니다." }))} />}
+            onError={() => {
+              const url = urls[cacheKey];
+              if (url) { URL.revokeObjectURL(url); ownedUrls.current.delete(url); }
+              setUrls((current) => { const next = { ...current }; delete next[cacheKey]; return next; });
+              setErrors((current) => ({ ...current, [cacheKey]: "이미지를 표시할 수 없습니다." }));
+            }} />}
         </>}
       </figure>;
     })}
   </div>;
 }
-function Comparison({ item, job, role }: { item: ReverseComparison; job: ReverseDetail; role: "implementation" | "verifier" }) {
+function Comparison({ item, job, role, comparisonRunId }: {
+  item: ReverseComparison; job: ReverseDetail; role: "implementation" | "verifier"; comparisonRunId?: string | null;
+}) {
   const functional = item.functional_result ?? item.result;
   const label = functional === "match" ? "기능: 일치" : functional === "mismatch" ? "기능: 불일치" : "기능: 미검증";
   const visualEvidence = item.evidence?.filter((e) => e.kind === "visual_assessment") ?? [];
   const webEvidence = item.evidence?.filter((e) => e.kind === "web_capture") ?? [];
+  const captureIdentity = JSON.stringify([job.id, job.workspace_id, job.output_path, role,
+    role === "verifier" ? job.verifier_session_id : job.session_id, comparisonRunId, item.run_id,
+    item.original?.screenshot, item.replica?.screenshot]);
   const evidencePaths = item.evidence?.length ? item.evidence.map((e, index) => {
     const path = e.path ?? e.capture?.path;
     return <code className="rv-path" key={`${e.kind}:${path ?? index}`}>{e.kind}: {path ?? "경로 미기록"}{(e.sha256 ?? e.capture?.sha256) ? ` · sha256 ${e.sha256 ?? e.capture?.sha256}` : ""}</code>;
@@ -150,7 +175,8 @@ function Comparison({ item, job, role }: { item: ReverseComparison; job: Reverse
           <span>실제 관찰 출처: <strong>{webStatus(evidence.provenance?.status)}</strong></span>
           {provenanceReasons(evidence).map((reason) => <p className="rv-note" key={reason}>출처 확인 사유: {reason}</p>)}
           {evidence.capture?.path && <code className="rv-path">캡처 기록: {evidence.capture.path}</code>}
-          <CapturePair item={item} evidence={evidence} job={job} role={role} />
+          <CapturePair identity={captureIdentity} key={captureIdentity}
+            item={item} evidence={evidence} job={job} role={role} />
         </div>) : <p className="rv-note">웹 캡처 증거가 없습니다. 무결성과 실제 관찰 출처 모두 미검증입니다.</p>}
       </div>
     </div>}
@@ -319,7 +345,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         <span>기능 비교 {counts.count}건 · 일치 {counts.matched} · 불일치 {counts.mismatched} · 미검증 {counts.unverified}</span>
         <span>시각 비교 {visualCounts.count}건 · 일치 {visualCounts.matched} · 불일치 {visualCounts.mismatched} · 미검증 {visualCounts.unverified}</span>
       </div>}
-      {latest.comparisons?.length ? <div className="rv-comparisons">{latest.comparisons.map((item) => <Comparison item={item} job={job} role="implementation" key={item.id} />)}</div>
+      {latest.comparisons?.length ? <div className="rv-comparisons">{latest.comparisons.map((item) => <Comparison item={item} job={job} role="implementation" comparisonRunId={latest.run_id} key={item.id} />)}</div>
         : <p className="rv-empty-inline">비교 사례가 없습니다. 직접 비교는 0건이며 결과는 미검증입니다.</p>}
     </section>}
 
@@ -335,7 +361,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         <span>검증 기능 비교 {verificationCounts.count}건 · 일치 {verificationCounts.matched} · 불일치 {verificationCounts.mismatched} · 미검증 {verificationCounts.unverified}</span>
         <span>검증 시각 비교 {verificationVisualCounts.count}건 · 일치 {verificationVisualCounts.matched} · 불일치 {verificationVisualCounts.mismatched} · 미검증 {verificationVisualCounts.unverified}</span>
       </div>}
-      {verificationComparisons.length ? <div className="rv-comparisons">{verificationComparisons.map((item) => <Comparison item={item} job={job} role="verifier" key={`verify-${item.id}`} />)}</div>
+      {verificationComparisons.length ? <div className="rv-comparisons">{verificationComparisons.map((item) => <Comparison item={item} job={job} role="verifier" comparisonRunId={latest.independent_verification?.run_id} key={`verify-${item.id}`} />)}</div>
         : <p className="rv-empty-inline">검증 비교 사례가 없습니다. 독립 검증 비교는 0건이며 결과는 미검증입니다.</p>}
       <div className="rv-verification-report">
         <h3>Verifier 검사와 보고</h3>
@@ -398,7 +424,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
     {!!history.length && <section className="rv-section" aria-label="이전 비교 회차"><h2 className="tk-heading-4">이전 결과</h2>
       <div className="rv-history">{history.map((snapshot, i) => { const c = countComparisons(snapshot); return <details key={snapshot.run_id || i}>
         <summary>{snapshot.created_at || snapshot.run_id || `이전 회차 ${i + 1}`} · 비교 {c.count}건 · 일치 {c.matched} · 불일치 {c.mismatched} · 미검증 {c.unverified}</summary>
-        {snapshot.comparisons?.length ? snapshot.comparisons.map((item) => <Comparison item={item} job={job} role="implementation" key={item.id} />) : <p className="rv-note">저장된 비교 사례가 없습니다.</p>}
+        {snapshot.comparisons?.length ? snapshot.comparisons.map((item) => <Comparison item={item} job={job} role="implementation" comparisonRunId={snapshot.run_id} key={item.id} />) : <p className="rv-note">저장된 비교 사례가 없습니다.</p>}
       </details>; })}</div></section>}
 
     {!!job.outputs?.length && <section className="rv-section" aria-label="소스와 산출물 다운로드"><h2 className="tk-heading-4">소스·산출물</h2>
