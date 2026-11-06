@@ -303,3 +303,67 @@ it("검증 세션 ID가 없으면 Run ID를 대화 링크로 쓰지 않는다", 
   expect(await screen.findByText("verify-run-1")).toBeTruthy();
   expect(screen.queryByRole("link", { name: "검증 대화 보기" })).toBeNull();
 });
+
+it("구현 비교가 일치해도 verifier 불일치 사례·필수 검사 실패와 근거를 표시하고 후속 수정에 포함한다", async () => {
+  const verifierMismatch = { id: "verify-case", behavior: "빈 입력 반례", target_type: "cli" as const,
+    input: { argv: ["tool", ""] }, pre_state: {}, original: { stdout: "help" }, replica: { stdout: "" }, environment: {},
+    evidence_level: "direct" as const, evidence: [{ kind: "execution", path: "evidence/verify-case.json" }],
+    verified_at: "2026-11-07T00:00:00Z", run_id: "verify-run-1", result: "mismatch" as const,
+    difference: { field: "stdout", original: "help", replica: "" } };
+  mountDetail({ ...doneJob, kind: "reconstruction", output_path: "/work/reverse/job-1", session_id: "impl-session",
+    verifier_session_id: "verifier-session", result: { schema_version: 2, latest: {
+      run_id: "impl-run", direct_comparison: { status: "match", count: 1, matched: 1, mismatched: 0, unverified: 0 },
+      comparisons: [{ ...verifierMismatch, id: "impl-case", behavior: "정상 입력", result: "match", run_id: "impl-run", difference: null }],
+      independent_verification: { status: "failed", verdict: "failed", run_id: "verify-run-1" },
+      verification_direct_comparison: { status: "mismatch", count: 1, matched: 0, mismatched: 1, unverified: 0 },
+      verification_comparisons: [verifierMismatch],
+      verification_report: { verdict: "failed", problems: ["필수 검사가 실패했습니다."],
+        checks: [{ command: "pnpm test", exit_code: 1, expected_exit_code: 0, required: true, log: "evidence/verifier.log" }] },
+    } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+
+  const verificationRegion = await screen.findByRole("region", { name: "독립 검증 비교" });
+  expect(screen.getByText("빈 입력 반례")).toBeTruthy();
+  expect(verificationRegion.querySelector(".rv-verification-summary")?.textContent).toContain("차이 발견");
+  expect(screen.getByText(/필수 검사 실패/)).toBeTruthy();
+  expect(screen.getByText(/기대 종료 코드 0/)).toBeTruthy();
+  expect(screen.getByText(/필수 검사가 실패했습니다\./)).toBeTruthy();
+  expect(document.querySelector(".rv-summary__meta")?.textContent).toContain("직접 비교: 확인됨");
+
+  fireEvent.click(screen.getByRole("button", { name: "불일치 차이 수정" }));
+  fireEvent.click(screen.getByRole("button", { name: "이어서 지시" }));
+  await waitFor(() => expect(h.message).toHaveBeenCalledWith("job-1", expect.stringContaining("빈 입력 반례")));
+});
+
+it("verifier 비교 사례가 0건이면 구현 비교와 분리해 0건·미검증으로 표시한다", async () => {
+  mountDetail({ ...doneJob, kind: "reconstruction", result: { schema_version: 2, latest: {
+    direct_comparison: { status: "match", count: 1, matched: 1, mismatched: 0, unverified: 0 },
+    comparisons: [{ id: "impl-case", behavior: "구현 사례", target_type: "cli", input: {}, pre_state: {}, original: {}, replica: {}, environment: {},
+      evidence_level: "direct", evidence: [], verified_at: null, run_id: "impl-run", result: "match", difference: null }],
+    independent_verification: { status: "failed", verdict: "failed", run_id: "verify-run-1" },
+    verification_direct_comparison: { status: "unverified", count: 0, matched: 0, mismatched: 0, unverified: 0 },
+    verification_comparisons: [], verification_report: { verdict: "failed", checks: [], problems: ["비교 사례가 없습니다."] },
+  } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+
+  const verificationRegion = await screen.findByRole("region", { name: "독립 검증 비교" });
+  expect(verificationRegion.textContent).toContain("검증 비교 사례가 없습니다");
+  expect(verificationRegion.querySelector(".rv-verification-summary")?.textContent).toContain("미검증");
+  expect(document.querySelector(".rv-summary__meta")?.textContent).toContain("직접 비교: 확인됨");
+});
+
+it("verifier 로그는 output_path와 verifier_session_id로 읽고 구현 소스 경로는 기존 session을 쓴다", async () => {
+  const outputPath = "/work/project/reverse-engineering/job-1";
+  h.content.mockResolvedValueOnce({ text: async () => "implementation source" } as Blob)
+    .mockResolvedValueOnce({ text: async () => "verifier failure log" } as Blob);
+  mountDetail({ ...doneJob, kind: "reconstruction", output_path: outputPath, workspace_id: "ws-1",
+    session_id: "impl-session", verifier_session_id: "verifier-session",
+    result: { schema_version: 2, latest: { independent_verification: { status: "failed", run_id: "verify-run-1" },
+      verification_direct_comparison: { status: "unverified", count: 0, matched: 0, mismatched: 0, unverified: 0 },
+      verification_comparisons: [], verification_report: { checks: [{ command: "pnpm test", exit_code: 1, expected_exit_code: 0, required: true, log: "evidence/verifier.log" }] } } },
+    stages, rounds: [], activity: [], outputs: [], reconstruction: { summary: "구현", source_files: ["src/main.ts"], observations: [], checks: [], limitations: [] } });
+
+  fireEvent.click(await screen.findByRole("button", { name: "src/main.ts 미리보기" }));
+  await waitFor(() => expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/src/main.ts`, workspace_id: "ws-1", session_id: "impl-session" }));
+  fireEvent.click(screen.getByRole("button", { name: "검증 로그 읽기" }));
+  await waitFor(() => expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/evidence/verifier.log`, workspace_id: "ws-1", session_id: "verifier-session" }));
+  expect(await screen.findByText("verifier failure log")).toBeTruthy();
+});

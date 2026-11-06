@@ -26,14 +26,16 @@ function outputArtifactPath(path: string, outputPath?: string) {
   return `${outputPath.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 function countComparisons(snapshot: ReverseSnapshot | null | undefined) {
-  const summary = snapshot?.direct_comparison;
+  return countComparisonSet(snapshot?.direct_comparison, snapshot?.comparisons ?? []);
+}
+function countComparisonSet(summary: ReverseSnapshot["direct_comparison"], comparisons: ReverseComparison[]) {
   if (summary) return summary;
-  const comparisons = snapshot?.comparisons ?? [];
   return { status: "unverified" as const, count: comparisons.length,
     matched: comparisons.filter((c) => c.result === "match").length,
     mismatched: comparisons.filter((c) => c.result === "mismatch").length,
     unverified: comparisons.filter((c) => c.result === "unverified").length };
 }
+function fileCacheKey(path: string, sessionId?: string | null) { return `${sessionId || "workspace"}:${path}`; }
 function ResultSide({ label, value }: { label: string; value: Record<string, unknown> | null }) {
   return <div className="rv-compare-side"><h4>{label}</h4>{value == null ? <p className="rv-note">원본을 실행할 수 없어 결과가 없습니다.</p> : <>
     <div className="rv-result-fields">{["argv", "stdin", "stdout", "stderr", "exit_code", "request", "response", "url", "method", "body", "status", "status_code", "events", "dom", "screenshot", "environment", "at"].map((key) => value[key] !== undefined && <div key={key}><span>{key}</span><pre>{typeof value[key] === "string" ? String(value[key]) : json(value[key])}</pre></div>)}</div>
@@ -99,24 +101,34 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
   const latest = v2?.latest;
   const history = v2?.history ?? [];
   const counts = countComparisons(latest);
+  const verificationComparisons = latest?.verification_comparisons ?? [];
+  const verificationCounts = countComparisonSet(latest?.verification_direct_comparison, verificationComparisons);
+  const verificationReport = latest?.verification_report;
+  const verificationChecks = verificationReport?.checks ?? [];
+  const failedRequiredChecks = verificationChecks.filter((check) => check.required !== false
+    && check.exit_code !== (check.expected_exit_code ?? 0));
   const independent = latest?.independent_verification ?? (job.verifier_session_id
     ? { status: result?.verification ?? "pending", verdict: result?.verification ?? null }
     : undefined);
   const mismatches = latest?.comparisons?.filter((c) => c.result === "mismatch") ?? [];
+  const verificationMismatches = verificationComparisons.filter((c) => c.result === "mismatch");
   const unknowns = latest?.comparisons?.filter((c) => c.result === "unverified") ?? [];
-  const suggestions = counts.mismatched > 0 ? ["불일치 차이 수정", "경계·오류 입력 추가 검사"]
+  const allMismatches = [...mismatches.map((item) => ({ item, source: "구현 비교" })),
+    ...verificationMismatches.map((item) => ({ item, source: "독립 검증" }))];
+  const suggestions = allMismatches.length > 0 ? ["불일치 차이 수정", "경계·오류 입력 추가 검사"]
     : independent?.status !== "passed" ? ["독립 검증 또는 추가 검사 요청", "대상 설명과 반례 보충"] : ["새 반례 탐색", "설명 보충"];
   const ask = (text: string) => { setPrompt(text); requestAnimationFrame(() => promptRef.current?.focus()); };
-  const readWorkspaceFile = async (path: string) => {
-    if (fileContents[path] !== undefined || readingPath) return;
-    setReadingPath(path); setFileErrors((current) => ({ ...current, [path]: "" }));
+  const readWorkspaceFile = async (path: string, sessionId: string | null | undefined = job.session_id) => {
+    const key = fileCacheKey(path, sessionId);
+    if (fileContents[key] !== undefined || readingPath) return;
+    setReadingPath(key); setFileErrors((current) => ({ ...current, [key]: "" }));
     try {
-      const artifact = await resolveArtifactLink({ path: outputArtifactPath(path, job.output_path), workspace_id: job.workspace_id, session_id: job.session_id });
+      const artifact = await resolveArtifactLink({ path: outputArtifactPath(path, job.output_path), workspace_id: job.workspace_id, session_id: sessionId });
       const body = await contentBlob(artifact.id).then((blob) => blob.text());
-      setFileContents((current) => ({ ...current, [path]: body }));
+      setFileContents((current) => ({ ...current, [key]: body }));
     } catch (error) {
       const message = errorText(error).message;
-      setFileErrors((current) => ({ ...current, [path]: message }));
+      setFileErrors((current) => ({ ...current, [key]: message }));
       toast({ message, tone: "danger" });
     } finally { setReadingPath(null); }
   };
@@ -141,8 +153,9 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         {independent?.run_id && <span>검증 Run ID: <code>{independent.run_id}</code></span>}
         {!v2 && result?.verification && <span>기존 검증 보고: <b>{result.verification}</b> · 독립 Run 근거 미확인</span>}
       </div>
-      {(mismatches.length > 0 || unknowns.length > 0) && <div className="rv-summary__findings">
+      {(mismatches.length > 0 || verificationMismatches.length > 0 || unknowns.length > 0) && <div className="rv-summary__findings">
         {mismatches.slice(0, 3).map((c) => <p key={c.id}><strong>불일치</strong> {c.behavior}: {json(c.difference)}</p>)}
+        {verificationMismatches.slice(0, 3).map((c) => <p key={`verify-${c.id}`}><strong>독립 검증 불일치</strong> {c.behavior}: {json(c.difference)}</p>)}
         {unknowns.slice(0, 3).map((c) => <p key={c.id}><strong>미검증</strong> {c.behavior}: {String(c.difference?.reason ?? "원본 결과 또는 증거 확인 필요")}</p>)}
       </div>}
       <div className="rv-action-row"><Button variant="primary" disabled={active} onClick={() => promptRef.current?.focus()}>후속 요청 작성</Button>
@@ -179,21 +192,57 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         : <p className="rv-empty-inline">비교 사례가 없습니다. 직접 비교는 0건이며 결과는 미검증입니다.</p>}
     </section>}
 
+    {latest && (latest.verification_direct_comparison || latest.verification_comparisons || verificationReport || independent) && <section className="rv-section" aria-label="독립 검증 비교">
+      <div className="rv-section__heading"><div><h2 className="tk-heading-4">독립 검증 비교와 검사</h2>
+        <p className="rv-note">구현 회차의 직접 비교와 분리된 독립 verifier 결과입니다.</p></div></div>
+      <div className="rv-verification-summary">
+        <span>검증 상태: <strong>{statusLabel(independent?.status ?? independent?.verdict)}</strong></span>
+        <span>검증 비교: <strong>{statusLabel(verificationCounts.status)}</strong></span>
+        <span>사례 {verificationCounts.count}건 · 일치 {verificationCounts.matched} · 불일치 {verificationCounts.mismatched} · 미검증 {verificationCounts.unverified}</span>
+      </div>
+      {verificationComparisons.length ? <div className="rv-comparisons">{verificationComparisons.map((item) => <Comparison item={item} key={`verify-${item.id}`} />)}</div>
+        : <p className="rv-empty-inline">검증 비교 사례가 없습니다. 독립 검증 비교는 0건이며 결과는 미검증입니다.</p>}
+      <div className="rv-verification-report">
+        <h3>Verifier 검사와 보고</h3>
+        {failedRequiredChecks.length > 0 && <p className="rv-check-failure" role="alert">필수 검사 실패 {failedRequiredChecks.length}건</p>}
+        {verificationChecks.length ? verificationChecks.map((check, i) => {
+          const failed = check.required !== false && check.exit_code !== (check.expected_exit_code ?? 0);
+          const key = fileCacheKey(check.log ?? `check-${i}`, job.verifier_session_id);
+          return <div className="rv-check" key={`verification-${check.command}-${i}`}>
+            <code>{check.command}</code>
+            <span>{check.required === false ? "선택 검사" : "필수 검사"} · 종료 코드 {check.exit_code ?? "미실행"} · 기대 종료 코드 {check.expected_exit_code ?? 0}{failed ? " · 실패" : ""}</span>
+            {check.reason && <p className="rv-note">제외·실패 사유: {check.reason}</p>}
+            {check.log && <>
+              <code className="rv-path">{check.log}</code>
+              <Button variant="ghost" size="sm" disabled={readingPath !== null || !job.workspace_id && !job.verifier_session_id || !job.verifier_session_id}
+                busy={readingPath === key} onClick={() => void readWorkspaceFile(check.log!, job.verifier_session_id)}>검증 로그 읽기</Button>
+              {fileErrors[key] && <p className="tk-error" role="alert">검증 로그 읽기 실패: {fileErrors[key]}</p>}
+              {fileContents[key] !== undefined && <details className="rv-disclosure" open><summary>{check.log} 본문</summary><pre className="rv-code-block">{fileContents[key]}</pre></details>}
+            </>}
+          </div>;
+        }) : <p className="rv-note">검증자 검사 기록이 없습니다.</p>}
+        {!!verificationReport?.problems?.length && <div className="rv-block"><h4>검증 보고 문제</h4><ul>{verificationReport.problems.map((problem, i) => <li key={i}>{problem}</li>)}</ul></div>}
+        {verificationReport?.summary && <p className="rv-prose">{verificationReport.summary}</p>}
+        {!verificationReport && <p className="rv-note">Verifier 보고서가 전달되지 않았습니다. 상태 표시는 상세 근거를 대신하지 않습니다.</p>}
+      </div>
+    </section>}
+
     {result && <section className="rv-section" aria-label="소스·관찰·검증">
       <h2 className="tk-heading-4">재현 소스와 실행 증거</h2><p className="rv-prose">{result.summary}</p>
-      <div className="rv-evidence-columns"><div><h3>소스 파일</h3>{result.source_files.length ? <ul className="rv-source-list">{result.source_files.map((file) => <li key={file}><code className="rv-path">{file}</code>
-          <div className="rv-row rv-row--wrap"><Button variant="ghost" size="sm" aria-label={`${file} 미리보기`} disabled={readingPath !== null || !job.workspace_id && !job.session_id} busy={readingPath === file} onClick={() => void readWorkspaceFile(file)}>미리보기</Button>
+      <div className="rv-evidence-columns"><div><h3>소스 파일</h3>{result.source_files.length ? <ul className="rv-source-list">{result.source_files.map((file) => { const key = fileCacheKey(file, job.session_id); return <li key={file}><code className="rv-path">{file}</code>
+          <div className="rv-row rv-row--wrap"><Button variant="ghost" size="sm" aria-label={`${file} 미리보기`} disabled={readingPath !== null || !job.workspace_id && !job.session_id} busy={readingPath === key} onClick={() => void readWorkspaceFile(file)}>미리보기</Button>
             {job.session_id ? <Link to={`/workspace/${job.session_id}`} aria-label={`${file} 작업공간에서 보기`}>Workspace 열기</Link> : null}</div>
-          {fileErrors[file] && <p className="tk-error" role="alert">파일 읽기 실패: {fileErrors[file]}</p>}
-          {fileContents[file] !== undefined && <details className="rv-file-preview" open><summary><code>{file}</code> 내용</summary><pre className="rv-code-block">{fileContents[file]}</pre></details>}</li>)}</ul> : <p className="rv-note">소스 파일 목록이 없습니다.</p>}
+          {fileErrors[key] && <p className="tk-error" role="alert">파일 읽기 실패: {fileErrors[key]}</p>}
+          {fileContents[key] !== undefined && <details className="rv-file-preview" open><summary><code>{file}</code> 내용</summary><pre className="rv-code-block">{fileContents[key]}</pre></details>}</li>; })}</ul> : <p className="rv-note">소스 파일 목록이 없습니다.</p>}
           {result.source_preview?.length ? <details className="rv-disclosure"><summary>응답에 포함된 미리보기 {result.source_preview.length}건</summary>
             {result.source_preview.map((file) => <div className="rv-file-preview" key={file.path}><h3><code>{file.path}</code></h3><pre className="rv-code-block">{file.content}</pre></div>)}</details> : null}</div>
         <div><h3>검사·실행</h3>{result.checks.length ? result.checks.map((check, i) => {
+          const key = fileCacheKey(check.log, job.session_id);
           return <div className="rv-check" key={`${check.command}-${i}`}>
             <code>{check.command}</code><span>종료 코드 {check.exit_code}</span>
-            <Button variant="ghost" size="sm" disabled={readingPath !== null || !job.workspace_id && !job.session_id} busy={readingPath === check.log} onClick={() => void readWorkspaceFile(check.log)}>로그 읽기</Button>
-            {fileErrors[check.log] && <p className="tk-error" role="alert">로그 읽기 실패: {fileErrors[check.log]}</p>}
-            {fileContents[check.log] !== undefined && <details className="rv-disclosure" open><summary>{check.log} 본문</summary><pre className="rv-code-block">{fileContents[check.log]}</pre></details>}
+            <Button variant="ghost" size="sm" disabled={readingPath !== null || !job.workspace_id && !job.session_id} busy={readingPath === key} onClick={() => void readWorkspaceFile(check.log)}>로그 읽기</Button>
+            {fileErrors[key] && <p className="tk-error" role="alert">로그 읽기 실패: {fileErrors[key]}</p>}
+            {fileContents[key] !== undefined && <details className="rv-disclosure" open><summary>{check.log} 본문</summary><pre className="rv-code-block">{fileContents[key]}</pre></details>}
           </div>;
         }) : <p className="rv-note">실행 검사가 기록되지 않았습니다.</p>}</div></div>
       <div><h3>관찰·참고 기록</h3>{result.observations.length ? result.observations.map((o, i) => <div className="rv-block" key={i}><p><span className="rv-evidence-level">{reverseEvidenceLabel(o.evidence_level)}</span> {o.finding}</p><p className="rv-note">출처·근거: {o.evidence}</p></div>) : <p className="rv-note">관찰 기록이 없습니다.</p>}</div>
@@ -227,7 +276,7 @@ export function Reconstruction({ job, timeline }: { job: ReverseDetail; timeline
         <summary>{r.role === "verify" ? "독립 검증" : "분석·구현"} · {r.status} · {r.engine}{r.model ? ` / ${r.model}` : ""}</summary><p className="rv-prose">{r.result_text || r.error}</p></details>)}</details>}
 
     <section className="rv-start" aria-label="후속 작업"><h2 className="tk-heading-4">다음 작업</h2>
-      <div className="rv-action-row">{suggestions.map((s) => <Button key={s} variant="ghost" disabled={active} onClick={() => ask(s === "불일치 차이 수정" ? `직접 비교에서 불일치한 항목을 근거와 함께 확인하고 수정해 주세요.\n${mismatches.map((c) => `- ${c.behavior}: ${json(c.difference)}`).join("\n")}` : s)}>{s}</Button>)}
+      <div className="rv-action-row">{suggestions.map((s) => <Button key={s} variant="ghost" disabled={active} onClick={() => ask(s === "불일치 차이 수정" ? `직접 비교와 독립 검증의 불일치 항목을 근거와 함께 확인하고 수정해 주세요.\n${allMismatches.map(({ item, source }) => `- ${source} · ${item.behavior}: ${json(item.difference)}`).join("\n")}` : s)}>{s}</Button>)}
         {job.mode === "analyze" && <Button variant="ghost" busy={saveSettings.isPending} disabled={active || saveSettings.isPending} onClick={switchToReconstruct}>분석에서 재현으로 전환</Button>}</div>
       <label className="rv-label" htmlFor="rv-followup">추가 설명·검사·수정 요청</label>
       <textarea ref={promptRef} id="rv-followup" rows={4} maxLength={40000} value={prompt} onChange={(e) => setPrompt(e.target.value)} placeholder="차이를 고치거나, 추가 검사를 요청하거나, 관찰된 사실과 추론을 보충해 주세요." />

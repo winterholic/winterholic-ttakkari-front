@@ -15,6 +15,23 @@ export interface ReverseRecommendation {
   target_type: ReverseTargetType; mode: ReverseMode; reasons: string[];
 }
 
+export interface ReverseCheck {
+  command: string;
+  exit_code?: number | null;
+  expected_exit_code?: number;
+  required?: boolean;
+  log?: string;
+  reason?: string;
+}
+
+export interface ReverseReport {
+  summary?: string;
+  ready?: boolean;
+  verdict?: string | null;
+  checks?: ReverseCheck[];
+  problems?: string[];
+}
+
 export interface ReverseComparison {
   id: string; behavior: string; target_type: ReverseTargetType; input: Record<string, unknown>;
   pre_state: Record<string, unknown>; original: Record<string, unknown> | null;
@@ -34,10 +51,13 @@ export interface ReverseSnapshot {
   status?: string;
   report?: Record<string, unknown>;
   source?: { status: string; files?: string[] };
-  execution?: { status: string; checks?: { command: string; exit_code?: number | null; log?: string; reason?: string; required?: boolean }[] };
+  execution?: { status: string; checks?: ReverseCheck[] };
   direct_comparison?: { status: ComparisonResult; count: number; matched: number; mismatched: number; unverified: number };
   independent_verification?: { status: string; run_id?: string | null; verdict?: string | null };
   comparisons?: ReverseComparison[];
+  verification_direct_comparison?: { status: ComparisonResult; count: number; matched: number; mismatched: number; unverified: number };
+  verification_comparisons?: ReverseComparison[];
+  verification_report?: ReverseReport;
 }
 
 export interface ReverseV2Result {
