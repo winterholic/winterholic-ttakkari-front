@@ -100,6 +100,8 @@ export interface CollectionMissionResult {
 
 export interface CollectionMission {
   id: string; title: string; goal: string; status: string;
+  topic_key?: string;
+  run_count?: number;
   plan: CollectionPlan;
   run_seq?: number;
   runs?: CollectionMissionRun[];
@@ -117,9 +119,9 @@ export interface CollectionMission {
   knowledge_processing: { storage: string; semantic: string };
   created_at: string; updated_at: string;
 }
-export interface MissionInput { goal: string; context?: string; urls?: string[]; max_pages?: number; max_depth?: number; request_key?: string }
+export interface MissionInput { goal: string; context?: string; urls?: string[]; max_pages?: number; max_depth?: number; request_key?: string; reuse_existing?: boolean }
 const base = "/api/assistant/collect/missions";
-export const collectionMissions = () => json<{ items: CollectionMission[] }>(base);
+export const collectionMissions = (offset = 0) => json<{ items: CollectionMission[]; has_more?: boolean }>(`${base}?limit=100&offset=${offset}`);
 export const collectionMission = (id: string) => json<CollectionMission>(`${base}/${encodeURIComponent(id)}`);
 export const createCollectionMission = (input: MissionInput) => json<CollectionMission>(base, { method: "POST", json: input });
 export const previewCollectionPlan = (input: MissionInput) => json<CollectionPlan>(`${base}/plan`, { method: "POST", json: input });

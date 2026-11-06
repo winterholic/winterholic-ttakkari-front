@@ -113,6 +113,14 @@
 .mission-tabs { position: sticky; top: 0; z-index: var(--tk-z-index-raised); padding-block: var(--tk-space-2); background: var(--tk-color-surface-default); }
 .mission-back { align-self: start; border-color: transparent; background: transparent; padding-inline: 0; color: var(--tk-color-text-secondary); }
 .mission-history { gap: var(--tk-space-3); }
+.mission-history__heading { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.mission-history__heading h2 { line-height: var(--tk-font-line-height-heading); }
+.mission-topic { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--tk-space-2); min-width: 0; }
+.mission-topic__history { min-height: var(--tk-size-touch-target-min); padding: var(--tk-space-2) var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-default); color: var(--tk-color-text-secondary); font: inherit; cursor: pointer; }
+.mission-topic-context { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); padding-block: var(--tk-space-3); }
+.mission-topic-context p { flex-basis: 100%; margin: 0; }
+.mission-history__item time, .mission-history__item small { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); }
+@media (max-width: 639px) { .mission-topic { grid-template-columns: minmax(0, 1fr); } .mission-topic__history { justify-self: start; } }
 
 /* 대상별 진행: 한 줄에 이름·상태·진행 막대, 펼치면 모은 자료. 부족한 것이 위에 온다. */
 .trace-supplement { display: flex; flex-direction: column; gap: var(--tk-space-2); align-items: start; }

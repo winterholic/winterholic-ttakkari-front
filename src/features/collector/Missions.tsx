@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
   cancelCollectionMission,
@@ -20,6 +20,7 @@ import { MissionTrace, type SupplementControl } from "./MissionTrace";
 import { Button } from "../../ui/Button";
 import { COLLECT_REASON, failure } from "../kb/labels";
 import { CoverageTopics, GapDetail, ResearchPanel } from "./ResearchPanel";
+import { missionTopics } from "./missionTopics";
 
 // A continuation adds this much room from the preserved frontier. The owner never types a page count.
 const MORE_PAGES = 1000;
@@ -150,9 +151,9 @@ function Plan({ plan, coverage = plan.coverage }: { plan: CollectionPlan; covera
   </section>;
 }
 
-const TABS: [string, string][] = [["overview", "요약"], ["targets", "대상별"], ["docs", "자료"], ["log", "과정"], ["prompt", "지시문"]];
+const TABS: [string, string][] = [["overview", "요약"], ["targets", "대상별"], ["docs", "자료"], ["log", "과정"], ["runs", "실행 회차"], ["prompt", "지시문"]];
 
-function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: string; onTab: (tab: string) => void }) {
+function Result({ mission, tab, onTab, historical = false }: { mission: CollectionMission; tab: string; onTab: (tab: string) => void; historical?: boolean }) {
   const queryClient = useQueryClient();
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduleMinutes, setScheduleMinutes] = useState<number | null>(
@@ -199,7 +200,7 @@ function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: stri
     },
   });
   const supplement: SupplementControl = {
-    enabled: ["succeeded", "partial", "failed"].includes(mission.status),
+    enabled: !historical && ["succeeded", "partial", "failed"].includes(mission.status),
     pending: supplementMut.isPending ? supplementMut.variables ?? [] : null,
     run: keys => supplementMut.mutate(keys),
     error: supplementMut.isError ? failure(supplementMut.error) : null,
@@ -243,7 +244,7 @@ function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: stri
       )}
     </p>
 
-    <div className="mission-controls" aria-label="임무 제어">
+    {!historical && <div className="mission-controls" aria-label="임무 제어">
       {mission.status === "running" && (
         <Button
           type="button"
@@ -312,11 +313,11 @@ function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: stri
         disabled={isPending}
         onClick={() => setScheduleOpen(prev => !prev)}
       >
-        주기 설정 ({scheduleText})
+          주기 설정 ({scheduleText})
       </Button>
-    </div>
+    </div>}
 
-    {scheduleOpen && (
+    {scheduleOpen && !historical && (
       <div className="mission-schedule-panel" aria-label="수집 주기 설정">
         <h4>수집 주기 갱신</h4>
         <div className="mission-schedule-options">
@@ -410,7 +411,7 @@ function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: stri
           </p>
           <QualityDetails triage={item.triage} missionTriage={mission.triage} />
         </> : <p className="kb-note">기존 결과에는 품질 판정 정보가 없습니다.</p>}
-        {item.status === "held" && <div className="mission-unhold">
+        {item.status === "held" && !historical && <div className="mission-unhold">
           <Button type="button" variant="primary" disabled={unholdMut.isPending} busy={unholdMut.isPending && unholdMut.variables === item.id} onClick={() => unholdMut.mutate(item.id)}>보류 복구</Button>
           {unholdMut.isPending && unholdMut.variables === item.id && <p role="status" className="kb-note">보류 복구를 요청하는 중입니다.</p>}
           {unholdMut.isError && unholdMut.variables === item.id && <p role="alert" className="tk-error">{unholdFailure(unholdMut.error)}</p>}
@@ -424,6 +425,15 @@ function Result({ mission, tab, onTab }: { mission: CollectionMission; tab: stri
     {mission.gaps.length > 0 && <section className="mission-gaps" aria-label="남은 범위"><h3>아직 확보하지 못한 자료</h3><ul>{mission.gaps.map((gap, index) => <li key={`${gap.reason}-${index}`}><p>{gap.message}</p><GapDetail gap={gap} />{gap.url && <a href={gap.url} target="_blank" rel="noreferrer">{gap.url}</a>}</li>)}</ul></section>}
     </>}
     {tab === "log" && <MissionTrace missionId={mission.id} part="log" />}
+    {tab === "runs" && <section className="mission-history" aria-label="실행 회차"><h3>이 수집의 실행 회차</h3>
+      <p className="kb-note">재실행과 추가 수집은 같은 수집 안에 회차로 남습니다. 적재 건수는 회차별 실적입니다.</p>
+      {mission.runs?.length ? mission.runs.map(run => <article className="collect-card" key={run.run_seq}>
+        <h4>{run.run_seq}회차 · {({ initial: "최초 수집", rerun: "다시 실행", extend: "추가 수집", scheduled: "주기 수집", supplement: "보충 수집", retry: "재시도" } as Record<string, string>)[run.trigger] ?? "수집 실행"}</h4>
+        <p>{run.in_progress ? "작업 진행 중" : "작업 종료"} · 수집 {run.collected}건 · 적재 {run.imported}건</p>
+        <time dateTime={run.started_at}>{new Date(run.started_at).toLocaleString("ko-KR")}</time>
+      </article>) : <p className="kb-note">실행 회차 정보가 없습니다.</p>}
+      {(mission.run_count ?? mission.run_seq ?? 1) > (mission.runs?.length ?? 0) && !!mission.runs?.length && <p className="kb-note">전체 {mission.run_count ?? mission.run_seq}회차 중 최근 {mission.runs.length}회차를 표시합니다.</p>}
+    </section>}
     {tab === "prompt" && <><MissionTrace missionId={mission.id} part="prompt" />
     <details><summary>계획과 조사 범위</summary><Plan plan={mission.plan} coverage={mission.research?.coverage ?? mission.plan.coverage} /></details>
     </>}
@@ -436,10 +446,17 @@ export function Missions() {
   const [goal, setGoal] = useState("");
   const [context, setContext] = useState("");
   const [fileError, setFileError] = useState<string | null>(null);
-  const requestKey = useRef<string | null>(null);
   const queryClient = useQueryClient();
-  const list = useQuery({ queryKey: ["collection-missions"], queryFn: collectionMissions, refetchInterval: 10000 });
+  const list = useInfiniteQuery({ queryKey: ["collection-missions"], initialPageParam: 0,
+    queryFn: ({ pageParam }) => collectionMissions(pageParam),
+    getNextPageParam: (last, pages) => (last.has_more ?? last.items.length === 100) ? pages.reduce((n, page) => n + page.items.length, 0) : undefined,
+    refetchInterval: 10000 });
+  const items = list.data?.pages.flatMap(page => page.items) ?? [];
+  const topics = missionTopics(items);
+  const history = params.get("history");
+  const topicHistory = topics.find(topic => topic.attempts.some(attempt => attempt.id === history));
   const detail = useQuery({ queryKey: ["collection-mission", selected], queryFn: () => collectionMission(selected!), enabled: !!selected, refetchInterval: 5000 });
+  const selectedTopic = topics.find(topic => topic.key === detail.data?.topic_key || topic.attempts.some(attempt => attempt.id === selected));
   const input = () => ({ goal: goal.trim(), context });
   const tab = TABS.some(([id]) => id === params.get("tab")) ? params.get("tab")! : "overview";
   const go = (values: Record<string, string | null>) => setParams(previous => {
@@ -447,28 +464,26 @@ export function Missions() {
     for (const [key, value] of Object.entries(values)) { if (value) next.set(key, value); else next.delete(key); }
     return next;
   });
-  const select = (id: string) => go({ mission: id, new: null, tab: null });
-  const view = selected ? "detail" : params.has("new") || (list.isSuccess && list.data.items.length === 0) ? "new" : "history";
-  const create = useMutation({ mutationFn: () => {
-    requestKey.current ??= crypto.randomUUID();
-    return createCollectionMission({ ...input(), request_key: requestKey.current });
-  }, onSuccess: async mission => {
+  const select = (id: string) => go({ mission: id, new: null, tab: null, history: null });
+  const view = selected ? "detail" : params.has("new") || (!history && list.isSuccess && items.length === 0) ? "new" : history ? "history" : "topics";
+  const create = useMutation({ mutationFn: () => createCollectionMission({ ...input(), reuse_existing: true }), onSuccess: async mission => {
     queryClient.setQueryData(["collection-mission", mission.id], mission);
     select(mission.id);
-    requestKey.current = null;
     await queryClient.invalidateQueries({ queryKey: ["collection-missions"] });
   } });
   const preview = useMutation({ mutationFn: () => previewCollectionPlan(input()) });
-  function changed() { requestKey.current = null; preview.reset(); create.reset(); }
+  function changed() { preview.reset(); create.reset(); }
   return <div className="missions">
     <nav className="mission-nav" aria-label="수집 관리 메뉴">
-      <button type="button" aria-pressed={view !== "new"} onClick={() => go({ mission: null, new: null, tab: null })}>내역</button>
-      <button type="button" aria-pressed={view === "new"} onClick={() => go({ mission: null, new: "1", tab: null })}>새 수집</button>
+      <button type="button" aria-pressed={view === "topics" || view === "detail"} onClick={() => go({ mission: null, new: null, tab: null, history: null })}>주제</button>
+      <button type="button" aria-pressed={view === "history"} onClick={() => go({ mission: null, new: null, tab: null, history: "all" })}>실행 내역</button>
+      <button type="button" aria-pressed={view === "new"} onClick={() => go({ mission: null, new: "1", tab: null, history: null })}>새 수집</button>
     </nav>
     {view === "new" && <>
     <form className="mission-composer" onSubmit={event => { event.preventDefault(); if (goal.trim()) create.mutate(); }}>
       <label htmlFor="collection-goal">무엇을 수집하고 싶으세요?</label>
       <p className="kb-note" id="collection-help">지시문을 통째로 붙여 넣으면 됩니다. 대상 이름, 분야, 지켜야 할 규칙을 읽어 알아서 수집합니다. 쪽수는 정하지 않아도 됩니다.</p>
+      <p className="kb-note">같은 지시문과 참고 자료를 다시 제출하면 기존 수집을 엽니다. 다시 실행하거나 더 모으려면 해당 수집의 버튼을 사용하세요.</p>
       <textarea id="collection-goal" className="tk-textarea" rows={9} maxLength={20000} required value={goal} aria-describedby="collection-help" placeholder="하네스 엔지니어링의 이론, 논문과 오픈소스 사례를 폭넓게 수집해줘." onChange={event => { setGoal(event.target.value); changed(); }} />
       <details className="mission-references"><summary>참고 자료 추가</summary>
         <label htmlFor="collection-context">조사 내용과 참고 주소</label>
@@ -491,14 +506,30 @@ export function Missions() {
       {preview.data && <Plan plan={preview.data} />}
     </form>
     </>}
-    {view === "history" && <section className="mission-history" aria-label="수집 내역"><h2>수집 내역</h2>
+    {(view === "topics" || view === "history") && <section className="mission-history" aria-label={view === "topics" ? "수집 주제" : "수집 실행 내역"}><div className="mission-history__heading"><h2>{view === "topics" ? "수집 주제" : topicHistory ? `${topicHistory.current.title} · 실행 내역` : "수집 실행 내역"}</h2>
+      <p className="kb-note">{view === "topics" ? "주제별 현재 수집을 보여줍니다. 이전 시도는 실행 내역에서 볼 수 있습니다." : "각 시도의 상태와 적재량을 따로 표시합니다. 이전 시도의 자료는 그대로 보존됩니다."}</p></div>
       {list.isPending && <p role="status">임무를 불러오는 중</p>}
       {list.isError && <div className="kb-error"><p role="alert">{failure(list.error)}</p><Button onClick={() => void list.refetch()}>다시 불러오기</Button></div>}
-      {list.data?.items.map(mission => <button className="mission-history__item" type="button" key={mission.id} onClick={() => select(mission.id)}><strong>{mission.title}</strong><span>{STATUS[mission.status] ?? mission.status} · 도서관 {mission.counts.imported ?? 0}건</span></button>)}
+      {view === "topics" ? topics.map(topic => <article className="mission-topic" key={topic.key}>
+        <button className="mission-history__item" type="button" onClick={() => select(topic.current.id)}><strong>{topic.current.title}</strong><span>{STATUS[topic.current.status] ?? topic.current.status} · 현재 적재 {topic.current.counts.imported ?? 0}건</span></button>
+        <button className="mission-topic__history" type="button" onClick={() => go({ history: topic.current.id })}>실행 내역 {topic.attempts.length}건</button>
+        {topic.attempts.filter(attempt => ["running", "queued"].includes(attempt.status)).length > 1 && <p className="kb-note">동시에 진행 중인 수집이 여러 건입니다. 실행 내역에서 확인하세요.</p>}
+      </article>) : (history === "all" ? items : topicHistory?.attempts ?? []).map(mission => <button className="mission-history__item" type="button" key={mission.id} onClick={() => select(mission.id)}>
+        {topics.some(topic => topic.current.id === mission.id) && <small>현재 수집</small>}<strong>{mission.title}</strong><span>{STATUS[mission.status] ?? mission.status} · 이 시도 적재 {mission.counts.imported ?? 0}건 · {mission.run_count ?? mission.run_seq ?? 1}회차</span>
+        {mission.created_at && <time dateTime={mission.created_at}>{new Date(mission.created_at).toLocaleString("ko-KR")}</time>}
+      </button>)}
+      {view === "history" && list.isSuccess && items.length === 0 && <p>수집 실행 내역이 없습니다.</p>}
+      {history && history !== "all" && !topicHistory && list.isSuccess && <p role="status">이 주제의 내역을 찾으려면 더 불러오세요.</p>}
+      {list.hasNextPage && <p className="kb-note">현재 불러온 내역 기준입니다. 이전 수집을 더 불러오면 같은 주제 아래에 합쳐집니다.</p>}
+      {list.hasNextPage && <Button busy={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>이전 수집 더 불러오기</Button>}
     </section>}
     {view === "detail" && <div className="mission-selected">
-      <button type="button" className="mission-back" onClick={() => go({ mission: null, tab: null })}>← 수집 내역</button>
-      {detail.isPending && <p role="status">임무 결과를 불러오는 중</p>}{detail.isError && <div className="kb-error"><p role="alert">{failure(detail.error)}</p><Button onClick={() => void detail.refetch()}>결과 다시 읽기</Button></div>}{detail.data && <Result mission={detail.data} tab={tab} onTab={id => go({ tab: id })} />}
+      <button type="button" className="mission-back" onClick={() => go({ mission: null, tab: null, history: null })}>← 수집 주제</button>
+      {selectedTopic && <div className="mission-topic-context">
+        {selectedTopic.current.id !== selected && <><p>이전 실행 내역입니다. 현재 수집에서 이어서 진행할 수 있습니다.</p><Button onClick={() => select(selectedTopic.current.id)}>현재 수집 보기</Button></>}
+        <Button onClick={() => go({ mission: null, tab: null, history: selectedTopic.current.id })}>이 주제의 실행 내역 {selectedTopic.attempts.length}건</Button>
+      </div>}
+      {detail.isPending && <p role="status">임무 결과를 불러오는 중</p>}{detail.isError && <div className="kb-error"><p role="alert">{failure(detail.error)}</p><Button onClick={() => void detail.refetch()}>결과 다시 읽기</Button></div>}{detail.data && <Result key={detail.data.id} mission={detail.data} tab={tab} onTab={id => go({ tab: id })} historical={list.isPending || !!selectedTopic && selectedTopic.current.id !== selected} />}
     </div>}
   </div>;
 }

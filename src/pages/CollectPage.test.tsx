@@ -73,7 +73,7 @@ it("첫 화면은 자연어 임무 입력이고 범위 토글이나 출처 설�
   expect(await screen.findByLabelText("무엇을 수집하고 싶으세요?")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "회사" })).toBeNull();
   expect(screen.queryByText("운영 현황")).toBeNull();
-  expect(screen.getByRole("button", { name: "내역" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "주제" })).toBeTruthy();
   expect(screen.getByRole("button", { name: "새 수집" }).getAttribute("aria-pressed")).toBe("true");
 });
 
@@ -90,6 +90,75 @@ it("사용자 맥락과 목적을 한 번에 제출하고 실제 적재 결과�
   fireEvent.click(screen.getByRole("button", { name: "자료" }));
   expect(await screen.findByText("설계 원전")).toBeTruthy();
   expect(within(screen.getByRole("region", { name: "수집 결과" })).getByRole("link", { name: "도서관에서 보기" }).getAttribute("href")).toContain("doc=d1");
+});
+
+it("같은 주제의 복구 세 건은 현재 수집 한 건과 별도 실행 내역으로 보인다", async () => {
+  const old = { ...mission, id: "old", topic_key: "harness", status: "cancelled", counts: { ...mission.counts, imported: 1467 }, created_at: "2026-11-05T00:00:00Z" };
+  const repair = { ...old, id: "repair", created_at: "2026-11-06T00:00:00Z" };
+  const current = { ...mission, id: "current", topic_key: "harness", counts: { ...mission.counts, imported: 127 }, created_at: "2026-11-06T11:00:00Z" };
+  api.list.mockResolvedValue({ items: [old, repair, current] });
+  api.detail.mockResolvedValue(current);
+  mount();
+  const topics = await screen.findByRole("region", { name: "수집 주제" });
+  expect(await within(topics).findAllByRole("button", { name: /하네스 엔지니어링/ })).toHaveLength(1);
+  expect(within(topics).getByText(/현재 적재 127건/)).toBeTruthy();
+  expect(within(topics).queryByText(/1467/)).toBeNull();
+  fireEvent.click(within(topics).getByRole("button", { name: /실행 내역 3건/ }));
+  const history = await screen.findByRole("region", { name: "수집 실행 내역" });
+  expect(within(history).getAllByRole("button", { name: /하네스 엔지니어링/ })).toHaveLength(3);
+  fireEvent.click(within(history).getByRole("button", { name: /현재 수집.*하네스 엔지니어링/ }));
+  await waitFor(() => expect(api.detail).toHaveBeenCalledWith("current"));
+});
+
+it("제목이 같아도 지시문과 맥락이 다른 주제는 합치지 않는다", async () => {
+  api.list.mockResolvedValue({ items: [
+    { ...mission, id: "one", topic_key: "context-one" },
+    { ...mission, id: "two", topic_key: "context-two" },
+  ] });
+  mount();
+  const topics = await screen.findByRole("region", { name: "수집 주제" });
+  await waitFor(() => expect(within(topics).getAllByRole("button", { name: /하네스 엔지니어링/ })).toHaveLength(2));
+});
+
+it("이전 복구 상세에서는 현재 수집으로 연결하고 재실행 제어를 막는다", async () => {
+  api.list.mockResolvedValue({ items: [
+    { ...mission, id: "current", topic_key: "harness", created_at: "2026-11-06T11:00:00Z" },
+    { ...mission, id: "old", topic_key: "harness", status: "cancelled", created_at: "2026-11-05T00:00:00Z" },
+  ] });
+  api.detail.mockResolvedValue({ ...mission, id: "old", topic_key: "harness", status: "cancelled" });
+  mount("/collect?mission=old");
+  expect(await screen.findByRole("button", { name: "현재 수집 보기" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "다시 실행" })).toBeNull();
+  expect(screen.queryByRole("button", { name: /주기 설정/ })).toBeNull();
+});
+
+it("주제 제출은 기존 수집 재사용을 요청하고 이전 무작위 요청 키를 만들지 않는다", async () => {
+  mount("/collect?new=1");
+  fireEvent.change(await screen.findByLabelText("무엇을 수집하고 싶으세요?"), { target: { value: mission.goal } });
+  fireEvent.click(screen.getByRole("button", { name: "수집 시작" }));
+  await waitFor(() => expect(api.create).toHaveBeenCalledWith({ goal: mission.goal, context: "", reuse_existing: true }));
+});
+
+it("목록의 다음 쪽도 읽고 같은 주제의 이전 시도를 합친다", async () => {
+  api.list.mockImplementation((offset: number) => Promise.resolve(offset === 0
+    ? { items: [{ ...mission, id: "current", topic_key: "harness", created_at: "2026-11-06T11:00:00Z" }], has_more: true }
+    : { items: [{ ...mission, id: "old", topic_key: "harness", status: "cancelled", created_at: "2026-11-05T00:00:00Z" }], has_more: false }));
+  mount();
+  fireEvent.click(await screen.findByRole("button", { name: "이전 수집 더 불러오기" }));
+  await waitFor(() => expect(api.list).toHaveBeenCalledWith(1));
+  expect(await screen.findByRole("button", { name: "실행 내역 2건" })).toBeTruthy();
+});
+
+it("회차 탭은 재실행을 별도 주제로 늘리지 않고 실행 실적을 보여 준다", async () => {
+  api.detail.mockResolvedValue({ ...mission, run_seq: 2, run_count: 2, runs: [
+    { run_seq: 2, trigger: "rerun", started_at: "2026-11-06T11:00:00Z", collected: 3, imported: 2, in_progress: true },
+    { run_seq: 1, trigger: "initial", started_at: "2026-11-05T11:00:00Z", collected: 2, imported: 1, in_progress: false },
+  ] });
+  mount("/collect?mission=m1&tab=runs");
+  const runs = await screen.findByRole("region", { name: "실행 회차" });
+  expect(within(runs).getByText("2회차 · 다시 실행")).toBeTruthy();
+  expect(within(runs).getByText("작업 진행 중 · 수집 3건 · 적재 2건")).toBeTruthy();
+  expect(within(runs).getByText("1회차 · 최초 수집")).toBeTruthy();
 });
 
 it("임무 목록 오류에는 재시도 경로가 있고 운영 설정은 접어서 제공한다", async () => {
