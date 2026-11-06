@@ -23,7 +23,13 @@ export function ArtifactAudio({ artifactId, label }: { artifactId: string; label
 export function ArtifactList({ artifacts, onChanged }: { artifacts: ResearchArtifact[]; onChanged?: () => void }) {
   if (!artifacts.length) return <p className="rs-muted">연결된 결과물이 없습니다.</p>;
   async function open(id: string) {
-    try { const l = await downloadLink(id); window.open(l.url, '_blank', 'noopener'); } catch { toast({ message: '파일을 열지 못했습니다.', tone: 'danger' }); }
+    // Open synchronously in the click handler. Waiting for the signed URL first loses
+    // the user gesture, so browsers commonly block the new tab as a popup.
+    const popup = window.open('about:blank', '_blank');
+    if (!popup) { toast({ message: '새 탭을 열 수 없습니다. 브라우저 팝업 설정을 확인해 주세요.', tone: 'danger' }); return; }
+    popup.opener = null;
+    try { const l = await downloadLink(id); popup.location.href = l.url; }
+    catch { popup.close(); toast({ message: '파일을 열지 못했습니다.', tone: 'danger' }); }
   }
   async function keep(id: string) {
     try { await moveArtifact(id, 'files'); toast({ message: '파일 보관함에 보관했습니다.', tone: 'success' }); onChanged?.(); } catch { toast({ message: '보관함으로 옮기지 못했습니다.', tone: 'danger' }); }

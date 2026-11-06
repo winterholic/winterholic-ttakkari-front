@@ -29,11 +29,19 @@ export function StudyRecordsView({ ctx }: { ctx: ResearchCtx }) {
   const [report, setReport] = useState(false);
   const data = snap.data;
   const exps = (data?.experiments ?? []).slice(0, 12);
-  const detailQs = useQueries({ queries: exps.map(x => ({ queryKey: [...rk(), 'experiment', x.id], queryFn: () => getExperiment(x.id), staleTime: 30_000 })) });
-  const details = detailQs.flatMap(q => (q.data ? [q.data] : [])) as ExperimentDetail[];
   const adopted = (data?.best_results ?? dashboard?.best_results ?? []).filter(b => b.study_id === ctx.studyId || !b.study_id);
   const wins = adopted.filter(b => b.status === 'adopted');
   const rejected = adopted.filter(b => b.status === 'rejected');
+  // The overview is bounded to 12 experiments; adopted results still need their exact source details.
+  const detailExperiments = new Map(exps.map(x => [x.id, x]));
+  for (const best of wins) {
+    const id = best.experiment_id;
+    if (id && !detailExperiments.has(id)) detailExperiments.set(id, { id, name: best.experiment_title ?? best.configuration_label ?? id } as typeof exps[number]);
+  }
+  const detailExperimentIds = [...detailExperiments.keys()];
+  const detailQs = useQueries({ queries: detailExperimentIds.map(id => ({ queryKey: [...rk(), 'experiment', id], queryFn: () => getExperiment(id), staleTime: 30_000 })) });
+  const details = detailQs.flatMap(q => (q.data ? [q.data] : [])) as ExperimentDetail[];
+  const detailQueryById = new Map(detailExperimentIds.map((id, i) => [id, detailQs[i]]));
   const winDetail = wins[0];
   const winRun = useQuery({ queryKey: [...rk(), 'run', winDetail?.run_id], queryFn: () => getRun(winDetail?.run_id as string), enabled: !!winDetail?.run_id });
   const hypoMethods = useQuery({ queryKey: [...rk(), 'methods', 'hypothesis-open'], queryFn: () => listMethods({ lifecycle_status: ['hypothesis', 'candidate'] }, 0, 6), staleTime: 60_000 });
@@ -130,11 +138,15 @@ export function StudyRecordsView({ ctx }: { ctx: ResearchCtx }) {
       {!wins.length ? <p className="rs-muted">아직 채택한 설정이 없습니다. 결과 분석에서 목표·지표·제약을 적고 채택하면 여기에 결론으로 남습니다.</p> : wins.map(b => {
         const d = b.experiment_id ? detailOf(b.experiment_id) : details.find(x => x.experiment.name === b.experiment_title);
         const cfg = d?.configurations.find(c => (b.configuration_id ? c.id === b.configuration_id : c.label === b.configuration_label));
+        const detailQuery = b.experiment_id ? detailQueryById.get(b.experiment_id) : undefined;
         return <article className="rs-note rs-note--win" key={b.id}>
           <h4>{b.configuration_label ?? cfg?.label ?? bestLabel(b)}</h4>
           {adoptionBasis(b).length > 0 && <ul className="rs-bullets">{adoptionBasis(b).map(t => <li key={t}>{t}</li>)}</ul>}
           <p className="rs-prose rs-prewrap">{b.rationale}</p>
+          {detailQuery?.isPending && <p className="rs-muted">채택한 실험의 설정과 결과물을 불러오는 중입니다.</p>}
+          {detailQuery?.error && <p className="rs-reason">채택한 실험 상세를 불러오지 못해 설정과 결과물은 확인되지 않았습니다. <Button size="xs" onClick={() => void detailQuery.refetch()}>다시 불러오기</Button></p>}
           {cfg && <dl className="tk-meta">{Object.entries(cfg.parameters).map(([k, v]) => <div key={k} className="rs-meta-row"><dt>{k}</dt><dd className="tk-mono">{stringify(v)}</dd></div>)}</dl>}
+          {detailQuery?.isSuccess && !cfg && (b.configuration_id || b.configuration_label) && <p className="rs-muted">이 실험 상세에서 채택한 설정 기록을 찾지 못했습니다.</p>}
           <p className="rs-muted">{fmtTime(b.created_at)} 기록 · {d ? d.experiment.name : ''}</p>
           {b.experiment_id && b.configuration_id && <div className="rs-actions">
             <Button size="sm" variant="ghost" onClick={() => ctx.go({
@@ -151,7 +163,8 @@ export function StudyRecordsView({ ctx }: { ctx: ResearchCtx }) {
     </Section>
 
     <Section title="결과물" hint="음성·리포트·측정 표입니다. 원본은 파일 보관함에서 관리됩니다.">
-      {!artifacts.length ? <p className="rs-muted">연결된 결과물이 없습니다.</p> : details.filter(d => d.artifacts.length).map(d => <div key={d.experiment.id} className="rs-artgroup"><h4>{d.experiment.name}</h4><ArtifactList artifacts={d.artifacts} onChanged={() => void cache.invalidateQueries({ queryKey: KEY })} /></div>)}
+      {!!detailQs.some(q => q.error) && <p className="rs-reason">일부 실험 상세를 불러오지 못해 결과물 유무를 확인하지 못했습니다.</p>}
+      {!artifacts.length ? <p className="rs-muted">{detailQs.some(q => q.error) ? '연결된 결과물을 확인할 수 없습니다.' : '연결된 결과물이 없습니다.'}</p> : details.filter(d => d.artifacts.length).map(d => <div key={d.experiment.id} className="rs-artgroup"><h4>{d.experiment.name}</h4><ArtifactList artifacts={d.artifacts} onChanged={() => void cache.invalidateQueries({ queryKey: KEY })} /></div>)}
     </Section>
 
     <Section title="재현 환경" hint="결과를 다시 만들려면 필요한 조건입니다.">
