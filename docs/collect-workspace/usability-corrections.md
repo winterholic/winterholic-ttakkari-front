@@ -8,7 +8,7 @@
 
 ## 검증
 
-- 검증 기준 revision: 시작 `7c301a3787eee132bea51ce2e8cea97f01d82bc1` + 이 작업 트리의 변경분.
+- 검증 대상 코드·테스트 revision: `794d0e902dac50d4582ca9ed9582df3de0c49672`; 시작 revision은 `7c301a3787eee132bea51ce2e8cea97f01d82bc1`.
 - `TTAKKARI_NO_ENV_FILE=1 pnpm exec vitest run src/pages/CollectPage.test.tsx src/features/collector/ReviewWorkspace.test.tsx src/features/collector/ReviewIndependentAudit.test.tsx src/features/collector/Collector.test.tsx src/features/collector/Missions.test.tsx --reporter=dot` — 5개 파일, 59개 테스트 통과.
 - `TTAKKARI_NO_ENV_FILE=1 pnpm exec eslint src/pages/CollectPage.tsx src/features/collector/Review.tsx src/features/collector/MissionTrace.tsx src/pages/CollectPage.test.tsx src/features/collector/ReviewWorkspace.test.tsx` — 종료 코드 0, 진단 없음.
 - `node scripts/ui-lint.mjs` — 기준선 위반 138건 이하, 신규 위반 증가 없음. `git diff --check` — 종료 코드 0, 출력 없음.
