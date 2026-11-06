@@ -10,6 +10,7 @@ export const COVERAGE_STATE: Record<string, { label: string; hint: string }> = {
   covered: { label: "충분히 확보", hint: "서로 다른 출처 2곳 이상에서 자료를 확보했습니다." },
 };
 export const COVERED_RULE = "‘충분히 확보’는 서로 다른 출처 2곳 이상(자료 2건 이상) 기준입니다. 수집 건수와 출처 수만 본 것이며 내용이 정확하다는 뜻은 아닙니다.";
+export const COVERAGE_LIMITATION = "출처 수 기준은 자료 확보량을 뜻하며 사실 정확성이나 품질 승인을 보장하지 않습니다.";
 
 export function coverageLabel(state: string | undefined): string {
   return COVERAGE_STATE[state ?? ""]?.label ?? "상태 확인 필요";

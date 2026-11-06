@@ -33,15 +33,15 @@ const funnel = { discovered: 2, fetched: 26, extracted: 24, accepted: 23, held: 
 const base = { funnel, jobs: { succeeded: 3 }, outbox: {}, waiting: [], runtime: { loop_available: true, paused: false, reason: null, since: null },
   budget };
 
-it("현황은 단계별 건수와 모델 비용 0을 보여 주고 일시정지 요청을 보낸다", async () => {
+it("현황은 서버 검토량과 API 한도를 표시하고 일시정지 요청을 보낸다", async () => {
   mocks.summary.mockResolvedValue(base);
   mocks.runtime.mockResolvedValue({ pilot: null });
   mocks.setRuntime.mockResolvedValue({ paused: true });
   wrap(<Overview scope="personal" />);
-  expect(await screen.findByText("내 검토 대기")).toBeTruthy();
-  expect(screen.getByText("26")).toBeTruthy();
-  expect(screen.getByText(/모델 호출은 꺼져 있어요/)).toBeTruthy();
+  expect(await screen.findByText("서버 검토 대기 총량")).toBeTruthy();
   expect(screen.getByText("0 / 20회 (0%)")).toBeTruthy();
+  expect(screen.queryByText(/모델 호출은 꺼져 있어요/)).toBeNull();
+  expect(screen.getByText("$0.00 / $1.00")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "자동 수집 일시정지" }));
   await waitFor(() => expect(mocks.setRuntime).toHaveBeenCalledWith("personal", true, "owner pause"));
 });
@@ -54,7 +54,7 @@ it("일시정지·예산 대기·빈 상태를 숨기지 않는다", async () =>
   wrap(<Overview scope="personal" />);
   expect(await screen.findByText(/새 수집을 시작하지 않아요/)).toBeTruthy();
   expect(screen.getByText("예산 대기")).toBeTruthy();
-  expect(screen.getByText(/아직 수집한 자료가 없어요/)).toBeTruthy();
+  expect(screen.getByText(/현재 표시할 검토 대기나 운영 문제가 없습니다/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "자동 수집 재개" })).toBeTruthy();
 });
 
@@ -95,10 +95,11 @@ it("검토 대기 목록이 비면 안내하고, 있으면 근거와 처리 이�
     versions: { parser: "p1", normalizer: "n1" }, hashes: { raw_sha256: "a".repeat(64), text_sha256: "b".repeat(64), payload: null },
     rights: { license_id: "CC-BY-4.0", purposes: ["store"] }, reviews: [], deliveries: [] });
   wrap(<Review scope="personal" />);
-  expect(await screen.findByText("검토 대기 1건")).toBeTruthy();
+  expect(await screen.findByText("서버 검토 대기 1건")).toBeTruthy();
   expect(screen.getByText("본문이 짧아 검토 대기")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "근거와 처리 이력" }));
-  expect(await screen.findByText(/측정하지 않음/)).toBeTruthy();
+  expect(await screen.findByText("판단 보류 · 본문이 짧아 검토 대기")).toBeTruthy();
+  expect(await screen.findByText(/품질 값 미제공 · 자동 평가 여부 미확인/)).toBeTruthy();
   expect(screen.getByText("aaaaaaaaaaaa")).toBeTruthy();
 });
 
@@ -119,7 +120,7 @@ it("보류 표본 감사는 출처·사유별 표본 규모를 보여 준다", a
     items: [{ id: "i9", url: "https://docs.test/a", source_key: "pilot:x", status: "held", reason_codes: ["l0_too_short"], language: "ko", text_chars: 80, preview: "표본 본문", signals: {} }] });
   wrap(<Review scope="personal" />);
   fireEvent.click(await screen.findByRole("button", { name: "보류 표본 감사" }));
-  expect(await screen.findByText(/보류 5건 중 2건 표본/)).toBeTruthy();
+  expect(await screen.findByText(/보류 총량 5건 중 2건 표본/)).toBeTruthy();
   expect(screen.getByText("표본 본문")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "검토 대기 목록으로" }));
   expect(await screen.findByText("검토할 자료가 없어요.")).toBeTruthy();
