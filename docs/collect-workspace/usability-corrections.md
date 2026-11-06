@@ -17,7 +17,7 @@
 ## 2026-11-07 독립 API 감사 후속
 
 - 제품 코드 revision: `78635d328b983b1dbda8dab41450c5ace5607996`.
-- backend source checkout `d74300c5963920c524d35680b7a6b844132cedac`의 `src/ttakkari/collector/missions.py`에서 `precise_waiting = pending + processing`, `precise_unresolved = unresolved`를 확인했다. `pipeline.py`는 `canonical_candidate`에 후보 envelope 식별자를 문자열로 기록한다. 따라서 구형 대기 집계는 “대기·처리 합계”로 표시하고, 정밀 triage 개별값이 있으면 그 값을 우선한다. 누락된 개별값은 미확인으로 남긴다.
+- 독립 감사 마지막 절은 serving revision `5f5cbd997addcb4ea084ab908790f8f6eec54122`의 GET에서 triage 개별 집계와 문자열 `canonical_candidate`를 관측했다고 기록한다. 소스 checkout `d74300c5963920c524d35680b7a6b844132cedac`의 `src/ttakkari/collector/missions.py`에서 `precise_waiting = pending + processing`, `precise_unresolved = unresolved`를 확인했고 `pipeline.py`의 후보 envelope 식별자 대입도 대조했다. `d74300c` checkout이 운영 serving revision인지는 확인하지 않았다. 따라서 구형 대기 집계는 “대기·처리 합계”로 표시하고, 정밀 triage 개별값이 있으면 그 값을 우선한다. 누락된 개별값은 미확인으로 남긴다.
 - 결함 A: `ResearchPanel`과 임무 화면에서 구형 `counts.precise_waiting`/`precise_unresolved`를 놓치던 경로를 공유 `preciseEvalSummary`로 교정했다. triage의 0도 유지하고 pending/processing/unresolved를 임의 계산하지 않는다.
 - 결함 B: `CollectDedupe.canonical_candidate`를 `string | null`로 맞췄다. 독립 경계와 Review fixture는 실제 문자열 ID를 사용하며, 기술 상세에서 식별자를 원문 필드로 표시하고 링크나 승인 상태로 해석하지 않는 것을 확인한다.
 - 수정 전 red: `TTAKKARI_NO_ENV_FILE=1 pnpm exec vitest run src/features/collector/CollectWorkspaceBoundaryAudit.test.tsx src/features/collector/ReviewWorkspace.test.tsx --reporter=dot` — 의도한 구형 집계 assertion 2건 실패, 나머지 12건 통과.
