@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { StrictMode } from "react";
 import { readFileSync } from "node:fs";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -47,9 +48,10 @@ function captureJob({ round = 1, sha, sessionId = `impl-session-r${round}`, outp
     stages, rounds: [], activity: [], outputs: [], reconstruction: null };
 }
 
-function renderReconstruction(job: ReturnType<typeof captureJob>) {
+function renderReconstruction(job: ReturnType<typeof captureJob>, strictMode = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={client}><MemoryRouter><Reconstruction job={job as never} /></MemoryRouter></QueryClientProvider>);
+  const tree = <QueryClientProvider client={client}><MemoryRouter><Reconstruction job={job as never} /></MemoryRouter></QueryClientProvider>;
+  return render(strictMode ? <StrictMode>{tree}</StrictMode> : tree);
 }
 
 const doneJob = {
@@ -92,13 +94,14 @@ function mountList() {
   </QueryClientProvider>);
 }
 
-function mountDetail(job: unknown) {
+function mountDetail(job: unknown, strictMode = false) {
   h.get.mockResolvedValue(job);
-  return render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } }})}>
+  const tree = <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } }})}>
     <MemoryRouter initialEntries={["/reverse/job-1"]}>
       <Routes><Route path="/reverse/:jobId" element={<ReverseDetailPage />} /></Routes>
     </MemoryRouter>
-  </QueryClientProvider>);
+  </QueryClientProvider>;
+  return render(strictMode ? <StrictMode>{tree}</StrictMode> : tree);
 }
 
 beforeEach(() => {
@@ -472,6 +475,11 @@ it("웹 캡처는 기능·시각·무결성·관찰 출처를 분리하고 역�
   await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(3));
   fireEvent.click(within(webRegions[1]).getByRole("button", { name: "재현 캡처 미리보기" }));
   await waitFor(() => expect(createObjectURL).toHaveBeenCalledTimes(4));
+  await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(4));
+  for (const button of screen.getAllByRole("button", { name: /캡처 미리보기/ })) {
+    expect(button.getAttribute("aria-busy")).toBeNull();
+    expect((button as HTMLButtonElement).disabled).toBe(false);
+  }
   expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/captures/impl-original.png`, workspace_id: "ws-1", session_id: "impl-session" });
   expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/captures/impl-replica.png`, workspace_id: "ws-1", session_id: "impl-session" });
   expect(h.resolveArtifact).toHaveBeenCalledWith({ path: `${outputPath}/captures/verify-original.png`, workspace_id: "ws-1", session_id: "verifier-session" });
@@ -486,22 +494,46 @@ it("웹 캡처는 기능·시각·무결성·관찰 출처를 분리하고 역�
     .toContain("원본 PNG: captures/impl-original.png · 재현 PNG: captures/impl-replica.png");
 });
 
-it("4096바이트의 다른 유효 PNG는 실제 SHA-256이 달라 미리보기에서 거부한다", async () => {
+it("StrictMode effect 재설정 뒤에도 일치 SHA 캡처를 표시하고 실제 unmount에서 URL을 해제한다", async () => {
+  const expectedSha = await sha256(expectedCapture);
+  h.content.mockResolvedValue(new Blob([expectedCapture], { type: "image/png" }));
+  const createObjectURL = vi.fn(() => "blob:strict-preview");
+  const revokeObjectURL = vi.fn();
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL }));
+  const view = renderReconstruction(captureJob({ sha: expectedSha }), true);
+
+  const button = await screen.findByRole("button", { name: "원본 캡처 미리보기" }) as HTMLButtonElement;
+  fireEvent.click(button);
+  expect(await screen.findByRole("img", { name: "회차 1 캡처 · 원본 캡처" })).toBeTruthy();
+  expect(button.getAttribute("aria-busy")).toBeNull();
+  expect(button.disabled).toBe(false);
+
+  view.unmount();
+  expect(revokeObjectURL).toHaveBeenCalledWith("blob:strict-preview");
+});
+
+it("4096바이트의 다른 유효 PNG는 실제 SHA-256이 달라 StrictMode에서도 거부하고 재시도한다", async () => {
   expect(expectedCapture).toHaveLength(4096);
   expect(sameSizeOtherShaCapture).toHaveLength(4096);
   const expectedSha = await sha256(expectedCapture);
   const otherSha = await sha256(sameSizeOtherShaCapture);
   expect(expectedSha).toBe("a3d513e88935c15e2df081463311d1716cd97b35cf7327c24a03141798f1d955");
   expect(otherSha).toBe("15b951ed6868d526a751d5af59a616ce8a68759cfab86a4c328493130ee97c49");
-  h.content.mockResolvedValue(new Blob([sameSizeOtherShaCapture], { type: "image/png" }));
-  const createObjectURL = vi.fn(() => "blob:tampered");
+  h.content.mockResolvedValueOnce(new Blob([sameSizeOtherShaCapture], { type: "image/png" }));
+  h.content.mockResolvedValueOnce(new Blob([expectedCapture], { type: "image/png" }));
+  const createObjectURL = vi.fn(() => "blob:tampered-retry");
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL, revokeObjectURL: vi.fn() }));
-  renderReconstruction(captureJob({ sha: expectedSha }));
+  renderReconstruction(captureJob({ sha: expectedSha }), true);
 
-  fireEvent.click(await screen.findByRole("button", { name: "원본 캡처 미리보기" }));
+  const captureButton = await screen.findByRole("button", { name: "원본 캡처 미리보기" }) as HTMLButtonElement;
+  fireEvent.click(captureButton);
   expect((await screen.findByRole("alert")).textContent).toContain("SHA-256");
   expect(screen.queryByRole("img", { name: "회차 1 캡처 · 원본 캡처" })).toBeNull();
+  expect(captureButton.disabled).toBe(false);
   expect(createObjectURL).not.toHaveBeenCalled();
+  fireEvent.click(captureButton);
+  expect(await screen.findByRole("img", { name: "회차 1 캡처 · 원본 캡처" })).toBeTruthy();
+  expect(createObjectURL).toHaveBeenCalledTimes(1);
 });
 
 it("새 회차는 같은 경로의 이전 URL·loading을 지우고 늦은 이전 응답은 새 이미지를 덮지 않는다", async () => {
@@ -595,7 +627,7 @@ it("캡처 artifact 읽기 실패를 알리고 같은 경로를 다시 요청할
   const png = new Blob([expectedCapture], { type: "image/png" });
   h.content.mockResolvedValue(png);
   mountDetail({ ...doneJob, kind: "reconstruction", workspace_id: "ws-1", output_path: "/work/job", session_id: "impl-session",
-    result: { schema_version: 2, latest: { comparisons: [item] } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null });
+    result: { schema_version: 2, latest: { comparisons: [item] } }, stages, rounds: [], activity: [], outputs: [], reconstruction: null }, true);
 
   const captureButton = await screen.findByRole("button", { name: "원본 캡처 미리보기" }) as HTMLButtonElement;
   fireEvent.click(captureButton);

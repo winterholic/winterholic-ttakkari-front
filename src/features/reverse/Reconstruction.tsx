@@ -76,10 +76,13 @@ function CapturePair({ item, evidence, job, role, identity }: {
   const currentIdentity = useRef(identity);
   currentIdentity.current = identity;
   const sessionId = role === "verifier" ? job.verifier_session_id : job.session_id;
-  useEffect(() => () => {
-    mounted.current = false;
-    ownedUrls.current.forEach((url) => URL.revokeObjectURL(url));
-    ownedUrls.current.clear();
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      ownedUrls.current.forEach((url) => URL.revokeObjectURL(url));
+      ownedUrls.current.clear();
+    };
   }, []);
   const integrityVerified = evidence?.integrity?.status === "verified";
   const load = async (side: "original" | "replica", ref?: ReverseScreenshotReference | null) => {

@@ -21,3 +21,9 @@
 - 캡처 상태 식별자에 작업, workspace, output 경로, 구현/verifier 역할 세션, 비교 run, PNG 참조를 포함한다. 동일 상대 경로에서도 SHA 변경과 새 run을 각각 전환해 URL·오류·loading 초기화, 늦은 이전 응답 폐기, object URL 해제를 회귀 검사한다. 요청 실패 후 재시도와 구현/verifier 세션 분리도 포함한다.
 - TDD RED: `pnpm exec vitest run src/pages/ReversePage.test.tsx --reporter=dot -t '4096바이트|새 회차'` — 두 반례 실패(변조 거부 알림 없음, 회차 URL 해제 없음). GREEN: `pnpm exec vitest run src/pages/ReversePage.test.tsx --reporter=dot` — 31 passed. `pnpm build` — `tsc -b`, Vite build 성공(기존 500 kB chunk advisory).
 - 제품 수정은 `src/features/reverse/Reconstruction.tsx`, 회귀·실제 PNG 바이트는 `src/pages/ReversePage.test.tsx`와 `src/features/reverse/test-fixtures/`, 이 기록만 소유한다. 운영 artifact/API, 브라우저 및 ReverseJob 동작은 미검증이며 push·배포하지 않았다.
+
+## 56dd StrictMode 캡처 수명 교정
+
+- `CapturePair`의 effect setup마다 mounted flag를 true로 복원하고, 실제 cleanup은 false 설정·소유 object URL 해제를 유지한다. 이전 SHA 검산, 증거 identity 및 늦은 응답 guard는 그대로 보존했다.
+- RED: `pnpm exec vitest run src/pages/ReversePage.test.tsx --reporter=dot -t 'StrictMode'` — 일치 SHA PNG 미표시와 변조 SHA 오류 누락으로 `2 failed`. GREEN: `pnpm exec vitest run src/pages/ReversePage.test.tsx --reporter=dot` — `32 passed`. StrictMode content 오류 뒤 재시도 검사도 통과했다.
+- `pnpm build` — `tsc -b`와 Vite production build 성공(기존 대용량 chunk advisory). 확인된 결함은 개발 StrictMode의 effect replay 수명 문제다. 운영 빌드의 브라우저 preview 동작은 이 빌드 결과만으로 검증하지 않았으며 실제 API/ReverseJob E2E도 미검증이다.
