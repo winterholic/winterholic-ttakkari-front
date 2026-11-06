@@ -135,3 +135,41 @@ review에서 서버 전체 2,310과 loaded 50의 차이는 안내문으로 표�
 | Non-empty sources/runs; succeeded/partial underfill; decision omission from real item; exact dedupe relation; same-title identity usability; full keyboard path; numerical overflow/accessibility axes | 미검증: 실제 fixture 부재/익명화 또는 정량 계측 미실행. |
 
 작업 범위는 감사 문서와 screenshot 증거만이다. baseline/API audit, replay fixture, 교정 코드/테스트 등 타 작업자의 파일은 수정하거나 stage하지 않았다.
+
+## 2026-11-07 KST — 794d0e9 독립 실화면 영향 감사
+
+현재 단계 판정: **부분**. 고정 snapshot `794d0e902dac50d4582ca9ed9582df3de0c49672` (tree `003cf3244b016cc01f8f78d45d534ae54d21bc05`)만 `/private/tmp/collect-audit-794d0e9`에 풀어 Vite로 실행했다. 감사 시작 worktree HEAD는 `67481eecefae0ecdf64e9bec50f6de75e58d7940`였고 다른 작업자의 미커밋 제품 파일은 snapshot에 포함하지 않았다. 기존 node_modules를 symlink로 재사용했다. `pnpm run dev`는 `/private/tmp`에서 hoist 디렉터리가 symlink라 실패했으며, 같은 설치의 `./node_modules/.bin/vite`로 격리 서버를 띄웠다. UI/API는 configured `ttakkari_browser`와 `127.0.0.1:5195` / inert mock `127.0.0.1:5196`뿐이다.
+
+입력은 저장된 비식별 GET fixture의 `observed_at=2026-11-06T15:45:43.416672Z`다. Review 응답 전체 queue 2,310, 첫 페이지 50건이며, 선택 mission `e4b02ac0-3a8d-4fb3-b8ae-52ef9b1e95cb`의 `counts.imported=2,939`, trace 문서 응답 목록 1,652, API 상한 3,000이다. 새 화면 캡처는 2026-11-06 16:53–16:55Z (2026-11-07 01:53–01:55 KST)로 fixture 관측 이후 약 67–70분이다. 기존 `4450dac` 캡처는 16:32–16:35Z이고 같은 저장 fixture 집계(Review 2,310/50, mission 2,939/1,652)를 기준으로 기록되어 있다. 두 시점의 화면 수치는 동일하지만 screenshot 시각은 다르므로 시각 차이를 데이터 변화나 코드 효과로 해석하지 않는다. 4450dac 캡처는 그 당시 결과로 보존하며 794d0e9 통과 증거로 소급하지 않는다.
+
+| 완료 기준 | 현재 판정 | 독립 실화면 근거 / 미완료 |
+|---|---|---|
+| 1. 고정 revision·관측 시각·replay/mock 범위 | pass | 위 commit/tree와 fixture 시각 고정. 저장 GET을 loopback mock으로 재생했고 503 한 번은 mock에서 `review?offset=50`에만 넣어 재시도 동작을 확인. 로컬 auth refresh POST 이외 조작 POST는 발생하지 않음. 운영 GET/쓰기 없음. |
+| 2. 최상위 review, 직접 URL, 뒤로가기, 신규 계획/mission 경로 | partial | 1440×900과 390×844에서 `/collect?view=review`의 최상위 `수집 관리 영역`이 바로 선택되고, `/api/assistant/collect/missions` 요청 없이 review GET만 발생. overview/sources/runs/quality 직접 URL은 모두 열림. mission 상세 직접 URL에서 브라우저 뒤로가기로 review URL 복귀 확인. `/collect?new=1`은 두 viewport에서 직접 열리고 입력 후 mock plan preview도 표시됨. 하지만 프로젝트 목록 기본 URL은 fixture mission의 `plan.coverage` 누락으로 `Cannot read properties of undefined (reading 'map')` 오류가 나 목록에서 새 계획 버튼을 거치는 연결은 미검증. fixture를 보정하지 않음. |
+| 3. 동일 50행 입력, 행 밀도·상태/사유/조치와 실제 폼 | pass with scope | 첫 화면 50행에서 출처 `source-redacted`, 상태 보류, 사유, 익명 미리보기, 가능한 조치가 보임. 행 높이는 desktop 274px(기본), 첫 행 430px(폼 펼침); mobile은 기본 304–335px. 개별 폼은 마우스와 Tab→Enter로 실제 열어 입력 필드와 판정 버튼을 표시했으며 mock 쓰기 없이 종료. priority 텍스트도 snapshot에서 보임. |
+| 4. 상단 페이지 load/retry, 보존, 정책 차단 우회 | partial | `가능 조치=없음` 필터 후 4/50행을 표시. 다음 페이지 요청 첫 회 503에서 불러온 50행과 필터를 보존했고, 재시도 후 mock이 저장된 50행을 복제해 만든 synthetic 2페이지가 더해져 100 loaded/8 matched, 필터 유지. 이는 pagination 동작만 확인하며 원본 GET fixture에 두 번째 페이지가 있었다는 뜻이 아님. 정책 차단 행은 첫 50개 review sample에 없어 우회 버튼/조치 부재를 검증할 표본 없음. |
+| 5. UI-01 모수/3000 상한 구분 | pass | desktop/mobile mission 화면 모두 2,939 옆에 “적재 처리 자료”, 1,652 옆에 “응답 문서 목록”을 붙여 표기하고 trace API 최대 3,000 및 두 응답 모수가 다를 수 있음을 설명. 4450 화면의 기존 2,939/1,652와 새 화면의 숫자는 같고 라벨/경고 표현을 이 run에서 다시 확인. |
+| 6. 키보드, bounding boxes, 터치 타깃 | partial | skip link→main, 최상위 navigation, 필터 순회, 상단 페이지 버튼 및 첫 행 검토 폼 진입/Enter를 keyboard로 확인. Snapshot CSS box: desktop nav 각 347×44, 필터 높이 44, 페이지 버튼 143×44; first row action 130×44. Mobile review nav/필터/페이지 버튼/첫 행 조치는 각각 358×44, 필터 영역 높이 318, 143×44, 130×44. 실제 터치 입력/히트 영역 장치 검증은 configured browser가 제공하지 않아 미실행. |
+| 7. 전후 screenshot·수치·시점 | pass with scope | 새로운 desktop/mobile review와 mission screenshots 및 synthetic plan preview screenshots를 저장했다. Review/mission screenshots는 같은 saved fixture input. 이전 candidate `d87b696`은 794 교정 전 목록/계획 화면 캡처이며 4450 자료는 중간 회차이다. Review 2,310/50과 mission 2,939/1,652 값·관측 시점은 비교 표 아래와 manifest에 분리. |
+| 8. 현재 판정·미완료·후속 범위 | pass | 이 문서와 manifest에 부분 판정, 미검증 표본/경로, 850a825b 정밀 집계 및 canonical type 별도 검증 제외를 기록. |
+
+### 794d0e9 영향 화면 캡처와 계측
+
+| 화면 | viewport / 캡처 UTC | 새 보관 캡처 | 같은 fixture에서 보인 값 |
+|---|---|---|---|
+| Review 최초 50행 | 1440×900 / 16:53:08Z | [desktop Review](evidence/screenshots/ui-794d0e9-desktop-review-1440x900.png) | 전체 2,310, loaded 50 |
+| Review 최초 50행 | 390×844 / 16:55:02Z | [mobile Review](evidence/screenshots/ui-794d0e9-mobile-review-390x844.png) | 전체 2,310, loaded 50 |
+| 선택 mission 상세 | 1440×900 / 16:55:46Z | [desktop mission](evidence/screenshots/ui-794d0e9-desktop-mission-1440x900.png) | imported 2,939, trace documents 1,652 / max 3,000 |
+| 선택 mission 상세 | 390×844 / 16:55:49Z | [mobile mission](evidence/screenshots/ui-794d0e9-mobile-mission-390x844.png) | imported 2,939, trace documents 1,652 / max 3,000 |
+| 신규 계획 mock preview | 1440×900 / 17:04:13Z | [desktop plan preview](evidence/screenshots/ui-794d0e9-desktop-plan-preview-1440x900.png) | 입력은 synthetic 감사 문구, preview 응답은 inert mock |
+| 신규 계획 mock preview | 390×844 / 17:04:24Z | [mobile plan preview](evidence/screenshots/ui-794d0e9-mobile-plan-preview-390x844.png) | 같은 synthetic 입력/응답; preview는 viewport 아래로 이어짐 |
+
+기준/후보 변화 기록: 2026-11-06 15:30Z 기준 e2d89e6 Review는 2,306으로 보였고, 후속 saved GET fixture 관측은 15:45:43Z에 2,310/50이다. 2026-11-06 16:32–16:35Z의 4450 교정 화면과 이번 794d0e9 화면은 모두 2,310/50 및 2,939/1,652로 기록된다. 이전 review 숫자는 다른 시각의 별도 baseline이다. 새 fixture 관측 시각은 이전 aggregate와 같지만 screenshot 캡처 시각은 다르다. 이번 UI-01 재확인에서 수치 바로 옆의 서로 다른 이름과 API 상한이 드러난 것을 확인했으며, 동일 수치는 적재 처리의 완료·정합성을 독립 증명하지 않는다.
+
+Keyboard/browser evidence: configured browser snapshot으로 viewport-relative CSS bounding box를 읽었다. first review row의 `판정·적재 검토 열기`를 Tab 순서에서 Enter로 펼쳐 `자료의 유용성 검토` textbox를 실제 표시했다. skip link는 main으로 이동했고 filter controls를 거쳐 pagination까지 도달할 수 있었다. 다만 필터를 키보드로 새 값으로 선택하는 입력과 모바일 물리 터치 면적·히트 테스트는 완료하지 않았다. bounding box를 실제 pointer/touch target 통과로 해석하지 않는다.
+
+로컬 inert mock request log에는 저장 fixture GET, injected page failure GET/retry, synthetic plan preview POST 1회, `/api/auth/refresh` POST가 있다. plan preview 응답은 mock이 생성한 synthetic preview이며 프로젝트 생성 POST가 아니다. Review decision/reprocess 조작 POST는 이번 run에서 전송하지 않았다. `/api/tasks/active`, `/api/health`는 화면 셸용 무데이터 mock 응답이다. Direct `/collect`는 저장 GET fixture의 project entry schema가 candidate가 읽는 `plan.coverage`를 담지 않아 React map 오류로 중단됐다. 해당 경로를 synthetic 목록으로 바꿔 검증하지 않았다. `/collect?new=1` direct entry는 정상 진입해 preview까지 확인했다. Sources/runs 화면은 URL 진입했지만 fixture 상세 목록이 비어 있어 비어 있지 않은 행 조작은 검증하지 않았다.
+
+브라우저/서버 로그에는 Vite dev 서버가 `/sw.js` 요청에 HTML MIME을 반환해 ServiceWorker 등록이 거절된 경고가 반복됐다. Review, mission, direct new-plan 화면과 mock API 조작은 진행됐으며 이 서비스워커 메시지를 제품 경로 성공 근거로 사용하지 않았다. `/collect` 목록의 `plan.coverage` 오류는 별도 화면 렌더 오류로 기록했다.
+
+표본이 없는 정책 차단 Review 행, 정상 종료 후 미달, 실제 dedupe 관계 ID, 실 item의 decision 누락은 이번 전체 제품 판정에 포함하지 않는다. 850a825b의 정밀 집계 및 canonical 타입 교정은 이후 별도 독립 검증이며 이번 감사 범위가 아니다. 제품 수정/빌드/테스트/운영 요청은 하지 않았다.
