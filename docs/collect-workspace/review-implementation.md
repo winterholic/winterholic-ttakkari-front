@@ -40,6 +40,12 @@
 
 현재 프론트 타입에서 `teacher_enabled`는 일일 budget 응답의 boolean일 뿐 engine/model/current run state의 식별자가 아니다. `signals`는 미정형이며 이 화면은 이를 engine/model 정보로 해석하지 않는다. 따라서 Overview/Review/ResearchPanel에는 정밀 판정 engine·model·state와 정밀 평가 대기 총량을 미확인으로 표시하고, 서버 검토 대기 총량 및 실제 보고된 일일 budget과 분리한다. API가 실행 상태나 대기값을 내놓지 않으면 실제 전환·실패 원인을 추정하지 않는다.
 
+### 2026-11-07 정밀 판정 중립 문구 재점검
+
+이번 재점검에서는 소유 화면의 정밀 판정 표현을 다시 읽고 `rg -n -i "qwen|teacher_enabled|precision|정밀|평가 대기|미확인|로컬 실행|모델 호출" ...`로 관련 문구를 확인했다. Review·Overview는 엔진·모델·실행 상태 및 정밀 평가 대기 총량을 API 미제공·미확인으로 분리하고, ResearchPanel도 조사 응답에 해당 정보가 없음을 표시한다. 어느 화면도 Qwen, 로컬 실행 가능, `teacher_enabled`를 운영 엔진 또는 호출 상태의 근거로 사용하지 않는다. 제품 코드 수정은 필요하지 않았다.
+
+이번 턴에는 기존 Vitest·build를 반복하지 않았다. 앞서 실행한 16개 테스트 및 lint/build 결과는 아래 검증 로그에 기록된 이전 실행이다. 이번 재점검은 현재 문구를 읽고 검색한 범위에 한정한다. 독립 verifier 세션은 확인 시 queued였고, 실제 서버 payload·기능 보존 감사 결과는 아직 확인되지 않았다. 실제 서버 데이터 대조와 데스크톱·모바일 브라우저/시각 검증은 미실행이며 완료로 간주하지 않는다. 브라우저 소유권은 baseline 검증자에게 있다.
+
 프론트 계약(`src/api/collector.ts`)에서 확인한 응답은 다음과 같다.
 
 - 검토 목록: `items`, `total`, `limit`, `offset`; 행은 `id`, `url`, `source_key`, `status`, `reason_codes`, `language`, `text_chars`, `preview`, 미정형 `signals`, `can_reprocess`를 제공한다.
