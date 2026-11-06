@@ -30,7 +30,7 @@
 ## API 계약과 증거 한계
 
 - 로컬 프론트 타입은 `src/api/collectionMissions.ts`에서 읽었다. 계획에는 `mode`, `steps`, `sources`, `queries`, `coverage`, `budget`, `stop_conditions`, 선택적 논문 라이선스가 있고, 미션에는 `counts`, `runs`, `jobs`, `gaps`, `results`, `triage`가 있다. trace에는 요구 항목·단계·작업 요약·이벤트·도서관 문서 목록이 있다.
-- 실제 API payload 및 운영 데이터와 대조한 `docs/collect-workspace/baseline-contract.md`는 현재 checkout에 없었다. 별도 작업 기록 `review-implementation.md`에도 이 baseline이 없으며 `get_worker(a78459aa-1ff8-410f-acdd-555e743d6ed8)`가 `404 not_found: 이 작업 세션의 하위 세션이 아닙니다`를 반환해 검증하지 못했다고 적혀 있다. 따라서 표시 의미는 로컬 프론트 타입과 기존 UI에서 확인한 범위다.
+- 실제 API payload 및 운영 데이터와 대조한 `docs/collect-workspace/baseline-contract.md`는 현재 checkout에 없었다. 별도 작업 기록 `review-implementation.md`에도 이 baseline이 없으며 `get_worker(anon-f12887b546f529f280db)`가 `404 not_found: 이 작업 세션의 하위 세션이 아닙니다`를 반환해 검증하지 못했다고 적혀 있다. 따라서 표시 의미는 로컬 프론트 타입과 기존 UI에서 확인한 범위다.
 - trace의 단계별 단위·범위는 API `detail` 문자열을 함께 보여 주되, 운영 payload에서 각 단계의 실제 의미를 독립 확인하지 못했다. 브라우저 baseline과 실제 사용자 데이터 역시 검증하지 않았다.
 
 ## 브라우저 확인 재현 경로

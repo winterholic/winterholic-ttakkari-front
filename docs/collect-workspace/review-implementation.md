@@ -36,7 +36,7 @@
 
 ### 2026-11-07 후속 계약 보정
 
-사용자가 알려 준 backend 작업 `1eaed429-b996-44d6-b6f3-f2e29a8431f8`는 **queued**이며 운영 전환이 끝나지 않았다. 이 작업이나 기존 robotics pending39 큐는 조회·수정·재생성하지 않았다. 과거 로컬 Qwen 결정은 현재 운영 엔진을 증명하지 않으므로 UI 근거로 사용하지 않는다.
+사용자가 알려 준 backend 작업 `anon-731dc5a2af7c9b33ec1c`는 **queued**이며 운영 전환이 끝나지 않았다. 이 작업이나 기존 robotics pending39 큐는 조회·수정·재생성하지 않았다. 과거 로컬 Qwen 결정은 현재 운영 엔진을 증명하지 않으므로 UI 근거로 사용하지 않는다.
 
 현재 프론트 타입에서 `teacher_enabled`는 일일 budget 응답의 boolean일 뿐 engine/model/current run state의 식별자가 아니다. `signals`는 미정형이며 이 화면은 이를 engine/model 정보로 해석하지 않는다. 따라서 Overview/Review/ResearchPanel에는 정밀 판정 engine·model·state와 정밀 평가 대기 총량을 미확인으로 표시하고, 서버 검토 대기 총량 및 실제 보고된 일일 budget과 분리한다. API가 실행 상태나 대기값을 내놓지 않으면 실제 전환·실패 원인을 추정하지 않는다.
 
@@ -60,7 +60,7 @@
 3. 중복 사유의 관계 종류, 확인된 대상 식별자/주소와 근거 상태. 응답에 없으면 UI는 계속 미제공으로 표기.
 4. 정책·권리·robots 차단의 분리된 전체 집계와 재처리 가능 사유(서버 authoritative field). 클라이언트 사유 코드 추정은 현재의 우회 방지용 가드일 뿐 계약을 대신하지 않는다.
 
-API 실제 응답의 종합 baseline 문서 `docs/collect-workspace/baseline-contract.md`는 이번 checkout에서 발견하지 못했다. Ttakkari `get_worker(a78459aa-1ff8-410f-acdd-555e743d6ed8)` 호출은 `404 not_found: 이 작업 세션의 하위 세션이 아닙니다`를 반환했다. 따라서 위 계약은 로컬 프론트 타입 및 기존 컴포넌트에서 확인한 내용이며, 실제 서버 payload 및 운영 데이터와의 대조는 검증되지 않았다.
+API 실제 응답의 종합 baseline 문서 `docs/collect-workspace/baseline-contract.md`는 이번 checkout에서 발견하지 못했다. Ttakkari `get_worker(anon-f12887b546f529f280db)` 호출은 `404 not_found: 이 작업 세션의 하위 세션이 아닙니다`를 반환했다. 따라서 위 계약은 로컬 프론트 타입 및 기존 컴포넌트에서 확인한 내용이며, 실제 서버 payload 및 운영 데이터와의 대조는 검증되지 않았다.
 
 ## 통합 브라우저 감사 재현
 
