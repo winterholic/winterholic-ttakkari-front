@@ -1,6 +1,6 @@
 # 알림 유형별 수신 설정 — 2026-11-06
 
-상태: 구현·로컬 검증 및 운영 백엔드 확인. 프론트 운영 배포 확인은 진행 중이다.
+상태: 기능의 백엔드·프론트 운영 적용 확인. 실제 휴대폰 OS 푸시 수신은 미검증이다.
 
 - 기존 알림 설정 모달에 12종 토글과 설명을 추가했다. 기기별 푸시 구독과 모든 기기에 공통 적용하는 유형 선택을 분리했다.
 - 일상 / 메인 직접 / 작업 상태와 하위 / 회의록과 서비스로 묶었다. 날씨·일정·할 일·메인 직접·메인 실패·회의록·로그인은 기본 켜짐, 메인 대기·하위 직접/실패/대기·배포는 기본 꺼짐이다.
@@ -16,4 +16,4 @@
 
 - 백엔드 예약 `19f63617-cfd7-4354-a180-88d40b4d5a29`는 `draining`, 활성 revision은 `5f5cbd997addcb4ea084ab908790f8f6eec54122`다. `ttk get /api/notifications/preferences`에서 12종 응답을 확인했다. 날씨·일정·메인 직접 알림은 켜짐, 하위 직접·실패·대기 알림은 꺼짐이다. 운영 설정 변경과 푸시 시험 발송은 하지 않았다.
 - 기능 커밋 `64ca2e0`을 최신 `origin/main` 위로 rebase한 결과는 `e00e539`다. `git range-diff e2d89e6..64ca2e0 origin/main..HEAD`에서 같은 변경(`=`)임을 확인했고, 통합된 다른 기능은 알림 변경 경로와 겹치지 않는다. 기존 검사 결과를 재사용하며 `git diff --check`도 확인했다.
-- 이후 main push와 Vercel 운영 적용·운영 번들 확인 결과를 이 절에 덧붙인다.
+- main `0669362` push 후 GitHub commit status의 Vercel `success / Deployment has completed`를 확인했다. 운영 `https://ttakkari.winterholic.net`의 `/assets/index-DNIu8vfp.js`에서 `알림 유형`, `하위 직접 알림`, `메인 직접 알림`, `notification-preferences`를, `/assets/client-D-FCpBnx.js`에서 `/notifications/preferences`를 확인했다. 이 후속 기록만 추가하는 커밋은 실행 코드를 바꾸지 않는다. 운영 사용자 로그인 토글 조작과 휴대폰 OS 푸시는 시험하지 않았다.
