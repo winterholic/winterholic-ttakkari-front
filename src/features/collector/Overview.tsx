@@ -5,16 +5,11 @@ import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { failure, formatTime } from "../kb/labels";
 import { STATUS } from "../kb/Collection";
-
-const FUNNEL: [keyof import("../../api/collector").CollectSummary["funnel"], string][] = [
-  ["discovered", "발견"], ["fetched", "가져옴"], ["extracted", "본문 추출"], ["accepted", "기준 통과"], ["held", "보류"],
-  ["blocked", "차단"], ["failed", "실패"], ["not_modified", "변경 없음"], ["delivered", "도서관 적재"],
-  ["awaiting_delivery", "전달 대기"], ["awaiting_review", "내 검토 대기"],
-];
+import "./review-workspace.css";
 
 const WAIT_TEXT: Record<string, string> = {
   fetch_deferred: "서버가 요청을 늦추라고 했거나 응답이 없어요", handler_error: "처리 중 오류가 나서 다시 시도해요",
-  source_policy_missing: "출처 정책이 없어요", store_not_permitted: "원문 보관 권리가 허용되지 않아요",
+  source_policy_missing: "출처 정책을 확인해야 해요", store_not_permitted: "원문 보관 권리를 확인할 수 없어요",
 };
 
 export function BudgetCard({ budget }: { budget: CollectBudget }) {
@@ -42,9 +37,9 @@ export function Overview({ scope }: { scope?: KbScope } = {}) {
   if (summary.isPending) return <p role="status">수집 현황을 읽는 중</p>;
   if (summary.isError) return <div className="kb-error"><p className="tk-error" role="alert">{failure(summary.error)}</p><Button onClick={() => void summary.refetch()}>다시 시도</Button></div>;
   const data = summary.data;
-  const total = Object.values(data.funnel).reduce((a, b) => a + b, 0);
   const paused = data.runtime.paused;
-  return <section className="kb-results" aria-label="수집 현황">
+  const reviewTotal = data.funnel.awaiting_review;
+  return <section className="kb-results review-overview" aria-label="수집 현황">
     <div className="collect-card" data-paused={paused}>
       <div className="kb-actions"><h3>자동 수집</h3><Badge>{!data.runtime.loop_available ? "서버에서 꺼짐" : paused ? "일시정지" : "켜짐"}</Badge></div>
       <p className="kb-note">{!data.runtime.loop_available ? "이 서버 설정에서는 수집 반복 작업이 꺼져 있어요."
@@ -53,13 +48,23 @@ export function Overview({ scope }: { scope?: KbScope } = {}) {
       {data.runtime.loop_available && <Button size="sm" variant={paused ? "primary" : "ghost"} busy={pause.isPending} onClick={() => pause.mutate(!paused)}>{paused ? "자동 수집 재개" : "자동 수집 일시정지"}</Button>}
       {pause.isError && <p className="tk-error" role="alert">{failure(pause.error)}</p>}
     </div>
-    {total === 0 && <p className="kb-empty">아직 수집한 자료가 없어요. 출처 탭에서 출처를 등록하거나 공식 문서 예시 출처를 추가해 보세요.</p>}
-    <ul className="collect-funnel" aria-label="단계별 건수">{FUNNEL.map(([key, label]) => <li key={key} data-key={key}><strong>{data.funnel[key].toLocaleString("ko-KR")}</strong><span>{label}</span></li>)}</ul>
+    <section className="review-overview__status" aria-label="검토와 운영 상태">
+      <div><span>서버 검토 대기 총량</span><strong>{reviewTotal.toLocaleString("ko-KR")}건</strong></div>
+      <p className="kb-note">사용자 조치가 필요한 자료의 전체 수는 API에서 분리 제공하지 않습니다. 화면에서 불러온 큐 항목 수와 전체 총량을 따로 확인하세요.</p>
+      <p className="kb-note">자동 평가 대기와 정책 차단은 별도 총량이 제공되지 않습니다. 정책·권리·robots 차단은 재처리로 우회하지 마세요.</p>
+      {data.budget.teacher_enabled
+        ? <p className="kb-note">자동 평가 기능은 켜져 있습니다. 이 요약 응답에는 평가 대기 건수나 불확실성 값이 없습니다.</p>
+        : <p className="kb-note">자동 평가 기능은 꺼져 있습니다. 현재 검토 건수만으로 자료 품질이나 사실 정확성을 판단할 수 없습니다.</p>}
+      <p className="kb-note">운영 단계별 건수(서로 더하지 않음): 차단 {data.funnel.blocked} · 실패 {data.funnel.failed} · 전달 대기 {data.funnel.awaiting_delivery}</p>
+    </section>
+    {reviewTotal === 0 && data.funnel.blocked === 0 && data.funnel.failed === 0 && data.funnel.awaiting_delivery === 0 && <p className="kb-empty">현재 표시할 검토 대기나 운영 문제가 없습니다. 출처를 등록하면 수집 상태가 여기에 나타납니다.</p>}
+    {runtime.isPending && <p className="kb-note" role="status">추가 운영 설정을 읽는 중이에요.</p>}
+    {runtime.isError && <div className="kb-error"><p className="tk-error" role="alert">운영 설정을 읽지 못했어요: {failure(runtime.error)}</p><Button size="sm" onClick={() => void runtime.refetch()}>운영 설정 다시 읽기</Button></div>}
     {data.waiting.length > 0 && <div className="collect-card" role="status"><h3>기다리는 작업</h3>
       <ul className="kb-passages">{data.waiting.map((w) => <li className="kb-passage" key={w.job_id}>
-        <div className="kb-badges"><Badge>{STATUS[w.status] || w.status}</Badge></div>
+        <div className="kb-badges"><Badge>{STATUS[w.status] || "상태 확인 필요"}</Badge></div>
         <p className="kb-hash">{w.source_key}</p>
-        <p className="kb-note">{w.reason ? WAIT_TEXT[w.reason] || w.reason : "사유 없음"}{w.not_before ? ` · ${formatTime(w.not_before)} 이후 다시 시도` : ""}</p>
+        <p className="kb-note">{w.reason ? WAIT_TEXT[w.reason] || "대기 사유를 기술 상세에서 확인해 주세요." : "대기 사유 정보가 없습니다."}{w.not_before ? ` · ${formatTime(w.not_before)} 이후 다시 시도` : ""}</p>
       </li>)}</ul></div>}
     <BudgetCard budget={data.budget} />
     <div className="collect-card"><h3>공식 문서 예시 출처</h3>

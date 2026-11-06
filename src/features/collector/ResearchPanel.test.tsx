@@ -28,7 +28,8 @@ it("연구 블록이 없는 legacy 응답에서는 아무것도 그리지 않는
 it("하위 주제 상태 여섯 가지를 한국어로 풀고 충분 기준을 설명한다", () => {
   const states = ["unexplored", "no_candidates", "sources_found", "unavailable", "thin", "covered"];
   mount(mission({ research: { round: 1, stop: null, searches_used: 3, search_budget: 16, coverage: states.map((state, index) => ({ topic: `주제 ${index}`, key: state, state, sources: 2, documents: 1, hosts: 1 })) } }));
-  expect(screen.getByText("하위 주제 6개 중 1개를 충분히 확보했습니다.")).toBeTruthy();
+  expect(screen.getByText(/조사 범위: 6개 중 1개가 출처 수 기준을 충족/)).toBeTruthy();
+  expect(screen.getByText(/사실 정확성이나 품질 승인을 보장하지 않습니다/)).toBeTruthy();
   expand(/하위 주제별 조사 상태/);
   const expected: Record<string, string> = { unexplored: "미조사", no_candidates: "후보 없음", sources_found: "출처 발견", unavailable: "수집 못함", thin: "자료 부족", covered: "충분히 확보" };
   for (const [index, state] of states.entries()) {

@@ -1,10 +1,11 @@
 import { Link } from "react-router";
 import type { CollectionContextRelation, CollectionCoverageEntry, CollectionMission, CollectionPaper } from "../../api/collectionMissions";
 import {
-  COVERAGE_STATE, COVERED_RULE, RELATION_LABEL, ROUND_REASON, TARGET_KIND,
+  COVERAGE_LIMITATION, COVERAGE_STATE, COVERED_RULE, RELATION_LABEL, ROUND_REASON, TARGET_KIND,
   coverageLabel, hasResearch, paperRights, paperSource, safeHttp, searchErrorLabels, searchStats, stopText,
 } from "./researchLabels";
 import type { SearchStats } from "./researchLabels";
+import "./review-workspace.css";
 
 const count = (n: number | undefined) => (n ?? 0).toLocaleString("ko-KR");
 
@@ -110,7 +111,7 @@ export function ResearchPanel({ mission }: { mission: CollectionMission }) {
       <p className="kb-note" aria-label="조사 라운드">후속 조사 라운드 {count(research.round)}회 점검{plan.budget.rounds ? `(상한 ${count(plan.budget.rounds)}회)` : ""} · 검색 {count(research.searches_used)}{searchBudget ? `/${count(searchBudget)}` : ""}회 사용</p>
       <p className="kb-note" role="status" aria-label="조사 종료 사유">{stopText(research.stop, plan.budget.rounds)}</p>
     </>}
-    {coverage.length > 0 && <p className="kb-note">하위 주제 {count(coverage.length)}개 중 {count(covered)}개를 충분히 확보했습니다.</p>}
+    {coverage.length > 0 && <p className="kb-note" role="note">조사 범위: {count(coverage.length)}개 중 {count(covered)}개가 출처 수 기준을 충족했습니다. {COVERAGE_LIMITATION}</p>}
     {stats.failed > 0 && <p className="kb-note" role="status" aria-label="검색 실패">검색 공급자 호출 실패 {count(stats.failed)}건이 남아 있습니다. 결과 없음과는 다른 상태입니다.</p>}
     {stats.emptyOk > 0 && <p className="kb-note" aria-label="결과 없는 검색">검색은 성공했지만 결과가 없던 검색 {count(stats.emptyOk)}회</p>}
     {coverage.length > 0 && <details><summary>하위 주제별 조사 상태</summary><TopicStatus coverage={coverage} stats={stats} /></details>}
