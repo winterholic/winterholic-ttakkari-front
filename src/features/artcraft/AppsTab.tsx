@@ -17,6 +17,10 @@ import { ago } from "./format";
 const ACTIVE = new Set(["queued", "running"]);
 const isActive = (j: ArtcraftJob | undefined) => Boolean(j && ACTIVE.has(j.state));
 const isNotFound = (error: unknown) => error instanceof ApiError && error.status === 404;
+const latestUpdateRecord = (state: { last_status: ArtcraftUpdateRecord | null; history: ArtcraftUpdateRecord[] } | undefined, jobId: string) =>
+  [...(state?.history ?? []), ...(state?.last_status ? [state.last_status] : [])]
+    .filter((record) => record.job_id === jobId)
+    .reduce<ArtcraftUpdateRecord | null>((latest, record) => !latest || Date.parse(record.at) >= Date.parse(latest.at) ? record : latest, null);
 const JOB_TITLE: Record<string, string> = {
   "remote-check": "최신 버전 확인",
   "smoke-cli": "CLI 스모크",
@@ -41,12 +45,12 @@ function JobBanner({ jobId, updateApp, onDone, onDismiss, onRecover }: { jobId: 
     queryFn: () => getArtcraftUpdateStatus(updateApp!.app),
     enabled: Boolean(updateApp),
     refetchInterval: (q) => {
-      const status = q.state.data?.last_status;
-      return status?.job_id === jobId && ACTIVE.has(status.status) ? 1500 : false;
+      const status = latestUpdateRecord(q.state.data, jobId);
+      return status ? (ACTIVE.has(status.status) ? 1500 : false) : (q.state.data && ACTIVE.has(q.state.data.state) ? 1500 : false);
     },
   });
-  const record = updateState.data?.last_status;
-  const fallbackRecord = job.isError && isNotFound(job.error) && updateApp && record?.job_id === jobId ? record : null;
+  const record = latestUpdateRecord(updateState.data, jobId);
+  const fallbackRecord = job.isError && isNotFound(job.error) && updateApp ? record : null;
   const fallbackApp = fallbackRecord ? updateApp : null;
   const terminalFallback = fallbackRecord && (fallbackRecord.status === "succeeded" || fallbackRecord.status === "failed" || fallbackRecord.status === "interrupted")
     ? fallbackRecord.status
