@@ -83,12 +83,13 @@ const bugs: ArtcraftBugList = {
   bugs: [bug({ id: "BUG-001", title: "photocraft font scan" }), sec, sloppy],
 };
 
-function mount(path = "/artcraft/manage") {
-  return render(
-    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+function mount(path = "/artcraft/manage", queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+  const result = render(
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}><ArtcraftManagePage /></MemoryRouter>
     </QueryClientProvider>,
   );
+  return { ...result, queryClient };
 }
 const card = (name: string) => screen.getByRole("listitem", { name });
 
@@ -177,6 +178,91 @@ it("작업 상세가 유실돼도 persisted interrupted 상태와 관리 복구 
   const dialog = await screen.findByRole("dialog", { name: "PhotoCraft 업데이트 관리" });
   expect(await within(dialog).findByText("중단")).toBeTruthy();
   expect(within(dialog).getByText((_, el) => el?.textContent?.replace(/\s+/g, " ").trim() === "0.9.0 → 0.10.0")).toBeTruthy();
+});
+
+it.each([["queued", "대기"], ["running", "진행 중"]] as const)("Job 404일 때 현재 job과 일치하는 %s 영속 상태를 표시한다", async (status, label) => {
+  h.updateState.mockResolvedValue(updateState({
+    state: status,
+    last_status: { job_id: "update-current", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status, error: null, at: "2026-11-07T01:00:00Z" },
+    history: [],
+  }));
+  h.apps.mockResolvedValue(overview({ jobs: [job({ id: "update-current", kind: "update", action: "update-apply", apps: ["photocraft"], state: "running" })] }));
+  h.job.mockRejectedValue(new ApiError(404, { code: "unknown_job", message: "작업 기록이 없습니다." }));
+  mount();
+
+  const banner = await screen.findByRole("status", { name: "진행 중인 작업" });
+  expect(banner.textContent).toContain("앱 업데이트 · photocraft");
+  expect(banner.textContent).toContain(label);
+  expect(screen.queryByText(/작업 상태를 읽지 못했어요/)).toBeNull();
+});
+
+it.each([
+  ["succeeded", "완료"],
+  ["failed", "실패"],
+  ["interrupted", "중단"],
+] as const)("Job 404일 때 같은 job의 persisted terminal %s를 표시하고 쿼리 갱신을 마친다", async (status, label) => {
+  const matching = { job_id: "update-current", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status, error: status === "failed" ? "업데이트 검증 실패" : null, at: "2026-11-07T01:00:00Z" } as const;
+  h.updateState.mockResolvedValue(updateState({ last_status: matching, history: [matching] }));
+  h.apps.mockResolvedValue(overview({ jobs: [job({ id: "update-current", kind: "update", action: "update-apply", apps: ["photocraft"], state: "running" })] }));
+  h.job.mockRejectedValue(new ApiError(404, { code: "unknown_job", message: "작업 기록이 없습니다." }));
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  queryClient.setQueryData(["artcraft", "app-update", "photocraft"], updateInfo());
+  mount("/artcraft/manage", queryClient);
+
+  const banner = await screen.findByRole("status", { name: "업데이트 결과" });
+  expect(banner.textContent).toContain(label);
+  expect(banner.textContent).toContain("0.9.0 → 0.10.0");
+  if (status === "failed") expect(banner.textContent).toContain("업데이트 검증 실패");
+  await waitFor(() => expect(h.apps.mock.calls.length).toBeGreaterThanOrEqual(2));
+  expect(queryClient.getQueryState(["artcraft", "app-update", "photocraft"])?.isInvalidated).toBe(true);
+  const appCallsAfterCompletion = h.apps.mock.calls.length;
+  const statusCallsAfterCompletion = h.updateState.mock.calls.length;
+  await new Promise((resolve) => setTimeout(resolve, 1600));
+  expect(h.job).toHaveBeenCalledTimes(1);
+  expect(h.updateState).toHaveBeenCalledTimes(statusCallsAfterCompletion);
+  expect(h.apps).toHaveBeenCalledTimes(appCallsAfterCompletion);
+});
+
+it("Job 404의 persisted 과거 terminal 기록은 현재 job의 결과로 쓰지 않는다", async () => {
+  h.updateState.mockResolvedValue(updateState({
+    last_status: { job_id: "update-previous", action: "update-apply", from_version: "0.8.0", to_version: "0.9.0", status: "succeeded", error: null, at: "2026-11-06T01:00:00Z" },
+  }));
+  h.apps.mockResolvedValue(overview({ jobs: [job({ id: "update-current", kind: "update", action: "update-apply", apps: ["photocraft"], state: "running" })] }));
+  h.job.mockRejectedValue(new ApiError(404, { code: "unknown_job", message: "작업 기록이 없습니다." }));
+  mount();
+
+  await waitFor(() => expect(screen.getByText(/작업 상태를 읽지 못했어요/)).toBeTruthy(), { timeout: 10_000 });
+  expect(screen.queryByRole("status", { name: "업데이트 결과" })).toBeNull();
+});
+
+it("일반 Job 오류는 일치하는 persisted terminal 상태로 대체하지 않는다", async () => {
+  h.updateState.mockResolvedValue(updateState({
+    last_status: { job_id: "update-current", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "succeeded", error: null, at: "2026-11-07T01:00:00Z" },
+  }));
+  h.apps.mockResolvedValue(overview({ jobs: [job({ id: "update-current", kind: "update", action: "update-apply", apps: ["photocraft"], state: "running" })] }));
+  h.job.mockRejectedValue(new ApiError(500, { code: "internal_error", message: "일시적인 오류" }));
+  mount("/artcraft/manage", new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } }));
+
+  await waitFor(() => expect(screen.getByText(/작업 상태를 읽지 못했어요/)).toBeTruthy(), { timeout: 3000 });
+  expect(screen.getByText(/일시적인 오류/)).toBeTruthy();
+  expect(screen.queryByRole("status", { name: "업데이트 결과" })).toBeNull();
+}, 5000);
+
+it("matching persisted running 상태가 terminal로 바뀌면 결과를 표시하고 polling을 멈춘다", async () => {
+  const running = { job_id: "update-current", action: "update-apply", from_version: "0.9.0", to_version: "0.10.0", status: "running", error: null, at: "2026-11-07T01:00:00Z" } as const;
+  const succeeded = { ...running, status: "succeeded" as const };
+  h.updateState.mockResolvedValueOnce(updateState({ state: "running", last_status: running }))
+    .mockResolvedValue(updateState({ last_status: succeeded }));
+  h.apps.mockResolvedValue(overview({ jobs: [job({ id: "update-current", kind: "update", action: "update-apply", apps: ["photocraft"], state: "running" })] }));
+  h.job.mockRejectedValue(new ApiError(404, { code: "unknown_job", message: "작업 기록이 없습니다." }));
+  mount();
+
+  expect((await screen.findByRole("status", { name: "진행 중인 작업" })).textContent).toContain("진행 중");
+  await waitFor(() => expect(screen.getByRole("status", { name: "업데이트 결과" }).textContent).toContain("완료"), { timeout: 4000 });
+  const statusCallsAtTerminal = h.updateState.mock.calls.length;
+  await new Promise((resolve) => setTimeout(resolve, 1600));
+  expect(h.job).toHaveBeenCalledTimes(1);
+  expect(h.updateState).toHaveBeenCalledTimes(statusCallsAtTerminal);
 });
 
 it("중단된 설치 복구 실패 상태를 드러내고 수동 버전 복구를 계속 제공한다", async () => {

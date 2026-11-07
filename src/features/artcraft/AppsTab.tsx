@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  applyArtcraftUpdate, checkArtcraftRemote, controlArtcraftApp, getArtcraftAppUpdate, getArtcraftJob,
+  ApiError, applyArtcraftUpdate, checkArtcraftRemote, controlArtcraftApp, getArtcraftAppUpdate, getArtcraftJob,
   getArtcraftUpdateStatus, rollbackArtcraftUpdate, runArtcraftSmoke,
 } from "../../api/client";
 import type { ArtcraftApp, ArtcraftJob, ArtcraftOverview, ArtcraftUpdateInfo, ArtcraftUpdateRecord } from "../../api/artcraftTypes";
@@ -16,6 +16,7 @@ import { ago } from "./format";
 
 const ACTIVE = new Set(["queued", "running"]);
 const isActive = (j: ArtcraftJob | undefined) => Boolean(j && ACTIVE.has(j.state));
+const isNotFound = (error: unknown) => error instanceof ApiError && error.status === 404;
 const JOB_TITLE: Record<string, string> = {
   "remote-check": "최신 버전 확인",
   "smoke-cli": "CLI 스모크",
@@ -32,55 +33,81 @@ function JobBanner({ jobId, updateApp, onDone, onDismiss, onRecover }: { jobId: 
   const job = useQuery({
     queryKey: ["artcraft", "job", jobId],
     queryFn: () => getArtcraftJob(jobId),
-    refetchInterval: (q) => (isActive(q.state.data) || !q.state.data ? 1500 : false),
+    retry: (failureCount, error) => !isNotFound(error) && failureCount < 3,
+    refetchInterval: (q) => (isNotFound(q.state.error) ? false : isActive(q.state.data) || !q.state.data ? 1500 : false),
   });
   const updateState = useQuery({
     queryKey: [...updateKey(updateApp?.app ?? ""), "status"],
     queryFn: () => getArtcraftUpdateStatus(updateApp!.app),
     enabled: Boolean(updateApp),
-    refetchInterval: (q) => q.state.data && ["queued", "running"].includes(q.state.data.state) ? 1500 : false,
+    refetchInterval: (q) => {
+      const status = q.state.data?.last_status;
+      return status?.job_id === jobId && ACTIVE.has(status.status) ? 1500 : false;
+    },
   });
-  const state = job.data?.state;
-  useEffect(() => {
-    if (state && !ACTIVE.has(state)) onDone();
-    // 끝난 순간 한 번만 목록을 새로 읽는다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state]);
   const record = updateState.data?.last_status;
-  const recoveredStatus = record && (record.status === "failed" || record.status === "succeeded" || record.status === "interrupted") ? record.status : null;
-  if (updateApp && updateState.data?.state === "failed") {
+  const fallbackRecord = job.isError && isNotFound(job.error) && updateApp && record?.job_id === jobId ? record : null;
+  const fallbackApp = fallbackRecord ? updateApp : null;
+  const terminalFallback = fallbackRecord && (fallbackRecord.status === "succeeded" || fallbackRecord.status === "failed" || fallbackRecord.status === "interrupted")
+    ? fallbackRecord.status
+    : null;
+  const terminalState = job.data && !ACTIVE.has(job.data.state)
+    ? job.data.state
+    : terminalFallback;
+  const notifiedJobId = useRef<string | null>(null);
+  useEffect(() => {
+    if (terminalState && notifiedJobId.current !== jobId) {
+      notifiedJobId.current = jobId;
+      onDone();
+    }
+  }, [jobId, onDone, terminalState]);
+  if (fallbackRecord && fallbackApp && (fallbackRecord.status === "queued" || fallbackRecord.status === "running")) {
+    return (
+      <div className="ac-job" role="status" aria-label="진행 중인 작업">
+        <div className="ac-job__head"><span className="tk-spinner tk-spinner--xs" aria-hidden="true" />
+          <span className="ac-job__title">{JOB_TITLE[fallbackRecord.action] ?? fallbackRecord.action}{fallbackRecord.action === "update-apply" || fallbackRecord.action === "update-rollback" ? ` · ${fallbackApp.app}` : ""}</span>
+          <Badge tone="info">{JOB_STATE[fallbackRecord.status]}</Badge>
+        </div>
+        {fallbackRecord.error && <p className="ac-job__summary">{fallbackRecord.error}</p>}
+      </div>
+    );
+  }
+  if (fallbackRecord && fallbackApp && fallbackRecord.status === "failed" && updateState.data?.state === "failed") {
     return (
       <div className="ac-job" role="status" aria-label="업데이트 복구 실패">
-        <div className="ac-job__head"><span className="ac-job__title">{updateApp.title} 이전 설치를 복구하지 못했어요.</span><Badge tone="danger">실패</Badge></div>
-        {updateState.data.error && <p className="tk-error" role="alert">{updateState.data.error}</p>}
+        <div className="ac-job__head"><span className="ac-job__title">{fallbackApp.title} 이전 설치를 복구하지 못했어요.</span><Badge tone="danger">실패</Badge></div>
+        {fallbackRecord.error && <p className="tk-error" role="alert">{fallbackRecord.error}</p>}
         <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>
       </div>
     );
   }
-  if (updateApp && updateState.data?.state === "interrupted") {
+  if (fallbackRecord && fallbackApp && fallbackRecord.status === "interrupted" && updateState.data?.state === "interrupted") {
     return (
       <div className="ac-job" role="status" aria-label="업데이트 복구 상태">
-        <div className="ac-job__head"><span className="ac-job__title">{updateApp.title} 업데이트 작업이 서버 재시작으로 중단됐어요.</span><Badge tone="danger">중단</Badge></div>
-        {updateState.data.error && <p className="ac-job__summary">{updateState.data.error}</p>}
+        <div className="ac-job__head"><span className="ac-job__title">{fallbackApp.title} 업데이트 작업이 서버 재시작으로 중단됐어요.</span><Badge tone="danger">중단</Badge></div>
+        {fallbackRecord.error && <p className="ac-job__summary">{fallbackRecord.error}</p>}
         <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>
       </div>
     );
   }
-  if (job.isError && updateApp && recoveredStatus && record) {
+  if (fallbackRecord && fallbackApp && (fallbackRecord.status === "succeeded" || fallbackRecord.status === "failed" || fallbackRecord.status === "interrupted")) {
     const labels = { succeeded: "완료", failed: "실패", interrupted: "중단" } as const;
     return (
       <div className="ac-job" role="status" aria-label="업데이트 결과">
-        <div className="ac-job__head"><span className="ac-job__title">{updateApp.title} 업데이트</span><Badge tone={recoveredStatus === "succeeded" ? "success" : "danger"}>{labels[recoveredStatus]}</Badge></div>
-        {record.error && <p className="ac-job__summary">{record.error}</p>}
-        <p className="ac-job__summary">{record.from_version ?? "알 수 없음"} → {record.to_version ?? "알 수 없음"}</p>
+        <div className="ac-job__head"><span className="ac-job__title">{fallbackApp.title} {fallbackRecord.action === "update-rollback" ? "이전 버전 복구" : "업데이트"}</span><Badge tone={fallbackRecord.status === "succeeded" ? "success" : "danger"}>{labels[fallbackRecord.status]}</Badge></div>
+        {fallbackRecord.error && <p className="ac-job__summary">{fallbackRecord.error}</p>}
+        <p className="ac-job__summary">{fallbackRecord.from_version ?? "알 수 없음"} → {fallbackRecord.to_version ?? "알 수 없음"}</p>
         <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>
       </div>
     );
   }
   if (job.isError) {
+    const message = isNotFound(job.error)
+      ? "작업 기록을 찾을 수 없습니다. 서버가 다시 시작되면 기록이 지워질 수 있어요."
+      : errorText(job.error).message;
     return (
       <div className="ac-job" role="status">
-        <p className="ac-job__title">작업 상태를 읽지 못했어요. 서버가 다시 시작되면 작업 기록이 지워져요.</p>
+        <p className="ac-job__title">작업 상태를 읽지 못했어요. {message}</p>
         {updateApp && <Button size="xs" variant="ghost" onClick={onRecover}>업데이트 관리 열기</Button>}
         <Button size="xs" variant="ghost" onClick={onDismiss}>닫기</Button>
       </div>
