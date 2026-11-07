@@ -8,6 +8,7 @@ import { sessionTime } from "../shell/groupSessions";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import { buildForest } from "../features/tasks/buildTree";
+import { isMainRoot } from "../features/tasks/mainRoots";
 import { groupByDay, splitMatch } from "../features/tasks/dayGroups";
 import { StatusGlyph, TaskTree } from "../features/tasks/TaskTree";
 import { useActiveTasks, useTaskTree } from "../features/tasks/useTasks";
@@ -21,6 +22,7 @@ const SCOPES: { value: AccountPool | null; label: string }[] = [
 ];
 const FIELD_LABEL: Record<TaskHit["field"], string> = { title: "제목", prompt: "지시", result: "결과" };
 const SEARCH_DEBOUNCE_MS = 250;
+const MAIN_MIN_ROWS = 10;
 
 /** 지난 일은 캔버스에 그 뿌리를 불러와(pin) 그 노드를 고른 채로 연다. 접수 대화는 대화 화면으로 간다. */
 function boardLink(pool: AccountPool, rootId: string | null, nodeId: string): string {
@@ -67,6 +69,18 @@ export function TasksPage() {
       { replace: true },
     );
 
+  const all = params.get("view") === "all";
+  const setAll = (value: boolean) =>
+    setParams(
+      (p) => {
+        const next = new URLSearchParams(p);
+        if (value) next.set("view", "all");
+        else next.delete("view");
+        return next;
+      },
+      { replace: true },
+    );
+
   return (
     <div className="tk-screen">
       <PageHeader title="작업" meta="따까리에게 맡긴 일의 가지와 지난 기록"
@@ -100,7 +114,7 @@ export function TasksPage() {
           {q ? <SearchResults q={q} pool={pool} /> : (
             <>
               <ActiveSection pool={pool} />
-              <LibrarySection pool={pool} />
+              <LibrarySection pool={pool} all={all} setAll={setAll} />
             </>
           )}
         </div>
@@ -126,18 +140,34 @@ function ActiveSection({ pool }: { pool: AccountPool | null }) {
   );
 }
 
-function LibrarySection({ pool }: { pool: AccountPool | null }) {
+function LibrarySection({ pool, all, setAll }: { pool: AccountPool | null; all: boolean; setAll: (v: boolean) => void }) {
   const list = useInfiniteQuery({
     queryKey: ["tasks", "library", pool],
     queryFn: ({ pageParam }) => taskLibrary({ pool: pool ?? undefined, before: pageParam ?? undefined }),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next_before,
   });
-  const roots = list.data?.pages.flatMap((p) => p.roots) ?? [];
+  const loaded = list.data?.pages.flatMap((p) => p.roots) ?? [];
+  const roots = all ? loaded : loaded.filter(isMainRoot);
+  // 서버는 뿌리 전부를 페이지로 주므로, 메인만 걸러 비는 페이지가 이어지면 화면이 채워질 때까지 이어 읽는다.
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = list;
+  useEffect(() => {
+    if (!all && hasNextPage && !isFetchingNextPage && roots.length < MAIN_MIN_ROWS) void fetchNextPage();
+  }, [all, hasNextPage, isFetchingNextPage, fetchNextPage, roots.length]);
   return (
     <section className="tk-section" aria-labelledby="tasks-library-title">
       <div className="tk-section__head">
         <h2 className="tk-section__title" id="tasks-library-title">지난 작업</h2>
+        <div className="tk-segmented" role="radiogroup" aria-label="보기">
+          <label>
+            <input type="radio" name="tasks-view" checked={!all} onChange={() => setAll(false)} />
+            메인 작업
+          </label>
+          <label>
+            <input type="radio" name="tasks-view" checked={all} onChange={() => setAll(true)} />
+            전체 세션
+          </label>
+        </div>
       </div>
       {list.isPending && (
         <div aria-busy="true" aria-label="지난 작업을 불러오는 중">
@@ -156,7 +186,7 @@ function LibrarySection({ pool }: { pool: AccountPool | null }) {
           </Button>
         </div>
       )}
-      {list.isSuccess && roots.length === 0 && (
+      {list.isSuccess && roots.length === 0 && !hasNextPage && (
         <div className="tk-empty tk-empty--boxed">
           <Art name="state-empty" />
           <p className="tk-empty__title">아직 쌓인 일이 없어요</p>
@@ -180,7 +210,7 @@ function LibrarySection({ pool }: { pool: AccountPool | null }) {
           ))}
         </ul>
       )}
-      {list.hasNextPage && (
+      {hasNextPage && (
         <div className="tasks-page__more">
           <Button size="sm" onClick={() => void list.fetchNextPage()} disabled={list.isFetchingNextPage}>
             {list.isFetchingNextPage ? "불러오는 중" : "더 보기"}
