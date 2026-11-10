@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate, useParams } from "react-router";
 import { useAuth } from "../auth";
 import { Onboarding, onboardingSeen } from "../features/onboarding/Onboarding";
@@ -145,7 +145,16 @@ export function AppShell() {
         </aside>
 
         <main className="tk-app__main" id="main" tabIndex={-1}>
-          <Outlet />
+          <Suspense
+            fallback={
+              <p className="tk-status tk-status--agent" role="status">
+                <span className="tk-spinner tk-spinner--sm" aria-hidden="true" />
+                불러오는 중
+              </p>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
 
         <nav className="tk-tabbar" aria-label="영역">

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { memo, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { runEvents } from "../../api/client";
 import type { RunEvent, RunOut } from "../../api/types";
@@ -11,6 +11,7 @@ import { Icon } from "../../ui/Icon";
 import { AccountBadge, EngineBadge } from "../../ui/EngineBadge";
 
 const ACTIVE = ["queued", "running"];
+const EMPTY_EVENTS: RunEvent[] = [];
 
 async function allEvents(runId: string): Promise<RunEvent[]> {
   const out: RunEvent[] = [];
@@ -49,19 +50,19 @@ export function leadOf(run: RunOut, events: RunEvent[]): string | null {
   return null;
 }
 
-export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettled, onOpenNode, selectedNode, leadAs = "card" }: RunBlockProps) {
+function RunBlockImpl({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettled, onOpenNode, selectedNode, leadAs = "card" }: RunBlockProps) {
   const active = ACTIVE.includes(run.status);
   const stream = useRunStream(active ? run.id : null);
   // 끝난 Run 은 이벤트가 더 생기지 않는다. 한 번 읽고 캐시한다.
   const past = useQuery({ queryKey: ["runEvents", run.id], queryFn: () => allEvents(run.id), enabled: !active, staleTime: Infinity });
-  const view = useMemo(() => buildRunView(run, active ? stream.events : (past.data ?? [])), [run, active, stream.events, past.data]);
   // desk.route 는 접수 세션의 사용자 메시지에만 생긴다. 그래서 세션 종류를 따로 받지 않는다.
-  const decided = !active && run.origin === "user" ? deskDecision(run, past.data ?? []) : null;
-  const lead = onOpenNode ? leadOf(run, active ? stream.events : (past.data ?? [])) : null;
-  const events = active ? stream.events : (past.data ?? []);
+  const events = active ? stream.events : (past.data ?? EMPTY_EVENTS);
+  const view = useMemo(() => buildRunView(run, events), [run, events]);
+  const decided = !active && run.origin === "user" ? deskDecision(run, events) : null;
+  const lead = onOpenNode ? leadOf(run, events) : null;
   const engine = actualEngine(run);
   const engineMatchesRun = engine === run.engine;
-  const fallbacks = events.filter((event) => event.type === "engine.fallback");
+  const fallbacks = useMemo(() => events.filter((event) => event.type === "engine.fallback"), [events]);
   const fallbackTitle = fallbacks.length > 0
     ? fallbacks.map((event) => event.type === "engine.fallback" ? `${event.payload.from} → ${event.payload.to}` : "").join(", ")
     : null;
@@ -123,3 +124,6 @@ export function RunBlock({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSe
     </>
   );
 }
+
+// 목록이 다시 읽혀도 run 객체가 그대로(structural sharing)면 이 블록은 다시 그리지 않는다. 호출하는 쪽이 콜백 참조를 안정시켜야 효과가 난다.
+export const RunBlock = memo(RunBlockImpl);

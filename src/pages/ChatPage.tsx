@@ -260,6 +260,13 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
     }
     send.mutate(text);
   };
+  // RunBlock 이 memo 라서 매 렌더 새로 만들어지는 함수를 그대로 넘기면 모든 메시지가 다시 그려진다. 최신 함수를 ref 로 들고 참조는 고정한다.
+  const onSubmitRef = useRef(onSubmit);
+  useEffect(() => {
+    onSubmitRef.current = onSubmit;
+  });
+  const retry = useCallback((p: string) => onSubmitRef.current(p), []);
+  const suggest = useCallback((text: string) => setFill({ text, nonce: Date.now() }), []);
   const stop = useCallback(
     (runId: string) => {
       void cancelRun(runId).then(refreshAll);
@@ -475,8 +482,8 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
                 isLast={i === runList.length - 1}
                 onOpen={viewer.open}
                 onStop={stop}
-                onRetry={(p) => onSubmit(p)}
-                onSuggest={(text) => setFill({ text, nonce: Date.now() })}
+                onRetry={retry}
+                onSuggest={suggest}
                 onSettled={refreshAll}
                 onOpenNode={kind === "desk" ? openNode : undefined}
                 selectedNode={nodeId}

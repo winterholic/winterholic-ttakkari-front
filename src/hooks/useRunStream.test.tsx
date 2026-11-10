@@ -39,13 +39,16 @@ describe("useRunStream", () => {
       emit(ev(3)); // 순서 뒤바뀜
       emit(ev(4)); // 재전송
     });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 100));
+    });
     expect(result.current.events.map((e) => e.seq)).toEqual([1, 2, 3, 4]);
 
     act(() => emit(ev(5, "run.finished", { status: "succeeded", error: null, result_text: null, cost_usd: null, exit_code: 0 })));
+    act(() => end()); // 끝 신호는 남은 이벤트를 먼저 반영한다
     expect(result.current.status).toBe("succeeded");
     expect(result.current.finished).toBe(true);
 
-    act(() => end());
     unmount();
     expect(unsubscribe).toHaveBeenCalled();
   });

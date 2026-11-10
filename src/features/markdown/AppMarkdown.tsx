@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from "react";
+import { memo, useCallback, useMemo, useRef } from "react";
 import type { ComponentProps } from "react";
 import Markdown from "react-markdown";
 import type { Components } from "react-markdown";
@@ -26,7 +26,7 @@ type AnchorProps = ComponentProps<"a">;
  * 채팅·보고·문서·메모가 함께 쓰는 마크다운. 링크를 종류별로 다룬다.
  * 외부 http(s) 는 새 탭, 앱 라우트는 라우터, 이 Mac 의 파일 경로는 결과물 뷰어로 연다.
  */
-export function AppMarkdown({ children, workspaceId, sessionId, baseDir, onOpenArtifact }: AppMarkdownProps) {
+function AppMarkdownImpl({ children, workspaceId, sessionId, baseDir, onOpenArtifact }: AppMarkdownProps) {
   const inRouter = useInRouterContext();
   const busy = useRef(false);
   const canOpen = onOpenArtifact !== undefined;
@@ -104,3 +104,6 @@ export function AppMarkdown({ children, workspaceId, sessionId, baseDir, onOpenA
     </Markdown>
   );
 }
+
+// 끝난 메시지의 마크다운은 글이 같으면 다시 파싱하지 않는다. 부모가 다시 그려질 때마다 파싱하던 것이 채팅 렉의 큰 몫이었다.
+export const AppMarkdown = memo(AppMarkdownImpl);

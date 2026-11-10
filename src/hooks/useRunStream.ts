@@ -14,10 +14,24 @@ interface State {
 
 type Action = { type: "reset" } | { type: "events"; events: RunEvent[] } | { type: "end" } | { type: "error"; error: unknown };
 
+// 라이브 이벤트는 이 간격으로 모아 한 번에 반영한다. 토큰 단위로 쏟아지는 이벤트마다 화면 전체를 다시 그리지 않는다.
+const LIVE_FLUSH_MS = 60;
+
 const initial: State = { events: [], status: null, ended: false, error: null };
 
 /** seq 로 중복을 제거하고 정렬한다. 같은 배열이면 참조를 유지한다. */
 export function mergeEvents(prev: RunEvent[], incoming: RunEvent[]): RunEvent[] {
+  // 대부분은 뒤에 이어 붙는 이벤트다. 그때는 Map 재구성과 정렬 없이 이어 붙인다(이벤트마다 O(n log n) 이던 비용).
+  let tail = prev.length ? prev[prev.length - 1].seq : 0;
+  let appendOnly = true;
+  for (const e of incoming) {
+    if (e.seq <= tail) {
+      appendOnly = false;
+      break;
+    }
+    tail = e.seq;
+  }
+  if (appendOnly) return incoming.length ? [...prev, ...incoming] : prev;
   const bySeq = new Map<number, RunEvent>(prev.map((e) => [e.seq, e]));
   let changed = false;
   for (const e of incoming) {
@@ -96,12 +110,36 @@ export function useRunStream(runId: UUID | null | undefined) {
         }
       }
       if (cancelled) return;
-      unsubscribe = subscribeRun(runId, {
+      let buffer: RunEvent[] = [];
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      const flush = () => {
+        if (timer) clearTimeout(timer);
+        timer = null;
+        if (!buffer.length) return;
+        const events = buffer;
+        buffer = [];
+        dispatch({ type: "events", events });
+      };
+      const sub = subscribeRun(runId, {
         after,
-        onEvent: (e) => dispatch({ type: "events", events: [e] }),
-        onEnd: () => dispatch({ type: "end" }),
-        onError: (error) => dispatch({ type: "error", error }),
+        onEvent: (e) => {
+          buffer.push(e);
+          timer ??= setTimeout(flush, LIVE_FLUSH_MS);
+        },
+        onEnd: () => {
+          flush();
+          dispatch({ type: "end" });
+        },
+        onError: (error) => {
+          flush();
+          dispatch({ type: "error", error });
+        },
       });
+      unsubscribe = () => {
+        sub();
+        // 구독을 닫을 때 남은 이벤트를 버리면 화면에 안 보인 채 사라진다. 복귀 재구독은 백필로 다시 받지만 한 번 더 반영해 둔다.
+        flush();
+      };
     })();
 
     return () => {
