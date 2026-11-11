@@ -15,6 +15,17 @@ import { AppErrorBoundary } from "./AppErrorBoundary";
 import { UpdateToast } from "./UpdateToast";
 import { PublicMeetingPage } from "./pages/PublicMeetingPage";
 
+// Pretendard·JetBrains Mono. font-display: swap 이라 글꼴이 늦게 와도 글자는 먼저 보인다. 오프라인에서는 서비스워커 캐시가 준다.
+for (const href of [
+  "https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.min.css",
+  "https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5/index.min.css",
+]) {
+  const link = document.createElement("link");
+  link.rel = "stylesheet";
+  link.href = href;
+  document.head.appendChild(link);
+}
+
 const publicEntry = window.location.pathname.startsWith("/share/");
 if (!publicEntry) setupPwaUpdate();
 

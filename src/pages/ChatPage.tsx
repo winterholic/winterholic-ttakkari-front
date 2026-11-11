@@ -49,6 +49,8 @@ function useThreadFollow(dep: unknown) {
   // 우리가 바꾼 스크롤에서 온 scroll 이벤트. 트리 카드처럼 늦게 커지는 내용이 그 사이에 붙으면
   // 이 이벤트가 "사용자가 위로 올렸다"로 잘못 읽혀 바닥 따라가기가 풀렸다.
   const ownScroll = useRef(false);
+  // 아래까지 남은 거리. 이것이 늘 때만 '새 메시지'를 띄운다. 위쪽 항목이 자라는 것(늦게 받은 단계 목록)은 새 메시지가 아니다.
+  const lastGap = useRef(0);
   const [jump, setJump] = useState(false);
 
   useEffect(() => {
@@ -59,7 +61,8 @@ function useThreadFollow(dep: unknown) {
         ownScroll.current = false;
         return;
       }
-      atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < FOLLOW_THRESHOLD;
+      lastGap.current = el.scrollHeight - el.scrollTop - el.clientHeight;
+      atBottom.current = lastGap.current < FOLLOW_THRESHOLD;
       if (atBottom.current) setJump(false);
     };
     el.addEventListener("scroll", onScroll, { passive: true });
@@ -80,7 +83,11 @@ function useThreadFollow(dep: unknown) {
         set(el.scrollHeight - keepFromBottom.current);
         keepFromBottom.current = null;
       } else if (atBottom.current) set(el.scrollHeight - el.clientHeight);
-      else setJump(true);
+      else {
+        const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
+        if (gap > lastGap.current + 1) setJump(true);
+        lastGap.current = gap;
+      }
     });
     ro.observe(body);
     return () => ro.disconnect();

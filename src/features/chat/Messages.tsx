@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import { downloadLink } from "../../api/client";
 import type { ArtifactOut, RunOut } from "../../api/types";
 import { Icon, KIND_GLYPH } from "../../ui/Icon";
@@ -109,9 +109,12 @@ export function AgentMessage({
   footer,
   attached,
   hideCard,
+  articleRef,
 }: {
   run: RunOut;
   view: RunView;
+  /** 화면 근처 진입을 감시할 때 쓰는 ref. */
+  articleRef?: Ref<HTMLElement>;
   onOpen: (id: string) => void;
   onStop?: () => void;
   onRetry?: () => void;
@@ -127,7 +130,7 @@ export function AgentMessage({
   const live = isLive(view.state);
   const copy = () => view.text && void navigator.clipboard?.writeText(view.text);
   return (
-    <article className="tk-message tk-message--agent" data-author="agent" aria-label="따까리의 응답" aria-busy={live || undefined}>
+    <article ref={articleRef} className="tk-message tk-message--agent" data-author="agent" aria-label="따까리의 응답" aria-busy={live || undefined}>
       <div className="tk-message__head">
         <span className="tk-avatar tk-avatar--agent tk-avatar--sm" aria-hidden />
         <span className="tk-message__name">따까리</span>

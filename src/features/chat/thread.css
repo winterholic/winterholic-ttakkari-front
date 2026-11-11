@@ -1,0 +1,5 @@
+/* 끝난 메시지는 화면 밖에서 레이아웃·페인트를 건너뛴다. 스트리밍 중인 메시지(aria-busy)는 제외한다. */
+.tk-thread__inner > .tk-message:not([aria-busy]) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 180px;
+}

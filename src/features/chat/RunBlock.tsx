@@ -1,8 +1,10 @@
-import { memo, useEffect, useMemo } from "react";
+import "./thread.css";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { runEvents } from "../../api/client";
 import type { RunEvent, RunOut } from "../../api/types";
 import { useRunStream } from "../../hooks/useRunStream";
+import { useNearViewport } from "../../hooks/useNearViewport";
 import { DeskFeedback, deskDecision } from "./DeskFeedback";
 import { TaskTreeCard } from "../tasks/TaskTreeCard";
 import { AgentMessage, ReportMessage, UserMessage } from "./Messages";
@@ -54,7 +56,10 @@ function RunBlockImpl({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettl
   const active = ACTIVE.includes(run.status);
   const stream = useRunStream(active ? run.id : null);
   // 끝난 Run 은 이벤트가 더 생기지 않는다. 한 번 읽고 캐시한다.
-  const past = useQuery({ queryKey: ["runEvents", run.id], queryFn: () => allEvents(run.id), enabled: !active, staleTime: Infinity });
+  // 위로 한참 올라가야 보이는 오래된 Run 의 이벤트까지 열자마자 전부 받지 않는다. 화면 근처에 오면 받는다(받은 뒤 모양은 같다).
+  const articleRef = useRef<HTMLElement>(null);
+  const near = useNearViewport(articleRef);
+  const past = useQuery({ queryKey: ["runEvents", run.id], queryFn: () => allEvents(run.id), enabled: !active && near, staleTime: Infinity });
   // desk.route 는 접수 세션의 사용자 메시지에만 생긴다. 그래서 세션 종류를 따로 받지 않는다.
   const events = active ? stream.events : (past.data ?? EMPTY_EVENTS);
   const view = useMemo(() => buildRunView(run, events), [run, events]);
@@ -119,6 +124,7 @@ function RunBlockImpl({ run, isLast, onOpen, onStop, onRetry, onSuggest, onSettl
         onSuggest={onSuggest}
         footer={decided ? <DeskFeedback run={run} decided={decided} /> : undefined}
         attached={attached}
+        articleRef={articleRef}
         hideCard={!!onOpenNode && run.status === "succeeded"}
       />
     </>

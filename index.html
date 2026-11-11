@@ -13,8 +13,8 @@
     <link rel="icon" href="/brand/favicon-32.png" type="image/png" sizes="32x32" />
     <link rel="icon" href="/brand/favicon.svg" type="image/svg+xml" sizes="any" />
     <link rel="apple-touch-icon" href="/brand/apple-touch-icon-180.png" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5/index.min.css" />
+    <!-- 글꼴 CSS 는 렌더를 막지 않도록 src/main.tsx 가 로드 뒤에 붙인다. 막는 stylesheet 로 두면 CDN 이 느릴 때 첫 화면(스플래시)까지 늦어진다. -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <title>Winterholic Ttakkari</title>
   </head>
   <body>
