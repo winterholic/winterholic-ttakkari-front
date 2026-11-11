@@ -17,6 +17,20 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // 배포가 잦아 앱 코드 해시가 매번 바뀐다. 거의 안 바뀌는 라이브러리를 따로 빼 두면 배포 때마다 다시 받는 양이 준다(서비스워커 precache 도 파일 단위다).
+        codeSplitting: {
+          groups: [
+            { name: "vendor-react", test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 30 },
+            { name: "vendor-router", test: /node_modules[\\/](react-router|@remix-run)[\\/]/, priority: 20 },
+            { name: "vendor-query", test: /node_modules[\\/]@tanstack[\\/]/, priority: 20 },
+          ],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     VitePWA({
