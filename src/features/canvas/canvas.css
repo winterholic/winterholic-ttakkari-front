@@ -10,13 +10,13 @@
 .tcanvas__stage { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
 .tcanvas__edges { position: absolute; left: 0; top: 0; overflow: visible; pointer-events: none; }
 .tcanvas__edge { fill: none; stroke: var(--tk-color-border-strong); stroke-width: var(--tk-border-width-hairline); transition: opacity var(--tk-motion-duration-fast) var(--tk-motion-easing-standard); }
-.tcanvas__edge[data-live] { stroke: var(--tk-color-agent-live); stroke-width: var(--tk-border-width-strong); stroke-dasharray: 6 4; animation: tc-flow var(--tk-motion-duration-live) var(--tk-motion-easing-linear) infinite; }
+.tcanvas__edge[data-live] { stroke: var(--tk-color-agent-live); stroke-width: var(--tk-border-width-strong); stroke-dasharray: 6 4; stroke-dashoffset: var(--tc-dash, 0); }
 .tcanvas__edge[data-dim] { opacity: 0.35; }
 .tcanvas__arrow { fill: none; stroke: var(--tk-color-border-strong); stroke-width: 1.5; }
 .tcanvas__arrow--live { stroke: var(--tk-color-agent-live); }
-/* 선을 따라 흐르는 점선: 일이 아래로 내려가고 있다는 뜻. 움직임 줄이기를 켜면 멈춘 점선으로 둔다 */
-@keyframes tc-flow { to { stroke-dashoffset: -20; } }
-@media (prefers-reduced-motion: reduce) { .tcanvas__edge[data-live] { animation: none; } }
+/* 선을 따라 흐르는 점선: 일이 아래로 내려가고 있다는 뜻. 움직임 줄이기를 켜면 멈춘 점선으로 둔다.
+   stroke-dashoffset 은 합성기로 못 돌려서 CSS animation 으로 두면 선마다 매 프레임 메인 스레드를 쓴다(실행 중 가지가 많은 판에서 가만히 둬도 CPU 를 먹었다).
+   그래서 TaskCanvas 가 --tc-dash 한 값만 초당 약 8번 바꾼다. */
 
 .tnode {
   position: absolute; display: flex; box-sizing: border-box;

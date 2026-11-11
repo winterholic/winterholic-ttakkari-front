@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import type { ReactNode } from "react";
 import type { UUID } from "../../api/types";
@@ -114,7 +114,12 @@ export function TaskCanvas({
     return auto;
   }, [forest, path.ancestors, touched]);
   const layout = useMemo(() => layoutForest(forest, collapsed), [forest, collapsed]);
-  const toggle = (id: UUID) => setTouched((m) => new Map(m).set(id, collapsed.has(id)));
+  // 이동·확대마다 TaskCanvas 가 다시 그려지므로, 노드(NodeCard memo)에 넘기는 함수는 참조가 바뀌지 않아야 한다.
+  const collapsedRef = useRef(collapsed);
+  useEffect(() => {
+    collapsedRef.current = collapsed;
+  });
+  const toggle = useCallback((id: UUID) => setTouched((m) => new Map(m).set(id, collapsedRef.current.has(id))), []);
 
   // 고른 노드의 조상·자손만 또렷하게. 나머지는 옅게 둔다(가계도의 초점).
   const related = useMemo(() => {
@@ -128,6 +133,21 @@ export function TaskCanvas({
     }
     return set;
   }, [forest, selectedId, path.ancestors]);
+
+  // 흐르는 점선(canvas.css 주석 참고). 도는 가지가 없거나 움직임 줄이기면 돌리지 않는다.
+  const edgesRef = useRef<SVGSVGElement>(null);
+  const anyLiveEdge = layout.edges.some((e) => e.live);
+  useEffect(() => {
+    const svg = edgesRef.current;
+    if (!svg || !anyLiveEdge || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const DASH_CYCLE = 10; // stroke-dasharray 6 4 의 한 주기
+    const started = performance.now();
+    const t = setInterval(() => {
+      const phase = ((performance.now() - started) / 1600) % 1;
+      svg.style.setProperty("--tc-dash", String(-Math.round(phase * DASH_CYCLE * 2 * 10) / 10));
+    }, 120);
+    return () => clearInterval(t);
+  }, [anyLiveEdge]);
 
   const box = { x: 0, y: 0, w: layout.width, h: layout.height };
   const pad = { top: 72, right: 32, bottom: 32 + bottomInset, left: 32 };
@@ -146,7 +166,12 @@ export function TaskCanvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusId]);
 
-  const now = new Date();
+  // 시각 표시("방금"·시:분)는 분 단위로만 갱신한다. 렌더마다 새 Date 를 만들면 노드가 매번 다시 그려진다.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(t);
+  }, []);
   const onKey = (e: React.KeyboardEvent) => {
     if ((e.target as Element).closest("input, textarea")) return;
     if (e.key === "+" || e.key === "=") zoomAt(view.k * ZOOM_STEP);
@@ -159,7 +184,7 @@ export function TaskCanvas({
   return (
     <div className="tcanvas" ref={ref} onKeyDown={onKey} style={{ "--tc-inset": `${bottomInset}px` } as React.CSSProperties} role="group" aria-label={label} aria-roledescription="작업 트리 캔버스">
       <div className="tcanvas__stage" style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.k})`, width: layout.width, height: layout.height }}>
-        <svg className="tcanvas__edges" width={layout.width} height={layout.height} aria-hidden="true">
+        <svg ref={edgesRef} className="tcanvas__edges" width={layout.width} height={layout.height} aria-hidden="true">
           <defs>
             <marker id="tc-arrow" viewBox="0 0 8 8" refX="4" refY="7" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
               <path d="M0,2 L4,7 L8,2" className="tcanvas__arrow" />
@@ -189,7 +214,7 @@ export function TaskCanvas({
             dim={!!related && !related.has(p.id)}
             onSelect={onSelect}
             onToggle={toggle}
-            onFocus={() => reveal({ x: p.x, y: p.y, w: NODE_W, h: NODE_H })}
+            onReveal={reveal}
           />
         ))}
       </div>
@@ -209,7 +234,7 @@ export function TaskCanvas({
   );
 }
 
-function NodeCard({
+const NodeCard = memo(function NodeCard({
   p,
   desk,
   now,
@@ -217,7 +242,7 @@ function NodeCard({
   dim,
   onSelect,
   onToggle,
-  onFocus,
+  onReveal,
 }: {
   p: PlacedNode;
   desk: DeskCard;
@@ -226,9 +251,10 @@ function NodeCard({
   dim: boolean;
   onSelect: (id: UUID) => void;
   onToggle: (id: UUID) => void;
-  onFocus: () => void;
+  onReveal: (box: { x: number; y: number; w: number; h: number }) => void;
 }) {
   const it = p.item;
+  const onFocus = () => onReveal({ x: p.x, y: p.y, w: NODE_W, h: NODE_H });
   const style = { left: p.x, top: p.y, width: NODE_W, height: NODE_H };
   if (!it) {
     return (
@@ -282,4 +308,4 @@ function NodeCard({
       )}
     </div>
   );
-}
+});
