@@ -1,0 +1,68 @@
+@import "../github/github.css";
+
+/* 저장소 평가. 탐색 화면의 섹션·상태·목록을 그대로 쓰고, 점수·단계·추이만 새로 둔다. 토큰만 쓴다. */
+.ra { display: flex; flex-direction: column; min-width: 0; padding-block: var(--tk-space-4) var(--tk-space-8); }
+.ra-grid { display: flex; flex-direction: column; gap: var(--tk-space-6); min-width: 0; }
+.ra-main { display: flex; flex-direction: column; gap: var(--tk-space-6); min-width: 0; }
+@media (min-width: 1024px) {
+  .ra-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; }
+}
+
+.ra-account { display: flex; flex-wrap: wrap; align-items: center; gap: var(--tk-space-2); margin: 0; min-width: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.ra-account > .tk-icon { flex: none; color: var(--tk-color-text-tertiary); }
+.ra-account > span { min-width: 0; overflow-wrap: anywhere; }
+
+.ra-advanced { border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-default); padding-top: var(--tk-space-2); }
+.ra-advanced > summary { cursor: pointer; min-height: var(--tk-size-touch-target-min); align-content: center; font-weight: var(--tk-font-weight-semibold); font-size: var(--tk-font-size-sm); color: var(--tk-color-text-primary); }
+.ra-advanced[open] { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.ra-check { display: flex; align-items: center; gap: var(--tk-space-2); min-height: var(--tk-size-touch-target-min); font-size: var(--tk-font-size-sm); color: var(--tk-color-text-primary); }
+.ra-check > input { width: var(--tk-size-icon-md); height: var(--tk-size-icon-md); flex: none; accent-color: var(--tk-color-text-brand); }
+
+/* 진행 단계: 네 칸 가로. 지금 단계는 고리, 끝난 단계는 채움으로 가른다 */
+.ra-steps { display: flex; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+.ra-step { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; gap: var(--tk-space-1); min-width: 0; }
+.ra-step__dot { display: flex; align-items: center; justify-content: center; width: var(--tk-size-icon-lg); height: var(--tk-size-icon-lg); border: var(--tk-border-width-strong) solid var(--tk-color-border-default); border-radius: var(--tk-radius-full); background: var(--tk-color-surface-default); color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-semibold); }
+.ra-step[data-state="current"] > .ra-step__dot { border-color: var(--tk-color-text-brand); color: var(--tk-color-text-brand); }
+.ra-step[data-state="done"] > .ra-step__dot { border-color: var(--tk-color-status-success-solid); background: var(--tk-color-status-success-solid); color: var(--tk-color-status-success-on-solid); }
+.ra-step__label { color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); text-align: center; overflow-wrap: anywhere; }
+.ra-step[data-state="current"] > .ra-step__label { color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-semibold); }
+.ra-step[data-state="done"] > .ra-step__label { color: var(--tk-color-text-secondary); }
+
+/* 결과 카드: 등급·점수가 먼저 읽히고, 아래로 축·약점·총평·근거·비용 순서다 */
+.ra-card { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.ra-card__title { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-md) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.ra-score { display: flex; flex-direction: column; align-items: center; gap: var(--tk-space-1); min-width: 0; text-align: center; }
+.ra-score__grade { margin: 0; color: var(--tk-color-text-brand); font: var(--tk-font-weight-bold) var(--tk-font-size-3xl) / var(--tk-font-line-height-none) var(--tk-font-family-sans); }
+.ra-score__points { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-xl) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); font-variant-numeric: tabular-nums; }
+.ra-score__meta { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); overflow-wrap: anywhere; }
+.ra-delta { margin: 0; font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-semibold); font-variant-numeric: tabular-nums; }
+.ra-delta[data-dir="up"] { color: var(--tk-color-text-success); }
+.ra-delta[data-dir="down"] { color: var(--tk-color-text-danger); }
+.ra-delta[data-dir="same"] { color: var(--tk-color-text-tertiary); font-weight: var(--tk-font-weight-regular); }
+
+.ra-axes { display: flex; flex-direction: column; gap: var(--tk-space-3); margin: 0; padding: 0; list-style: none; }
+.ra-axis { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; }
+.ra-axis__head { display: flex; align-items: baseline; gap: var(--tk-space-2); min-width: 0; }
+.ra-axis__name { color: var(--tk-color-text-primary); font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-medium); overflow-wrap: anywhere; }
+.ra-axis__lowrel { color: var(--tk-color-text-warning); font-size: var(--tk-font-size-xs); overflow-wrap: anywhere; }
+.ra-axis__value { margin-left: auto; flex: none; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); font-variant-numeric: tabular-nums; }
+.ra-axis__value[data-kind="unverified"] { color: var(--tk-color-text-warning); }
+
+.ra-block { display: flex; flex-direction: column; gap: var(--tk-space-2); min-width: 0; }
+.ra-block__title { margin: 0; color: var(--tk-color-text-primary); font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-semibold); }
+.ra-weak { display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0; padding-inline-start: var(--tk-space-5); }
+.ra-weak__item { margin: 0; color: var(--tk-color-text-primary); font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-medium); overflow-wrap: anywhere; }
+.ra-weak__advice { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.ra-summary { margin: 0; color: var(--tk-color-text-primary); font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+
+.ra-disclosure { border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
+.ra-disclosure > summary { cursor: pointer; min-height: var(--tk-size-touch-target-min); align-content: center; font-size: var(--tk-font-size-sm); font-weight: var(--tk-font-weight-medium); color: var(--tk-color-text-primary); }
+.ra-disclosure ul { display: flex; flex-direction: column; gap: var(--tk-space-2); margin: 0 0 var(--tk-space-2); padding-inline-start: var(--tk-space-5); }
+.ra-disclosure li::marker { color: var(--tk-color-text-tertiary); }
+.ra-evidence__item { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--tk-space-2); margin: 0; font-size: var(--tk-font-size-sm); color: var(--tk-color-text-primary); overflow-wrap: anywhere; }
+.ra-evidence__line { margin: 0; font-family: var(--tk-font-family-mono); font-size: var(--tk-font-size-xs); color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
+
+.ra-cost { margin: 0; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); overflow-wrap: anywhere; }
+
+.ra-spark { display: block; width: 100%; height: var(--tk-space-12); }
+.ra-spark polyline { stroke: var(--tk-color-text-brand); }

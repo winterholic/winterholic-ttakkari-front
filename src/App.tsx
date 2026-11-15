@@ -57,6 +57,8 @@ const PmsListPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default:
 const PmsProjectPage = lazy(() => import("./pages/PmsPage").then((m) => ({ default: m.PmsProjectPage })));
 // GitHub 탐색은 코드·diff·로그 뷰어가 모여 있어 열 때만 받는다.
 const GithubPage = lazy(() => import("./pages/GithubPage").then((m) => ({ default: m.GithubPage })));
+// 저장소 평가는 결과 카드·이력 코드가 모여 있어 열 때만 받는다.
+const RepoAppraisalPage = lazy(() => import("./pages/RepoAppraisalPage").then((m) => ({ default: m.RepoAppraisalPage })));
 const TtsPage = lazy(() => import("./pages/TtsPage").then((m) => ({ default: m.TtsPage })));
 const NotebookLMPage = lazy(() => import("./pages/NotebookLMPage").then((m) => ({ default: m.NotebookLMPage })));
 const NotebookLMDetailPage = lazy(() => import("./pages/NotebookLMDetailPage").then((m) => ({ default: m.NotebookLMDetailPage })));
@@ -138,6 +140,7 @@ export function App() {
         <Route path="/wbs/:projectId" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/wbs/:projectId/:view" element={<Suspense fallback={<RouteFallback />}><WbsProjectPage /></Suspense>} />
         <Route path="/github/*" element={<Suspense fallback={<RouteFallback />}><GithubPage /></Suspense>} />
+        <Route path="/repo-appraisal/*" element={<Suspense fallback={<RouteFallback />}><RepoAppraisalPage /></Suspense>} />
         <Route path="/games" element={<GamesPage />} />
         <Route path="/creative" element={<Suspense fallback={<RouteFallback />}><CreativePlanNewPage /></Suspense>} />
         <Route path="/creative/legacy" element={<Suspense fallback={<RouteFallback />}><CreativePage /></Suspense>} />

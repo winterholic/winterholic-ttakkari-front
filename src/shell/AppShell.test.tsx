@@ -122,7 +122,7 @@ describe("AppShell 인증 가드", () => {
     within(nav).getByRole("button", { name: "부가 기능" }).click();
     const dialog = await screen.findByRole("dialog", { name: "부가 기능" });
     const links = within(dialog).getAllByRole("link");
-    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/research", "/remote-desktop", "/notifications", "/weather", "/workspace", "/library", "/context-library", "/knowledge-library", "/collect", "/files", "/memos", "/calendar", "/checklists", "/meetings", "/pms", "/wbs", "/games", "/creative", "/logs", "/design-systems", "/harness", "/artcraft", "/github", "/reverse", "/notebooklm", "/tts", "/stocks"]);
+    expect(links.map((l) => l.getAttribute("href"))).toEqual(["/research", "/remote-desktop", "/notifications", "/weather", "/workspace", "/library", "/context-library", "/knowledge-library", "/collect", "/files", "/memos", "/calendar", "/checklists", "/meetings", "/pms", "/wbs", "/games", "/creative", "/logs", "/design-systems", "/harness", "/artcraft", "/github", "/repo-appraisal", "/reverse", "/notebooklm", "/tts", "/stocks"]);
     expect(links.filter((l) => l.getAttribute("aria-current") === "page").map((l) => l.getAttribute("href"))).toEqual(["/memos"]);
   });
 
@@ -176,6 +176,7 @@ describe("AppShell 인증 가드", () => {
       ["하네스", "/harness"],
       ["ArtCraft", "/artcraft"],
       ["GitHub", "/github"],
+      ["저장소 평가", "/repo-appraisal"],
       ["리버스 엔지니어링", "/reverse"],
       ["NotebookLM", "/notebooklm"],
       ["음성 생성", "/tts"],

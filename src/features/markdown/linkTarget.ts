@@ -7,7 +7,7 @@
 export const APP_ROUTE_ROOTS = [
   "remote-desktop",
   "login", "chat", "work", "tasks", "workspace", "library", "context-library", "files", "accounts", "settings", "assistant",
-  "more", "notifications", "weather", "resources", "meetings", "pms", "wbs", "checklists", "memos", "calendar", "share", "research", "games", "creative", "logs", "design-systems", "harness", "knowledge-library", "collect", "artcraft", "reverse", "github", "notebooklm", "tts", "stocks",
+  "more", "notifications", "weather", "resources", "meetings", "pms", "wbs", "checklists", "memos", "calendar", "share", "research", "games", "creative", "logs", "design-systems", "harness", "knowledge-library", "collect", "artcraft", "reverse", "github", "repo-appraisal", "notebooklm", "tts", "stocks",
 ] as const;
 
 export type LinkTarget =
