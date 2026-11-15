@@ -15,11 +15,12 @@ interface Props {
   locked: boolean;
   onNudge: (dx: number, dy: number) => void;
   onButton: (button: PadButton, down: boolean) => void;
-  onWheel: (direction: WheelDirection) => void;
+  onWheel: (direction: WheelDirection, count?: number) => void;
+  onJump: (edge: 'top' | 'bottom') => void;
 }
 
 /** Translucent thumb controls: a joystick that moves the cursor and click, scroll and drag-lock buttons. */
-export function GamepadOverlay({ leftHanded, opacity, scale, sensitivity, locked, onNudge, onButton, onWheel }: Props) {
+export function GamepadOverlay({ leftHanded, opacity, scale, sensitivity, locked, onNudge, onButton, onWheel, onJump }: Props) {
   const style = { '--rd-pad-opacity': opacity, '--rd-pad-scale': scale } as CSSProperties;
   return <div className={`remote-pad${leftHanded ? ' remote-pad--left-handed' : ''}`} style={style} role="group" aria-label="게임패드 조작">
     <Joystick sensitivity={sensitivity} onNudge={onNudge} />
@@ -30,7 +31,9 @@ export function GamepadOverlay({ leftHanded, opacity, scale, sensitivity, locked
       <div className="remote-pad__cluster">
         <div className="remote-pad__scroll" role="group" aria-label="스크롤">
           <ScrollButton direction="up" label="위로 스크롤" onWheel={onWheel} />
+          <button type="button" className="remote-pad__button remote-pad__step" aria-label="맨 위로" onClick={() => onJump('top')}><Icon name="send" /></button>
           <ScrollButton direction="down" label="아래로 스크롤" onWheel={onWheel} />
+          <button type="button" className="remote-pad__button remote-pad__step" aria-label="맨 아래로" onClick={() => onJump('bottom')}><Icon name="arrow-down" /></button>
         </div>
         <div className="remote-pad__clicks">
           <HoldButton className="remote-pad__right" label="우클릭" button="right" onButton={onButton}>R</HoldButton>
@@ -99,6 +102,9 @@ function HoldButton({ button, label, className, children, onButton }: { button: 
     onClick={e => { if (e.detail === 0) { onButton(button, true); onButton(button, false); } }}>{children}</button>;
 }
 
+// 패드 버튼은 한 번에 여러 칸을 굴린다. 한 칸씩은 Mac 에서 거의 안 움직인다.
+const PAD_TICKS = 4;
+
 function ScrollButton({ direction, label, onWheel }: { direction: 'up' | 'down'; label: string; onWheel: Props['onWheel'] }) {
   const timers = useRef<{ delay?: ReturnType<typeof setTimeout>; repeat?: ReturnType<typeof setInterval>; id: number }>({ id: -1 });
   function stop() { clearTimeout(timers.current.delay); clearInterval(timers.current.repeat); timers.current.id = -1; }
@@ -108,13 +114,13 @@ function ScrollButton({ direction, label, onWheel }: { direction: 'up' | 'down';
   return <button type="button" className="remote-pad__button remote-pad__step" aria-label={label}
     onPointerDown={e => {
       e.preventDefault(); capture(e.currentTarget, e.pointerId); stop(); timers.current.id = e.pointerId;
-      e.currentTarget.setAttribute('data-active', ''); wheel.current(direction);
-      timers.current.delay = setTimeout(() => { timers.current.repeat = setInterval(() => wheel.current(direction), 70); }, 320);
+      e.currentTarget.setAttribute('data-active', ''); wheel.current(direction, PAD_TICKS);
+      timers.current.delay = setTimeout(() => { timers.current.repeat = setInterval(() => wheel.current(direction, PAD_TICKS * 2), 50); }, 250);
     }}
     onPointerUp={e => { e.currentTarget.removeAttribute('data-active'); stop(); }}
     onPointerCancel={e => { e.currentTarget.removeAttribute('data-active'); stop(); }}
     onLostPointerCapture={e => { e.currentTarget.removeAttribute('data-active'); stop(); }}
-    onClick={e => { if (e.detail === 0) wheel.current(direction); }}>
+    onClick={e => { if (e.detail === 0) wheel.current(direction, PAD_TICKS); }}>
     <Icon name={direction === 'up' ? 'chevron-up' : 'chevron-down'} />
   </button>;
 }

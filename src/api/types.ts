@@ -352,7 +352,7 @@ export interface AccountOut {
   work_enabled: boolean;
   work_priority: number;
   /** ok: 로그인 확인 · unknown: 확인 못 함 · missing: 계정 폴더 없음 */
-  login: "ok" | "unknown" | "missing";
+  login: "ok" | "unknown" | "missing" | "expired";
   login_label: string | null;
   cooldown_seconds: number;
   /** 처음 한 번 Mac Studio 터미널에서 실행할 로그인 명령. 로그인돼 있으면 null */

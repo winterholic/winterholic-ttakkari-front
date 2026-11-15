@@ -40,7 +40,7 @@ export function SettingsSheet({ settings, onChange, onClose, canFullscreen, onFu
       <p className="remote-sheet__hint">{settings.mode === 'trackpad' ? '화면을 끌면 커서가 상대적으로 움직이고, 탭하면 커서 위치를 클릭합니다.' : '탭한 곳을 바로 클릭하고, 한 손가락으로 끌면 화면이 이동합니다. 길게 누르면 드래그합니다.'}</p>
       <Segmented<CursorSize> label="커서 크기" value={settings.cursorSize} options={[['s', '작게'], ['m', '보통'], ['l', '크게']]} onChange={cursorSize => onChange({ cursorSize })} />
       <Range label="커서 감도" value={settings.sensitivity} min={.5} max={3} step={.1} format={v => `${v.toFixed(1)}배`} onChange={sensitivity => onChange({ sensitivity })} />
-      <Range label="스크롤 속도" value={settings.scrollSpeed} min={.5} max={2.5} step={.1} format={v => `${v.toFixed(1)}배`} onChange={scrollSpeed => onChange({ scrollSpeed })} />
+      <Range label="스크롤 속도" value={settings.scrollSpeed} min={.5} max={4} step={.1} format={v => `${v.toFixed(1)}배`} onChange={scrollSpeed => onChange({ scrollSpeed })} />
       <Toggle label="스크롤 방향 반대로" hint="두 손가락을 내릴 때 Mac 화면이 반대로 움직이면 켜세요." checked={settings.scrollReverse} onChange={scrollReverse => onChange({ scrollReverse })} />
       <h3>게임패드</h3>
       <Toggle label="게임패드 표시" hint="조이스틱·클릭·스크롤 버튼을 화면 위에 띄웁니다." checked={settings.pad} onChange={pad => onChange({ pad })} />

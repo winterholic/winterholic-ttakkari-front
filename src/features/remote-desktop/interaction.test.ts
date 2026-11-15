@@ -132,6 +132,41 @@ describe('trackpad gestures', () => {
     for (let i = 1; i <= 6; i++) { second.input.move(1, 20 + 10 * i, 20, 16 * i); second.input.move(2, 80 + 10 * i, 20, 16 * i); }
     expect(second.masks()).toContain(32);
   });
+  it('wheel() repeats the step count times as press/release pairs', () => {
+    const { input, masks } = setup();
+    input.wheel('down', 3);
+    expect(masks()).toEqual([16, 0, 16, 0, 16, 0]);
+  });
+  it('a quick two-finger flick keeps scrolling after release, then stops', () => {
+    vi.useFakeTimers();
+    try {
+      const { input, masks } = setup();
+      input.down(1, 20, 20, 0); input.down(2, 80, 20, 0);
+      for (let i = 1; i <= 6; i++) { input.move(1, 20, 20 + 20 * i, 16 * i); input.move(2, 80, 20 + 20 * i, 16 * i); }
+      input.up(1, 100);
+      const before = masks().length;
+      vi.advanceTimersByTime(400);
+      expect(masks().length).toBeGreaterThan(before);
+      expect(masks().slice(before).filter(m => m === 8).length).toBeGreaterThan(0);
+      vi.advanceTimersByTime(5000);
+      const settled = masks().length;
+      vi.advanceTimersByTime(1000);
+      expect(masks().length).toBe(settled);
+    } finally { vi.useRealTimers(); }
+  });
+  it('touching down again stops the momentum', () => {
+    vi.useFakeTimers();
+    try {
+      const { input, masks } = setup();
+      input.down(1, 20, 20, 0); input.down(2, 80, 20, 0);
+      for (let i = 1; i <= 6; i++) { input.move(1, 20, 20 + 20 * i, 16 * i); input.move(2, 80, 20 + 20 * i, 16 * i); }
+      input.up(1, 100);
+      input.down(3, 50, 50, 110);
+      const before = masks().length;
+      vi.advanceTimersByTime(1000);
+      expect(masks().length).toBe(before);
+    } finally { vi.useRealTimers(); }
+  });
   it('pinching zooms around the fingers and moves with their center', () => {
     const { input, zoom, pan } = setup();
     input.down(1, 20, 20, 0); input.down(2, 80, 20, 0);

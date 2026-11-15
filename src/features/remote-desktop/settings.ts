@@ -17,7 +17,7 @@ export interface RemoteSettings {
   cmdKey: CmdKey;
 }
 export const DEFAULT_SETTINGS: RemoteSettings = {
-  mode: 'trackpad', sensitivity: 1.3, scrollSpeed: 1, scrollReverse: false, cursorSize: 'm',
+  mode: 'trackpad', sensitivity: 1.3, scrollSpeed: 1.5, scrollReverse: false, cursorSize: 'm',
   pad: false, padLeftHanded: false, padOpacity: .6, padScale: 1, autoHide: true, cmdKey: 'meta',
 };
 export const STORAGE_KEY = 'ttakkari.remote-desktop.settings.v1';
@@ -34,7 +34,7 @@ export function sanitizeSettings(raw: unknown): RemoteSettings {
   return {
     mode: pick(o.mode, ['trackpad', 'touch'], d.mode),
     sensitivity: num(o.sensitivity, .5, 3, d.sensitivity),
-    scrollSpeed: num(o.scrollSpeed, .5, 2.5, d.scrollSpeed),
+    scrollSpeed: num(o.scrollSpeed, .5, 4, d.scrollSpeed),
     scrollReverse: bool(o.scrollReverse, d.scrollReverse),
     cursorSize: pick(o.cursorSize, ['s', 'm', 'l'], d.cursorSize),
     pad: bool(o.pad, d.pad),

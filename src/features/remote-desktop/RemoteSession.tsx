@@ -12,7 +12,7 @@ import { TouchInput, ZOOM_MAX, fitScale, pointInDesktop, pointerPacket, textKeys
 import type { View } from './interaction';
 import { KeyboardBar } from './KeyboardBar';
 import type { KeyboardBarHandle } from './KeyboardBar';
-import { NO_MODIFIERS, activeModifiers, cycleModifier, keySymForEvent, modifierSym, releaseOneShot } from './keys';
+import { NO_MODIFIERS, SYM, activeModifiers, cycleModifier, keySymForEvent, modifierSym, releaseOneShot } from './keys';
 import type { KeyLike, Modifier, ModifierStates, Shortcut } from './keys';
 import { SettingsSheet } from './SettingsSheet';
 import './remote-session.css';
@@ -51,6 +51,27 @@ export function RemoteSession({ device, initialPermit, credentials, onExit }: Pr
   const cursor = useRef<HTMLDivElement>(null), keybar = useRef<KeyboardBarHandle>(null);
   const keybarBox = useRef<HTMLDivElement>(null);
   const mouseHeld = useRef(false), lastMask = useRef(0);
+  // 손가락 이동은 프레임당 한 번만 보낸다. 120Hz 터치 이벤트를 그대로 보내면 터널과 Mac 이 포인터 패킷에 파묻혀 화면 갱신이 밀린다.
+  const pendingMove = useRef<{ x: number; y: number; mask: number } | null>(null), moveFrame = useRef(0), sentMask = useRef(0);
+  function flushMove() {
+    moveFrame.current = 0;
+    const m = pendingMove.current; pendingMove.current = null;
+    if (m && socket.current?.readyState === WebSocket.OPEN) socket.current.send(pointerPacket(m.x, m.y, m.mask));
+  }
+  function sendPointer(x: number, y: number, mask: number) {
+    if (socket.current?.readyState !== WebSocket.OPEN) return;
+    if (mask === sentMask.current && mask === lastMask.current) {
+      pendingMove.current = { x, y, mask };
+      if (!moveFrame.current) moveFrame.current = requestAnimationFrame(flushMove);
+      return;
+    }
+    // 버튼 상태가 바뀌는 패킷은 앞선 이동을 먼저 내보내고 즉시 보낸다. 눌림·뗌 순서가 어긋나면 클릭이 깨진다.
+    sendNow(x, y, mask);
+  }
+  function sendNow(x: number, y: number, mask: number) {
+    cancelAnimationFrame(moveFrame.current); moveFrame.current = 0; pendingMove.current = null;
+    socket.current?.send(pointerPacket(x, y, mask)); sentMask.current = mask;
+  }
   const pointerMods = useRef<Modifier[]>([]);
   const revokeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fullscreenSupported = typeof document !== 'undefined' && !!document.fullscreenEnabled;
@@ -65,7 +86,7 @@ export function RemoteSession({ device, initialPermit, credentials, onExit }: Pr
         const cmd = settingsRef.current.cmdKey;
         for (const m of pointerMods.current) rfb.current?.sendKey(modifierSym(m, cmd), undefined, true);
       }
-      socket.current.send(pointerPacket(x, y, mask));
+      sendPointer(x, y, mask);
       if (!down && wasDown && pointerMods.current.length) {
         const cmd = settingsRef.current.cmdKey;
         for (const m of [...pointerMods.current].reverse()) rfb.current?.sendKey(modifierSym(m, cmd), undefined, false);
@@ -192,12 +213,12 @@ export function RemoteSession({ device, initialPermit, credentials, onExit }: Pr
   function releasePointer() {
     pad.current = { left: false, right: false, lock: false }; setLocked(false);
     touch.external = 0; touch.cancel();
-    if (mouseHeld.current && connected.current && socket.current?.readyState === WebSocket.OPEN) socket.current.send(pointerPacket(touch.cursor.x, touch.cursor.y, 0));
+    if (mouseHeld.current && connected.current && socket.current?.readyState === WebSocket.OPEN) sendNow(touch.cursor.x, touch.cursor.y, 0);
     mouseHeld.current = false; lastMask.current = 0;
     if (pointerMods.current.length) { for (const m of pointerMods.current) rfb.current?.sendKey(modifierSym(m, settingsRef.current.cmdKey), undefined, false); pointerMods.current = []; }
   }
   function releaseMouse() {
-    if (mouseHeld.current && connected.current && socket.current?.readyState === WebSocket.OPEN) socket.current.send(pointerPacket(touch.cursor.x, touch.cursor.y, 0));
+    if (mouseHeld.current && connected.current && socket.current?.readyState === WebSocket.OPEN) sendNow(touch.cursor.x, touch.cursor.y, 0);
     mouseHeld.current = false; lastMask.current = 0;
   }
   function setPadButton(button: PadButton, on: boolean) {
@@ -380,7 +401,7 @@ export function RemoteSession({ device, initialPermit, credentials, onExit }: Pr
       if (kind === 'down') { (e.currentTarget as HTMLElement).focus({ preventScroll: true }); capture(e.currentTarget, e.pointerId); }
       touch.cursor = pointInDesktop(x, y, view.current, dimensions.current.width, dimensions.current.height);
       const mask = kind === 'cancel' ? 0 : (e.buttons & 1) | ((e.buttons & 2) << 1) | ((e.buttons & 4) >> 1);
-      if (socket.current?.readyState === WebSocket.OPEN) socket.current.send(pointerPacket(touch.cursor.x, touch.cursor.y, mask));
+      if (socket.current?.readyState === WebSocket.OPEN) sendNow(touch.cursor.x, touch.cursor.y, mask);
       mouseHeld.current = mask !== 0; lastMask.current = mask;
       paintCursor(); return;
     }
@@ -425,7 +446,8 @@ export function RemoteSession({ device, initialPermit, credentials, onExit }: Pr
       {!live && <div className="remote-status"><Icon name="server" /><p role="status">{status}</p>{failed && <div className="remote-actions"><Button onClick={() => { retries.current = 0; setAttempt(a => a + 1); }}>다시 연결</Button><Button onClick={leave}>계정 다시 확인</Button></div>}</div>}
     </div>
     {live && settings.pad && !keyboard && <GamepadOverlay leftHanded={settings.padLeftHanded} opacity={settings.padOpacity} scale={settings.padScale} sensitivity={settings.sensitivity} locked={locked}
-      onNudge={(dx, dy) => touch.nudge(dx, dy)} onButton={setPadButton} onWheel={d => touch.wheel(d)} />}
+      onNudge={(dx, dy) => touch.nudge(dx, dy)} onButton={setPadButton} onWheel={(d, n) => touch.wheel(d, n)}
+      onJump={edge => sendKeys(edge === 'top' ? SYM.Up : SYM.Down, ['cmd'])} />}
     {tools && <div className="remote-chrome" onPointerDownCapture={bump}>
       <div className="remote-topbar">
         <IconButton aria-label="연결 해제" onClick={leave}><Icon name="x" /></IconButton>

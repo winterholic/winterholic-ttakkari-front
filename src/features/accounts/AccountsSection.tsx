@@ -75,6 +75,7 @@ function loginText(a: AccountOut): string {
   if (a.isolation_mode && a.login !== "ok") return AGY_STATE_TEXT[a.auth_state ?? ""] ?? "로그인 상태 미확인";
   if (a.login === "ok") return a.login_label ? a.login_label : "로그인됨";
   if (a.engine === "antigravity") return "로그인 상태 미확인";
+  if (a.login === "expired") return "로그인 만료 · 다시 로그인 필요";
   return "로그인 필요";
 }
 

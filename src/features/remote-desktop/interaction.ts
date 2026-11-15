@@ -53,13 +53,19 @@ export interface InputConfig {
   /** Flip the wheel direction when the Mac scrolls opposite to the fingers. */
   scrollReverse: boolean;
 }
-export const DEFAULT_CONFIG: InputConfig = { sensitivity: 1.3, scrollSpeed: 1, scrollReverse: false };
+export const DEFAULT_CONFIG: InputConfig = { sensitivity: 1.3, scrollSpeed: 1.5, scrollReverse: false };
 
 const SLOP = 6;
 const LONG_PRESS_MS = 420;
 const TAP_MS = 380;
 const DOUBLE_TAP_MS = 320;
-const WHEEL_STEP = 22;
+// 손가락이 이만큼 움직일 때마다 휠 한 칸. 한 칸은 Mac 에서 몇 줄밖에 안 움직여서 값이 크면 긴 문서를 못 내린다.
+const WHEEL_STEP = 9;
+// 두 손가락을 떼는 순간의 속도(px/ms)가 이 이상이면 관성으로 계속 굴린다.
+const MOMENTUM_MIN = .35;
+const MOMENTUM_DECAY = .94;
+const MOMENTUM_STOP = .05;
+const MOMENTUM_TICK_MS = 16;
 
 export class TouchInput {
   mode: InputMode = 'trackpad';
@@ -91,6 +97,9 @@ export class TouchInput {
   private lastDistance = 0;
   private initialCenter: Point = { x: 0, y: 0 };
   private lastCenter: Point = { x: 0, y: 0 };
+  private scrollAt = 0;
+  private velocity = 0;
+  private momentum?: ReturnType<typeof setTimeout>;
   constructor(private cb: InputCallbacks) {}
 
   get dragActive() { return this.dragging; }
@@ -100,9 +109,10 @@ export class TouchInput {
   private endDrag() { this.dragging = false; this.emit(); }
   /** Press and release one button without disturbing buttons already held. */
   click(button: number = BUTTON.left) { this.emit(button); this.emit(); }
-  wheel(direction: WheelDirection) {
+  wheel(direction: WheelDirection, count = 1) {
     const effective = this.config.scrollReverse ? OPPOSITE[direction] : direction;
-    this.emit(WHEEL_MASK[effective]); this.emit();
+    // 한 패킷에 눌림·뗌을 번갈아 보낸다. 칸 수만큼 반복해도 소켓 쓰기는 한 번 흐름이라 지연이 늘지 않는다.
+    for (let i = 0; i < count; i++) { this.emit(WHEEL_MASK[effective]); this.emit(); }
   }
   /** Re-send the pointer state after `external` changed, so the Mac sees the press or release immediately. */
   sync() { this.emit(); }
@@ -115,6 +125,7 @@ export class TouchInput {
 
   down(id: number, x: number, y: number, at = Date.now()) {
     if (this.points.size >= 2) return;
+    this.stopMomentum();
     this.points.set(id, { x, y }); this.origins.set(id, { x, y });
     clearTimeout(this.timer);
     if (this.points.size === 1) {
@@ -126,7 +137,7 @@ export class TouchInput {
     } else {
       if (this.dragging) this.endDrag();
       this.armed = false; this.multi = true; this.gesture = null; this.twoMoved = false; this.twoStartAt = at;
-      this.wheelX = 0; this.wheelY = 0;
+      this.wheelX = 0; this.wheelY = 0; this.velocity = 0; this.scrollAt = 0;
       const [a, b] = [...this.points.values()];
       this.initialDistance = this.lastDistance = Math.hypot(a.x - b.x, a.y - b.y);
       this.initialCenter = this.lastCenter = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
@@ -138,7 +149,7 @@ export class TouchInput {
     if (!old) return;
     this.points.set(id, { x, y });
     const dx = x - old.x, dy = y - old.y;
-    if (this.points.size === 2) { this.moveTwo(id, x, y); return; }
+    if (this.points.size === 2) { this.moveTwo(id, x, y, at); return; }
     if (this.multi) return;
     if (!this.moved) {
       // Below the slop nothing moves, so finger jitter during a tap never nudges the cursor.
@@ -158,7 +169,7 @@ export class TouchInput {
     this.emit();
   }
 
-  private moveTwo(id: number, x: number, y: number) {
+  private moveTwo(id: number, x: number, y: number, at: number) {
     const origin = this.origins.get(id);
     if (origin && Math.hypot(x - origin.x, y - origin.y) > 10) this.twoMoved = true;
     const [a, b] = [...this.points.values()];
@@ -178,6 +189,9 @@ export class TouchInput {
       this.cb.pan(cdx, cdy);
     } else if (this.gesture === 'scroll') {
       const step = WHEEL_STEP / Math.max(.25, this.config.scrollSpeed);
+      const dt = Math.max(8, at - this.scrollAt);
+      if (this.scrollAt) this.velocity = this.velocity * .5 + (cdy / dt) * .5;
+      this.scrollAt = at;
       this.wheelY += cdy; this.wheelX += cdx;
       // Fingers moving down reveal earlier content, which is the wheel turning up.
       while (Math.abs(this.wheelY) >= step) { const s = Math.sign(this.wheelY); this.wheel(s > 0 ? 'up' : 'down'); this.wheelY -= s * step; }
@@ -190,7 +204,11 @@ export class TouchInput {
     if (!this.points.has(id)) return;
     clearTimeout(this.timer);
     this.points.delete(id);
-    if (this.points.size > 0) return;
+    if (this.points.size > 0) {
+      // 첫 손가락이 떨어지는 순간 속도가 가장 정확하다. 남은 손가락은 스크롤로 쓰지 않는다.
+      if (this.multi && this.gesture === 'scroll' && Math.abs(this.velocity) >= MOMENTUM_MIN) this.startMomentum(this.velocity);
+      return;
+    }
     if (this.dragging) { this.endDrag(); this.lastTap = null; return; }
     if (this.multi) {
       if (!this.gesture && !this.twoMoved && at - this.twoStartAt < TAP_MS) this.click(BUTTON.right);
@@ -203,7 +221,22 @@ export class TouchInput {
     } else this.lastTap = null;
   }
 
+  private startMomentum(velocity: number) {
+    this.stopMomentum();
+    const step = WHEEL_STEP / Math.max(.25, this.config.scrollSpeed);
+    let v = velocity, rest = 0;
+    const run = () => {
+      rest += v * MOMENTUM_TICK_MS;
+      while (Math.abs(rest) >= step) { const s = Math.sign(rest); this.wheel(s > 0 ? 'up' : 'down'); rest -= s * step; }
+      v *= MOMENTUM_DECAY;
+      this.momentum = Math.abs(v) > MOMENTUM_STOP ? setTimeout(run, MOMENTUM_TICK_MS) : undefined;
+    };
+    this.momentum = setTimeout(run, MOMENTUM_TICK_MS);
+  }
+  private stopMomentum() { clearTimeout(this.momentum); this.momentum = undefined; this.velocity = 0; }
+
   cancel() {
+    this.stopMomentum();
     clearTimeout(this.timer);
     if (this.dragging) { this.dragging = false; this.emit(); }
     this.points.clear(); this.origins.clear(); this.multi = false; this.armed = false; this.lastTap = null;

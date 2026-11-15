@@ -65,7 +65,7 @@ html.remote-session-open, html.remote-session-open body { overflow: hidden; over
 .remote-pad--left-handed .remote-pad__buttons { align-items: flex-start; }
 .remote-pad__cluster { display: flex; align-items: flex-end; gap: var(--tk-space-3); pointer-events: none; }
 .remote-pad--left-handed .remote-pad__cluster { flex-direction: row-reverse; }
-.remote-pad__scroll { display: flex; flex-direction: column; gap: var(--tk-space-2); pointer-events: none; }
+.remote-pad__scroll { display: grid; grid-template-columns: auto auto; gap: var(--tk-space-2); pointer-events: none; }
 .remote-pad__clicks { display: flex; flex-direction: column; align-items: center; gap: var(--tk-space-2); pointer-events: none; }
 .remote-pad__button, .remote-pad__lock { display: inline-flex; align-items: center; justify-content: center; border: var(--tk-border-width-strong) solid var(--tk-graphite-500); background: color-mix(in srgb, var(--tk-graphite-900) 70%, transparent); color: var(--tk-graphite-50); font: inherit; font-weight: 600; opacity: var(--rd-pad-opacity, .6); touch-action: none; transition: opacity 120ms; cursor: pointer; }
 .remote-pad__button[data-active], .remote-pad__lock[aria-pressed="true"] { opacity: 1; background: var(--tk-color-surface-brand); border-color: var(--tk-blue-300); }
