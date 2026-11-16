@@ -408,12 +408,20 @@ describe("검토와 게시 승인", () => {
     expect(await screen.findByText(/게시했습니다/)).toBeTruthy();
   });
 
-  it("원본 대조 확인이 안 된 문서가 있으면 이유를 말하고 게시하지 않는다", async () => {
+  it("원본 대조 없이도 별도 게시 승인 뒤 null provenance 로 게시한다", async () => {
+    const unverified = draft({ documents: [doc({ id: "x1", title: "docs/arch.md", logical_path: "docs/arch.md", verified_at: null, verified_by: null })] });
+    setServer(unverified);
+    h.publishDraft.mockImplementation(async () => ({ draft: { ...unverified, status: "published", publication: pub() }, publication: pub() }));
     renderAt("/context-sharing?project=e-alpha&draft=d1");
     await screen.findByRole("region", { name: "게시 승인" });
+    const docView = within(screen.getByRole("group", { name: "docs/arch.md" }));
+    expect(docView.getByText("원본 미대조")).toBeTruthy();
+    expect((docView.getByRole("checkbox", { name: "원본과 대조해 확인함" }) as HTMLInputElement).checked).toBe(false);
+    expect(screen.getByText(/verified_at: null/)).toBeTruthy();
     fireEvent.click(confirmBox());
-    expect(publishBtn().disabled).toBe(true);
-    expect(screen.getByText(/원본 대조 확인이 안 된 문서 1개/)).toBeTruthy();
+    expect(publishBtn().disabled).toBe(false);
+    fireEvent.click(publishBtn());
+    await waitFor(() => expect(h.publishDraft).toHaveBeenCalledWith("d1", D1));
   });
 
   it("저장하지 않은 변경이 있으면 게시할 수 없고, 저장 후에는 새 digest 로 다시 확인해야 한다", async () => {
@@ -526,7 +534,7 @@ describe("외부 공유 키", () => {
     fireEvent.change(p.getByLabelText("키 이름"), { target: { value: "claude" } });
     fireEvent.click(p.getByRole("button", { name: "키 발급" }));
     await waitFor(() => expect(h.issueKey).toHaveBeenCalledTimes(1));
-    expect(h.issueKey.mock.calls[0][0]).toEqual({ project_slug: "beta", ttl_seconds: 3600, label: "claude", scopes: ["read", "search"] });
+    expect(h.issueKey.mock.calls[0][0]).toEqual({ project_slug: "beta", label: "claude", scopes: ["read", "search"] });
   });
 
   it("범위를 모두 끄면 발급할 수 없다", async () => {

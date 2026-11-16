@@ -66,13 +66,13 @@ it("게시는 approved_digest 하나만 보낸다", async () => {
   expect(c.body).toEqual({ approved_digest: "b".repeat(64) });
 });
 
-it("키 발급은 slug·ttl·label·scopes 를 본문으로 보내고 URL 에는 아무것도 싣지 않는다", async () => {
+it("키 발급은 서버 고정 TTL 을 따르며 slug·label·scopes 만 본문으로 보낸다", async () => {
   fetcher.mockImplementation(async () => reply({ id: "k1", key: "RAW" }, 201));
-  await cs.issueKey({ project_slug: "alpha", ttl_seconds: 3600, label: "claude", scopes: ["read", "search"] });
+  await cs.issueKey({ project_slug: "alpha", label: "claude", scopes: ["read", "search"] });
   const c = call();
   expect(c.url).toMatch(/\/api\/context-sharing\/keys$/);
   expect(c.url).not.toContain("?");
-  expect(c.body).toEqual({ project_slug: "alpha", ttl_seconds: 3600, label: "claude", scopes: ["read", "search"] });
+  expect(c.body).toEqual({ project_slug: "alpha", label: "claude", scopes: ["read", "search"] });
 });
 
 it("키 목록·폐기·프로젝트 철회 경로", async () => {

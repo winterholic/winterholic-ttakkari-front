@@ -127,7 +127,7 @@ export function ContextSharingPage() {
     await draftQ.refetch();
   }
   async function publish() {
-    if (!draft || dirty || draft.blocked || unverified.length || !readConfirm || published) return;
+    if (!draft || dirty || draft.blocked || !readConfirm || published) return;
     setError("");
     try {
       const result = await api.publishDraft(draft.id, draft.preview.digest);
@@ -142,7 +142,7 @@ export function ContextSharingPage() {
   async function issue() {
     if (!selected?.slug || !keyScopes.length || selected.publication?.status !== "active") return;
     setIssued(null); setError("");
-    try { const k = await api.issueKey({ project_slug: selected.slug, ttl_seconds: 3600, label: keyLabel.trim(), scopes: keyScopes }); setIssued(k); void keysQ.refetch(); }
+    try { const k = await api.issueKey({ project_slug: selected.slug, label: keyLabel.trim(), scopes: keyScopes }); setIssued(k); void keysQ.refetch(); }
     catch (e) { apiError(e); }
   }
   async function confirmWrite() {
@@ -215,8 +215,8 @@ export function ContextSharingPage() {
             <ul>{draft.preview.limitations.map((l) => <li key={l}>{l}</li>)}</ul>
           </section>
           {!published && <section className="share-section" aria-label="게시 승인"><h2>게시 승인</h2><p>승인 대상 digest {draft.preview.digest.slice(0, 12)}</p><label className="share-check"><input type="checkbox" checked={readConfirm} onChange={(e) => setReadConfirm(e.target.checked)} /><span>현재 내용을 읽었고, 이 내용을 외부에 공유해도 됨을 확인합니다.</span></label>
-            {!readConfirm && <p>읽었다는 확인이 필요합니다.</p>}{dirty && <p>저장하지 않은 변경이 있어 게시할 수 없습니다.</p>}{unverified.length > 0 && <p>원본 대조 확인이 안 된 문서 {unverified.length}개가 있어 게시할 수 없습니다.</p>}
-            <button className="tk-button tk-button--primary" disabled={!readConfirm || dirty || draft.blocked || !!unverified.length} onClick={() => void publish()}>게시</button>
+            {!readConfirm && <p>읽었다는 확인이 필요합니다.</p>}{dirty && <p>저장하지 않은 변경이 있어 게시할 수 없습니다.</p>}{unverified.length > 0 && <p>원본 미대조 문서 {unverified.length}개는 verified_at: null 상태로 게시됩니다. 원본 대조와 별개로 아래 게시 승인이 필요합니다.</p>}
+            <button className="tk-button tk-button--primary" disabled={!readConfirm || dirty || draft.blocked} onClick={() => void publish()}>게시</button>
           </section>}
         </>}
         <section className="share-section" aria-label="외부 공유 키"><h2>외부 공유 키</h2>

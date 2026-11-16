@@ -174,7 +174,6 @@ export interface ShareKey {
 
 export interface KeyIssueIn {
   project_slug: string;
-  ttl_seconds: number;
   label: string;
   scopes: KeyScope[];
 }
