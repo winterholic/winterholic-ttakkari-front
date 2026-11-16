@@ -134,6 +134,11 @@ afterEach(() => {
 });
 
 describe("맥락 도서관 화면", () => {
+  it("헤더에서 외부 공유 화면(/context-sharing)으로 갈 수 있다", async () => {
+    mount();
+    expect((await screen.findByRole("link", { name: "프로젝트 맥락 공유 열기" })).getAttribute("href")).toBe("/context-sharing");
+  });
+
   it("개요: 종류별 분량과 마지막 색인, 오류 출처, 아직 없는 건강 종류를 보여 준다", async () => {
     mount();
     expect(await screen.findByRole("heading", { name: "한눈에" })).toBeTruthy();

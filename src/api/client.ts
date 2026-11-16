@@ -71,6 +71,8 @@ export class ApiError extends Error {
   readonly outcomeUnknown: boolean;
   /** 백엔드가 알려 준 원인 요약. 없을 수 있다. */
   readonly detail?: string;
+  /** code·message 밖의 부가 필드(current_digest·document_ids·partial 등). 맥락 공유가 재검토·진행 상황 안내에 쓴다. */
+  readonly extra: Record<string, unknown>;
 
   constructor(status: number, body: ApiErrorBody, retryAfter?: number) {
     super(body.message);
@@ -81,6 +83,7 @@ export class ApiError extends Error {
     this.retryAfter = retryAfter;
     this.outcomeUnknown = body.outcome_unknown === true;
     this.detail = body.detail;
+    this.extra = body.extra ?? {};
   }
 }
 
@@ -99,6 +102,10 @@ export const onAuthLost = (cb: (() => void) | null): void => {
 
 export const apiUrl = (path: string): string => `${API_BASE.replace(/\/$/, "")}${path}`;
 
+const KNOWN_ERROR_FIELDS = new Set(["code", "message", "errors", "outcome_unknown", "detail"]);
+const extraFields = (src: object): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(src).filter(([k]) => !KNOWN_ERROR_FIELDS.has(k)));
+
 export async function toApiError(res: Response): Promise<ApiError> {
   let body: ApiErrorBody = { code: `http_${res.status}`, message: res.statusText || `HTTP ${res.status}` };
   try {
@@ -111,6 +118,7 @@ export async function toApiError(res: Response): Promise<ApiError> {
         message: src.message ?? body.message,
         errors: j.errors,
         outcome_unknown: (src as Partial<ApiErrorBody>).outcome_unknown,
+        extra: extraFields(src),
       };
     } else if (typeof d === "string") {
       body = { ...body, message: d };

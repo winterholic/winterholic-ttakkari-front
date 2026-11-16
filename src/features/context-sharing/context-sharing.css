@@ -1,0 +1,38 @@
+.share-page { min-width: 0; }
+.share-layout { display: grid; gap: var(--tk-space-4); padding-block: var(--tk-space-4) var(--tk-space-8); }
+.share-section { display: grid; gap: var(--tk-space-3); min-width: 0; padding: var(--tk-space-4); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-lg); background: var(--tk-color-surface-default); }
+.share-section h2 { margin: 0; color: var(--tk-color-text-primary); font-size: var(--tk-font-size-lg); }
+.share-section p { margin: 0; color: var(--tk-color-text-secondary); line-height: var(--tk-font-line-height-relaxed); overflow-wrap: anywhere; }
+.share-section-head, .share-back, .share-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--tk-space-2); }
+.share-section-head > div { display: grid; gap: var(--tk-space-1); }
+.share-projects, .share-drafts, .share-key-list { display: grid; gap: var(--tk-space-2); margin: 0; padding: 0; list-style: none; }
+.share-projects li, .share-key-list li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--tk-space-2); padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-md); }
+.share-projects a { display: grid; grid-template-columns: minmax(8rem, 1fr) auto auto; align-items: center; gap: var(--tk-space-3); width: 100%; color: inherit; text-decoration: none; }
+.share-projects a span, .share-muted, .share-source small { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.share-source, .share-doc, .share-scopes { display: grid; gap: var(--tk-space-2); min-width: 0; margin: 0; padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-md); }
+.share-source legend, .share-doc legend, .share-scopes legend { padding-inline: var(--tk-space-1); font-weight: var(--tk-font-weight-semibold); overflow-wrap: anywhere; }
+.share-check { display: flex; align-items: flex-start; gap: var(--tk-space-2); min-height: var(--tk-size-touch-target-min); color: var(--tk-color-text-primary); line-height: var(--tk-font-line-height-relaxed); }
+.share-check input { flex: none; width: 1.1rem; height: 1.1rem; margin-top: .25rem; accent-color: var(--tk-color-interactive-primary-bg); }
+.share-check > span { display: grid; gap: var(--tk-space-1); min-width: 0; }
+.share-field { display: grid; gap: var(--tk-space-1); color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-medium); }
+.share-field .tk-field, .share-field textarea, .share-issued textarea { box-sizing: border-box; width: 100%; min-width: 0; }
+.share-content { min-height: 15rem; font-family: var(--tk-font-family-mono); white-space: pre; }
+.share-doc { margin-top: var(--tk-space-2); }
+.share-doc.is-excluded { opacity: .68; }
+.share-doc > p { margin-block: var(--tk-space-1); }
+.share-doc-editor { display: grid; gap: var(--tk-space-3); padding-top: var(--tk-space-2); }
+.share-callout, .share-alert, .share-notice { padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); color: var(--tk-color-text-primary); white-space: pre-line; overflow-wrap: anywhere; }
+.share-alert { border: 1px solid var(--tk-color-border-danger, var(--tk-color-border-subtle)); }
+.share-finding { display: grid; gap: var(--tk-space-1); padding: var(--tk-space-3); border-left: 3px solid var(--tk-color-text-warning); background: var(--tk-color-surface-subtle); overflow-wrap: anywhere; }
+.share-finding code, .share-issued code { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+.share-issued { display: grid; gap: var(--tk-space-2); padding: var(--tk-space-3); border: 1px solid var(--tk-color-border-subtle); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-subtle); }
+.share-issued > code { padding: var(--tk-space-2); border-radius: var(--tk-radius-sm); background: var(--tk-color-surface-default); user-select: all; }
+.share-key-list li > span { overflow-wrap: anywhere; }
+.share-page button { min-height: var(--tk-size-control-lg); }
+@media (max-width: 620px) {
+  .share-layout { padding-inline: var(--tk-space-3); }
+  .share-section { padding: var(--tk-space-3); }
+  .share-projects a { grid-template-columns: 1fr; gap: var(--tk-space-1); }
+  .share-key-list li { align-items: flex-start; flex-direction: column; }
+  .share-actions > .tk-button { flex: 1 1 8rem; }
+}

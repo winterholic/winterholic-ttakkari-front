@@ -53,9 +53,14 @@ export function ContextLibraryPage() {
         title="맥락 도서관"
         meta={t ? `문서 ${n(t.documents)} · 조각 ${n(t.chunks)} · 기억 ${n(t.memories)} · 엔터티 ${n(t.entities)}` : undefined}
         actions={
-          <Link className="tk-icon-button" to="/assistant?tab=knowledge" aria-label="비서 관리에서 출처 편집" title="비서 관리에서 출처 편집">
-            <Icon name="settings" />
-          </Link>
+          <>
+            <Link className="tk-icon-button" to="/context-sharing" aria-label="프로젝트 맥락 공유 열기" title="프로젝트 맥락 공유 열기">
+              <Icon name="share" />
+            </Link>
+            <Link className="tk-icon-button" to="/assistant?tab=knowledge" aria-label="비서 관리에서 출처 편집" title="비서 관리에서 출처 편집">
+              <Icon name="settings" />
+            </Link>
+          </>
         }
       />
       <div className="tk-screen__body">

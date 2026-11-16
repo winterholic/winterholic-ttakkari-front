@@ -48,6 +48,8 @@ const CreativeDetailPage = lazy(() => import('./pages/CreativePage').then(m => (
 // 도서관 화면은 그래프·트리맵·진단 코드가 모여 있어 열 때만 받는다.
 const ContextLibraryPage = lazy(() => import("./pages/ContextLibraryPage").then((m) => ({ default: m.ContextLibraryPage })));
 const ContextLibraryItemPage = lazy(() => import("./pages/ContextLibraryItemPage").then((m) => ({ default: m.ContextLibraryItemPage })));
+// 맥락 공유는 초안 편집기·키 패널이 모여 있어 열 때만 받는다.
+const ContextSharingPage = lazy(() => import("./pages/ContextSharingPage").then((m) => ({ default: m.ContextSharingPage })));
 const CollectPage = lazy(() => import("./pages/CollectPage").then((m) => ({ default: m.CollectPage })));
 const KnowledgeLibraryPage = lazy(() => import("./pages/KnowledgeLibraryPage").then((m) => ({ default: m.KnowledgeLibraryPage })));
 const HarnessPage = lazy(() => import("./pages/HarnessPage").then((m) => ({ default: m.HarnessPage })));
@@ -103,6 +105,7 @@ export function App() {
             </Suspense>
           }
         />
+        <Route path="/context-sharing" element={<Suspense fallback={<RouteFallback />}><ContextSharingPage /></Suspense>} />
         <Route path="/context-library/items/:kind/:id" element={<Suspense fallback={<RouteFallback />}><ContextLibraryItemPage /></Suspense>} />
         <Route path="/files" element={<FilesPage />} />
         <Route path="/accounts" element={<AccountsPage />} />

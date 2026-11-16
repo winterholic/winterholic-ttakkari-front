@@ -16,6 +16,8 @@ export interface ApiErrorBody {
   outcome_unknown?: boolean;
   /** 원인 요약 한 줄(예외 종류와 마스킹된 메시지). 쿠키·토큰은 담기지 않는다. */
   detail?: string;
+  /** code·message 밖의 부가 필드. toApiError 가 채운다. */
+  extra?: Record<string, unknown>;
 }
 
 // ---- auth
