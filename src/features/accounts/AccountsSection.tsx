@@ -1,6 +1,6 @@
 import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import { ApiError, checkAntigravityAccount, checkCopilotAccount, checkOpencodeAccount, clearAccountCooldown, createAccount, deleteAccount, getAccountStatus, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
+import { ApiError, checkAccountLogin, checkAntigravityAccount, checkCopilotAccount, checkOpencodeAccount, clearAccountCooldown, createAccount, deleteAccount, getAccountStatus, listAccounts, patchAccount, reorderAccounts } from "../../api/client";
 import type { AccountEngine, AccountOut, AccountPool } from "../../api/types";
 import { Dialog } from "../../ui/Dialog";
 import { Icon } from "../../ui/Icon";
@@ -80,7 +80,17 @@ function loginText(a: AccountOut): string {
 }
 
 /** 로그인 안 된 계정에만 보인다. 브라우저 인증이라 Mac Studio 에서 한 번은 직접 해야 한다. */
-function LoginHint({ engine, command }: { engine: AccountEngine; command: string }) {
+function LoginHint({ engine, command, account, onChecked }: { engine: AccountEngine; command: string; account?: AccountOut; onChecked?: (a: AccountOut) => void }) {
+  const qc = useQueryClient();
+  const check = useMutation({
+    mutationFn: () => checkAccountLogin(account!.id),
+    onSuccess: (a) => {
+      onChecked?.(a);
+      void qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
+      toast(a.login === "ok" ? { message: `${a.name} 로그인을 확인했어요.` } : { message: "아직 로그인이 확인되지 않았어요. 터미널에서 /login 을 마쳤는지 확인해 주세요.", tone: "danger" });
+    },
+    onError: () => toast({ message: "로그인 확인에 실패했어요. 잠시 뒤 다시 눌러 주세요.", tone: "danger" }),
+  });
   const copy = () =>
     void navigator.clipboard?.writeText(command).then(
       () => toast({ message: "명령을 복사했어요. Mac Studio 터미널에 붙여 넣으세요." }),
@@ -96,6 +106,12 @@ function LoginHint({ engine, command }: { engine: AccountEngine; command: string
           복사
         </button>
       </span>
+      {account && (engine === "claude" || engine === "codex") && <span className="account-login__row">
+        <button className="tk-button tk-button--xs" type="button" disabled={check.isPending} aria-label={`${account.name} 로그인 다시 확인`} onClick={() => check.mutate()}>
+          <Icon name="retry" />
+          {check.isPending ? "확인 중…" : "로그인 완료, 다시 확인"}
+        </button>
+      </span>}
     </span>
   );
 }
@@ -278,7 +294,7 @@ function AccountIdentity({ account, onChecked, poll }: { account: AccountOut; on
       ? <AntigravitySetup account={a} onChecked={onChecked} />
       : a.engine === "opencode" ? <OpencodeSetup account={a} onChecked={onChecked} />
       : a.engine === "copilot" ? <CopilotSetup account={a} onChecked={onChecked} />
-      : <LoginHint engine={a.engine} command={a.login_command} />)}
+      : <LoginHint engine={a.engine} command={a.login_command} account={a} onChecked={onChecked} />)}
   </>;
 }
 

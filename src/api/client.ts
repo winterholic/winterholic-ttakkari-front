@@ -402,6 +402,9 @@ export const deleteAccount = (id: UUID): Promise<void> => json(`/api/accounts/${
 /** pool 모드의 기본 순서. work 는 회사에 들어온 계정만 보내고 그 모드 목록을 돌려받는다. */
 export const reorderAccounts = (ids: UUID[], pool: AccountPool = "personal"): Promise<AccountOut[]> =>
   json("/api/accounts/reorder", { method: "POST", json: { ids }, query: { pool } });
+/** 터미널에서 다시 로그인한 Claude·Codex 계정을 바로 재확인한다. */
+export const checkAccountLogin = (id: UUID): Promise<AccountOut> =>
+  json(`/api/accounts/${id}/login/check`, { method: "POST" });
 export const clearAccountCooldown = (id: UUID): Promise<AccountOut> =>
   json(`/api/accounts/${id}/cooldown/clear`, { method: "POST" });
 
