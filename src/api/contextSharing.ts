@@ -12,18 +12,23 @@ import type {
   ProjectsResponse,
   PublishResult,
   ShareKey,
+  ShareSiteStatus,
   SourcesResponse,
 } from "./contextSharingTypes";
 
 const B = "/api/context-sharing";
 
 export const SHARE_PROJECTS_KEY = ["context-sharing", "projects"] as const;
+export const SHARE_SITE_KEY = ["context-sharing", "site"] as const;
 export const shareSourcesKey = (entityId: string) => ["context-sharing", "sources", entityId] as const;
 export const shareDraftsKey = (entityId: string) => ["context-sharing", "drafts", entityId] as const;
 export const shareDraftKey = (id: string) => ["context-sharing", "draft", id] as const;
 export const shareKeysKey = (slug: string) => ["context-sharing", "keys", slug] as const;
 
 export const shareProjects = (): Promise<ProjectsResponse> => json(`${B}/projects`);
+export const getSite = (): Promise<ShareSiteStatus> => json(`${B}/site`);
+export const patchSite = (body: { enabled: boolean }): Promise<ShareSiteStatus> =>
+  json(`${B}/site`, { method: "PATCH", json: body });
 export const shareSources = (entityId: string): Promise<SourcesResponse> => json(`${B}/projects/${encodeURIComponent(entityId)}/sources`);
 
 export const createDraft = (body: DraftCreateIn): Promise<Draft> => json(`${B}/drafts`, { method: "POST", json: body });

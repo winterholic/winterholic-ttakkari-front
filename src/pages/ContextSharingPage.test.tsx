@@ -11,11 +11,14 @@ import {
 
 // 이 파일의 서버 응답은 계약 문서(back docs/context-sharing-private-contract.md)를 따른 합성 값이다. 실제 서버 연동 검증은 docs/work-history 에 남긴다.
 const h = vi.hoisted(() => ({
+  getSite: vi.fn(), patchSite: vi.fn(),
   shareProjects: vi.fn(), shareSources: vi.fn(), createDraft: vi.fn(), listDrafts: vi.fn(), getDraft: vi.fn(), patchDraft: vi.fn(),
   publishDraft: vi.fn(), issueKey: vi.fn(), listKeys: vi.fn(), revokeKey: vi.fn(), revokeProject: vi.fn(),
 }));
 vi.mock("../api/contextSharing", async (orig) => ({
   ...(await orig<typeof import("../api/contextSharing")>()),
+  getSite: (...a: unknown[]) => h.getSite(...a),
+  patchSite: (...a: unknown[]) => h.patchSite(...a),
   shareProjects: (...a: unknown[]) => h.shareProjects(...a),
   shareSources: (...a: unknown[]) => h.shareSources(...a),
   createDraft: (...a: unknown[]) => h.createDraft(...a),
@@ -78,6 +81,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   setServer(draft());
+  h.getSite.mockImplementation(async () => ({ enabled: true, public_url: "https://share.example.test" }));
   h.shareProjects.mockImplementation(async () => ({ gateway: GW_OK, projects: [ALPHA, BETA, GAMMA] }));
   h.shareSources.mockImplementation(async (id: string) => (id === "e-beta" ? BETA_SOURCES : ALPHA_SOURCES));
   h.listDrafts.mockImplementation(async () => ({ drafts: [], total: 0, limit: 50, offset: 0 }));
@@ -88,6 +92,86 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   vi.restoreAllMocks();
+});
+
+describe("사이트 운영 콘솔", () => {
+  it("사이트 상태와 외부 주소를 보여 주고 닫기 확인에서 기존 세션 영향과 키 폐기를 구분한다", async () => {
+    renderAt("/context-sharing");
+    const consoleRegion = await screen.findByRole("region", { name: "사이트 운영" });
+    expect(within(consoleRegion).getByText("외부 공유 열림")).toBeTruthy();
+    expect(within(consoleRegion).getByRole("link", { name: "https://share.example.test" }).getAttribute("href")).toBe("https://share.example.test");
+    fireEvent.click(within(consoleRegion).getByRole("button", { name: "사이트 임시 닫기" }));
+    const dialog = await screen.findByRole("dialog", { name: "사이트를 임시로 닫을까요?" });
+    expect(within(dialog).getByText(/기존 키와 이미 열린 세션을 포함해 외부 읽기/)).toBeTruthy();
+    expect(within(dialog).getByText(/키 폐기와 프로젝트 공유 철회는 각각 별도/)).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "닫기 실행" }));
+    await waitFor(() => expect(h.patchSite).toHaveBeenCalledWith({ enabled: false }));
+  });
+
+  it("사이트 상태 조회 오류는 설정 /status 정보와 섞지 않고 재시도한다", async () => {
+    h.getSite.mockRejectedValueOnce(apiErr(503, "gateway_unavailable"));
+    renderAt("/context-sharing");
+    const consoleRegion = await screen.findByRole("region", { name: "사이트 운영" });
+    expect(within(consoleRegion).getByRole("alert").textContent).toMatch(/사이트 운영 상태/);
+    expect(within(consoleRegion).queryByText("외부 공유 열림")).toBeNull();
+    fireEvent.click(within(consoleRegion).getByRole("button", { name: "상태 다시 불러오기" }));
+    expect(await within(consoleRegion).findByText("외부 공유 열림")).toBeTruthy();
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes("연결 설정 진단은 기존 /status") ?? false).length).toBeGreaterThan(0);
+  });
+
+  it("요청 처리 중에는 상태를 성공으로 바꾸지 않고 중복 조작을 막는다", async () => {
+    let finish!: (value: { enabled: boolean; public_url: string }) => void;
+    h.patchSite.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    renderAt("/context-sharing");
+    const consoleRegion = await screen.findByRole("region", { name: "사이트 운영" });
+    fireEvent.click(within(consoleRegion).getByRole("button", { name: "사이트 임시 닫기" }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "사이트를 임시로 닫을까요?" })).getByRole("button", { name: "닫기 실행" }));
+    expect(within(consoleRegion).getByText("외부 공유 열림")).toBeTruthy();
+    const dialog = screen.getByRole("dialog", { name: "사이트를 임시로 닫을까요?" });
+    expect((within(dialog).getByRole("button", { name: "처리 중" }) as HTMLButtonElement).disabled).toBe(true);
+    finish({ enabled: false, public_url: "https://share.example.test" });
+    expect(await within(consoleRegion).findByText("외부 공유 일시 중단")).toBeTruthy();
+  });
+
+  it("사이트 변경 실패를 성공으로 표시하지 않고 재시도할 수 있다", async () => {
+    h.patchSite.mockRejectedValueOnce(apiErr(503, "gateway_unavailable"));
+    renderAt("/context-sharing");
+    const consoleRegion = await screen.findByRole("region", { name: "사이트 운영" });
+    fireEvent.click(within(consoleRegion).getByRole("button", { name: "사이트 임시 닫기" }));
+    fireEvent.click(within(await screen.findByRole("dialog", { name: "사이트를 임시로 닫을까요?" })).getByRole("button", { name: "닫기 실행" }));
+    expect(await within(consoleRegion).findByRole("alert")).toBeTruthy();
+    expect(within(await screen.findByRole("dialog", { name: "사이트를 임시로 닫을까요?" })).getByRole("alert")).toBeTruthy();
+    expect(within(consoleRegion).getByText("외부 공유 열림")).toBeTruthy();
+    expect(within(consoleRegion).queryByText("외부 공유 일시 중단")).toBeNull();
+  });
+
+  it("열린 사이트에서는 재개 조작을 제공하지 않고 닫힌 사이트에만 재개를 제공한다", async () => {
+    h.getSite.mockImplementation(async () => ({ enabled: false, public_url: "https://share.example.test" }));
+    renderAt("/context-sharing");
+    const consoleRegion = await screen.findByRole("region", { name: "사이트 운영" });
+    expect(within(consoleRegion).getByText("외부 공유 일시 중단")).toBeTruthy();
+    fireEvent.click(within(consoleRegion).getByRole("button", { name: "사이트 다시 열기" }));
+    await waitFor(() => expect(h.patchSite).toHaveBeenCalledWith({ enabled: true }));
+  });
+
+  it("첫 화면에서 공유 키를 발급하고 키 목록의 만료·폐기 상태를 관리한다", async () => {
+    h.listKeys.mockImplementation(async () => ({ keys: [key({ id: "k-active", label: "활성 연결" }), key({ id: "k-expired", label: "지난 연결", status: "expired" })] }));
+    h.issueKey.mockImplementation(async () => ({ ...key({ id: "k-new", label: "로컬 테스트" }), scopes: ["read", "search"], key: RAW_KEY, connect: { url: "https://share.example.test", note: "합성 키" } }));
+    h.revokeKey.mockImplementation(async () => key({ id: "k-active", status: "revoked" }));
+    renderAt("/context-sharing");
+    const keyRegion = await screen.findByRole("region", { name: "접근 키 관리" });
+    expect(within(keyRegion).getByLabelText("발급 대상 프로젝트")).toBeTruthy();
+    fireEvent.change(within(keyRegion).getByLabelText("키 이름"), { target: { value: "로컬 테스트" } });
+    fireEvent.click(within(keyRegion).getByRole("button", { name: "키 발급" }));
+    expect(await within(keyRegion).findByRole("region", { name: "발급된 키" })).toBeTruthy();
+    const list = within(keyRegion).getByRole("list", { name: "접근 키 목록" });
+    expect(within(list).getByText("만료")).toBeTruthy();
+    fireEvent.click(within(list).getByRole("button", { name: "키 폐기: 활성 연결" }));
+    const dialog = await screen.findByRole("dialog", { name: "키를 폐기할까요?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "폐기 실행" }));
+    await waitFor(() => expect(h.revokeKey).toHaveBeenCalledWith("k-active"));
+    expect(h.listKeys).toHaveBeenCalled();
+  });
 });
 
 describe("프로젝트 목록", () => {
@@ -127,6 +211,7 @@ describe("프로젝트 목록", () => {
     h.shareProjects.mockRejectedValueOnce(apiErr(503, "gateway_unavailable"));
     renderAt("/context-sharing");
     expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.queryByText("Context Gateway 연결이 설정되지 않았습니다")).toBeNull();
     expect(screen.queryByRole("list", { name: "프로젝트" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "다시 불러오기" }));
     expect(await screen.findByRole("list", { name: "프로젝트" })).toBeTruthy();
@@ -139,10 +224,12 @@ describe("프로젝트 목록", () => {
     expect(screen.getByRole("link", { name: "맥락 도서관 열기" }).getAttribute("href")).toBe("/context-library");
   });
 
-  it("불러오는 동안 상태를 알린다", () => {
+  it("프로젝트 목록을 기다리는 동안에도 별도 사이트 운영 상태를 표시한다", async () => {
     h.shareProjects.mockImplementation(() => new Promise(() => {}));
     renderAt("/context-sharing");
-    expect(screen.getByRole("status").textContent).toMatch(/불러오는 중/);
+    const site = await screen.findByRole("region", { name: "사이트 운영" });
+    expect(within(site).getByText("외부 공유 열림")).toBeTruthy();
+    expect(screen.getAllByText((_, element) => element?.textContent?.includes("연결 설정: 확인 중") ?? false).length).toBeGreaterThan(0);
   });
 });
 

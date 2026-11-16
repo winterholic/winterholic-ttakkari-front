@@ -11,6 +11,13 @@ export interface GatewayStatus {
   public_url: string | null;
 }
 
+/** 실제 public Gateway 의 전역 운영 상태. 설정 진단 GatewayStatus 와 별도 API다. */
+export interface ShareSiteStatus {
+  enabled: boolean;
+  public_url: string;
+  [key: string]: unknown;
+}
+
 export interface Finding {
   rule: string;
   category: "credential" | "personal" | "internal_url" | "local_path";

@@ -127,3 +127,23 @@ owner_key_ttl_seconds=3600; session_expiry_remaining_seconds=3556; export_docume
 ```
 
 - 세 UI 발급 화면의 자동 snapshot 파일은 raw key를 담을 수 있어 검증 직후 삭제했고, 세 파일 모두 부재를 확인했다. 브라우저는 닫았다. control/public/Private 서버는 정상 종료했다. 제품 코드·push·배포 변경은 없다.
+
+## 2026-11-16 추가 구현 · 사이트 운영 콘솔
+
+### 범위와 결정
+
+- 사용자의 제품 의도에 맞춰 `/context-sharing` 첫 화면을 외부 사이트 상태·임시 닫기/재개·접근 키 발급과 목록 중심으로 재구성했다. 기존 프로젝트 문서 선택·미리보기·승인·공유 철회는 접을 수 있는 보조 상세로 유지했다.
+- 운영 콘솔 안내문에 “이 프로젝트 맥락 공유해 줘”, “키 발급해 줘” 요청을 대화에서 따까리에게 맡길 수 있음을 적었다. 자연어 게시·키 도구는 별도 후속 단위라 이번 구현에서 동작한다고 주장하지 않는다.
+- 새 owner API `GET /api/context-sharing/site` 및 `PATCH /api/context-sharing/site` body `{ enabled: boolean }` 연결과 확장 응답 필드 수용을 추가했다. 기존 `/status` 설정 진단을 실제 사이트 운영 상태와 분리했다. 키 API 계약은 기존 목록/발급/폐기 함수를 그대로 쓴다.
+- 조회 실패는 별도의 오류·재시도를 제공하고 운영 상태를 추측하지 않는다. 변경 중에는 버튼을 잠그고 진행을 표시한다. 서버 응답 전 상태를 낙관 변경하지 않으며 실패 시 성공 안내를 띄우지 않는다.
+- 닫기 확인에 열린 세션을 포함한 외부 조회 중단, 키·프로젝트 공유와 별개임, 재개 후 게시 데이터와 키별 원래 만료 시각 보존을 설명한다.
+
+### 관찰·검증
+
+- configured browser에서 기존 운영 `/context-sharing`은 `/login?next=%2Fcontext-sharing`로 리다이렉트됐다. 격리 브라우저에는 로그인 세션이 없어 실제 기존 페이지 렌더의 영역 점유를 직접 확인하지 못했다. 코드에서는 첫 화면이 프로젝트 문서 선택·출처 목록·체크박스·초안 입력·초안 목록이고, 게시 승인·키 관리가 프로젝트 선택 후 나타남을 확인했다. 인증은 시도하거나 우회하지 않았다.
+- 운영 호출 대신 로컬 Vite와 fetch 합성 응답을 쓰는 임시 visual harness로 configured browser 확인 후 harness 파일을 삭제했다. 390×844 및 1280×900에서 운영 동선, 닫기 확인·닫힘·재개, 키 발급/원문 닫기·키 폐기 상태를 확인하고 browser와 Vite를 닫았다.
+- 캡처(합성 데이터): 390px `/Volumes/Backup/ttakkari-data/outbox/d043b407-901c-49cc-8a60-3d94c2134728/browser/page-2026-11-16T07-01-29-532Z.png`; 1280px `/Volumes/Backup/ttakkari-data/outbox/d043b407-901c-49cc-8a60-3d94c2134728/browser/page-2026-11-16T07-01-43-909Z.png`.
+- TDD RED에서 새 사이트 API/운영 화면 부재를 확인(신규 7개 실패, 기존 관련 62개 통과). 최종 `pnpm exec vitest run src/api/contextSharing.test.ts src/pages/ContextSharingPage.test.tsx --reporter=dot` 결과 `Test Files 2 passed`, `Tests 69 passed`.
+- 변경 TS/TSX ESLint는 통과했다. 전체 `node scripts/ui-lint.mjs`는 이번 `context-sharing.css` 항목 없이 기존 범위 밖 `src/features/chat/thread.css`, `src/pages/creative/creativePlan.css`, `src/pages/reverse.css` 위반으로 실패했다. 최종 `pnpm build`는 `tsc -b`, Vite production build 및 PWA precache 생성을 통과했다.
+- 미검증: 인증된 Private 실제 UI 브라우저, backend 실제 구현·응답 shape 연동, 운영 site PATCH, 운영 키 발급·폐기. 합성 브라우저의 1회성 synthetic-only-key만 사용했다.
+- 이번 단위는 frontend 소유 변경 커밋까지이며 push·운영 배포는 하지 않는다.

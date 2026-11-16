@@ -37,8 +37,16 @@ export function ContextSharingPage() {
   const [keyLabel, setKeyLabel] = useState("");
   const [keyScopes, setKeyScopes] = useState<KeyScope[]>(["read", "search"]);
   const [issued, setIssued] = useState<KeyIssued | null>(null);
+  const [siteConfirm, setSiteConfirm] = useState(false);
+  const [sitePending, setSitePending] = useState(false);
+  const [siteError, setSiteError] = useState("");
+  const [siteNotice, setSiteNotice] = useState("");
+  const [consoleKeyProject, setConsoleKeyProject] = useState("");
+  const [consoleKeyPending, setConsoleKeyPending] = useState(false);
 
   const projectsQ = useQuery({ queryKey: api.SHARE_PROJECTS_KEY, queryFn: api.shareProjects });
+  const siteQ = useQuery({ queryKey: api.SHARE_SITE_KEY, queryFn: api.getSite });
+  const consoleKeysQ = useQuery({ queryKey: api.shareKeysKey(""), queryFn: () => api.listKeys(), enabled: !projectId });
   const projects = projectsQ.data?.projects ?? [];
   const selected = projects.find((p) => p.entity_id === projectId);
   const sourcesQ = useQuery({ queryKey: api.shareSourcesKey(projectId ?? ""), queryFn: () => api.shareSources(projectId!), enabled: !!projectId });
@@ -61,6 +69,8 @@ export function ContextSharingPage() {
   const published = draft?.status === "published";
   const activePublication = selected?.publication?.status === "active";
   const workProject = selected?.scope === "work";
+  const issuableProjects = projects.filter((p) => p.slug && p.publication?.status === "active");
+  const consoleProjectSlug = issuableProjects.some((p) => p.slug === consoleKeyProject) ? consoleKeyProject : issuableProjects[0]?.slug ?? "";
 
   // Route changes discard transient edits and any one-time key held only in memory.
   useEffect(() => {
@@ -145,17 +155,39 @@ export function ContextSharingPage() {
     try { const k = await api.issueKey({ project_slug: selected.slug, label: keyLabel.trim(), scopes: keyScopes }); setIssued(k); void keysQ.refetch(); }
     catch (e) { apiError(e); }
   }
+  async function setSiteEnabled(enabled: boolean) {
+    setSitePending(true); setSiteError(""); setSiteNotice("");
+    try {
+      const updated = await api.patchSite({ enabled });
+      qc.setQueryData(api.SHARE_SITE_KEY, updated);
+      setSiteNotice(enabled ? "사이트를 다시 열었습니다." : "사이트를 임시로 닫았습니다.");
+      setSiteConfirm(false);
+    } catch (e) {
+      const p = problem(e);
+      setSiteError(`사이트 운영 상태를 변경하지 못했습니다.\n${p.title}: ${p.body}`);
+    } finally { setSitePending(false); }
+  }
+  async function issueConsoleKey() {
+    if (!consoleProjectSlug || !keyScopes.length) return;
+    setConsoleKeyPending(true); setIssued(null); setError(""); setNotice("");
+    try {
+      const result = await api.issueKey({ project_slug: consoleProjectSlug, label: keyLabel.trim(), scopes: keyScopes });
+      setIssued(result);
+      await consoleKeysQ.refetch();
+    } catch (e) { apiError(e); }
+    finally { setConsoleKeyPending(false); }
+  }
   async function confirmWrite() {
     const action = confirmAction;
     if (!action) return;
     setConfirmAction(null); setError("");
     try {
       if (action.kind === "key" && action.key) {
-        await api.revokeKey(action.key.id); setNotice("키를 폐기했습니다."); await keysQ.refetch();
+        await api.revokeKey(action.key.id); setNotice("키를 폐기했습니다."); await Promise.all([keysQ.refetch(), consoleKeysQ.refetch()]);
       } else if (action.kind === "project" && selected?.slug) {
         const result = await api.revokeProject(selected.slug);
         setNotice(`스냅샷 ${result.revoked_snapshots}개·키 ${result.revoked_keys}개를 폐기했습니다.`);
-        await Promise.all([keysQ.refetch(), qc.invalidateQueries({ queryKey: api.SHARE_PROJECTS_KEY })]);
+        await Promise.all([keysQ.refetch(), consoleKeysQ.refetch(), qc.invalidateQueries({ queryKey: api.SHARE_PROJECTS_KEY })]);
       }
     } catch (e) { apiError(e); }
   }
@@ -164,17 +196,56 @@ export function ContextSharingPage() {
     try { await navigator.clipboard.writeText(issued.key); setNotice("복사했습니다"); } catch { setError("클립보드에 복사하지 못했습니다. 키를 직접 선택해 복사하세요."); }
   }
 
-  const header = <PageHeader title="프로젝트 맥락 공유" meta="문서를 검토하고 승인한 뒤 외부 AI 연결 키를 발급합니다." actions={<Link className="tk-button tk-button--secondary" to="/context-library">맥락 도서관</Link>} />;
-  if (projectsQ.isLoading) return <div className="tk-screen">{header}<main className="tk-screen__body"><p role="status">불러오는 중</p></main></div>;
-  if (projectsQ.isError) return <div className="tk-screen">{header}<main className="tk-screen__body"><p role="alert">{problem(projectsQ.error).body || problem(projectsQ.error).title}</p><button className="tk-button" onClick={refreshProjects}>다시 불러오기</button></main></div>;
+  const header = <PageHeader title="Context Gateway 운영" meta="사이트를 열고 닫고, 프로젝트 접근 키를 관리합니다." actions={<Link className="tk-button tk-button--secondary" to="/context-library">맥락 도서관</Link>} />;
 
   return <div className="tk-screen share-page">
     {header}
     <main className="tk-screen__body"><div className="tk-container tk-container--lg share-layout">
-      {error && <p className="share-alert" role="alert">{error.split("\n").map((line, i) => <span key={`${line}-${i}`}>{line}</span>)}</p>}{notice && <p className="share-notice" role="status">{notice}</p>}
-      {!projectsQ.data?.gateway.configured && <aside className="share-callout"><strong>Context Gateway 연결이 설정되지 않았습니다</strong><p>서버 설정(control 주소·토큰)이 끝나야 게시와 키 발급을 할 수 있습니다. 초안과 검토는 계속할 수 있습니다.</p><p>비어 있는 설정: {projectsQ.data?.gateway.missing.join(", ")}</p></aside>}
-      {!projectId && <section className="share-section"><h2>프로젝트</h2>{projects.length ? <ul className="share-projects" aria-label="프로젝트">{projects.map((p) => <li key={p.entity_id}><Link to={`/context-sharing?project=${encodeURIComponent(p.entity_id)}`}><strong>{p.name}</strong><span>{scopeLabel(p.scope)}</span><span>문서 {p.document_count}개</span><span>{p.publication?.status === "active" ? "게시 중" : p.publication?.status === "revoked" ? "철회됨" : "게시 전"}</span><span>활성 키 {p.active_key_count}개</span></Link></li>)}</ul> : <><p>공유할 수 있는 프로젝트가 없습니다</p><p><Link to="/context-library" aria-label="맥락 도서관 열기">맥락 도서관에서 출처를 연결하세요.</Link></p></>}</section>}
+      <section className="share-section share-ops" aria-label="사이트 운영">
+        <div className="share-section-head"><div><h2>공유 사이트</h2><p>전체 외부 조회를 일시 중단하거나 다시 열 수 있습니다.</p></div>
+          {siteQ.isLoading ? <span className="share-status share-status--loading" role="status">상태 확인 중</span> : siteQ.data && <span className={`share-status ${siteQ.data.enabled ? "share-status--on" : "share-status--off"}`}>{siteQ.data.enabled ? "외부 공유 열림" : "외부 공유 일시 중단"}</span>}
+        </div>
+        {siteQ.isError && <div className="share-alert" role="alert"><strong>사이트 운영 상태를 확인하지 못했습니다.</strong><p>{problem(siteQ.error).title}: {problem(siteQ.error).body}</p><button className="tk-button tk-button--secondary" onClick={() => void siteQ.refetch()}>상태 다시 불러오기</button></div>}
+        {siteQ.data && <div className="share-site-details">
+          <div><span className="share-muted">외부 주소</span><a href={siteQ.data.public_url} target="_blank" rel="noreferrer">{siteQ.data.public_url}</a></div>
+          <p>{siteQ.data.enabled ? "현재 외부 요청을 받고 있습니다." : "외부 요청이 중단되어 있습니다. 기존 키와 열린 세션도 조회할 수 없습니다."}</p>
+          <button className={`tk-button ${siteQ.data.enabled ? "tk-button--danger" : "tk-button--primary"}`} disabled={sitePending} onClick={() => siteQ.data?.enabled ? setSiteConfirm(true) : void setSiteEnabled(true)}>
+            {sitePending ? "처리 중" : siteQ.data.enabled ? "사이트 임시 닫기" : "사이트 다시 열기"}
+          </button>
+        </div>}
+        {siteError && !siteConfirm && <p className="share-alert" role="alert">{siteError}</p>}{siteNotice && <p className="share-notice" role="status">{siteNotice}</p>}
+        <Dialog open={siteConfirm} onClose={() => setSiteConfirm(false)} title="사이트를 임시로 닫을까요?" modal>
+          <p>기존 키와 이미 열린 세션을 포함해 외부 읽기가 중단됩니다. 이 조작은 키를 폐기하거나 프로젝트 공유를 철회하지 않습니다.</p>
+          <p>사이트를 다시 열면 게시 데이터와 각 키의 원래 만료 시각이 유지됩니다. 키 폐기와 프로젝트 공유 철회는 각각 별도 작업입니다.</p>
+          {siteError && <p className="share-alert" role="alert">{siteError}</p>}
+          <div className="share-actions"><button className="tk-button tk-button--danger" disabled={sitePending} onClick={() => void setSiteEnabled(false)}>{sitePending ? "처리 중" : "닫기 실행"}</button><button className="tk-button tk-button--secondary" disabled={sitePending} onClick={() => setSiteConfirm(false)}>취소</button></div>
+        </Dialog>
+      </section>
+      {!projectId && <>
+        <section className="share-section" aria-label="접근 키 관리">
+          <div className="share-section-head"><div><h2>접근 키</h2><p>키는 발급 순간에만 원문이 보이며, 만료 시각은 서버 정책을 따릅니다.</p></div></div>
+          <div className="share-console-key-form">
+            <label className="share-field">발급 대상 프로젝트<select className="tk-field" value={consoleProjectSlug} onChange={(e) => setConsoleKeyProject(e.target.value)} disabled={!issuableProjects.length || projectsQ.isLoading || consoleKeyPending}>
+              {projectsQ.isLoading ? <option value="">프로젝트 불러오는 중</option> : !issuableProjects.length && <option value="">게시 중인 프로젝트 없음</option>}{issuableProjects.map((p) => <option key={p.slug} value={p.slug!}>{p.name}</option>)}
+            </select></label>
+            <label className="share-field">키 이름<input className="tk-field" value={keyLabel} onChange={(e) => setKeyLabel(e.target.value)} disabled={consoleKeyPending} placeholder="예: Claude Desktop" /></label>
+            <fieldset className="share-scopes"><legend>허용 범위</legend>{(["read", "search", "export"] as KeyScope[]).map((s) => <label className="share-check" key={s}><input type="checkbox" checked={keyScopes.includes(s)} disabled={consoleKeyPending} onChange={(e) => setKeyScopes((v) => e.target.checked ? [...v, s] : v.filter((x) => x !== s))} /><span>{s === "read" ? "읽기" : s === "search" ? "검색" : "내보내기"}</span></label>)}</fieldset>
+            <button className="tk-button tk-button--primary" disabled={!consoleProjectSlug || !keyScopes.length || consoleKeyPending} onClick={() => void issueConsoleKey()}>{consoleKeyPending ? "발급 중" : "키 발급"}</button>
+          </div>
+          {issued && <section className="share-issued" aria-label="발급된 키"><strong>원문 키 · 지금 한 번만 보입니다</strong><code>{issued.key}</code><button className="tk-button" onClick={() => void copyKey()}>키 복사</button><button className="tk-button tk-button--secondary" onClick={() => setIssued(null)}>닫기</button></section>}
+          {error && <p role="alert" className="share-alert">{error}</p>}
+          {consoleKeysQ.isLoading ? <p role="status">키 목록을 불러오는 중</p> : consoleKeysQ.isError ? <div role="alert"><p>{problem(consoleKeysQ.error).body || problem(consoleKeysQ.error).title}</p><button className="tk-button tk-button--secondary" onClick={() => void consoleKeysQ.refetch()}>키 목록 다시 불러오기</button></div> : consoleKeysQ.data && <ul className="share-key-list" aria-label="접근 키 목록">{consoleKeysQ.data.keys.map((k) => <li key={k.id}><div className="share-key-primary"><strong>{k.label || "이름 없는 키"}</strong><span>{projects.find((p) => p.slug === k.project_slug)?.name ?? k.project_slug}</span></div><span className={`share-key-state share-key-state--${k.status}`}>{k.status === "active" ? "활성" : k.status === "expired" ? "만료" : "폐기"}</span><span>만료 {date(k.expires_at)}</span>{k.status === "active" && <button className="tk-button tk-button--secondary" onClick={() => setConfirmAction({ kind: "key", key: k })}>키 폐기: {k.label}</button>}</li>)}</ul>}
+        </section>
+        <p className="share-agent-hint">“이 프로젝트 맥락 공유해 줘”, “키 발급해 줘”라고 대화에서 맡기면 따까리가 처리합니다.</p>
+        <p className="share-site-settings">연결 설정: {projectsQ.isLoading ? "확인 중" : projectsQ.isError ? "확인 실패" : projectsQ.data?.gateway.configured ? "설정됨" : "미설정"} · 연결 설정 진단은 기존 <code>/status</code>이며, 위 사이트 운영 상태와 별도입니다.</p>
+      </>}
+      {projectId && error && <p className="share-alert" role="alert">{error.split("\n").map((line, i) => <span key={`${line}-${i}`}>{line}</span>)}</p>}{notice && <p className="share-notice" role="status">{notice}</p>}
+      {projectsQ.data && !projectsQ.data.gateway.configured && <aside className="share-callout"><strong>Context Gateway 연결이 설정되지 않았습니다</strong><p>서버 설정(control 주소·토큰)이 끝나야 게시와 키 발급을 할 수 있습니다. 초안과 검토는 계속할 수 있습니다.</p><p>비어 있는 설정: {projectsQ.data.gateway.missing.join(", ")}</p></aside>}
+      {!projectId && <details className="share-secondary" open={projectsQ.isError}><summary>프로젝트 문서·기존 공유 상세 확인</summary><p>문서 선택과 미리보기·승인은 보조 검토 흐름입니다. 자연어 공유 요청은 대화에서 따까리에게 맡길 수 있습니다.</p><section className="share-section"><h2>프로젝트</h2>{projectsQ.isError ? <div role="alert"><p>{problem(projectsQ.error).body || problem(projectsQ.error).title}</p><button className="tk-button" onClick={refreshProjects}>다시 불러오기</button></div> : projects.length ? <ul className="share-projects" aria-label="프로젝트">{projects.map((p) => <li key={p.entity_id}><Link to={`/context-sharing?project=${encodeURIComponent(p.entity_id)}`}><strong>{p.name}</strong><span>{scopeLabel(p.scope)}</span><span>문서 {p.document_count}개</span><span>{p.publication?.status === "active" ? "게시 중" : p.publication?.status === "revoked" ? "철회됨" : "게시 전"}</span><span>활성 키 {p.active_key_count}개</span></Link></li>)}</ul> : <><p>공유할 수 있는 프로젝트가 없습니다</p><p><Link to="/context-library" aria-label="맥락 도서관 열기">맥락 도서관에서 출처를 연결하세요.</Link></p></>}</section></details>}
       {selected && <>
+        <details className="share-secondary share-project-detail" open={!!projectId}>
+        <summary>프로젝트 문서·기존 게시물 상세</summary>
+        <p>문서 선택과 미리보기·승인은 보조 검토 흐름입니다.</p>
         <nav className="share-back"><Link to="/context-sharing" onClick={() => setIssued(null)}>프로젝트 목록</Link><span>/</span><strong>{selected.name}</strong></nav>
         {selected.publication?.status === "revoked" && <p className="share-callout">이 프로젝트는 철회됨 상태입니다. 새로 게시하기 전까지 키를 발급할 수 없습니다.</p>}
         {!draftId && <>
@@ -233,6 +304,7 @@ export function ContextSharingPage() {
             {selected.slug && <button className="tk-button tk-button--danger" onClick={() => setConfirmAction({ kind: "project" })}>공유 철회</button>}
           </>}
         </section>
+        </details>
       </>}
       <Dialog open={!!confirmAction} onClose={() => setConfirmAction(null)} title={confirmAction?.kind === "key" ? "키를 폐기할까요?" : "프로젝트 공유를 철회할까요?"} modal>
         <p>{confirmAction?.kind === "key" ? "이 키로는 더 이상 연결할 수 없습니다." : "게시한 스냅샷과 발급 키를 Gateway 에서 즉시 읽을 수 없게 폐기합니다."}</p>

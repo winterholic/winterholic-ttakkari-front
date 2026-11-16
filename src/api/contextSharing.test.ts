@@ -30,6 +30,17 @@ it("프로젝트·문서 목록은 GET 으로 소유자 경로만 부른다", as
   for (const i of [0, 1]) expect(call(i).url).not.toContain("/api/agent/");
 });
 
+it("공유 사이트 상태는 독립 GET /site 및 PATCH /site {enabled} 계약을 쓴다", async () => {
+  fetcher.mockImplementation(async () => reply({ enabled: false, public_url: "https://share.example.test" }));
+  await cs.getSite();
+  await cs.patchSite({ enabled: false });
+  expect(call(0).url).toMatch(/\/api\/context-sharing\/site$/);
+  expect(call(0).init.method ?? "GET").toBe("GET");
+  expect(call(1).url).toMatch(/\/api\/context-sharing\/site$/);
+  expect(call(1).init.method).toBe("PATCH");
+  expect(call(1).body).toEqual({ enabled: false });
+});
+
 it("초안 생성은 선택한 문서 id 와 work 범위 확인값을 그대로 보낸다", async () => {
   fetcher.mockImplementation(async () => reply({ id: "d1" }, 201));
   await cs.createDraft({ entity_id: "e1", document_ids: ["a", "b"], title: "제목", summary: "요약", confirm_work_scope: true });
