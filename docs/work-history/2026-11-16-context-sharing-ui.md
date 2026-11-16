@@ -91,3 +91,39 @@
 - Gateway key 발급/세션/철회 전후 전체 API 행렬 중 context/document/search만 public UI에서 확인했다. export와 Gateway MCP 호출도 미실행으로 남긴다. 새 fixture를 더 만들거나 철회 상태를 되돌려 이 제약을 우회하지 않았다.
 - UI 콘솔은 owner 페이지 3 errors, public 페이지 1 error를 보고했다. 원인을 조사하지 않았다. 캡처는 worker Run outbox에 저장했다.
 - frontend 제품 코드는 변경하지 않았다. 이 기록만 프런트 checkout에 추가 커밋하며 push/deploy하지 않는다. 모든 시험 서버는 해당 Run이 연 실행 세션의 정상 종료 경로로 닫는다.
+
+## 2026-11-16 후속 검증 · 공개 Gateway HTTP 경계
+
+### 실행 기준
+
+- 이전 섹션에서 미확인으로 남긴 공개 키 재사용, 철회 전 세션의 철회 후 차단, Gateway MCP와 export만 확인했다. 기존 철회 프로젝트는 재사용하지 않고 합성 slug `synthetic-gateway-owner-followup-2c861cfc`를 사용했다. 두 DB는 각 연결에서 `current_database()`가 지정 이름과 같은지 assert했고, 운영 DB는 사용하지 않았다.
+- Gateway control/public은 backend checkout revision `4ad5ca30b8fc7cec547a07dbdf9c386b49b96f19`의 실제 HTTP 서버로 실행했다. Private owner router도 이 revision의 실제 `/api/context-sharing` 라우터를 썼다. Front UI 코드는 `43adb346b14641b6c099addff7ca02c513846ef1`이며 제품 파일 변경은 없다.
+- Private 전체 앱을 시험 호스트로 띄운 첫 시도는 기동 중 오래된 시험 작업 복구가 별도 Run용 PostgreSQL `initdb`를 실행해 `shmget ... Operation not permitted`로 실패했다. initdb를 재시도하지 않고 제가 연 서버를 종료했다. 이후 Private 라우터와 owner JWT 검증을 쓰는 최소 시험 호스트로 전환했다. 로그인 경로만 합성 인증이고, 게시·키·철회는 Private 실제 router/service → 실제 Gateway control HTTP를 거쳤다.
+- Private=`test_cg_owner_2c861cfc`, Gateway=`test_cg_owner_gateway_2c861cfc`. private 새 합성 프로젝트/문서 1개는 별도 source fixture로 추가했고, owner UI에서 문서를 읽은 뒤 게시 승인으로 게시했다. 원본 대조는 선택하지 않아 게시 문서의 provenance는 미검증이다.
+
+### 공개 요청 결과
+
+| 확인 | HTTP | 결과 |
+|---|---:|---|
+| owner UI에서 발급한 최종 1시간 키 첫 교환 | 200 | Gateway 읽기 세션 발급 |
+| 같은 키 재교환 | 401 | 일회용 키 재사용 거부 |
+| Gateway 프로젝트 목록 | 200 | 새 합성 프로젝트 1개 |
+| `/mcp` `tools/list` | 200 | 도구 4개 응답 |
+| `/mcp` `get_project_context` | 200 | 문맥 tool 응답 1개 |
+| JSON export | 200 | 문서 1개, `verified_at: null` |
+| Private 프로젝트 철회 | 200 | 같은 프로젝트와 키들을 Gateway에 철회 |
+| 철회 전 발급된 Gateway 세션의 철회 후 context 요청 | 401 | 기존 세션도 거부 |
+
+- Private 키 목록의 `ttl_seconds`는 `3600`; 교환된 세션 만료까지 확인 시점 기준 3,556초가 남았다. MCP `get_project_context`는 HTTP 200으로 응답했고, 문서별 null provenance는 JSON export 응답에서 확인했다. 키 원문과 Gateway 세션 토큰은 출력·기록하지 않았다.
+- 첫 두 helper 실행은 각각 요청 전 로컬 `UnboundLocalError`, MCP 응답 이후 provenance 검사 예외로 끝났다. 각 일회성 키/세션은 재사용하지 않았고, 별도 UI 키로 최종 검증을 완료했다. 해당 프로젝트 철회가 남은 합성 키도 폐기했다.
+
+실행 출력:
+
+```text
+current_database=test_cg_owner_2c861cfc (asserted)
+current_database=test_cg_owner_gateway_2c861cfc (asserted)
+http_statuses={"context_after_revoke": 401, "exchange_first": 200, "exchange_reuse": 401, "export_json": 200, "mcp_get_project_context": 200, "mcp_tools_list": 200, "owner_login": 200, "owner_revoke": 200, "private_keys": 200, "private_projects": 200, "public_projects": 200}
+owner_key_ttl_seconds=3600; session_expiry_remaining_seconds=3556; export_document_verified_at=[null]
+```
+
+- 세 UI 발급 화면의 자동 snapshot 파일은 raw key를 담을 수 있어 검증 직후 삭제했고, 세 파일 모두 부재를 확인했다. 브라우저는 닫았다. control/public/Private 서버는 정상 종료했다. 제품 코드·push·배포 변경은 없다.
