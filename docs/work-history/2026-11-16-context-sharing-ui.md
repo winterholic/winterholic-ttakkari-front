@@ -147,3 +147,77 @@ owner_key_ttl_seconds=3600; session_expiry_remaining_seconds=3556; export_docume
 - 변경 TS/TSX ESLint는 통과했다. 전체 `node scripts/ui-lint.mjs`는 이번 `context-sharing.css` 항목 없이 기존 범위 밖 `src/features/chat/thread.css`, `src/pages/creative/creativePlan.css`, `src/pages/reverse.css` 위반으로 실패했다. 최종 `pnpm build`는 `tsc -b`, Vite production build 및 PWA precache 생성을 통과했다.
 - 미검증: 인증된 Private 실제 UI 브라우저, backend 실제 구현·응답 shape 연동, 운영 site PATCH, 운영 키 발급·폐기. 합성 브라우저의 1회성 synthetic-only-key만 사용했다.
 - 이번 단위는 frontend 소유 변경 커밋까지이며 push·운영 배포는 하지 않는다.
+
+## 2026-11-16 후속 · 운영 콘솔 실제 API 독립 검증 시도
+
+### 소스 대조
+
+- frontend 대상 revision은 `90b2ba0` (`feat/context-sharing: add site operations console`)이다. `src/api/contextSharing.ts`는 owner 경로 `GET/PATCH /api/context-sharing/site`를 호출하고 PATCH body는 `{ enabled: boolean }`이다. `ShareSiteStatus`는 `enabled`, `public_url` 및 추가 필드를 허용한다. 페이지는 서버 성공 응답 뒤 query cache를 갱신하고 성공 문구를 표시한다. 키 목록·발급·폐기는 기존 owner API 함수를 재사용한다.
+- backend 기준 HEAD는 `4aea5321538a20be3cc87d118970232ef80f6d3c`이며, 시험 시작 시 같은 checkout에 다른 작업자의 미커밋 수정이 있었다(`docs/context-sharing-private-contract.md`, work-history, `src/ttakkari/api/{assistant,context_sharing}.py`, `src/ttakkari/context_sharing/service.py`, `src/ttakkari/orchestrator/{mcp_server,tool_policy}.py`, `src/ttakkari/security/gate.py`, 관련 context sharing/orchestrator 테스트들). 이를 변경하지 않았다. 아래 backend 소스 shape 대조는 이 dirty working tree에 대한 정적 관찰이며, 기준 commit만의 동작 또는 실행된 API 응답으로 간주하지 않는다.
+- 현재 소스에서 Private owner router는 `GET/PATCH /api/context-sharing/site`를 실제 `GatewayControl.site_status()` / `set_site_enabled()`에 연결하고 `{ enabled, public_url }`를 반환한다. 미설정은 503 `gateway_not_configured`, 연결 불가는 503 `gateway_unavailable`, 거절·잘못된 응답은 502 `gateway_rejected` / `gateway_bad_response`로 매핑한다. `HttpGatewayTransport`는 control bearer와 JSON 요청을 전송하고 redirect를 따르지 않는다. Gateway adapter는 boolean 응답을 검사하며 PATCH 응답 enabled가 요청값과 일치해야 성공 처리한다. 이는 코드 대조일 뿐 HTTP/auth/error 동작은 미검증이다.
+
+### 격리 시험 준비와 차단
+
+- 운영 설정·키·게시 데이터에는 접근하지 않았다. Private 전체 앱 lifespan은 실행하지 않는 최소 호스트 스크립트 `/private/tmp/context_site_host.py`를 구성했다. 이 호스트는 실제 owner/auth router만 마운트하고, 합성 Credential·프로젝트·문서, 별도 Gateway DB, Gateway 실제 control/public 앱, 실제 Private→Gateway HTTP 경로만 준비하도록 했다. 서버 기동 및 브라우저 검증 전 실패했으므로 스크립트는 검증에 사용되지 않았으며 현재 시험 서버는 없다.
+- 실행 명령: backend checkout에서 `.venv/bin/python /private/tmp/context_site_host.py`. 첫 시도는 상속된 `TTAKKARI_TEST_DB`가 명시 외부 DB 모드로 들어가 `PG_CLUSTER`가 없는 사전 조건 오류(`AttributeError`)로 종료됐다. 해당 DB에는 연결하거나 쓰지 않았다. 스크립트에서 그 값을 제거해 프로세스 소유 임시 클러스터를 사용하도록 바꾼 다음 실행했다.
+- 재실행은 Codex 명령 샌드박스의 PostgreSQL `initdb` 단계에서 실패했다. 실제 stderr: `FATAL: could not create shared memory segment: Operation not permitted`; `DETAIL: Failed system call was shmget(...)`. 환경 probe는 `spawn_process=available`, `network_loopback=available`이었으나 이 IPC 차단을 해소하지 않는다. 차단 확인 후 같은 IPC/DB 시작을 다른 명령·엔진으로 우회하지 않았다. 해당 환경이 Mac Studio 전체를 대표한다고 추정하지 않는다.
+
+### 완료 기준별 결과
+
+1. **실제 API 계약 대조:** 위 소스 수준 계약만 확인했다. GET/PATCH HTTP 상태·실제 auth 및 오류 응답 대조는 하지 않음 — 최소 서버가 DB 준비 단계에서 기동하지 못함.
+2. **owner router→실제 Gateway control/public 및 화면 흐름:** 하지 않음 — 격리 PostgreSQL 생성이 `initdb`/`shmget`에서 차단되어 서버·fixture가 시작되지 않음. 사이트 조회·닫기·닫힘 확인·재개와 기존 public 세션 503/재개 후 데이터 조회 결과 없음.
+3. **키 UI/API:** 하지 않음 — 실제 Gateway 키 목록·1시간 발급·폐기 API/UI 요청 없음. raw key와 세션 원문을 캡처하거나 로그에 남긴 것은 없음.
+4. **390px·1280px configured browser:** 하지 않음 — 접근 가능한 시험 페이지가 준비되지 않아 browser를 시작하지 않음. 기존 운영 로그인 리다이렉트 관찰 한계는 위 이전 기록 그대로 유지.
+5. **work-history:** 이 절에 frontend/backend revision, backend dirty 범위, 격리 호스트 설계, 정확한 명령과 관찰 오류 및 미검증 범위를 기록했다.
+
+실행 출력 요약:
+
+```text
+.venv/bin/python /private/tmp/context_site_host.py
+initdb: FATAL could not create shared memory segment: Operation not permitted
+DETAIL: Failed system call was shmget(...); Private/Gateway/Vite servers started: 0; HTTP/UI checks: not run
+```
+
+- 제품 코드·운영 backend/frontend 설정·DB·키·게시 데이터는 수정하지 않았다. backend 작업자의 dirty 파일은 보존했다. 브라우저 시작 전 단계에서 중단했으므로 닫을 브라우저/서버가 없다. 남은 실제 API·UI 검증은 `initdb`가 허용되는 격리 실행 환경에서만 가능하다.
+
+## 2026-11-16 후속 · 기존 PostgreSQL 격리 DB로 실제 연동 검증
+
+### 실행 환경과 격리
+
+- 앞선 `initdb/shmget` 경로는 다시 시도하지 않았다. 기존 local PostgreSQL `127.0.0.1:5432`의 `postgres` maintenance DB에서 먼저 고유 이름 부재를 확인한 뒤 아래 DB 두 개만 만들었다. `test_cg_metadata_29d22061`, `ttakkari` 및 다른 DB에는 접속하지 않았다.
+
+```text
+psql postgresql://winterholic@127.0.0.1:5432/postgres ... SELECT current_database() || ':' || current_user
+postgres:winterholic
+CREATE DATABASE test_cg_site_ui_private_20261116 -> CREATE DATABASE
+CREATE DATABASE test_cg_site_ui_gateway_20261116 -> CREATE DATABASE
+```
+
+- Private host 실행 전에 `TTAKKARI_TEST_DB=postgresql+asyncpg://winterholic@127.0.0.1:5432/test_cg_site_ui_private_20261116`, `TTAKKARI_DATABASE_URL` 동일 URL, `TTAKKARI_NO_ENV_FILE=1`을 설정했다. Gateway 쪽은 `CONTEXT_GATEWAY_TEST_DATABASE_URL`과 `CONTEXT_GATEWAY_DATABASE_URL`을 모두 `test_cg_site_ui_gateway_20261116` URL로 설정했다. helper import 후 `conftest.TEST_DB == PRIVATE_URL`, `PG_CLUSTER` 부재를 assert했다. 두 엔진에서도 `SELECT current_database()` 결과를 각각 고유 DB명과 assert했다.
+- 프론트 revision은 `90b2ba024cad023eda75ef26b65ee86ee007fe0a`. Private/Gateway 서버 프로세스는 2026-11-16 16:24 KST에 시작됐고 둘 다 코드 checkout HEAD `85cc587faa8ffe2f114796f7efe7668942b26374`에서 로드됐다. Git reflog에서 그 다음 `e85517ea` 커밋 시각은 16:24:37 KST였고 서버 시작 시각 뒤였다. Uvicorn reload는 켜지 않았다. 시작 직후 관측한 checkout dirty 범위는 `context_gateway/tests/test_rest_mcp_parity.py`, `docs/context-sharing-private-contract.md`, `docs/work-history/2026-11-16-context-gateway-progress.md`, `scripts/platform_v2_inventory.py`, `src/ttakkari/api/{assistant,context_sharing}.py`, `src/ttakkari/context_sharing/service.py`, `src/ttakkari/orchestrator/{mcp_server,tool_policy}.py`, `src/ttakkari/security/gate.py`, `tests/{test_context_sharing_api,test_context_sharing_mcp,test_context_sharing_real_gateway,test_orchestrator,test_route_inventory}.py`, `unit_tests/test_platform_v2_inventory.py`였다. Private `context_sharing.py`와 `service.py` 및 일부 기록/시험은 staged와 working diff가 함께 있었다. 이 파일들을 수정하거나 되돌리지 않았다.
+- helper는 실제 owner/auth router만 가진 최소 Private host `127.0.0.1:19277`, Gateway control `:19279`, Gateway public `:19278`을 띄웠다. 실제 `HttpGatewayTransport`가 Private에서 control HTTP로 연결했다. 브라우저용 Vite는 `127.0.0.1:19276`; isolated browser는 API loopback 포트에 직접 연결할 수 없어 same-origin `VITE_API_BASE=/`와 Vite `/api` proxy target `http://127.0.0.1:19277`을 썼다. Private 전체 앱 lifespan은 시작하지 않았다.
+- synthetic owner 로그인·합성 프로젝트/문서·게시 snapshot·1시간 seed key·기존 public session을 준비했다. 로그에는 raw key/session 값을 출력하지 않도록 helper/probe를 구성했다. Public session 만료는 DB에서 credential hash로 조회해 전후 값을 비교했다.
+
+### 실제 응답과 브라우저 경로
+
+- Fixture setup HTTP: Private login `200`, draft `201`, owner verify `200`, publish `200`; 실제 Gateway control snapshot `201`; Private key 발급 `201`; public key exchange `200`; 시작 public site `200 enabled=true`; context `200`. setup 시 public snapshot ID와 세션 만료 시각을 기준값으로 보관했다.
+- 실제 브라우저 UI에서 site `GET 200`, close `PATCH 200`, resume `PATCH 200`, key list `GET 200`, UI 키 발급 `POST 201`, 키 목록 재조회 `GET 200`, UI 키 폐기 `POST 200`, 폐기 뒤 재조회 `GET 200`을 확인했다. UI 원문 키는 발급 직후 닫았다. one-time key를 포함할 수 있는 browser 자동 accessibility snapshot 한 파일은 공유 전에 즉시 삭제했다. 공유한 최종 이미지는 둘 다 raw key/session을 포함하지 않는다.
+- 브라우저와 별도 API probe 결과:
+
+```text
+owner unauth GET /api/context-sharing/site -> 401, WWW-Authenticate: Bearer
+owner JWT GET /api/context-sharing/site -> 200 {enabled: true, public_url: "http://127.0.0.1:19278"}
+closed: public GET /api/v1/site -> 200 enabled=false; prior session GET context -> 503 Retry-After: 60
+resumed: public GET /api/v1/site -> 200 enabled=true; same session GET context -> 200, same snapshot=true
+session_expiry_unchanged=true; list keys -> 200, ttl_seconds=3600; UI-issued key after revoke -> status=revoked
+```
+
+- 390×844 browser snapshot에서 `외부 공유 일시 중단`, 안내, `사이트 다시 열기`, 접근 키 입력 영역이 보였고 프로젝트 문서 상세는 하단 접힘 보조 영역이었다. 1280×900에서는 사이트 상태와 키 발급/목록이 첫 화면 중심이며 문서 승인 상세가 접혀 있었다. 최종 이미지: [390px 닫힘 화면](/Volumes/Backup/ttakkari-data/outbox/58dee2f2-bc22-486d-8139-d301a291ba86/browser/page-2026-11-16T07-28-08-750Z.png), [1280px 재개·키 폐기 화면](/Volumes/Backup/ttakkari-data/outbox/58dee2f2-bc22-486d-8139-d301a291ba86/browser/page-2026-11-16T07-30-35-298Z.png). 두 파일은 `share_file`했다.
+- 두 이전 화면의 browser `Console`은 합성 minimal host에 포함하지 않은 `/api/health`, `/api/tasks/active`의 404와 Vite 개발환경 `/sw.js`의 HTML MIME 오류를 기록했다. 운영 콘솔의 site/key endpoint 실패가 아니라 최소 host 바깥 shell API 및 개발 SW 경로이므로 연동 판정에 쓰지 않았다. 이후 same-origin Vite proxy로 전환한 뒤 실제 대상 API들은 위 상태 코드로 완료됐다. 원인은 이 격리 구성에서 해당 경로를 제공하지 않은 데 있다고 판단한다.
+
+### 정리와 잔여 항목
+
+- Configured browser를 닫았고 추가로 열렸던 public 탭도 닫았다. 제가 연 Vite/Private/Gateway 포트 `19276`, `19277`, `19278`, `19279`의 loopback connect 확인은 모두 `closed`였다.
+- 두 DB의 URL별 `SELECT current_database()`가 지정 이름과 일치하는 것을 확인한 후 `DROP DATABASE test_cg_site_ui_private_20261116` 및 `DROP DATABASE test_cg_site_ui_gateway_20261116` 모두 성공했다. 직후 maintenance DB에서 두 이름 조회 결과 0행이었다.
+- Gateway가 만든 합성 snapshot 파일 2개(`.../documents/brief.md`, `.../manifest.json`)는 읽기 전용 디렉터리 권한으로 정리가 거부됐다. `brief.md` unlink는 `PermissionError: [Errno 13] Permission denied`, 두 파일의 `apply_patch Delete File`도 각각 `Failed to delete file`로 끝났다. 이 오류 뒤 같은 경로에 권한 변경이나 다른 방식으로 우회하지 않았다. 두 파일은 synthetic-only 문장/manifest이며 key/session 원문은 없다. Gateway DB와 해당 게시 데이터는 이미 삭제했고, read-only 파일 정리는 미완료로 남긴다.
+- 기존 69개 unit test·build·원격 코드 확인은 재실행하지 않았다. 운영 endpoint·운영 설정/DB/key, 다른 작업자의 DB/process/파일은 사용하지 않았다.
