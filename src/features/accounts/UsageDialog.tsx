@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import type React from "react";
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
-import { accountUsageCached, accountUsageOne, codexReset, qwenUsage } from "../../api/client";
+import { accountUsageCached, accountUsageOne, codexReset, qwenUsage, subscriptionAction } from "../../api/client";
 import type { AccountUsage, QwenUsagePeriod, UsageWindow } from "../../api/client";
 import type { AccountPool } from "../../api/types";
 import { Art } from "../../ui/Art";
@@ -11,6 +11,7 @@ import { Icon } from "../../ui/Icon";
 import { EngineBadge } from "../../ui/EngineBadge";
 import { toast } from "../../ui/toastStore";
 import { errorText } from "../viewer/api";
+import { SubscriptionRow } from "./SubscriptionRow";
 import "./usage.css";
 
 // ezwork fsw(ezChat) 와 같은 경계: 80% 부터 아끼고, 95% 부터 거의 없다.
@@ -56,6 +57,7 @@ function statusOf(a: AccountUsage, isActive: boolean, pool: AccountPool): Status
   if (a.engine === "muse" && a.stale) return { tone: "warning", text: "오래된 값" };
   if (a.engine === "antigravity" && !a.windows.length) return { tone: a.error ? "warning" : "neutral", text: a.error ? "조회 실패" : "사용량 미관측" };
   if (a.engine === "antigravity" && a.stale) return { tone: "warning", text: "오래된 측정" };
+  if (a.engine === "codex" && a.stale && !a.error && !a.refreshing) return { tone: "neutral", text: "마지막 관측" };
   // Claude·Codex: 측정에 실패했거나 값이 오래됐으면 정상 상태("지금 사용"·"대기")로 보이면 안 된다.
   if (a.engine !== "antigravity" && a.engine !== "muse" && (a.error || a.stale) && !a.refreshing) return { tone: "warning", text: a.error ? "측정 실패" : "오래된 측정" };
   if (a.execution_enabled === false) return { tone: "neutral", text: "검증 대기" };
@@ -119,6 +121,8 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     refetchInterval: open ? 120_000 : false,
   });
   const forceIds = useRef(new Set<string>());
+  const qc = useQueryClient();
+  const [subscriptionRefreshing, setSubscriptionRefreshing] = useState(new Set<string>());
   const accountIds = (q.data ?? []).map((a) => a.id);
   const live = useQueries({
     queries: accountIds.map((id) => ({
@@ -130,7 +134,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     })),
   });
   const liveById = new Map(accountIds.map((id, i) => [id, live[i]]));
-  const anyFetching = q.isFetching || live.some((l) => l.isFetching);
+  const anyFetching = q.isFetching || live.some((l) => l.isFetching) || subscriptionRefreshing.size > 0;
   const qwen = useQuery({
     queryKey: ["accounts", "qwen-usage"],
     queryFn: qwenUsage,
@@ -145,7 +149,21 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
     return () => window.clearInterval(t);
   }, [open]);
   const rows = (q.data ?? []).map((a) => mergeUsage(a, liveById.get(a.id)?.data));
-  const refreshAccount = (id: string) => {
+  const refreshAccount = async (id: string) => {
+    if (rows.find((row) => row.id === id)?.engine === "codex") {
+      if (subscriptionRefreshing.has(id)) return;
+      setSubscriptionRefreshing((prior) => new Set(prior).add(id));
+      try {
+        const state = await subscriptionAction(id, "refresh");
+        qc.setQueryData(["accounts", "subscription", id], state);
+        await liveById.get(id)?.refetch();
+      } catch (error) {
+        toast({ message: errorText(error).message, tone: "danger" });
+      } finally {
+        setSubscriptionRefreshing((prior) => { const next = new Set(prior); next.delete(id); return next; });
+      }
+      return;
+    }
     forceIds.current.add(id);
     void liveById.get(id)?.refetch();
   };
@@ -295,8 +313,8 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                               className="tk-icon-button tk-icon-button--sm usage-card__refresh"
                               aria-label={`${a.name} 사용량 새로고침`}
                               title={`${a.name} 사용량 다시 측정`}
-                              aria-busy={lq?.isFetching || undefined}
-                              disabled={lq?.isFetching}
+                              aria-busy={lq?.isFetching || subscriptionRefreshing.has(a.id) || undefined}
+                              disabled={lq?.isFetching || subscriptionRefreshing.has(a.id)}
                               onClick={() => refreshAccount(a.id)}
                             >
                               <Icon name="retry" />
@@ -339,6 +357,8 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                           <p className="usage__note">AI 크레딧 잔액: {a.credits_balance == null ? (a.credits_error ?? (a.error ? "조회 실패" : "미측정")) : `${a.credits_balance} 크레딧`}</p>
                         )}
                         {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => refreshAccount(a.id)} />}
+                        {a.engine === "codex" && <SubscriptionRow accountId={a.id} accountName={a.name} accountEnabled={on} active={open}
+                          onUpdated={() => { void lq?.refetch(); }} />}
                         {measured(a) && (
                           <p className="usage-card__foot">
                             {a.source ? (a.source === "api" ? (a.engine === "codex" ? "ChatGPT 사용량 기준" : "Claude 구독 사용량 기준") : SOURCE[a.source]) : ""}

@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router";
 import type { AccountUsage } from "../../api/client";
 import { UsageDialog } from "./UsageDialog";
 
-const api = vi.hoisted(() => ({ accountUsageCached: vi.fn(), accountUsageOne: vi.fn(), qwenUsage: vi.fn() }));
+const api = vi.hoisted(() => ({ accountUsageCached: vi.fn(), accountUsageOne: vi.fn(), qwenUsage: vi.fn(), subscriptionState: vi.fn(), subscriptionAction: vi.fn() }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
 const account: AccountUsage = {
@@ -27,6 +27,8 @@ function mockAccounts(rows: AccountUsage[]) {
 }
 
 beforeEach(() => {
+  api.subscriptionState.mockResolvedValue({ provider: "codex", auto_enabled: true });
+  api.subscriptionAction.mockResolvedValue({ provider: "codex", auto_enabled: true, action_result: { status: "observed" } });
   HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); };
   mockAccounts([account]);
@@ -44,6 +46,26 @@ function renderUsage(value: AccountUsage = account) {
   mockAccounts([value]);
   render(<MemoryRouter><QueryClientProvider client={qc}><UsageDialog open onClose={vi.fn()} /></QueryClientProvider></MemoryRouter>);
 }
+
+it("Codex 카드에 주간 자동 활성화 예약과 제어를 표시한다", async () => {
+  renderUsage({ ...account, id: "cx", engine: "codex", name: "내 Codex" });
+  expect(await screen.findByRole("switch", { name: "내 Codex 주간 자동 활성화" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "지금 활성화" })).toBeTruthy();
+});
+
+it("Codex 카드 새로고침도 초기화 예약을 함께 갱신한다", async () => {
+  renderUsage({ ...account, id: "cx", engine: "codex", name: "내 Codex" });
+  const button = await screen.findByRole("button", { name: "내 Codex 사용량 새로고침" });
+  await waitFor(() => expect(button.hasAttribute("disabled")).toBe(false));
+  fireEvent.click(button);
+  await waitFor(() => expect(api.subscriptionAction).toHaveBeenCalledWith("cx", "refresh"));
+});
+
+it("Codex 정기 조회 사이에는 실패 대신 마지막 관측 상태를 표시한다", async () => {
+  renderUsage({ ...account, id: "cx", engine: "codex", name: "내 Codex", stale: true, error: null });
+  expect(await screen.findByText("마지막 관측", { selector: ".tk-badge" })).toBeTruthy();
+  expect(screen.queryByText("측정 실패", { selector: ".tk-badge" })).toBeNull();
+});
 
 describe("Muse Code preparation state", () => {
   it("운영 검증 전인 엔진을 사용 가능 계정으로 표시하지 않는다", async () => {
@@ -310,7 +332,8 @@ describe("카드별 독립 로딩", () => {
     await act(async () => { screen.getByRole("button", { name: "다시 시도" }).click(); });
     expect(await screen.findByText("61%")).toBeTruthy();
     expect(screen.queryByText("조회 실패 사유")).toBeNull();
-    expect(api.accountUsageOne).toHaveBeenLastCalledWith("slow", true);
+    expect(api.subscriptionAction).toHaveBeenCalledWith("slow", "refresh");
+    expect(api.accountUsageOne).toHaveBeenLastCalledWith("slow", false);
   });
 
   it("목록의 캐시 값은 계정별 조회가 끝나기 전에도 마지막 관측값으로 보인다", async () => {

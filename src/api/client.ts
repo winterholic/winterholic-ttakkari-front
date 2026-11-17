@@ -903,6 +903,28 @@ export interface AccountUsage {
   /** 새 값을 읽는 조회가 아직 진행 중. 지금 값은 마지막 관측값일 수 있다. */
   refreshing?: boolean;
 }
+export interface SubscriptionObservation {
+  windows: { key: string; percent: number; resets_at: number | null }[];
+  updated_at?: number | null;
+}
+export interface SubscriptionState {
+  provider: string;
+  auto_enabled: boolean;
+  reset_at?: number | null;
+  next_check_at?: number | null;
+  next_activation_at?: number | null;
+  last_checked_at?: number | null;
+  last_check_outcome?: string;
+  last_error?: string | null;
+  last_result?: { status: string; started_at?: number; before?: SubscriptionObservation; after?: SubscriptionObservation } | null;
+  action_result?: { status: string };
+}
+export const subscriptionState = (id: string): Promise<SubscriptionState> => json(`/api/accounts/${id}/subscription`);
+export const subscriptionToggle = (id: string, auto_enabled: boolean): Promise<SubscriptionState> =>
+  json(`/api/accounts/${id}/subscription`, { method: "PATCH", json: { auto_enabled } });
+export const subscriptionAction = (id: string, action: "refresh" | "activate"): Promise<SubscriptionState> =>
+  json(`/api/accounts/${id}/subscription/${action}`, { method: "POST" });
+
 export interface QwenUsagePeriod {
   starts_at: string;
   ends_at: string;
