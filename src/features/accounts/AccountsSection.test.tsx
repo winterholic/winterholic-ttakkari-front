@@ -20,6 +20,7 @@ const api = vi.hoisted(() => ({
   checkAntigravityAccount: vi.fn(),
   checkOpencodeAccount: vi.fn(),
   checkCopilotAccount: vi.fn(),
+  checkAccountLogin: vi.fn(),
 }));
 vi.mock("../../api/client", async (orig) => ({ ...(await orig<object>()), ...api }));
 
@@ -109,6 +110,16 @@ describe("AccountsSection", () => {
     expect(cap.value).toBe("100");
     fireEvent.click(screen.getByRole("button", { name: "추가" }));
     await waitFor(() => expect(api.createAccount).toHaveBeenCalledWith({ name: "내 클로드", engine: "claude", max_used_percent: 100 }));
+  });
+
+  it("기본 Antigravity 계정의 로그인 만료를 알리고 재확인 버튼을 준다", async () => {
+    const expired = acc({ id: "agy", name: "내 agy", engine: "antigravity", login: "expired", login_command: "agy" });
+    api.listAccounts.mockResolvedValue([expired]);
+    api.checkAccountLogin.mockResolvedValue({ ...expired, login: "unknown" });
+    renderIt();
+    expect((await screen.findAllByText("로그인 만료 · 다시 로그인 필요")).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole("button", { name: "내 agy 로그인 다시 확인" })[0]);
+    await waitFor(() => expect(api.checkAccountLogin).toHaveBeenCalledWith("agy"));
   });
 
   it("Antigravity 계정을 단일 로그인 프로필로 추가하고 사용량 상한을 요구하지 않는다", async () => {

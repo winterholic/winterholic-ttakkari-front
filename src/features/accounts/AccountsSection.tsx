@@ -74,8 +74,8 @@ function loginText(a: AccountOut): string {
   }
   if (a.isolation_mode && a.login !== "ok") return AGY_STATE_TEXT[a.auth_state ?? ""] ?? "로그인 상태 미확인";
   if (a.login === "ok") return a.login_label ? a.login_label : "로그인됨";
-  if (a.engine === "antigravity") return "로그인 상태 미확인";
   if (a.login === "expired") return "로그인 만료 · 다시 로그인 필요";
+  if (a.engine === "antigravity") return "로그인 상태 미확인";
   return "로그인 필요";
 }
 
@@ -87,7 +87,7 @@ function LoginHint({ engine, command, account, onChecked }: { engine: AccountEng
     onSuccess: (a) => {
       onChecked?.(a);
       void qc.invalidateQueries({ queryKey: ACCOUNTS_KEY });
-      toast(a.login === "ok" ? { message: `${a.name} 로그인을 확인했어요.` } : { message: "아직 로그인이 확인되지 않았어요. 터미널에서 /login 을 마쳤는지 확인해 주세요.", tone: "danger" });
+      toast((engine === "antigravity" ? a.login !== "expired" : a.login === "ok") ? { message: `${a.name} 로그인을 확인했어요.` } : { message: engine === "antigravity" ? "아직 로그인이 확인되지 않았어요. 터미널에서 agy 로 다시 로그인했는지 확인해 주세요." : "아직 로그인이 확인되지 않았어요. 터미널에서 /login 을 마쳤는지 확인해 주세요.", tone: "danger" });
     },
     onError: () => toast({ message: "로그인 확인에 실패했어요. 잠시 뒤 다시 눌러 주세요.", tone: "danger" }),
   });
@@ -98,7 +98,7 @@ function LoginHint({ engine, command, account, onChecked }: { engine: AccountEng
     );
   return (
     <span className="account-login">
-      <span>{engine === "claude" ? "Mac Studio 터미널에서 이 명령을 실행하고, 열리면 /login 을 입력해 로그인해요." : engine === "antigravity" ? "Antigravity CLI는 로그인 상태를 앱에서 확인하지 않아요. 이미 로그인한 단일 agy 계정을 연결합니다." : engine === "opencode" ? "Mac Studio 터미널에서 이 명령을 실행해 GitHub Copilot 계정으로 로그인해요." : "Mac Studio 터미널에서 이 명령을 실행해 로그인해요."}</span>
+      <span>{engine === "claude" ? "Mac Studio 터미널에서 이 명령을 실행하고, 열리면 /login 을 입력해 로그인해요." : engine === "antigravity" ? (account?.login === "expired" ? "Antigravity 로그인이 만료됐어요. Mac Studio 터미널에서 agy 를 실행해 다시 로그인하고 종료한 뒤 아래 버튼을 눌러 주세요." : "Antigravity CLI는 로그인 상태를 미리 읽을 수 없어요. 이미 로그인한 단일 agy 계정을 연결합니다.") : engine === "opencode" ? "Mac Studio 터미널에서 이 명령을 실행해 GitHub Copilot 계정으로 로그인해요." : "Mac Studio 터미널에서 이 명령을 실행해 로그인해요."}</span>
       <span className="account-login__row">
         <code className="tk-mono">{command}</code>
         <button className="tk-button tk-button--xs" type="button" onClick={copy}>
@@ -106,7 +106,7 @@ function LoginHint({ engine, command, account, onChecked }: { engine: AccountEng
           복사
         </button>
       </span>
-      {account && (engine === "claude" || engine === "codex") && <span className="account-login__row">
+      {account && (engine === "claude" || engine === "codex" || engine === "antigravity") && <span className="account-login__row">
         <button className="tk-button tk-button--xs" type="button" disabled={check.isPending} aria-label={`${account.name} 로그인 다시 확인`} onClick={() => check.mutate()}>
           <Icon name="retry" />
           {check.isPending ? "확인 중…" : "로그인 완료, 다시 확인"}
