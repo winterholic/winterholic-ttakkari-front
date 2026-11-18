@@ -265,8 +265,31 @@ export function AccountsSection() {
   );
 }
 
+/** 로그인·재인증 모달 본문. 로그인돼 있어도 다시 인증할 수 있어야 해서 상태와 무관하게 엔진별 절차를 보여 준다. */
+function AccountLoginPanel({ account, onChecked }: { account: AccountOut; onChecked: (a: AccountOut) => void }) {
+  const q = useQuery({
+    queryKey: ["account-status", account.id],
+    queryFn: ({ signal }) => getAccountStatus(account.id, signal),
+    enabled: account.status_pending === true,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const a = account.status_pending ? { ...account, ...q.data } : account;
+  const command = a.login_command;
+  return (
+    <div className="account-login-panel">
+      <span className={a.login === "ok" ? "tk-list__meta" : "tk-list__meta account-row__warn"} role="status">{loginText(a)}</span>
+      {!command ? <span className="tk-list__meta">{q.isError ? "로그인 명령을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요." : "로그인 명령을 불러오는 중"}</span>
+        : a.isolation_mode === "managed_home_keychain" ? <AntigravitySetup account={a} onChecked={onChecked} />
+        : a.engine === "opencode" ? <OpencodeSetup account={a} onChecked={onChecked} />
+        : a.engine === "copilot" ? <CopilotSetup account={a} onChecked={onChecked} />
+        : <LoginHint engine={a.engine} command={command} account={a} onChecked={onChecked} />}
+    </div>
+  );
+}
+
 /** Shared status cache, independent errors and only one poller per account (personal mode). */
-function AccountIdentity({ account, onChecked, poll }: { account: AccountOut; onChecked: (a: AccountOut) => void; poll: boolean }) {
+function AccountIdentity({ account, onRelogin, poll }: { account: AccountOut; onRelogin: () => void; poll: boolean }) {
   const q = useQuery({
     queryKey: ["account-status", account.id],
     queryFn: ({ signal }) => getAccountStatus(account.id, signal),
@@ -290,11 +313,12 @@ function AccountIdentity({ account, onChecked, poll }: { account: AccountOut; on
       <span className="account-row__warn">상태 갱신 실패 · 마지막 확인값</span>
       <button className="tk-button tk-button--xs" type="button" aria-label={`${a.name} 상태 다시 확인`} onClick={() => void q.refetch()}>다시 확인</button>
     </span>}
-    {a.login !== "ok" && a.login_command && (a.isolation_mode === "managed_home_keychain"
-      ? <AntigravitySetup account={a} onChecked={onChecked} />
-      : a.engine === "opencode" ? <OpencodeSetup account={a} onChecked={onChecked} />
-      : a.engine === "copilot" ? <CopilotSetup account={a} onChecked={onChecked} />
-      : <LoginHint engine={a.engine} command={a.login_command} account={a} onChecked={onChecked} />)}
+    {a.login !== "ok" && (
+      <button className="tk-button tk-button--xs" type="button" aria-label={`${a.name} 재로그인`} onClick={onRelogin}>
+        <Icon name="retry" />
+        재로그인
+      </button>
+    )}
   </>;
 }
 
@@ -325,6 +349,8 @@ function AccountModeSection({ pool, q }: { pool: AccountPool; q: UseQueryResult<
   const [removing, setRemoving] = useState<AccountOut | null>(null);
   // 계정 ⋮ 는 드롭다운이 아니라 가운데 모달로 연다.
   const [acting, setActing] = useState<string | null>(null);
+  // 재인증 절차(명령 복사·확인)는 행에 펼치지 않고 모달에서 한다. 행이 아래로 늘어나지 않게.
+  const [loggingIn, setLoggingIn] = useState<string | null>(null);
   const [overriding, setOverriding] = useState(false);
   const all = q.data ?? [];
   const rows = modeRows(all, pool);
@@ -454,7 +480,7 @@ function AccountModeSection({ pool, q }: { pool: AccountPool; q: UseQueryResult<
                     <span>{ENGINE_LABEL[a.engine]}</span>
                     {a.cooldown_seconds > 0 && <span className="tk-badge tk-badge--warning">한도 대기 {minutes(a.cooldown_seconds)}</span>}
                   </span>
-                  <AccountIdentity account={a} onChecked={replace} poll={personal} />
+                  <AccountIdentity account={a} onRelogin={() => setLoggingIn(a.id)} poll={personal} />
                 </span>
                 <span className="tk-list__end">
                   <OrderButtons name={a.name} index={i} count={rows.length} disabled={reorder.isPending}
@@ -502,6 +528,10 @@ function AccountModeSection({ pool, q }: { pool: AccountPool; q: UseQueryResult<
                   <Icon name="chevron-down" />
                   아래로
                 </button>
+                <button className="tk-button tk-button--block" type="button" onClick={done(() => setLoggingIn(a.id))}>
+                  <Icon name="retry" />
+                  로그인·재인증
+                </button>
                 {a.cooldown_seconds > 0 && (
                   <button className="tk-button tk-button--block" type="button" onClick={done(() => clear.mutate(a))}>
                     <Icon name="clock" />
@@ -528,6 +558,12 @@ function AccountModeSection({ pool, q }: { pool: AccountPool; q: UseQueryResult<
             )}
           </Dialog>
         );
+      })()}
+      {(() => {
+        const a = rows.find((x) => x.id === loggingIn);
+        return <Dialog open={!!a} onClose={() => setLoggingIn(null)} size="sm" title={a ? `${a.name} 로그인·재인증` : "로그인·재인증"} id={`account-login-${pool}`}>
+          {a && <AccountLoginPanel account={a} onChecked={replace} />}
+        </Dialog>;
       })()}
       {overriding && <OverrideDialog accounts={rows} pool={pool} onClose={() => setOverriding(false)} />}
       {personal && editing && <AccountDialog account={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}

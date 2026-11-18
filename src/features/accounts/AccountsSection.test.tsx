@@ -45,6 +45,12 @@ function renderIt() {
   return qc;
 }
 
+
+/** 재인증 절차는 행이 아니라 모달에 있다. 행의 "재로그인" 버튼으로 연다. */
+async function openLogin(name: string) {
+  fireEvent.click((await screen.findAllByRole("button", { name: `${name} 재로그인` }))[0]);
+}
+
 describe("AccountsSection", () => {
   it("인증 확인 후 목록을 다시 받아도 예전 로그인 상태로 돌아가지 않는다", async () => {
     const a = acc({ engine: "copilot", login: "unknown", status_pending: true, login_label: null });
@@ -52,10 +58,11 @@ describe("AccountsSection", () => {
     api.getAccountStatus.mockResolvedValue({ login: "unknown", login_label: null, login_command: "copilot login", auth_state: "setup_required" });
     api.checkCopilotAccount.mockResolvedValue({ ...a, status_pending: false, login: "ok", login_label: "new@example.test", auth_state: "authenticated", login_command: null });
     renderIt();
+    await openLogin("claude");
     fireEvent.click(await screen.findByRole("button", { name: "인증 확인" }));
     await waitFor(() => expect(api.listAccounts).toHaveBeenCalledTimes(2));
-    expect(await screen.findByText("GitHub Copilot (new@example.test)")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "인증 확인" })).toBeNull();
+    expect((await screen.findAllByText("GitHub Copilot (new@example.test)")).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "claude 재로그인" })).toBeNull();
   });
 
   it("느린 계정의 상태를 기다리지 않고 목록과 다른 계정 상태를 보이고 요청을 모드 간 공유한다", async () => {
@@ -118,6 +125,7 @@ describe("AccountsSection", () => {
     api.checkAccountLogin.mockResolvedValue({ ...expired, login: "unknown" });
     renderIt();
     expect((await screen.findAllByText("로그인 만료 · 다시 로그인 필요")).length).toBeGreaterThan(0);
+    await openLogin("내 agy");
     fireEvent.click(screen.getAllByRole("button", { name: "내 agy 로그인 다시 확인" })[0]);
     await waitFor(() => expect(api.checkAccountLogin).toHaveBeenCalledWith("agy"));
   });
@@ -153,13 +161,14 @@ describe("AccountsSection", () => {
     });
     renderIt();
     expect(await screen.findByText("로그인 필요")).toBeTruthy();
+    expect(screen.queryByText(/ttakkari\.antigravity_accounts login/)).toBeNull(); // 행에는 펼치지 않는다
+    await openLogin("agy-b");
     expect(screen.getByText(/ttakkari\.antigravity_accounts login/)).toBeTruthy();
     const input = screen.getByLabelText("로그인한 Google 계정");
     fireEvent.change(input, { target: { value: "b@example.test" } });
     fireEvent.click(screen.getByRole("button", { name: "로그인 확인" }));
     await waitFor(() => expect(api.checkAntigravityAccount).toHaveBeenCalledWith("agy2", { principal: "b@example.test", confirm: true }));
-    expect(await screen.findByText("b@example.test")).toBeTruthy();
-    expect(screen.queryByLabelText("로그인한 Google 계정")).toBeNull();
+    expect((await screen.findAllByText("b@example.test")).length).toBeGreaterThan(0);
   });
 
   it("OpenCode 계정 추가 시 전용 보관함 안내를 보이고, 터미널 로그인 후 확인하면 인증 상태가 된다", async () => {
@@ -174,6 +183,7 @@ describe("AccountsSection", () => {
     });
     renderIt();
     expect(await screen.findByText("로그인 필요 · 터미널 명령 실행")).toBeTruthy();
+    await openLogin("Copilot");
     expect(screen.getByText(/opencode auth login -p github-copilot/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "인증 확인" }));
     await waitFor(() => expect(api.checkOpencodeAccount).toHaveBeenCalledWith("oc1"));
@@ -191,6 +201,7 @@ describe("AccountsSection", () => {
     });
     renderIt();
     expect(await screen.findByText("로그인 필요 · 터미널 명령 실행")).toBeTruthy();
+    await openLogin("Copilot CLI");
     expect(screen.getByText(/copilot login --device-code/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "인증 확인" }));
     await waitFor(() => expect(api.checkCopilotAccount).toHaveBeenCalledWith("cp1"));
@@ -204,11 +215,22 @@ describe("AccountsSection", () => {
     expect(screen.getByLabelText("2순위")).toBeTruthy();
     expect(screen.getByText("로그인 필요")).toBeTruthy();
     expect(screen.getByText("한도 대기 10분")).toBeTruthy();
-    // 로그인 안 된 계정에만 로그인 명령과 복사 버튼이 보인다.
+    // 로그인 명령과 복사 버튼은 행이 아니라 모달에 있다.
+    expect(screen.queryByText("codex login")).toBeNull();
+    await openLogin("codex");
     expect(screen.getByText("codex login")).toBeTruthy();
-    expect(screen.getAllByRole("button", { name: "복사" })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "codex 로그인 다시 확인" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
     fireEvent.click(screen.getByRole("switch", { name: "claude 사용" }));
     await waitFor(() => expect(api.patchAccount).toHaveBeenCalledWith("a", { enabled: false }));
+  });
+
+  it("로그인된 계정도 ⋮ 메뉴의 로그인·재인증에서 다시 인증할 수 있다", async () => {
+    api.listAccounts.mockResolvedValue([acc({ engine: "codex", login: "ok", login_label: null, login_command: "codex login" })]);
+    renderIt();
+    fireEvent.click(await screen.findByLabelText("claude 메뉴"));
+    fireEvent.click(await screen.findByRole("button", { name: "로그인·재인증" }));
+    expect(await screen.findByText("codex login")).toBeTruthy();
   });
 
   it("켜진 계정이 없으면 경고한다", async () => {
