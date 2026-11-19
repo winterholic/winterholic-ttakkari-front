@@ -8,10 +8,13 @@ import type {
   DraftsResponse,
   KeyIssued,
   KeyIssueIn,
+  LinkIssueIn,
+  LinkIssued,
   ProjectRevokeResult,
   ProjectsResponse,
   PublishResult,
   ShareKey,
+  ShareLink,
   ShareSiteStatus,
   SourcesResponse,
 } from "./contextSharingTypes";
@@ -24,6 +27,7 @@ export const shareSourcesKey = (entityId: string) => ["context-sharing", "source
 export const shareDraftsKey = (entityId: string) => ["context-sharing", "drafts", entityId] as const;
 export const shareDraftKey = (id: string) => ["context-sharing", "draft", id] as const;
 export const shareKeysKey = (slug: string) => ["context-sharing", "keys", slug] as const;
+export const shareLinksKey = (slug: string) => ["context-sharing", "links", slug] as const;
 
 export const shareProjects = (): Promise<ProjectsResponse> => json(`${B}/projects`);
 export const getSite = (): Promise<ShareSiteStatus> => json(`${B}/site`);
@@ -45,3 +49,8 @@ export const listKeys = (slug?: string): Promise<{ keys: ShareKey[] }> => json(`
 export const revokeKey = (id: string): Promise<ShareKey> => json(`${B}/keys/${encodeURIComponent(id)}/revoke`, { method: "POST" });
 export const revokeProject = (slug: string): Promise<ProjectRevokeResult> =>
   json(`${B}/projects/${encodeURIComponent(slug)}/revoke`, { method: "POST" });
+
+/** Link issue returns a one-time secret URL. Call directly; never put this result in TanStack Query. */
+export const issueLink = (body: LinkIssueIn): Promise<LinkIssued> => json(`${B}/links`, { method: "POST", json: body });
+export const listLinks = (slug: string): Promise<{ links: ShareLink[] }> => json(`${B}/links`, { query: { project_slug: slug } });
+export const revokeLink = (id: string): Promise<ShareLink> => json(`${B}/links/${encodeURIComponent(id)}/revoke`, { method: "POST" });

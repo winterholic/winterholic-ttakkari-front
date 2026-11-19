@@ -86,6 +86,29 @@ it("키 발급은 서버 고정 TTL 을 따르며 slug·label·scopes 만 본문
   expect(c.body).toEqual({ project_slug: "alpha", label: "claude", scopes: ["read", "search"] });
 });
 
+it("재사용 API Key 발급은 v2 type·TTL·snapshot 정책을 요청한다", async () => {
+  fetcher.mockImplementation(async () => reply({ id: "k2", key: "RAW" }, 201));
+  await cs.issueKey({ project_slug: "alpha", label: "Claude Code", scopes: ["read"], credential_type: "reusable_api_v2", ttl_days: 7, snapshot_policy: "latest" });
+  const c = call();
+  expect(c.url).toMatch(/\/api\/context-sharing\/keys$/);
+  expect(c.body).toEqual({ project_slug: "alpha", label: "Claude Code", scopes: ["read"], credential_type: "reusable_api_v2", ttl_days: 7, snapshot_policy: "latest" });
+});
+
+it("사람용 링크 발급·목록·개별 폐기는 Private /links API 계약을 쓴다", async () => {
+  fetcher.mockImplementation(async () => reply({ links: [] }));
+  await cs.issueLink({ project_slug: "alpha", label: "리뷰", ttl_days: 3, snapshot_policy: "pinned", allow_export: false });
+  await cs.listLinks("alpha");
+  await cs.revokeLink("link-1");
+  expect(call(0).url).toMatch(/\/api\/context-sharing\/links$/);
+  expect(call(0).init.method).toBe("POST");
+  expect(call(0).body).toEqual({ project_slug: "alpha", label: "리뷰", ttl_days: 3, snapshot_policy: "pinned", allow_export: false });
+  const list = new URL(call(1).url);
+  expect(list.pathname).toBe("/api/context-sharing/links");
+  expect(list.searchParams.get("project_slug")).toBe("alpha");
+  expect(call(2).url).toMatch(/\/links\/link-1\/revoke$/);
+  expect(call(2).init.method).toBe("POST");
+});
+
 it("키 목록·폐기·프로젝트 철회 경로", async () => {
   fetcher.mockImplementation(async () => reply({ keys: [] }));
   await cs.listKeys("alpha");

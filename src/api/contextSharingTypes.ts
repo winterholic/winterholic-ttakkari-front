@@ -2,6 +2,8 @@
 
 export type ShareScope = "personal" | "work" | "shared";
 export type KeyScope = "read" | "search" | "export";
+export type SnapshotPolicy = "pinned" | "latest";
+export type CredentialTtlDays = 1 | 3 | 7 | 30;
 
 export interface GatewayStatus {
   configured: boolean;
@@ -57,6 +59,8 @@ export interface ShareProject {
   slug: string | null;
   publication: Publication | null;
   active_key_count: number;
+  active_link_count?: number;
+  last_published_at?: string | null;
 }
 
 export interface ProjectsResponse {
@@ -170,9 +174,15 @@ export interface ShareKey {
   id: string;
   project_slug: string;
   label: string;
-  status: "active" | "revoked" | "expired";
+  status: "active" | "revoking" | "revoked" | "expired";
   ttl_seconds: number;
-  single_use: true;
+  single_use: boolean;
+  credential_type?: "single_use_v1" | "reusable_api_v2";
+  snapshot_policy?: SnapshotPolicy;
+  pinned_snapshot_id?: string | null;
+  scopes?: KeyScope[];
+  last_used_at?: string | null;
+  usage_status?: "available" | "unavailable";
   issued_at: string;
   expires_at: string;
   revoked_at: string | null;
@@ -183,13 +193,47 @@ export interface KeyIssueIn {
   project_slug: string;
   label: string;
   scopes: KeyScope[];
+  credential_type?: "reusable_api_v2";
+  ttl_days?: CredentialTtlDays;
+  snapshot_policy?: SnapshotPolicy;
 }
 
 /** 원문 키(`key`)가 들어 있는 유일한 응답. 메모리 밖(스토리지·URL·로그·쿼리 캐시)에 두지 않는다. */
 export interface KeyIssued extends ShareKey {
   scopes: KeyScope[];
   key: string;
-  connect: { url: string | null; note: string };
+  connect: { url: string | null; project_id: string | null; note: string };
+}
+
+export interface ShareLink {
+  id: string;
+  project_slug: string;
+  label: string;
+  status: "active" | "revoking" | "revoked" | "expired";
+  ttl_seconds: number;
+  credential_type: "share_link_v2";
+  snapshot_policy: SnapshotPolicy;
+  pinned_snapshot_id: string | null;
+  scopes: Array<"read" | "export">;
+  last_used_at: string | null;
+  usage_status: "available" | "unavailable";
+  issued_at: string;
+  expires_at: string;
+  revoked_at: string | null;
+  publication_id: string;
+}
+
+/** 원문 URL이 포함되므로 mutation 결과는 절대 query cache에 저장하지 않는다. */
+export interface LinkIssued extends ShareLink {
+  url: string;
+}
+
+export interface LinkIssueIn {
+  project_slug: string;
+  label: string;
+  ttl_days: CredentialTtlDays;
+  snapshot_policy: SnapshotPolicy;
+  allow_export: boolean;
 }
 
 export interface ProjectRevokeResult {

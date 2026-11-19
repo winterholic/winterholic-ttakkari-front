@@ -1,10 +1,10 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { ReactNode } from "react";
 import { ApiError } from "../api/client";
-import type { Draft, DraftPatchIn, KeyIssued, ShareKey } from "../api/contextSharingTypes";
+import type { Draft, DraftPatchIn, KeyIssued, LinkIssued, ShareKey } from "../api/contextSharingTypes";
 import {
   ALPHA, ALPHA_SOURCES, BETA, BETA_SOURCES, D1, D2, D3, GAMMA, GW_OFF, GW_OK, LIMITATIONS, cleanPreview, doc, draft, key, pub,
 } from "../features/context-sharing/testFixtures";
@@ -14,6 +14,7 @@ const h = vi.hoisted(() => ({
   getSite: vi.fn(), patchSite: vi.fn(),
   shareProjects: vi.fn(), shareSources: vi.fn(), createDraft: vi.fn(), listDrafts: vi.fn(), getDraft: vi.fn(), patchDraft: vi.fn(),
   publishDraft: vi.fn(), issueKey: vi.fn(), listKeys: vi.fn(), revokeKey: vi.fn(), revokeProject: vi.fn(),
+  issueLink: vi.fn(), listLinks: vi.fn(), revokeLink: vi.fn(),
 }));
 vi.mock("../api/contextSharing", async (orig) => ({
   ...(await orig<typeof import("../api/contextSharing")>()),
@@ -30,6 +31,9 @@ vi.mock("../api/contextSharing", async (orig) => ({
   listKeys: (...a: unknown[]) => h.listKeys(...a),
   revokeKey: (...a: unknown[]) => h.revokeKey(...a),
   revokeProject: (...a: unknown[]) => h.revokeProject(...a),
+  issueLink: (...a: unknown[]) => h.issueLink(...a),
+  listLinks: (...a: unknown[]) => h.listLinks(...a),
+  revokeLink: (...a: unknown[]) => h.revokeLink(...a),
 }));
 vi.mock("../shell/PageHeader", () => ({
   PageHeader: ({ title, actions }: { title: string; actions?: ReactNode }) => (
@@ -87,6 +91,7 @@ beforeEach(() => {
   h.listDrafts.mockImplementation(async () => ({ drafts: [], total: 0, limit: 50, offset: 0 }));
   h.getDraft.mockImplementation(async () => server);
   h.listKeys.mockImplementation(async () => ({ keys: [] }));
+  h.listLinks.mockImplementation(async () => ({ links: [] }));
 });
 afterEach(() => {
   cleanup();
@@ -172,9 +177,95 @@ describe("사이트 운영 콘솔", () => {
     await waitFor(() => expect(h.revokeKey).toHaveBeenCalledWith("k-active"));
     expect(h.listKeys).toHaveBeenCalled();
   });
+
+  it("전체 운영 키 목록에서 revoking을 폐기 완료와 구분한다", async () => {
+    h.listKeys.mockImplementation(async () => ({ keys: [key({ id: "k-revoking", label: "진행 중 키", status: "revoking" })] }));
+    renderAt("/context-sharing");
+    const region = await screen.findByRole("region", { name: "접근 키 관리" });
+    const row = within(await within(region).findByRole("list", { name: "접근 키 목록" })).getByRole("listitem");
+    expect(within(row).getByText("폐기 처리 중")).toBeTruthy();
+    expect(within(row).queryByText("폐기됨")).toBeNull();
+  });
+
+  it("키 발급 중 중복 클릭은 요청 하나만 보낸다", async () => {
+    let finish!: (value: KeyIssued) => void;
+    h.issueKey.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    renderAt("/context-sharing?project=e-beta");
+    const button = within(await screen.findByRole("region", { name: "프로그램용 API Key" })).getByRole("button", { name: "재사용 API Key 발급" });
+    fireEvent.click(button);
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button);
+    expect(h.issueKey).toHaveBeenCalledTimes(1);
+    finish({ ...key({ id: "k-new" }), scopes: ["read"], key: RAW_KEY, connect: { url: "https://ctx.example.test", project_id: "g1", note: "test" } });
+    expect(await screen.findByText(RAW_KEY)).toBeTruthy();
+  });
+
+  it("상세 키 발급의 늦은 성공은 다른 경로를 왕복한 뒤에도 원문을 노출하지 않는다", async () => {
+    let finish!: (value: KeyIssued) => void;
+    h.issueKey.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    renderAt("/context-sharing?project=e-beta");
+    fireEvent.click(within(await screen.findByRole("region", { name: "프로그램용 API Key" })).getByRole("button", { name: "재사용 API Key 발급" }));
+    fireEvent.click(screen.getByRole("link", { name: "프로젝트 목록" }));
+    await screen.findByRole("list", { name: "프로젝트" });
+    fireEvent.click(screen.getByRole("link", { name: /Beta 회사 프로젝트/ }));
+    await screen.findByRole("region", { name: "프로그램용 API Key" });
+    await act(async () => { finish({ ...key({ id: "k-late" }), scopes: ["read"], key: RAW_KEY, connect: { url: "https://ctx.example.test", project_id: "g1", note: "test" } }); });
+    expect(where()).toBe("/context-sharing?project=e-beta");
+    expect(document.body.textContent).not.toContain(RAW_KEY);
+  });
+
+  it("기존 콘솔 키 발급의 늦은 성공은 프로젝트 상세로 이동한 뒤 원문을 노출하지 않는다", async () => {
+    let finish!: (value: KeyIssued) => void;
+    h.issueKey.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    renderAt("/context-sharing");
+    fireEvent.click(await screen.findByRole("button", { name: "키 발급" }));
+    fireEvent.click(screen.getByRole("link", { name: /Beta 회사 프로젝트/ }));
+    await screen.findByRole("region", { name: "프로그램용 API Key" });
+    await act(async () => { finish({ ...key({ id: "k-late" }), scopes: ["read"], key: RAW_KEY, connect: { url: "https://ctx.example.test", project_id: "g1", note: "test" } }); });
+    expect(where()).toBe("/context-sharing?project=e-beta");
+    expect(document.body.textContent).not.toContain(RAW_KEY);
+  });
+
+  it("키 복사 응답이 라우트 변경 뒤 도착하면 이전 화면의 성공·실패 상태를 덮어쓰지 않는다", async () => {
+    let finish!: () => void;
+    const writeText = vi.fn(() => new Promise<void>((resolve) => { finish = resolve; }));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    h.issueKey.mockImplementation(async () => ({ ...key({ id: "k-copy" }), scopes: ["read"], key: RAW_KEY, connect: { url: "https://ctx.example.test", project_id: "g1", note: "test" } }));
+    renderAt("/context-sharing?project=e-beta");
+    fireEvent.click(within(await screen.findByRole("region", { name: "프로그램용 API Key" })).getByRole("button", { name: "재사용 API Key 발급" }));
+    const reveal = await screen.findByRole("region", { name: "발급된 키" });
+    fireEvent.click(within(reveal).getByRole("button", { name: "키 복사 후 원문 지우기" }));
+    fireEvent.click(screen.getByRole("link", { name: "프로젝트 목록" }));
+    await screen.findByRole("list", { name: "프로젝트" });
+    await act(async () => { finish(); });
+    expect(screen.queryByText("키를 복사했습니다. 원문은 화면에서 지웠습니다.")).toBeNull();
+    expect(document.body.textContent).not.toContain(RAW_KEY);
+  });
 });
 
 describe("프로젝트 목록", () => {
+  it("기본 화면에서 프로젝트를 먼저 보여 주고 현재 스냅샷·활성 키·게시 시각을 함께 표시한다", async () => {
+    renderAt("/context-sharing");
+    expect(await screen.findByRole("heading", { name: "공유 프로젝트" })).toBeTruthy();
+    const list = await screen.findByRole("list", { name: "프로젝트" });
+    const beta = within(list).getByRole("link", { name: /Beta 회사 프로젝트/ }).closest("li") as HTMLElement;
+    expect(within(beta).getByText("스냅샷 snap1")).toBeTruthy();
+    expect(within(beta).getByText("활성 키 1개")).toBeTruthy();
+    expect(within(beta).getByText("활성 링크 2개")).toBeTruthy();
+    expect(within(beta).getByText(/게시 시각/)).toBeTruthy();
+    expect(within(list).getAllByText("현재 스냅샷 없음")).toHaveLength(2);
+    expect(screen.queryByText("Context Gateway 운영")).toBeNull();
+  });
+
+  it("전체 사이트와 기존 키 운영은 프로젝트 목록 아래 접힌 운영 영역에 둔다", async () => {
+    renderAt("/context-sharing");
+    await screen.findByRole("list", { name: "프로젝트" });
+    const operations = screen.getByText("전체 사이트·기존 키 운영").closest("details");
+    expect(operations?.hasAttribute("open")).toBe(false);
+    expect(within(operations as HTMLElement).getByRole("region", { name: "사이트 운영" })).toBeTruthy();
+    expect(within(operations as HTMLElement).getByRole("region", { name: "접근 키 관리" })).toBeTruthy();
+  });
+
   it("읽기만으로는 어떤 쓰기 API 도 부르지 않는다", async () => {
     renderAt("/context-sharing");
     await screen.findByRole("link", { name: /Alpha/ });
@@ -198,6 +289,39 @@ describe("프로젝트 목록", () => {
     renderAt("/context-sharing");
     fireEvent.click(await screen.findByRole("link", { name: /Alpha/ }));
     await waitFor(() => expect(where()).toBe("/context-sharing?project=e-alpha"));
+  });
+
+  it("프로젝트 상세는 현재 snapshot 요약과 기존 project·draft 딥링크를 함께 유지한다", async () => {
+    setServer(draft({ entity_id: "e-beta", project_name: "Beta 회사 프로젝트", slug: "beta" }));
+    renderAt("/context-sharing?project=e-beta&draft=d1");
+    const context = within(await screen.findByRole("region", { name: "현재 맥락" }));
+    expect(context.getAllByText("snap1")).toHaveLength(2);
+    expect(await screen.findByRole("region", { name: "게시 전 검토" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "게시 승인" })).toBeTruthy();
+    expect(screen.getByText("게시 및 갱신").closest("details")?.hasAttribute("open")).toBe(true);
+    expect(where()).toBe("/context-sharing?project=e-beta&draft=d1");
+  });
+
+  it("프로젝트 상세에서 사람용 링크와 재사용 키를 주 액션으로 보여 주고 게시 검토는 접는다", async () => {
+    renderAt("/context-sharing?project=e-beta");
+    const detail = await screen.findByRole("region", { name: "Beta 회사 프로젝트 프로젝트 상세" });
+    expect(within(detail).getByRole("region", { name: "사람용 공유 링크" })).toBeTruthy();
+    expect(within(detail).getByRole("region", { name: "프로그램용 API Key" })).toBeTruthy();
+    expect(within(detail).getByRole("button", { name: "공유 링크 생성" })).toBeTruthy();
+    expect(within(detail).getByRole("button", { name: "재사용 API Key 발급" })).toBeTruthy();
+    expect(within(detail).getByText("활성 공유 링크 2개")).toBeTruthy();
+    const publication = within(detail).getByText("게시 및 갱신").closest("details");
+    expect(publication?.hasAttribute("open")).toBe(false);
+    expect(h.createDraft).not.toHaveBeenCalled();
+    expect(h.issueKey).not.toHaveBeenCalled();
+  });
+
+  it("상세 링크 수가 응답에 없으면 0으로 단정하지 않는다", async () => {
+    h.shareProjects.mockImplementation(async () => ({ gateway: GW_OK, projects: [{ ...BETA, active_link_count: undefined }] }));
+    renderAt("/context-sharing?project=e-beta");
+    const links = within(await screen.findByRole("region", { name: "사람용 공유 링크" }));
+    expect(links.getByText("활성 공유 링크 확인 불가")).toBeTruthy();
+    expect(links.queryByText("활성 공유 링크 0개")).toBeNull();
   });
 
   it("Gateway 가 설정되지 않았으면 누락 항목과 초안은 가능하다는 안내를 보여 준다", async () => {
@@ -589,39 +713,42 @@ describe("검토와 게시 승인", () => {
 
 describe("외부 공유 키", () => {
   const issued = (o: Partial<KeyIssued> = {}): KeyIssued => ({
-    ...key({ id: "k-new", label: "claude" }), scopes: ["read", "search"], key: RAW_KEY,
-    connect: { url: "https://ctx.example.test", note: "이 키는 지금 한 번만 보입니다." }, ...o,
+    ...key({ id: "k-new", label: "claude", single_use: false, credential_type: "reusable_api_v2", ttl_seconds: 259200 }), scopes: ["read", "search"], key: RAW_KEY,
+    connect: { url: "https://ctx.example.test", project_id: "gateway-project-uuid", note: "재사용 API Key" }, ...o,
   });
-  const panel = () => screen.findByRole("region", { name: "외부 공유 키" });
+  const panel = () => screen.findByRole("region", { name: "프로그램용 API Key" });
   const consoleSpies = () => (["log", "info", "warn", "error", "debug"] as const).map((m) => vi.spyOn(console, m).mockImplementation(() => {}));
   const leaked = (spies: ReturnType<typeof consoleSpies>) => spies.some((s) => JSON.stringify(s.mock.calls).includes(RAW_KEY));
 
   it("게시 전 프로젝트에는 키 발급이 없고 초안 승인을 먼저 하라고 안내한다", async () => {
     renderAt("/context-sharing?project=e-alpha");
     await screen.findByRole("checkbox", { name: /arch\.md/ });
-    expect(screen.queryByRole("button", { name: "키 발급" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "재사용 API Key 발급" })).toBeNull();
     expect(screen.getByText(/게시한 뒤에 키를 발급할 수 있습니다/)).toBeTruthy();
   });
 
   it("철회된 프로젝트는 새로 게시하기 전까지 키를 발급할 수 없다", async () => {
     renderAt("/context-sharing?project=e-gamma");
     const p = await panel();
-    expect(within(p).queryByRole("button", { name: "키 발급" })).toBeNull();
+    expect(within(p).queryByRole("button", { name: "재사용 API Key 발급" })).toBeNull();
     expect(within(p).getByText(/철회됨/)).toBeTruthy();
   });
 
-  it("기본값은 1시간·읽기와 검색이고 label·scope 를 그대로 요청한다", async () => {
+  it("재사용 키는 기본 3일·pinned·읽기와 검색이고 label·scope 를 요청한다", async () => {
     h.issueKey.mockImplementation(async () => issued());
     renderAt("/context-sharing?project=e-beta");
     const p = within(await panel());
-    expect(p.getByText(/1시간/)).toBeTruthy();
+    expect(p.getByText(/기본 3일/)).toBeTruthy();
+    expect(Array.from((p.getByLabelText("만료 기간") as HTMLSelectElement).options).map((option) => option.value)).toEqual(["1", "3", "7", "30"]);
     expect((p.getByRole("checkbox", { name: /읽기/ }) as HTMLInputElement).checked).toBe(true);
     expect((p.getByRole("checkbox", { name: /검색/ }) as HTMLInputElement).checked).toBe(true);
     expect((p.getByRole("checkbox", { name: /내보내기/ }) as HTMLInputElement).checked).toBe(false);
     fireEvent.change(p.getByLabelText("키 이름"), { target: { value: "claude" } });
-    fireEvent.click(p.getByRole("button", { name: "키 발급" }));
+    fireEvent.change(p.getByLabelText("만료 기간"), { target: { value: "7" } });
+    fireEvent.change(p.getByLabelText("snapshot 정책"), { target: { value: "latest" } });
+    fireEvent.click(p.getByRole("button", { name: "재사용 API Key 발급" }));
     await waitFor(() => expect(h.issueKey).toHaveBeenCalledTimes(1));
-    expect(h.issueKey.mock.calls[0][0]).toEqual({ project_slug: "beta", label: "claude", scopes: ["read", "search"] });
+    expect(h.issueKey.mock.calls[0][0]).toEqual({ project_slug: "beta", label: "claude", scopes: ["read", "search"], credential_type: "reusable_api_v2", ttl_days: 7, snapshot_policy: "latest" });
   });
 
   it("범위를 모두 끄면 발급할 수 없다", async () => {
@@ -629,7 +756,7 @@ describe("외부 공유 키", () => {
     const p = within(await panel());
     fireEvent.click(p.getByRole("checkbox", { name: /읽기/ }));
     fireEvent.click(p.getByRole("checkbox", { name: /검색/ }));
-    expect((p.getByRole("button", { name: "키 발급" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((p.getByRole("button", { name: "재사용 API Key 발급" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("원문 키는 발급 직후 한 번 보이고, 복사할 수 있으며, 어디에도 저장·기록되지 않는다", async () => {
@@ -638,13 +765,13 @@ describe("외부 공유 키", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
     h.issueKey.mockImplementation(async () => issued());
     const { qc } = renderAt("/context-sharing?project=e-beta");
-    fireEvent.click(within(await panel()).getByRole("button", { name: "키 발급" }));
+    fireEvent.click(within(await panel()).getByRole("button", { name: "재사용 API Key 발급" }));
     const reveal = await screen.findByRole("region", { name: "발급된 키" });
     expect(within(reveal).getByText(RAW_KEY)).toBeTruthy();
     expect(within(reveal).getByText(/한 번만 보입니다/)).toBeTruthy();
-    fireEvent.click(within(reveal).getByRole("button", { name: "키 복사" }));
+    fireEvent.click(within(reveal).getByRole("button", { name: "키 복사 후 원문 지우기" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(RAW_KEY));
-    expect(await within(reveal).findByText("복사했습니다")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText(RAW_KEY)).toBeNull());
 
     // 스토리지·URL·쿼리 캐시·콘솔 어디에도 원문이 없다
     expect(JSON.stringify({ ...window.localStorage })).not.toContain(RAW_KEY);
@@ -655,22 +782,105 @@ describe("외부 공유 키", () => {
     expect(leaked(spies)).toBe(false);
   });
 
-  it("기본 사용 안내는 환경변수만 쓰고 원문 키를 담지 않는다", async () => {
+  it("REST와 Claude Code MCP 연결 안내는 Gateway 경로와 project_id를 쓰고 원문 키를 담지 않는다", async () => {
     h.issueKey.mockImplementation(async () => issued());
     renderAt("/context-sharing?project=e-beta");
-    fireEvent.click(within(await panel()).getByRole("button", { name: "키 발급" }));
+    fireEvent.click(within(await panel()).getByRole("button", { name: "재사용 API Key 발급" }));
     const reveal = await screen.findByRole("region", { name: "발급된 키" });
-    const guide = within(reveal).getByLabelText("사용 안내").textContent ?? "";
+    const guide = (within(reveal).getByLabelText("REST / MCP 연결 설정") as HTMLTextAreaElement).value;
     expect(guide).toContain("$CONTEXT_GATEWAY_KEY");
+    expect(guide).toContain("gateway-project-uuid");
+    expect(guide).toContain("/api/v1/projects/$GATEWAY_PROJECT_ID/context");
+    expect(guide).toContain("https://ctx.example.test/mcp");
+    expect(guide).toContain("Bearer ${CONTEXT_GATEWAY_KEY}");
     expect(guide).toContain("https://ctx.example.test");
     expect(guide).not.toContain(RAW_KEY);
     expect(within(reveal).getByRole("link", { name: /Gateway 주소/ }).getAttribute("href")).toBe("https://ctx.example.test");
   });
 
+  it("링크 발급은 선택한 TTL·정책·export를 보내고 URL은 발급 때만 노출한 뒤 복사 후 지운다", async () => {
+    const spies = consoleSpies();
+    const rawUrl = "https://ctx.example.test/s#token=RAW_LINK_SECRET";
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    h.issueLink.mockImplementation(async () => ({
+      id: "l-new", project_slug: "beta", label: "검토 링크", status: "active", ttl_seconds: 604800,
+      credential_type: "share_link_v2", snapshot_policy: "latest", pinned_snapshot_id: null, scopes: ["read", "export"],
+      last_used_at: null, usage_status: "available", issued_at: "2026-11-19T00:00:00Z", expires_at: "2026-11-26T00:00:00Z",
+      revoked_at: null, publication_id: "pub1", url: rawUrl,
+    }));
+    const { qc } = renderAt("/context-sharing?project=e-beta");
+    const links = within(await screen.findByRole("region", { name: "사람용 공유 링크" }));
+    fireEvent.change(links.getByLabelText("링크 이름"), { target: { value: "검토 링크" } });
+    fireEvent.change(links.getByLabelText("만료 기간"), { target: { value: "7" } });
+    fireEvent.change(links.getByLabelText("공유할 snapshot"), { target: { value: "latest" } });
+    fireEvent.click(links.getByRole("checkbox", { name: "파일 내보내기 허용" }));
+    fireEvent.click(links.getByRole("button", { name: "공유 링크 생성" }));
+    const reveal = await screen.findByRole("region", { name: "발급된 공유 링크" });
+    expect(h.issueLink).toHaveBeenCalledWith({ project_slug: "beta", label: "검토 링크", ttl_days: 7, snapshot_policy: "latest", allow_export: true });
+    expect(within(reveal).getByText(rawUrl)).toBeTruthy();
+    fireEvent.click(within(reveal).getByRole("button", { name: "링크 복사 후 원문 지우기" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(rawUrl));
+    await waitFor(() => expect(screen.queryByText(rawUrl)).toBeNull());
+    expect(where()).not.toContain(rawUrl);
+    expect(JSON.stringify({ ...window.localStorage, ...window.sessionStorage })).not.toContain(rawUrl);
+    expect(JSON.stringify(qc.getQueryCache().getAll().map((q) => q.state.data))).not.toContain(rawUrl);
+    expect(leaked(spies)).toBe(false);
+  });
+
+  it("링크 폐기는 확인 뒤 요청하고 revoking 상태와 사용 기록 불가를 구분한다", async () => {
+    h.listLinks.mockImplementation(async () => ({ links: [{
+      id: "l1", project_slug: "beta", label: "검토 링크", status: "revoking", ttl_seconds: 259200,
+      credential_type: "share_link_v2", snapshot_policy: "pinned", pinned_snapshot_id: "snap1", scopes: ["read"],
+      last_used_at: null, usage_status: "unavailable", issued_at: "2026-11-18T00:00:00Z", expires_at: "2026-11-21T00:00:00Z",
+      revoked_at: null, publication_id: "pub1",
+    }] }));
+    renderAt("/context-sharing?project=e-beta");
+    const list = await screen.findByRole("list", { name: "공유 링크 목록" });
+    expect(within(list).getByText("폐기 처리 중")).toBeTruthy();
+    expect(within(list).getByText(/생성/)).toBeTruthy();
+    expect(within(list).getByText(/생성 2026/)).toBeTruthy();
+    expect(within(list).getByText("마지막 사용 사용 기록 확인 불가")).toBeTruthy();
+    expect(within(list).queryByRole("button")).toBeNull();
+  });
+
+  it("링크 발급 응답이 패널 unmount 뒤 도착해도 상태를 갱신하지 않는다", async () => {
+    let finish!: (value: LinkIssued) => void;
+    h.issueLink.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const { unmount } = renderAt("/context-sharing?project=e-beta");
+    const links = within(await screen.findByRole("region", { name: "사람용 공유 링크" }));
+    fireEvent.change(links.getByLabelText("링크 이름"), { target: { value: "late" } });
+    fireEvent.click(links.getByRole("button", { name: "공유 링크 생성" }));
+    const listCallsBeforeUnmount = h.listLinks.mock.calls.length;
+    unmount();
+    await act(async () => { finish({ id: "l-late", project_slug: "beta", label: "late", status: "active", ttl_seconds: 86400, credential_type: "share_link_v2", snapshot_policy: "pinned", pinned_snapshot_id: "snap1", scopes: ["read"], last_used_at: null, usage_status: "available", issued_at: "2026-11-18T00:00:00Z", expires_at: "2026-11-19T00:00:00Z", revoked_at: null, publication_id: "pub1", url: "https://ctx.test/RAW" }); });
+    expect(document.body.textContent).not.toContain("RAW");
+    expect(h.listLinks).toHaveBeenCalledTimes(listCallsBeforeUnmount);
+  });
+
+  it("링크 폐기 확인 후에도 응답 상태가 revoking이면 완료라고 표시하지 않는다", async () => {
+    let state: "active" | "revoking" = "active";
+    const link = (status: "active" | "revoking") => ({
+      id: "l2", project_slug: "beta", label: "진행 링크", status, ttl_seconds: 259200,
+      credential_type: "share_link_v2" as const, snapshot_policy: "pinned" as const, pinned_snapshot_id: "snap1", scopes: ["read"] as Array<"read" | "export">,
+      last_used_at: null, usage_status: "available" as const, issued_at: "2026-11-18T00:00:00Z", expires_at: "2026-11-21T00:00:00Z",
+      revoked_at: null, publication_id: "pub1",
+    });
+    h.listLinks.mockImplementation(async () => ({ links: [link(state)] }));
+    h.revokeLink.mockImplementation(async () => { state = "revoking"; return link("revoking"); });
+    renderAt("/context-sharing?project=e-beta");
+    const list = await screen.findByRole("list", { name: "공유 링크 목록" });
+    fireEvent.click(within(list).getByRole("button", { name: "링크 폐기: 진행 링크" }));
+    const dialog = await screen.findByRole("dialog", { name: "공유 링크를 폐기할까요?" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "링크 폐기" }));
+    expect(await within(list).findByText("폐기 처리 중")).toBeTruthy();
+    expect(await screen.findByText(/링크 폐기를 요청했습니다/)).toBeTruthy();
+  });
+
   it("닫으면 원문 키가 화면에서 사라지고 다시 볼 수 없다", async () => {
     h.issueKey.mockImplementation(async () => issued());
     renderAt("/context-sharing?project=e-beta");
-    fireEvent.click(within(await panel()).getByRole("button", { name: "키 발급" }));
+    fireEvent.click(within(await panel()).getByRole("button", { name: "재사용 API Key 발급" }));
     const reveal = await screen.findByRole("region", { name: "발급된 키" });
     fireEvent.click(within(reveal).getByRole("button", { name: "닫기" }));
     expect(screen.queryByText(RAW_KEY)).toBeNull();
@@ -681,7 +891,7 @@ describe("외부 공유 키", () => {
   it("다른 화면으로 이동했다가 돌아오면 원문 키가 지워져 있다", async () => {
     h.issueKey.mockImplementation(async () => issued());
     renderAt("/context-sharing?project=e-beta");
-    fireEvent.click(within(await panel()).getByRole("button", { name: "키 발급" }));
+    fireEvent.click(within(await panel()).getByRole("button", { name: "재사용 API Key 발급" }));
     await screen.findByText(RAW_KEY);
     fireEvent.click(screen.getByRole("link", { name: "프로젝트 목록" }));
     await screen.findByRole("list", { name: "프로젝트" });
@@ -694,7 +904,7 @@ describe("외부 공유 키", () => {
   it("화면을 벗어나면(언마운트) 원문 키를 들고 있지 않는다", async () => {
     h.issueKey.mockImplementation(async () => issued());
     const { unmount } = renderAt("/context-sharing?project=e-beta");
-    fireEvent.click(within(await panel()).getByRole("button", { name: "키 발급" }));
+    fireEvent.click(within(await panel()).getByRole("button", { name: "재사용 API Key 발급" }));
     await screen.findByText(RAW_KEY);
     unmount();
     expect(document.body.textContent).not.toContain(RAW_KEY);
@@ -703,7 +913,7 @@ describe("외부 공유 키", () => {
   it("키 발급 오류는 키를 보여 주지 않고 이유를 말한다", async () => {
     h.issueKey.mockRejectedValueOnce(apiErr(503, "gateway_contract_incomplete"));
     renderAt("/context-sharing?project=e-beta");
-    fireEvent.click(within(await panel()).getByRole("button", { name: "키 발급" }));
+    fireEvent.click(within(await panel()).getByRole("button", { name: "재사용 API Key 발급" }));
     expect(await screen.findByText("지금은 키를 발급할 수 없습니다")).toBeTruthy();
     expect(screen.getByText(/Gateway 계약 갱신이 필요합니다/)).toBeTruthy();
     expect(screen.queryByRole("region", { name: "발급된 키" })).toBeNull();
@@ -712,7 +922,7 @@ describe("외부 공유 키", () => {
   it("Gateway 미설정 503 도 안내하고 키 영역은 성공 상태가 되지 않는다", async () => {
     h.issueKey.mockRejectedValueOnce(apiErr(503, "gateway_not_configured", { gateway: GW_OFF }));
     renderAt("/context-sharing?project=e-beta");
-    fireEvent.click(within(await panel()).getByRole("button", { name: "키 발급" }));
+    fireEvent.click(within(await panel()).getByRole("button", { name: "재사용 API Key 발급" }));
     expect(await screen.findByText("Context Gateway 연결이 설정되지 않았습니다")).toBeTruthy();
     expect(screen.queryByRole("region", { name: "발급된 키" })).toBeNull();
   });
@@ -720,7 +930,7 @@ describe("외부 공유 키", () => {
   it("발급한 키 목록은 활성·만료·폐기를 구분해 보여 주고 원문은 없다", async () => {
     h.listKeys.mockImplementation(async () => ({
       keys: [
-        key({ id: "k1", label: "활성 키" }),
+        key({ id: "k1", label: "활성 키", usage_status: "unavailable" }),
         key({ id: "k2", label: "만료 키", status: "expired" }),
         key({ id: "k3", label: "폐기 키", status: "revoked", revoked_at: "2026-11-16T01:30:00.000000+00:00" }),
       ] satisfies ShareKey[],
@@ -729,8 +939,9 @@ describe("외부 공유 키", () => {
     const list = await screen.findByRole("list", { name: "발급한 키" });
     const rows = within(list).getAllByRole("listitem");
     expect(within(rows[0]).getByText("활성")).toBeTruthy();
+    expect(within(rows[0]).getByText("마지막 사용 사용 기록 확인 불가")).toBeTruthy();
     expect(within(rows[1]).getByText("만료")).toBeTruthy();
-    expect(within(rows[2]).getByText("폐기")).toBeTruthy();
+    expect(within(rows[2]).getByText("폐기됨")).toBeTruthy();
     expect(within(rows[0]).getByRole("button", { name: "키 폐기: 활성 키" })).toBeTruthy();
     expect(within(rows[1]).queryByRole("button")).toBeNull();
     expect(within(rows[2]).queryByRole("button")).toBeNull();
@@ -747,7 +958,7 @@ describe("외부 공유 키", () => {
     const dialog = await screen.findByRole("dialog", { name: "키를 폐기할까요?" });
     fireEvent.click(within(dialog).getByRole("button", { name: "폐기 실행" }));
     await waitFor(() => expect(h.revokeKey).toHaveBeenCalledWith("k1"));
-    expect(await screen.findByText("폐기")).toBeTruthy();
+    expect(await screen.findByText("폐기됨")).toBeTruthy();
   });
 
   it("키 폐기가 실패하면 성공처럼 보이지 않고 활성 그대로 둔다", async () => {

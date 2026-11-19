@@ -21,7 +21,7 @@ export const ALPHA: ShareProject = {
 };
 export const BETA: ShareProject = {
   entity_id: "e-beta", name: "Beta 회사 프로젝트", aliases: [], summary: "", scope: "work",
-  source_count: 1, document_count: 1, slug: "beta", publication: pub(), active_key_count: 1,
+  source_count: 1, document_count: 1, slug: "beta", publication: pub(), active_key_count: 1, active_link_count: 2, last_published_at: "2026-11-16T01:00:00.000000+00:00",
 };
 export const GAMMA: ShareProject = {
   entity_id: "e-gamma", name: "Gamma", aliases: [], summary: "", scope: "shared",
@@ -84,6 +84,6 @@ export const draft = (o: Partial<Draft> = {}): Draft => {
 };
 
 export const key = (o: Partial<ShareKey> = {}): ShareKey => ({
-  id: "k1", project_slug: "beta", label: "claude 데스크톱", status: "active", ttl_seconds: 3600, single_use: true,
+  id: "k1", project_slug: "beta", label: "claude 데스크톱", status: "active", ttl_seconds: 3600, single_use: true, credential_type: "single_use_v1", scopes: ["read", "search"], snapshot_policy: "pinned", pinned_snapshot_id: "snap1", last_used_at: null, usage_status: "available",
   issued_at: "2026-11-16T01:10:00.000000+00:00", expires_at: "2026-11-16T02:10:00.000000+00:00", revoked_at: null, publication_id: "pub1", ...o,
 });

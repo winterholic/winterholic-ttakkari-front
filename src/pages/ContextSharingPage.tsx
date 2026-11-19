@@ -1,13 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router";
 import { ApiError } from "../api/client";
 import * as api from "../api/contextSharing";
-import type { DraftDocument, DraftPatchIn, KeyIssued, KeyScope, ShareKey, ShareProject, SourceDocument } from "../api/contextSharingTypes";
+import type { CredentialTtlDays, DraftDocument, DraftPatchIn, KeyIssued, KeyScope, ShareKey, ShareProject, SnapshotPolicy, SourceDocument } from "../api/contextSharingTypes";
 import { describeShareError } from "../features/context-sharing/errors";
 import { PageHeader } from "../shell/PageHeader";
 import { Dialog } from "../ui/Dialog";
 import "../features/context-sharing/context-sharing.css";
+import { ProjectListView } from "../features/context-sharing/ProjectListView";
+import { ProjectDetailView } from "../features/context-sharing/ProjectDetailView";
+import { PublicationFlow } from "../features/context-sharing/PublicationFlow";
+import { ProjectApiKeyPanel } from "../features/context-sharing/ProjectApiKeyPanel";
+import { ShareLinkPanel } from "../features/context-sharing/ShareLinkPanel";
 
 type DraftEdit = Partial<DraftDocument> & { verified?: boolean };
 
@@ -20,6 +25,11 @@ export function ContextSharingPage() {
   const [params, setParams] = useSearchParams();
   const projectId = params.get("project");
   const draftId = params.get("draft");
+  const routeKey = `${projectId ?? ""}|${draftId ?? ""}`;
+  const routeRef = useRef(routeKey);
+  const routeVersionRef = useRef(0);
+  useLayoutEffect(() => { routeRef.current = routeKey; routeVersionRef.current += 1; }, [routeKey]);
+  const mountedRef = useRef(true);
   const [selection, setSelection] = useState<string[]>([]);
   const [createTitle, setCreateTitle] = useState("");
   const [createSummary, setCreateSummary] = useState("");
@@ -36,7 +46,11 @@ export function ContextSharingPage() {
   const [confirmAction, setConfirmAction] = useState<{ kind: "key" | "project"; key?: ShareKey } | null>(null);
   const [keyLabel, setKeyLabel] = useState("");
   const [keyScopes, setKeyScopes] = useState<KeyScope[]>(["read", "search"]);
+  const [keyTtl, setKeyTtl] = useState<CredentialTtlDays>(3);
+  const [keyPolicy, setKeyPolicy] = useState<SnapshotPolicy>("pinned");
   const [issued, setIssued] = useState<KeyIssued | null>(null);
+  const [keyPending, setKeyPending] = useState(false);
+  const keyPendingRef = useRef(false);
   const [siteConfirm, setSiteConfirm] = useState(false);
   const [sitePending, setSitePending] = useState(false);
   const [siteError, setSiteError] = useState("");
@@ -53,7 +67,7 @@ export function ContextSharingPage() {
   const draftsQ = useQuery({ queryKey: api.shareDraftsKey(projectId ?? ""), queryFn: () => api.listDrafts({ entityId: projectId!, limit: 50 }), enabled: !!projectId });
   const draftQ = useQuery({ queryKey: api.shareDraftKey(draftId ?? ""), queryFn: () => api.getDraft(draftId!), enabled: !!draftId });
   const draft = draftQ.data;
-  const keysQ = useQuery({ queryKey: api.shareKeysKey(selected?.slug ?? ""), queryFn: () => api.listKeys(selected!.slug!), enabled: !!selected?.slug && selected.publication?.status === "active" });
+  const keysQ = useQuery({ queryKey: api.shareKeysKey(selected?.slug ?? ""), queryFn: () => api.listKeys(selected!.slug!), enabled: !!selected?.slug });
   const docs = draft?.documents ?? [];
   const visibleDocs = docs.filter((d) => !excluded.includes(d.id));
   const changedDocs = docs.filter((d) => {
@@ -76,8 +90,10 @@ export function ContextSharingPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIssued(null); setError(""); setNotice(""); setReadConfirm(false);
+    keyPendingRef.current = false; setKeyPending(false); setConsoleKeyPending(false);
     setSelection([]); setExcluded([]); setEdits({}); setOpenDoc(null);
   }, [projectId, draftId]);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; }; }, []);
   useEffect(() => {
     if (!draft) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -150,10 +166,20 @@ export function ContextSharingPage() {
     }
   }
   async function issue() {
-    if (!selected?.slug || !keyScopes.length || selected.publication?.status !== "active") return;
+    if (!selected?.slug || !keyScopes.length || selected.publication?.status !== "active" || keyPendingRef.current) return;
+    const requestRoute = routeKey;
+    const requestRouteVersion = routeVersionRef.current;
+    const canUpdate = () => mountedRef.current && routeRef.current === requestRoute && routeVersionRef.current === requestRouteVersion;
+    keyPendingRef.current = true;
+    setKeyPending(true);
     setIssued(null); setError("");
-    try { const k = await api.issueKey({ project_slug: selected.slug, label: keyLabel.trim(), scopes: keyScopes }); setIssued(k); void keysQ.refetch(); }
-    catch (e) { apiError(e); }
+    try {
+      const k = await api.issueKey({ project_slug: selected.slug, label: keyLabel.trim(), scopes: keyScopes, credential_type: "reusable_api_v2", ttl_days: keyTtl, snapshot_policy: keyPolicy });
+      if (!canUpdate()) return;
+      setIssued(k); void keysQ.refetch(); void qc.invalidateQueries({ queryKey: api.SHARE_PROJECTS_KEY });
+    }
+    catch (e) { if (canUpdate()) apiError(e); }
+    finally { if (canUpdate()) { keyPendingRef.current = false; setKeyPending(false); } }
   }
   async function setSiteEnabled(enabled: boolean) {
     setSitePending(true); setSiteError(""); setSiteNotice("");
@@ -168,14 +194,18 @@ export function ContextSharingPage() {
     } finally { setSitePending(false); }
   }
   async function issueConsoleKey() {
-    if (!consoleProjectSlug || !keyScopes.length) return;
+    if (!consoleProjectSlug || !keyScopes.length || consoleKeyPending) return;
+    const requestRoute = routeKey;
+    const requestRouteVersion = routeVersionRef.current;
+    const canUpdate = () => mountedRef.current && routeRef.current === requestRoute && routeVersionRef.current === requestRouteVersion;
     setConsoleKeyPending(true); setIssued(null); setError(""); setNotice("");
     try {
       const result = await api.issueKey({ project_slug: consoleProjectSlug, label: keyLabel.trim(), scopes: keyScopes });
+      if (!canUpdate()) return;
       setIssued(result);
       await consoleKeysQ.refetch();
-    } catch (e) { apiError(e); }
-    finally { setConsoleKeyPending(false); }
+    } catch (e) { if (canUpdate()) apiError(e); }
+    finally { if (canUpdate()) setConsoleKeyPending(false); }
   }
   async function confirmWrite() {
     const action = confirmAction;
@@ -183,24 +213,69 @@ export function ContextSharingPage() {
     setConfirmAction(null); setError("");
     try {
       if (action.kind === "key" && action.key) {
-        await api.revokeKey(action.key.id); setNotice("키를 폐기했습니다."); await Promise.all([keysQ.refetch(), consoleKeysQ.refetch()]);
+        const result = await api.revokeKey(action.key.id);
+        setNotice(result.status === "revoking" ? "키 폐기 처리 중입니다. Gateway 확인이 끝날 때까지 진행 중으로 표시됩니다." : "키를 폐기했습니다.");
+        await Promise.all([keysQ.refetch(), consoleKeysQ.refetch(), qc.invalidateQueries({ queryKey: api.SHARE_PROJECTS_KEY })]);
       } else if (action.kind === "project" && selected?.slug) {
         const result = await api.revokeProject(selected.slug);
         setNotice(`스냅샷 ${result.revoked_snapshots}개·키 ${result.revoked_keys}개를 폐기했습니다.`);
-        await Promise.all([keysQ.refetch(), consoleKeysQ.refetch(), qc.invalidateQueries({ queryKey: api.SHARE_PROJECTS_KEY })]);
+        await Promise.all([keysQ.refetch(), consoleKeysQ.refetch(), qc.invalidateQueries({ queryKey: api.SHARE_PROJECTS_KEY }), qc.invalidateQueries({ queryKey: ["context-sharing", "links"] })]);
       }
     } catch (e) { apiError(e); }
   }
   async function copyKey() {
     if (!issued) return;
-    try { await navigator.clipboard.writeText(issued.key); setNotice("복사했습니다"); } catch { setError("클립보드에 복사하지 못했습니다. 키를 직접 선택해 복사하세요."); }
+    const copied = issued;
+    const requestRoute = routeKey;
+    const requestRouteVersion = routeVersionRef.current;
+    const canUpdate = () => mountedRef.current && routeRef.current === requestRoute && routeVersionRef.current === requestRouteVersion;
+    try { await navigator.clipboard.writeText(copied.key); if (canUpdate()) { setIssued((current) => current === copied ? null : current); setNotice("키를 복사했습니다. 원문은 화면에서 지웠습니다."); } }
+    catch { if (canUpdate()) { setIssued((current) => current === copied ? null : current); setError("클립보드에 복사하지 못해 원문을 지웠습니다. 필요하면 새 키를 발급하세요."); } }
   }
 
-  const header = <PageHeader title="Context Gateway 운영" meta="사이트를 열고 닫고, 프로젝트 접근 키를 관리합니다." actions={<Link className="tk-button tk-button--secondary" to="/context-library">맥락 도서관</Link>} />;
+  async function copyConnectGuide(k: KeyIssued) {
+    const requestRoute = routeKey;
+    const requestRouteVersion = routeVersionRef.current;
+    const canUpdate = () => mountedRef.current && routeRef.current === requestRoute && routeVersionRef.current === requestRouteVersion;
+    try { await navigator.clipboard.writeText(connectGuide(k)); if (canUpdate()) setNotice("연결 예시를 복사했습니다."); }
+    catch { if (canUpdate()) setError("연결 예시를 복사하지 못했습니다."); }
+  }
+
+  function connectGuide(k: KeyIssued) {
+    const base = k.connect.url?.replace(/\/+$/, "");
+    const project = k.connect.project_id;
+    if (!base || !project) return "연결 정보가 부족합니다. Gateway 주소와 connect.project_id를 확인하세요.";
+    const readExample = k.scopes.includes("read")
+      ? `curl -H "Authorization: Bearer $CONTEXT_GATEWAY_KEY" \\\n  "$CONTEXT_GATEWAY_URL/api/v1/projects/$GATEWAY_PROJECT_ID/context"`
+      : "이 키에는 읽기 권한이 없어 프로젝트 context 조회 예시는 생략했습니다.";
+    return `# 키 원문은 설정 파일이나 명령 인자에 넣지 말고 환경변수로 전달하세요.
+export CONTEXT_GATEWAY_URL="${base}"
+export GATEWAY_PROJECT_ID="${project}"
+read -s CONTEXT_GATEWAY_KEY && export CONTEXT_GATEWAY_KEY
+
+# REST · Authorization 헤더
+${readExample}
+
+# Claude Code MCP · HTTP transport, 환경변수 치환
+{
+  "mcpServers": {
+    "ttakkari-context": {
+      "type": "http",
+      "url": "${base}/mcp",
+      "headers": { "Authorization": "Bearer \u0024{CONTEXT_GATEWAY_KEY}" }
+    }
+  }
+}`;
+  }
+
+  const header = <PageHeader title={projectId ? selected?.name ?? "공유 프로젝트 상세" : "공유 프로젝트"} meta={projectId ? "현재 공개 맥락과 게시 이력을 확인합니다." : "프로젝트의 현재 게시 맥락과 공유 상태를 관리합니다."} actions={<Link className="tk-button tk-button--secondary" to="/context-library">맥락 도서관</Link>} />;
 
   return <div className="tk-screen share-page">
     {header}
     <main className="tk-screen__body"><div className="tk-container tk-container--lg share-layout">
+      {!projectId && <ProjectListView projects={projects} loading={projectsQ.isLoading} error={projectsQ.isError} errorMessage={problem(projectsQ.error).body || problem(projectsQ.error).title} onRetry={refreshProjects} />}
+      <details className="share-secondary share-operations">
+        <summary>전체 사이트·기존 키 운영</summary>
       <section className="share-section share-ops" aria-label="사이트 운영">
         <div className="share-section-head"><div><h2>공유 사이트</h2><p>전체 외부 조회를 일시 중단하거나 다시 열 수 있습니다.</p></div>
           {siteQ.isLoading ? <span className="share-status share-status--loading" role="status">상태 확인 중</span> : siteQ.data && <span className={`share-status ${siteQ.data.enabled ? "share-status--on" : "share-status--off"}`}>{siteQ.data.enabled ? "외부 공유 열림" : "외부 공유 일시 중단"}</span>}
@@ -234,20 +309,39 @@ export function ContextSharingPage() {
           </div>
           {issued && <section className="share-issued" aria-label="발급된 키"><strong>원문 키 · 지금 한 번만 보입니다</strong><code>{issued.key}</code><button className="tk-button" onClick={() => void copyKey()}>키 복사</button><button className="tk-button tk-button--secondary" onClick={() => setIssued(null)}>닫기</button></section>}
           {error && <p role="alert" className="share-alert">{error}</p>}
-          {consoleKeysQ.isLoading ? <p role="status">키 목록을 불러오는 중</p> : consoleKeysQ.isError ? <div role="alert"><p>{problem(consoleKeysQ.error).body || problem(consoleKeysQ.error).title}</p><button className="tk-button tk-button--secondary" onClick={() => void consoleKeysQ.refetch()}>키 목록 다시 불러오기</button></div> : consoleKeysQ.data && <ul className="share-key-list" aria-label="접근 키 목록">{consoleKeysQ.data.keys.map((k) => <li key={k.id}><div className="share-key-primary"><strong>{k.label || "이름 없는 키"}</strong><span>{projects.find((p) => p.slug === k.project_slug)?.name ?? k.project_slug}</span></div><span className={`share-key-state share-key-state--${k.status}`}>{k.status === "active" ? "활성" : k.status === "expired" ? "만료" : "폐기"}</span><span>만료 {date(k.expires_at)}</span>{k.status === "active" && <button className="tk-button tk-button--secondary" onClick={() => setConfirmAction({ kind: "key", key: k })}>키 폐기: {k.label}</button>}</li>)}</ul>}
+          {consoleKeysQ.isLoading ? <p role="status">키 목록을 불러오는 중</p> : consoleKeysQ.isError ? <div role="alert"><p>{problem(consoleKeysQ.error).body || problem(consoleKeysQ.error).title}</p><button className="tk-button tk-button--secondary" onClick={() => void consoleKeysQ.refetch()}>키 목록 다시 불러오기</button></div> : consoleKeysQ.data && <ul className="share-key-list" aria-label="접근 키 목록">{consoleKeysQ.data.keys.map((k) => <li key={k.id}><div className="share-key-primary"><strong>{k.label || "이름 없는 키"}</strong><span>{projects.find((p) => p.slug === k.project_slug)?.name ?? k.project_slug}</span></div><span className={`share-key-state share-key-state--${k.status}`}>{k.status === "active" ? "활성" : k.status === "expired" ? "만료" : k.status === "revoking" ? "폐기 처리 중" : "폐기됨"}</span><span>만료 {date(k.expires_at)}</span>{k.status === "active" && <button className="tk-button tk-button--secondary" onClick={() => setConfirmAction({ kind: "key", key: k })}>키 폐기: {k.label}</button>}</li>)}</ul>}
         </section>
         <p className="share-agent-hint">“이 프로젝트 맥락 공유해 줘”, “키 발급해 줘”라고 대화에서 맡기면 따까리가 처리합니다.</p>
         <p className="share-site-settings">연결 설정: {projectsQ.isLoading ? "확인 중" : projectsQ.isError ? "확인 실패" : projectsQ.data?.gateway.configured ? "설정됨" : "미설정"} · 연결 설정 진단은 기존 <code>/status</code>이며, 위 사이트 운영 상태와 별도입니다.</p>
       </>}
+      </details>
       {projectId && error && <p className="share-alert" role="alert">{error.split("\n").map((line, i) => <span key={`${line}-${i}`}>{line}</span>)}</p>}{notice && <p className="share-notice" role="status">{notice}</p>}
       {projectsQ.data && !projectsQ.data.gateway.configured && <aside className="share-callout"><strong>Context Gateway 연결이 설정되지 않았습니다</strong><p>서버 설정(control 주소·토큰)이 끝나야 게시와 키 발급을 할 수 있습니다. 초안과 검토는 계속할 수 있습니다.</p><p>비어 있는 설정: {projectsQ.data.gateway.missing.join(", ")}</p></aside>}
-      {!projectId && <details className="share-secondary" open={projectsQ.isError}><summary>프로젝트 문서·기존 공유 상세 확인</summary><p>문서 선택과 미리보기·승인은 보조 검토 흐름입니다. 자연어 공유 요청은 대화에서 따까리에게 맡길 수 있습니다.</p><section className="share-section"><h2>프로젝트</h2>{projectsQ.isError ? <div role="alert"><p>{problem(projectsQ.error).body || problem(projectsQ.error).title}</p><button className="tk-button" onClick={refreshProjects}>다시 불러오기</button></div> : projects.length ? <ul className="share-projects" aria-label="프로젝트">{projects.map((p) => <li key={p.entity_id}><Link to={`/context-sharing?project=${encodeURIComponent(p.entity_id)}`}><strong>{p.name}</strong><span>{scopeLabel(p.scope)}</span><span>문서 {p.document_count}개</span><span>{p.publication?.status === "active" ? "게시 중" : p.publication?.status === "revoked" ? "철회됨" : "게시 전"}</span><span>활성 키 {p.active_key_count}개</span></Link></li>)}</ul> : <><p>공유할 수 있는 프로젝트가 없습니다</p><p><Link to="/context-library" aria-label="맥락 도서관 열기">맥락 도서관에서 출처를 연결하세요.</Link></p></>}</section></details>}
       {selected && <>
-        <details className="share-secondary share-project-detail" open={!!projectId}>
-        <summary>프로젝트 문서·기존 게시물 상세</summary>
-        <p>문서 선택과 미리보기·승인은 보조 검토 흐름입니다.</p>
-        <nav className="share-back"><Link to="/context-sharing" onClick={() => setIssued(null)}>프로젝트 목록</Link><span>/</span><strong>{selected.name}</strong></nav>
+        <ProjectDetailView project={selected} onBack={() => setIssued(null)}>
         {selected.publication?.status === "revoked" && <p className="share-callout">이 프로젝트는 철회됨 상태입니다. 새로 게시하기 전까지 키를 발급할 수 없습니다.</p>}
+        {selected.slug && <ShareLinkPanel key={selected.slug} project={selected} />}
+        <ProjectApiKeyPanel>
+          {!activePublication && <p>{selected.publication?.status === "revoked" ? "철회됨. 새로 게시하기 전까지 키를 발급할 수 없습니다." : "게시한 뒤에 키를 발급할 수 있습니다."}</p>}
+          {activePublication && <>
+            <p>재사용 API Key · 기본 3일 · 읽기, 검색, 내보내기 권한을 각각 선택할 수 있습니다.</p>
+            <label className="share-field">키 이름<input className="tk-field" value={keyLabel} onChange={(e) => setKeyLabel(e.target.value)} placeholder="예: Claude Code" /></label>
+            <label className="share-field">만료 기간<select className="tk-field" value={keyTtl} onChange={(e) => setKeyTtl(Number(e.target.value) as CredentialTtlDays)}><option value={1}>1일</option><option value={3}>3일 · 기본</option><option value={7}>7일</option><option value={30}>30일</option></select></label>
+            <label className="share-field">snapshot 정책<select className="tk-field" value={keyPolicy} onChange={(e) => setKeyPolicy(e.target.value as SnapshotPolicy)}><option value="pinned">현재 snapshot 고정</option><option value="latest">이후 최신 게시물 따라가기</option></select></label>
+            <fieldset className="share-scopes"><legend>허용 범위</legend>{(["read", "search", "export"] as KeyScope[]).map((s) => <label className="share-check" key={s}><input type="checkbox" checked={keyScopes.includes(s)} onChange={(e) => setKeyScopes((v) => e.target.checked ? [...v, s] : v.filter((x) => x !== s))} /><span>{s === "read" ? "읽기" : s === "search" ? "검색" : "내보내기"}</span></label>)}</fieldset>
+            <button className="tk-button tk-button--primary" disabled={!keyScopes.length || keyPending} onClick={() => void issue()}>{keyPending ? "발급 중" : "재사용 API Key 발급"}</button>
+            {issued && <section className="share-issued" aria-label="발급된 키"><strong>원문 키 · 지금 한 번만 보입니다</strong><code>{issued.key}</code><span>만료 {date(issued.expires_at)} · 마지막 사용 {issued.usage_status === "unavailable" ? "사용 기록 확인 불가" : date(issued.last_used_at)}</span><button className="tk-button" onClick={() => void copyKey()}>키 복사 후 원문 지우기</button><button className="tk-button tk-button--secondary" onClick={() => setIssued(null)}>닫기</button>
+              <label className="share-field">REST / MCP 연결 설정<textarea aria-label="REST / MCP 연결 설정" readOnly value={connectGuide(issued)} /></label>
+              <button className="tk-button tk-button--secondary" onClick={() => void copyConnectGuide(issued)}>연결 예시 복사</button>
+              {issued.connect.url && <a href={issued.connect.url} target="_blank" rel="noreferrer">Gateway 주소 확인</a>}
+            </section>}
+            {keysQ.isLoading && <p role="status">API Key 목록을 불러오는 중</p>}
+            {keysQ.isError && <p role="alert">{problem(keysQ.error).body}<button className="tk-button" onClick={() => void keysQ.refetch()}>다시 불러오기</button></p>}
+            {keysQ.data && <ul className="share-credential-list" aria-label="발급한 키">{keysQ.data.keys.map((k) => <li key={k.id}><div className="share-key-primary"><strong>{k.label || "이름 없는 키"}</strong><span>{k.credential_type === "single_use_v1" || k.single_use ? "기존 1회용 키" : "재사용 API Key"} · {(k.scopes ?? []).join(" / ") || "권한 확인 불가"} · {k.snapshot_policy === "latest" ? "최신 게시물" : k.snapshot_policy === "pinned" ? `고정 ${k.pinned_snapshot_id ?? "snapshot"}` : "기존 정책"}</span></div><span className={`share-key-state share-key-state--${k.status}`}>{k.status === "active" ? "활성" : k.status === "expired" ? "만료" : k.status === "revoking" ? "폐기 처리 중" : "폐기됨"}</span><span>만료 {date(k.expires_at)}</span><span>마지막 사용 {k.usage_status === "unavailable" ? "사용 기록 확인 불가" : date(k.last_used_at)}</span>{k.status === "active" && <button className="tk-button tk-button--secondary" onClick={() => setConfirmAction({ kind: "key", key: k })}>키 폐기: {k.label}</button>}</li>)}</ul>}
+            {selected.slug && <button className="tk-button tk-button--danger" onClick={() => setConfirmAction({ kind: "project" })}>공유 철회</button>}
+          </>}
+        </ProjectApiKeyPanel>
+        <PublicationFlow open={!!draftId}>
         {!draftId && <>
           <section className="share-section"><div className="share-section-head"><div><h2>문서 선택</h2><p>게시할 프로젝트와 문서만 고릅니다. 색인된 조각을 바탕으로 초안이 만들어집니다.</p></div><Link to="/context-library">도서관에서 출처 확인</Link></div>
             {sourcesQ.isLoading ? <p role="status">문서 목록을 불러오는 중</p> : sourcesQ.isError ? <div role="alert"><p>{problem(sourcesQ.error).body || problem(sourcesQ.error).title}</p><button className="tk-button" onClick={() => void sourcesQ.refetch()}>다시 불러오기</button></div> : <>
@@ -290,21 +384,8 @@ export function ContextSharingPage() {
             <button className="tk-button tk-button--primary" disabled={!readConfirm || dirty || draft.blocked} onClick={() => void publish()}>게시</button>
           </section>}
         </>}
-        <section className="share-section" aria-label="외부 공유 키"><h2>외부 공유 키</h2>
-          {!activePublication && <p>{selected.publication?.status === "revoked" ? "철회됨. 새로 게시하기 전까지 키를 발급할 수 없습니다." : "게시한 뒤에 키를 발급할 수 있습니다."}</p>}
-          {activePublication && <><p>기본값은 1시간이며 키는 한 번만 외부 연결에 전달됩니다.</p><label className="share-field">키 이름<input className="tk-field" value={keyLabel} onChange={(e) => setKeyLabel(e.target.value)} /></label>
-            <fieldset className="share-scopes"><legend>허용 범위</legend>{(["read", "search", "export"] as KeyScope[]).map((s) => <label className="share-check" key={s}><input type="checkbox" checked={keyScopes.includes(s)} onChange={(e) => setKeyScopes((v) => e.target.checked ? [...v, s] : v.filter((x) => x !== s))} /><span>{s === "read" ? "읽기" : s === "search" ? "검색" : "내보내기"}</span></label>)}</fieldset>
-            <button className="tk-button tk-button--primary" disabled={!keyScopes.length} onClick={() => void issue()}>키 발급</button>
-            {issued && <section className="share-issued" aria-label="발급된 키"><strong>원문 키 · 지금 한 번만 보입니다</strong><code>{issued.key}</code><span>{notice === "복사했습니다" ? "복사했습니다" : ""}</span><button className="tk-button" onClick={() => void copyKey()}>키 복사</button><button className="tk-button tk-button--secondary" onClick={() => setIssued(null)}>닫기</button>
-              <label>사용 안내<textarea aria-label="사용 안내" readOnly value={`export CONTEXT_GATEWAY_URL=${issued.connect.url ?? ""}\nread -s CONTEXT_GATEWAY_KEY\n# 발급 키는 $CONTEXT_GATEWAY_KEY 로만 사용하고 외부 AI 에 1회 교환용으로 전달합니다.`} /></label>
-              {issued.connect.url && <a href={issued.connect.url} target="_blank" rel="noreferrer">Gateway 주소</a>}
-            </section>}
-            {keysQ.isError && <p role="alert">{problem(keysQ.error).body}<button className="tk-button" onClick={() => void keysQ.refetch()}>다시 불러오기</button></p>}
-            {keysQ.data && <ul className="share-key-list" aria-label="발급한 키">{keysQ.data.keys.map((k) => <li key={k.id}><span>{k.label}</span><span>{k.status === "active" ? "활성" : k.status === "expired" ? "만료" : "폐기"}</span><span>{date(k.expires_at)}</span>{k.status === "active" && <button className="tk-button tk-button--secondary" onClick={() => setConfirmAction({ kind: "key", key: k })}>키 폐기: {k.label}</button>}</li>)}</ul>}
-            {selected.slug && <button className="tk-button tk-button--danger" onClick={() => setConfirmAction({ kind: "project" })}>공유 철회</button>}
-          </>}
-        </section>
-        </details>
+        </PublicationFlow>
+        </ProjectDetailView>
       </>}
       <Dialog open={!!confirmAction} onClose={() => setConfirmAction(null)} title={confirmAction?.kind === "key" ? "키를 폐기할까요?" : "프로젝트 공유를 철회할까요?"} modal>
         <p>{confirmAction?.kind === "key" ? "이 키로는 더 이상 연결할 수 없습니다." : "게시한 스냅샷과 발급 키를 Gateway 에서 즉시 읽을 수 없게 폐기합니다."}</p>
