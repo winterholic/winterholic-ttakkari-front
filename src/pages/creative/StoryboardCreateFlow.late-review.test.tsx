@@ -59,8 +59,8 @@ test("a removed document cannot return after a late read, and the latest brief s
   expect((start?.body as { sources: Array<{ text: string }> }).sources).toEqual([
     { id: "brief", locator: "사용자 요청", text: "최신 brief" },
   ]);
-  expect(screen.getByText(`검토 대기 · SHA-256 ${"a".repeat(64)}`)).toBeTruthy();
-  expect((screen.getByRole("checkbox", { name: /출력 SHA/ }) as HTMLInputElement).checked).toBe(false);
+  expect(screen.getByText(`출력 SHA-256 ${"a".repeat(64)}`)).toBeTruthy();
+  expect((screen.getByRole("checkbox", { name: /출처·장면·도구·근거·대안을 확인했습니다/ }) as HTMLInputElement).checked).toBe(false);
   expect((screen.getByRole("button", { name: "이 출력으로 미승인 계획 만들기" }) as HTMLButtonElement).disabled).toBe(true);
 });
 
@@ -83,15 +83,15 @@ test("a stale accept clears review of the previous output and requires review of
   await screen.findByText("구성 요약");
 
   const accept = screen.getByRole("button", { name: "이 출력으로 미승인 계획 만들기" }) as HTMLButtonElement;
-  expect((screen.getByRole("checkbox", { name: /출력 SHA/ }) as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByRole("checkbox", { name: /출처·장면·도구·근거·대안을 확인했습니다/ }) as HTMLInputElement).checked).toBe(false);
   expect(accept.disabled).toBe(true);
-  fireEvent.click(screen.getByRole("checkbox", { name: /출력 SHA/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /출처·장면·도구·근거·대안을 확인했습니다/ }));
   expect(accept.disabled).toBe(false);
   fireEvent.click(accept);
 
   expect((await screen.findByRole("status")).textContent).toMatch(/최신 서버 응답/);
-  await waitFor(() => expect(screen.getByText(`검토 대기 · SHA-256 ${"b".repeat(64)}`)).toBeTruthy());
-  expect((screen.getByRole("checkbox", { name: /출력 SHA/ }) as HTMLInputElement).checked).toBe(false);
+  await waitFor(() => expect(screen.getByText(`출력 SHA-256 ${"b".repeat(64)}`)).toBeTruthy());
+  expect((screen.getByRole("checkbox", { name: /출처·장면·도구·근거·대안을 확인했습니다/ }) as HTMLInputElement).checked).toBe(false);
   expect(accept.disabled).toBe(true);
   expect(calls.filter((call) => call.url.endsWith("/accept"))).toHaveLength(1);
 });

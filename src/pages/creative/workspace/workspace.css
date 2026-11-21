@@ -1,0 +1,85 @@
+.cw { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--tk-space-4); align-items: start; }
+.cw__main, .cw__side { display: flex; flex-direction: column; gap: var(--tk-space-4); min-width: 0; }
+.cw__wide { grid-column: 1 / -1; }
+@media (min-width: 60rem) {
+  .cw { grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem); }
+  .cw__side { position: sticky; top: var(--tk-space-4); }
+}
+.cw-step { display: flex; flex-direction: column; gap: var(--tk-space-4); }
+.cw-step__head, .cw-group__head, .cw-proposal__head { display: flex; align-items: center; gap: var(--tk-space-2); flex-wrap: wrap; }
+.cw-step__head h2, .cw-group__head h3, .cw-proposal__head h3, .cw-output > h3, .cw-next > h3 { margin: 0; font-size: var(--tk-font-size-lg); }
+.cw-proposal__head { justify-content: space-between; }
+.cw-busy { display: inline-flex; align-items: center; gap: var(--tk-space-1-5); color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); margin-left: auto; }
+.cw-hint { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); line-height: var(--tk-font-line-height-normal); overflow-wrap: anywhere; }
+.cw-hint > .tk-icon { vertical-align: text-bottom; }
+
+/* 조건 선택 */
+.cw-picker { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.cw-dim { display: flex; flex-direction: column; gap: var(--tk-space-2); padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); }
+.cw-dim__head { display: flex; align-items: center; gap: var(--tk-space-2); flex-wrap: wrap; }
+.cw-dim__head > .tk-button { margin-left: auto; }
+.cw-dim__hint, .cw-dim__empty { margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.cw-dim__selected { display: flex; flex-wrap: wrap; gap: var(--tk-space-2); }
+.cw-dim__options { padding-top: var(--tk-space-1); border-top: var(--tk-border-width-hairline) dashed var(--tk-color-border-default); }
+/* 출처: 확정은 실선·채움, 문장에서 읽음은 점선, AI 추론은 점선과 에이전트 색 */
+.cw-cond { height: auto; min-height: var(--tk-component-chip-height); flex-wrap: wrap; row-gap: var(--tk-space-0-5); padding-block: var(--tk-space-1); }
+.cw-cond[data-origin="user_confirmed"] { background: var(--tk-color-surface-brand-subtle); border: var(--tk-border-width-hairline) solid var(--tk-color-border-strong); }
+.cw-cond[data-origin="user_free_text"] { background: transparent; border: var(--tk-border-width-hairline) dashed var(--tk-color-text-secondary); }
+.cw-cond[data-origin="ai_inferred"] { background: var(--tk-color-agent-bg); border: var(--tk-border-width-hairline) dashed var(--tk-color-border-agent); color: var(--tk-color-agent-text); }
+.cw-cond__origin { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-regular); }
+.cw-cond__action { appearance: none; border: 0; background: transparent; padding: var(--tk-space-0-5) var(--tk-space-1-5); border-radius: var(--tk-radius-sm); color: var(--tk-color-text-link, var(--tk-color-text-primary)); font: inherit; font-size: var(--tk-font-size-xs); font-weight: var(--tk-font-weight-semibold); text-decoration: underline; cursor: pointer; }
+.cw-cond__action[aria-pressed="true"] { color: var(--tk-color-text-warning); }
+.tk-chip[data-origin="user_free_text"]:not([aria-pressed="true"]), .tk-chip[data-origin="ai_inferred"]:not([aria-pressed="true"]) { border-style: dashed; }
+.tk-chip[data-recommended]:not([aria-pressed="true"]) { border-color: var(--tk-color-border-agent); }
+.cw-legend { display: flex; flex-wrap: wrap; gap: var(--tk-space-2) var(--tk-space-4); color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-xs); }
+.cw-legend > span { display: inline-flex; align-items: center; gap: var(--tk-space-1); }
+.cw-bulk { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-3); flex-wrap: wrap; padding: var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-agent-bg); color: var(--tk-color-text-primary); font-size: var(--tk-font-size-sm); }
+
+/* 충돌 */
+.cw-conflicts, .cw-groups { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.cw-conflict__candidates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.cw-conflict__candidates > li { display: flex; align-items: center; justify-content: space-between; gap: var(--tk-space-3); flex-wrap: wrap; padding: var(--tk-space-2) var(--tk-space-3); border-radius: var(--tk-radius-md); background: var(--tk-color-surface-default); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); }
+.cw-conflict__candidates > li[data-chosen] { border-color: var(--tk-color-border-strong); }
+.cw-conflict__cand { display: flex; align-items: center; gap: var(--tk-space-2); flex-wrap: wrap; min-width: 0; }
+.cw-conflict__quote { color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+
+/* 활성 묶음 */
+.cw-group { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.cw-group__why { display: flex; gap: var(--tk-space-2); margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.cw-group__why > .tk-icon { flex: none; margin-top: var(--tk-space-0-5); }
+.cw-group__extra { border-top: var(--tk-border-width-hairline) solid var(--tk-color-border-default); padding-top: var(--tk-space-2); display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.cw-group__extra > summary, .cw-advanced__group > summary { cursor: pointer; font-weight: var(--tk-font-weight-semibold); font-size: var(--tk-font-size-sm); }
+.cw-q { display: flex; flex-direction: column; gap: var(--tk-space-2); }
+.cw-q__title { display: flex; align-items: center; gap: var(--tk-space-2); flex-wrap: wrap; }
+.cw-q__rec, .cw-q__alt { display: flex; align-items: flex-start; gap: var(--tk-space-2); flex-wrap: wrap; margin: 0; color: var(--tk-color-text-secondary); font-size: var(--tk-font-size-sm); }
+.cw-q__rec > span { flex: 1 1 12rem; min-width: 0; overflow-wrap: anywhere; }
+.cw-q__rec > .tk-icon { flex: none; color: var(--tk-color-agent-text); margin-top: var(--tk-space-0-5); }
+.cw-field-free { display: flex; gap: var(--tk-space-2); }
+.cw-field-free > .tk-input { flex: 1 1 auto; min-width: 0; }
+
+/* 길이·비율 */
+.cw-output { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.cw-output__row { display: flex; align-items: flex-end; gap: var(--tk-space-3); flex-wrap: wrap; }
+.cw-output__row > .tk-field { flex: 1 1 14rem; }
+.cw-output__now { margin: 0; display: flex; align-items: center; gap: var(--tk-space-2); flex-wrap: wrap; font-size: var(--tk-font-size-sm); }
+.cw-output__alts { margin: 0; padding-left: var(--tk-space-5); font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); }
+.cw-advanced-open { display: flex; align-items: center; gap: var(--tk-space-3); flex-wrap: wrap; }
+
+/* 제안·다음 단계 */
+.cw-proposal, .cw-next { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.cw-proposal h4 { margin: 0; font-size: var(--tk-font-size-sm); }
+.cw-proposal__summary { margin: 0; font-weight: var(--tk-font-weight-medium); overflow-wrap: anywhere; }
+.cw-proposal__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--tk-space-1-5); font-size: var(--tk-font-size-sm); }
+.cw-proposal__list > li { display: flex; justify-content: space-between; gap: var(--tk-space-3); }
+.cw-proposal__list > li > span { color: var(--tk-color-text-secondary); text-align: right; overflow-wrap: anywhere; }
+.cw-advanced { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.cw-advanced__group { display: flex; flex-direction: column; gap: var(--tk-space-3); padding: var(--tk-space-3); border: var(--tk-border-width-hairline) solid var(--tk-color-border-default); border-radius: var(--tk-radius-md); }
+.cw-advanced__group[open] > summary { margin-bottom: var(--tk-space-2); }
+.cw-detail { display: flex; flex-direction: column; gap: var(--tk-space-3); }
+.cw-detail h4 { margin: 0; }
+.cw-detail__facts { display: grid; gap: var(--tk-space-2); margin: 0; }
+.cw-detail__facts > div { display: grid; grid-template-columns: minmax(6rem, .35fr) minmax(0, 1fr); gap: var(--tk-space-2); }
+.cw-detail__facts dt { font-weight: var(--tk-font-weight-semibold); }
+.cw-detail__facts dd { margin: 0; overflow-wrap: anywhere; }
+.cw-detail__history { margin: 0; padding-left: var(--tk-space-5); font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
+.cw-nav { display: flex; gap: var(--tk-space-2); flex-wrap: wrap; }

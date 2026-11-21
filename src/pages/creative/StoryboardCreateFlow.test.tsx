@@ -2,7 +2,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import { afterEach, expect, test, vi } from "vitest";
-import { StoryboardCreateFlow } from "./StoryboardCreateFlow";
+import { StoryboardCreateFlow, type StoryboardSeed } from "./StoryboardCreateFlow";
+import fixture from "./workspace/fixtures/intent-v2-local-backend.json";
+import type { IntentSpecV2 } from "../../api/creativeV2";
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
@@ -19,9 +21,9 @@ function stub(handler: (url: string, init?: RequestInit) => unknown) {
   return calls;
 }
 
-function mount() {
+function mount(seed?: StoryboardSeed) {
   render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <MemoryRouter><StoryboardCreateFlow onAccepted={() => undefined} /></MemoryRouter>
+    <MemoryRouter><StoryboardCreateFlow onAccepted={() => undefined} seed={seed} /></MemoryRouter>
   </QueryClientProvider>);
 }
 
@@ -32,6 +34,19 @@ const story = {
     rationale: "간단한 시작", source_ids: ["brief"], alternatives: [{ strategy: "code_motion", rationale: "다른 흐름" }],
     shots: [{ shot_id: "s1a", action: "제목을 보여 준다", layers: ["visual", "captions"], required_capabilities: ["edit.captions"] }] }],
 };
+
+test("submits confirmed intent with an unchanged brief and puts the new quality goal in source material", async () => {
+  const intent = fixture.scenarioC_ready.intent as IntentSpecV2;
+  const calls = stub(() => ({ run_id: "run-seed", status: "running", engine: "codex", sources: [] }));
+  mount({ brief: intent.brief, intentSummary: "확정한 제작 설정", intent });
+  fireEvent.change(screen.getByLabelText("품질 목표 (선택)"), { target: { value: "음악과 컷 전환을 맞춰 주세요." } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+  await waitFor(() => expect(calls.some((call) => call.method === "POST")).toBe(true));
+  expect(calls.find((call) => call.method === "POST")?.body).toMatchObject({
+    brief: intent.brief, intent_v2: intent,
+    sources: expect.arrayContaining([expect.objectContaining({ text: expect.stringContaining("음악과 컷 전환을 맞춰 주세요.") })]),
+  });
+});
 
 test("submits the supported storyboard request once, reviews output and accepts its exact SHA", async () => {
   const calls = stub((url, init) => {
@@ -44,7 +59,7 @@ test("submits the supported storyboard request once, reviews output and accepts 
   fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "사용자가 준 내용" } });
   fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
   await screen.findByText("구성 요약");
-  fireEvent.click(screen.getByRole("checkbox", { name: /출력 SHA/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /출처·장면·도구·근거·대안을 확인했습니다/ }));
   fireEvent.click(screen.getByRole("button", { name: "이 출력으로 미승인 계획 만들기" }));
   await waitFor(() => expect(calls.some((c) => c.url.endsWith("/accept"))).toBe(true));
   expect(calls.find((c) => c.url.endsWith("/storyboard/runs") && c.method === "POST")?.body).toEqual({
@@ -113,11 +128,11 @@ test("applies combined brief, source locator and ten-source limits without trunc
   mount();
   const brief = screen.getByLabelText("만들고 싶은 콘텐츠");
   fireEvent.change(brief, { target: { value: "x".repeat(6001) } });
-  expect(await screen.findByText(/brief는 6,000자 이하/)).toBeTruthy();
+  expect(await screen.findByText(/요청과 품질 목표를 합쳐 6,000자 이하/)).toBeTruthy();
   expect((brief as HTMLTextAreaElement).value).toHaveLength(6001);
   fireEvent.change(brief, { target: { value: "x".repeat(6000) } });
   fireEvent.change(screen.getByLabelText("품질 목표 (선택)"), { target: { value: "목표" } });
-  expect(await screen.findByText(/brief는 6,000자 이하/)).toBeTruthy();
+  expect(await screen.findByText(/요청과 품질 목표를 합쳐 6,000자 이하/)).toBeTruthy();
   expect((screen.getByRole("button", { name: "AI 장면 구성 만들기" }) as HTMLButtonElement).disabled).toBe(true);
 
   fireEvent.change(screen.getByLabelText("품질 목표 (선택)"), { target: { value: "" } });
@@ -293,8 +308,8 @@ test("cancellation and terminal resume follow the server phases without approvin
   fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
   await screen.findByRole("button", { name: "취소 요청" });
   fireEvent.click(screen.getByRole("button", { name: "취소 요청" }));
-  await screen.findByRole("button", { name: "이 Run 재개" });
-  fireEvent.click(screen.getByRole("button", { name: "이 Run 재개" }));
+  await screen.findByRole("button", { name: "이 작업 이어서 실행" });
+  fireEvent.click(screen.getByRole("button", { name: "이 작업 이어서 실행" }));
   await screen.findByText(/검토할 수 없는 출력/);
   expect(calls.find((call) => call.url.endsWith("/run-live/resume"))?.body).toEqual({});
   expect(calls.find((call) => call.url.endsWith("/run-live/resume"))?.key).toBeTruthy();

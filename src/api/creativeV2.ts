@@ -149,6 +149,10 @@ export interface MatchResult {
   primary_recipe: string | null;
   auxiliary_recipes: string[];
   candidates: RecipeCandidate[];
+  needs?: Array<{
+    priority: "must" | "should" | "prefer";
+    best?: { constraints?: string[] } | null;
+  }>;
   gaps: MatchGap[];
   conflicts: MatchConflict[];
   dropped: Array<{ entry_id: string; reason: string }>;
@@ -353,6 +357,9 @@ export interface CreativePlan {
   brief: string;
   aspect: "16:9" | "9:16" | "1:1";
   intent_status: "confirmed" | "unconfirmed_hint";
+  /** 계획이 제작 의도 v2를 받아 저장하는 서버만 돌려준다. 없으면 의도는 계획에 연결되지 않은 것이다. */
+  intent_v2?: { revision: number } | null;
+  intent_projection?: { not_applied: Array<{ id: string; reason: string }> };
   basis: "info_items" | "template_scaffold" | "user_edited";
   match: MatchResult;
   duration: DurationPlan;
@@ -420,6 +427,7 @@ export interface StoryboardRequest {
   sources: Array<{ id: string; locator: string; text: string }>;
   engine: "qwen-local" | "codex";
   model?: string;
+  intent_v2?: IntentSpecV2;
 }
 export interface StoryboardDraft {
   summary: string;
@@ -451,6 +459,154 @@ export interface CreativeCatalog {
   catalogs: Record<string, { name: string; entries: Array<{ id: string; name: string }> }>;
 }
 
+/** 제작 의도 v2 (백엔드 docs/design/creative-studio-v2-intent-v2.md). 서버 값이 정본이고 화면은 그대로 그린다. */
+export type IntentOrigin = "user_confirmed" | "user_free_text" | "ai_inferred" | "default";
+export type IntentStrength = "required" | "preferred";
+
+export interface IntentConditionV2 {
+  id: string;
+  dimension: string;
+  role: "primary" | "secondary";
+  strength: IntentStrength;
+  origin: IntentOrigin;
+  confidence: number;
+  evidence: Array<{ quote: string }>;
+  confirmation: { at: string; by: string; revision: number } | null;
+  note: string;
+}
+
+export interface IntentDurationPolicy {
+  mode: "auto" | "target" | "strict";
+  seconds: number | null;
+  platform?: string | null;
+  origin: IntentOrigin;
+  evidence: Array<{ quote: string }>;
+}
+
+export interface IntentConflictCandidate {
+  value: string;
+  label: string;
+  origin: IntentOrigin;
+  strength: IntentStrength;
+  evidence: Array<{ quote: string }>;
+}
+
+export interface IntentConflictV2 {
+  id: string;
+  kind: "duration" | "aspect" | "catalog_conflict" | "single_primary" | "rule";
+  dimension: string;
+  message: string;
+  candidates: IntentConflictCandidate[];
+  status: "open" | "resolved";
+  blocking: boolean;
+  resolution: { choice: string; by: string; revision: number; note: string } | null;
+}
+
+export interface IntentUnsupported {
+  id: string;
+  subject: string;
+  reason: "not_in_catalog" | "unknown_tone" | "reference_not_ingested" | "rule_blocked";
+  message: string;
+  alternatives: string[];
+}
+
+export interface IntentSpecV2 {
+  schema_version: 2;
+  revision: number;
+  brief: string;
+  conditions: IntentConditionV2[];
+  duration: IntentDurationPolicy | null;
+  aspect: { value: "16:9" | "9:16" | "1:1"; origin: IntentOrigin; evidence: Array<{ quote: string }> } | null;
+  info_items: unknown[];
+  music_seconds: number | null;
+  references: unknown[];
+  answers: Array<{ field_id: string; values: string[]; origin: "user_confirmed"; revision: number }>;
+  conflicts: IntentConflictV2[];
+  unsupported: IntentUnsupported[];
+  rejected: string[];
+  history: Array<{ revision: number; at: string; actor: string; action: string; detail: string }>;
+  migrated_from: 1 | null;
+}
+
+export interface IntentFacetOption { id: string; label: string }
+export interface IntentFacetGroup { id: string; title: string; description: string; tier: "essential" | "advanced" }
+export interface IntentFacetField {
+  id: string;
+  group: string;
+  dimension: string;
+  label: string;
+  question: string;
+  kind: "single" | "multi" | "number" | "text";
+  options: IntentFacetOption[];
+  tier: "essential" | "advanced";
+}
+export interface IntentFacets {
+  rules_version: string;
+  groups: IntentFacetGroup[];
+  fields: IntentFacetField[];
+  rules: unknown[];
+  tones: Record<string, string>;
+}
+
+export interface IntentQuestion {
+  id: string;
+  field_id: string;
+  group: string;
+  dimension: string;
+  question: string;
+  kind: string;
+  options: IntentFacetOption[];
+  recommended: string | null;
+  reason: string;
+  triggered_by: string[];
+  rules: string[];
+  mode: "choose" | "confirm";
+  alternatives: Array<{ value: string; rule: string; reason: string }>;
+  tier: "essential" | "advanced";
+}
+
+export interface IntentLayout {
+  rules_version: string;
+  groups: Array<{ id: string; title: string; tier: "essential" | "advanced"; triggered_by: string[]; rules: string[]; reasons: string[]; fields: string[] }>;
+  available_groups: string[];
+  questions: IntentQuestion[];
+  answered: Array<{ field_id: string; values: string[]; origin: string }>;
+  hidden: Array<{ field_id: string; rules: string[]; reason: string }>;
+  conflicts: IntentConflictV2[];
+  applied_rules: string[];
+}
+
+export interface IntentLength {
+  status: "auto" | "target_met" | "deviated" | "strict_met" | "conflict" | "needs_content" | "blocked_by_conflict";
+  message: string;
+  planned_seconds: number | null;
+  needed_seconds: Record<string, number> | null;
+  alternatives: Array<Record<string, unknown>>;
+}
+
+export interface IntentResolveRequest {
+  brief?: string;
+  intent?: IntentSpecV2 | null;
+  structured?: {
+    selections?: Array<{ id: string; role?: "primary" | "secondary"; strength?: IntentStrength }>;
+    duration?: { mode: "auto" | "target" | "strict"; seconds?: number | null };
+    aspect?: "16:9" | "9:16" | "1:1";
+  };
+  answers?: Array<{ field_id: string; values: string[] }>;
+  confirm?: string[];
+  reject?: string[];
+  resolutions?: Array<{ conflict_id: string; choice: string; note?: string }>;
+  read_free_text?: boolean;
+}
+
+export interface IntentResolveResult {
+  intent: IntentSpecV2;
+  layout: IntentLayout;
+  length: IntentLength;
+  ready_for_plan: boolean;
+  blocking: string[];
+}
+
 export interface SceneEditBody {
   id: string;
   title: string;
@@ -466,13 +622,15 @@ export const planPolicy = () => json<DurationPolicy>(`${root}/duration/policy`);
 export const planList = () => json<CreativePlan[]>(`${root}/plans`);
 export const planGet = (id: string) => json<CreativePlan>(`${root}/plans/${id}`);
 export const planCatalog = () => json<CreativeCatalog>(`${root}/catalog`);
-export const planCreate = (body: {
-  brief: string;
-  name: string;
-  duration: DurationRequest;
-  aspect: string;
-  intent?: CreativeIntent;
-}) => json<CreativePlan>(`${root}/plans`, { method: "POST", json: body });
+type PlanCreateBody = { brief: string; name?: string } & (
+  | { intent_v2: IntentSpecV2; intent?: never; duration?: never; aspect?: never }
+  | { intent_v2?: never; intent?: CreativeIntent; duration?: DurationRequest; aspect?: string }
+);
+export const planCreate = (body: PlanCreateBody) =>
+  json<CreativePlan>(`${root}/plans`, { method: "POST", json: body });
+export const intentFacets = () => json<IntentFacets>(`${root}/intent/facets`);
+export const intentResolve = (body: IntentResolveRequest) =>
+  json<IntentResolveResult>(`${root}/intent/resolve`, { method: "POST", json: body });
 export const intentRunStart = (brief: string, requestKey: string) =>
   json<IntentRunStart>(`${root}/intent/runs`, { method: "POST", headers: { "Idempotency-Key": requestKey }, json: { brief } });
 export const intentRunGet = (runId: string) => json<IntentRunResult>(`${root}/intent/runs/${runId}`);

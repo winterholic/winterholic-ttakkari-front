@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "react-router";
+import { Link, useLocation, useParams } from "react-router";
 import {
   planApprove,
-  planCreate,
   planEdit,
   planGet,
   planList,
@@ -39,12 +38,14 @@ import { errorText } from "../../features/viewer/api";
 import { PageHeader } from "../../shell/PageHeader";
 import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
+import { Icon } from "../../ui/Icon";
 import { DurationPicker } from "./DurationPicker";
 import type { DurationState } from "./duration";
 import { INITIAL_DURATION, MAX_SECONDS, clock, describeRequest, formatSeconds, toRequest } from "./duration";
 import "../creative.css";
 import "./creativePlan.css";
-import { StoryboardCreateFlow } from "./StoryboardCreateFlow";
+import { IntentWorkspace } from "./workspace/IntentWorkspace";
+import type { IntentLinkState } from "./workspace/IntentWorkspace";
 
 type Tone = "info" | "success" | "warning" | "danger" | undefined;
 
@@ -88,6 +89,14 @@ function errorLine(error: unknown) {
 function qualityVerdict(value: string) {
   return ({ pass: "통과", fail: "실패", unknown: "미확인", needs_review: "추가 검수 필요" } as Record<string, string>)[value] ?? value;
 }
+
+const STRATEGY_LABEL: Record<string, string> = {
+  slideshow: "업로드한 미디어 편집",
+  generative_video: "생성 영상 편집",
+  frame_animation_2d: "2D 프레임 애니메이션",
+  scene_3d: "3D 장면 렌더",
+  code_motion: "다이어그램 애니메이션",
+};
 
 type CaptionMode = "narration" | "title_only";
 const captionModeKey = (planId: string) => `creative-caption-mode:${planId}`;
@@ -423,6 +432,10 @@ function MatchPanel({ plan }: { plan: CreativePlan }) {
   const m = plan.match;
   const label = MATCH_LABEL[m.status];
   const recipe = m.candidates.find((c) => c.recipe_id === m.primary_recipe);
+  const constraints = [...new Set((m.needs ?? []).flatMap((need) =>
+    need.priority === "prefer" ? [] : need.best?.constraints ?? []
+  ))];
+  const unapplied = [...new Set(plan.intent_projection?.not_applied.map(({ reason }) => reason) ?? [])];
   return (
     <section className="creative-panel" aria-labelledby="plan-match">
       <h2 id="plan-match">제작 방식 판정</h2>
@@ -438,6 +451,18 @@ function MatchPanel({ plan }: { plan: CreativePlan }) {
         </p>
       ) : (
         <p>이 요청에 맞는 레시피를 찾지 못했어요. 콘텐츠 유형과 스타일을 더 구체적으로 알려 주세요.</p>
+      )}
+      {constraints.length > 0 && (
+        <div>
+          <h3>현재 제작 한계</h3>
+          <ul className="creative-reasons">{constraints.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+        </div>
+      )}
+      {unapplied.length > 0 && (
+        <details className="creative-details">
+          <summary>계획에 반영되지 않은 조건</summary>
+          <ul className="creative-reasons">{unapplied.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+        </details>
       )}
       {plan.intent_status === "unconfirmed_hint" && (
         <p className="creative-notice" role="status">
@@ -616,8 +641,8 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
         <>
           <p role="status">
             <Badge tone={PRODUCTION_TONE[view.state]}>{PRODUCTION_LABEL[view.state] ?? view.state}</Badge>
-            {view.engine && ` · 엔진 ${view.engine.adapter}${view.engine.version ? ` (${view.engine.version})` : ""}`}
           </p>
+          {view.engine && <details className="creative-hint"><summary>실행기 상세</summary>{view.engine.adapter}{view.engine.version && ` · ${view.engine.version}`}</details>}
           {view.reasons.length > 0 && (
             <ul className="creative-reasons creative-reasons--warn" aria-label="제작을 진행할 수 없는 이유">
               {view.reasons.map((r) => (
@@ -629,9 +654,20 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
             {plan.scenes.map((scene) => <li key={scene.scene_id}>
               <span>{clock(scene.start_time)}–{clock(scene.end_time)}</span>
               <strong>{scene.title || scene.scene_id}</strong>
-              {scene.selected_engine && <small>{scene.strategy ?? "전략 미지정"} · {scene.selected_engine}</small>}
-              {scene.shots?.map((shot) => <small key={shot.shot_id}>{shot.shot_id}: {shot.action} · {shot.selected_providers?.join(", ") || "공급자 근거 없음"}</small>)}
-              {scene.strategy_rationale?.reason && <small>선택 근거: {scene.strategy_rationale.reason}</small>}
+              {scene.strategy && <small>{STRATEGY_LABEL[scene.strategy] ?? "별도 제작 방식"}</small>}
+              {scene.strategy_rationale?.reason && <small>{scene.strategy_rationale.reason}</small>}
+              {scene.shots?.map((shot) => <small key={shot.shot_id}>{shot.action}</small>)}
+              {scene.strategy_rationale?.alternatives?.length ? (
+                <details>
+                  <summary>다른 제작 방식</summary>
+                  <ul>{scene.strategy_rationale.alternatives.map((option) => (
+                    <li key={option.strategy}>
+                      {STRATEGY_LABEL[option.strategy] ?? "별도 제작 방식"}{option.reason && ` · ${option.reason}`}
+                    </li>
+                  ))}</ul>
+                </details>
+              ) : null}
+              {scene.selected_engine && <details className="creative-hint"><summary>장면 실행기 상세</summary>{scene.selected_engine}{scene.strategy_rationale?.scope && ` · ${scene.strategy_rationale.scope}`}</details>}
             </li>)}
           </ol>
           <div>
@@ -770,9 +806,9 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
               <Button busy={repair.isPending} onClick={() => repair.mutate(view.quality_report!.defects)}>수정 영향 계산</Button>
             </>}
             <Button variant="ghost" busy={review.isPending} disabled={!view.final?.id} onClick={() => review.mutate()}>서버 검수 요청</Button>
-            {review.data?.status === "not_connected" && <p className="creative-hint">검수 연결 상태: not_connected · 의미·시청 판정은 미확인으로 유지됩니다.</p>}
-            {view.review_execution?.status === "not_connected" && <p className="creative-hint">서버 검수 연결 상태: not_connected · semantic/viewing은 unknown입니다.</p>}
-            {!view.review_execution && view.quality_report.semantic_qa.verdict === "unknown" && <p className="creative-hint">현재 기본 검수는 not_connected/unknown입니다. independent 입력이나 fixture 결과로 PASS 처리하지 않습니다.</p>}
+            {(review.data?.status === "not_connected" || view.review_execution?.status === "not_connected") && (
+              <p className="creative-hint" role="status">독립 평가 실행기가 연결되지 않아 내용과 시청·청취 품질은 미확인입니다.</p>
+            )}
           </section>}
           {view.repair_plan && <section className="creative-repair" aria-label="부분 수정 제안">
             <h3>부분 수정 제안 · {view.repair_plan.status}</h3>
@@ -959,6 +995,8 @@ export function CreativePlanDetailPage() {
   const approve = useMutation({ mutationFn: () => planApprove(id, q.data!.revision), onSuccess: (value) => { done(value); qc.removeQueries({ queryKey: ["creative-repair-result", id] }); } });
   const resolved = toRequest(picker, today());
   const plan = q.data;
+  // 제작 워크스페이스에서 넘어온 경우에만 있다. 계획이 의도를 받지 못한 서버면 그 사실을 알린다.
+  const intentLink = (useLocation().state as { intentLink?: IntentLinkState } | null)?.intentLink;
   return (
     <div className="tk-screen">
       <PageHeader
@@ -972,6 +1010,15 @@ export function CreativePlanDetailPage() {
       />
       <div className="tk-screen__body">
         <div className="tk-container creative-plan">
+          {intentLink && !intentLink.linked && (
+            <div className="tk-callout tk-callout--warning" role="note">
+              <Icon className="tk-callout__icon" name="warning" />
+              <div className="tk-callout__body">
+                <strong className="tk-callout__title">확정한 의도가 계획에 연결되지 않았어요</strong>
+                <p>이 서버의 계획 생성은 아직 제작 의도(조건·답변·충돌 해결)를 받지 못해요. 문장, 길이, 화면 비율만 반영됐으니 장면 구성에서 조건이 빠졌는지 확인해 주세요.</p>
+              </div>
+            </div>
+          )}
           {q.isPending && <p role="status">계획을 불러오는 중</p>}
           {q.isError && (
             <p className="tk-error" role="alert">
@@ -1027,78 +1074,24 @@ export function CreativePlanDetailPage() {
 }
 
 export function CreativePlanNewPage() {
-  const navigate = useNavigate();
-  const qc = useQueryClient();
   const plans = useQuery({ queryKey: ["creative-plans"], queryFn: planList });
   const projects = useQuery({ queryKey: ["creative"], queryFn: creativeList });
-  const [name, setName] = useState("");
-  const [brief, setBrief] = useState("");
-  const [aspect, setAspect] = useState<"16:9" | "9:16" | "1:1">("16:9");
-  const [duration, setDuration] = useState<DurationState>(INITIAL_DURATION);
-  const durationRequest = toRequest(duration, today());
-  const create = useMutation({
-    mutationFn: () => planCreate({
-      brief: brief.trim(),
-      name: name.trim(),
-      aspect,
-      duration: durationRequest.request ?? { mode: "auto", seconds: null, platform: null, source: null, as_of: null },
-    }),
-    onSuccess: (plan) => {
-      void qc.invalidateQueries({ queryKey: ["creative-plans"] });
-      navigate(`/creative/plan/${plan.id}`);
-    },
-  });
-  const canCreate = brief.trim().length > 0 && durationRequest.request !== null;
   return (
     <div className="tk-screen">
-      <PageHeader
-        title="콘텐츠 스튜디오"
-        meta="아이디어에서 계획을 만들고, 장면을 확인해 영상으로 완성해요"
-        actions={<><Link className="tk-button" to="/creative/legacy">기존 프로젝트 편집기</Link><Link className="tk-button" to="/creative/records">제작 기록</Link></>}
-      />
+      <PageHeader title="제작 워크스페이스" meta="의도를 입력하면 필요한 설정만 보여 드려요" />
       <div className="tk-screen__body"><div className="tk-container creative-plan">
-        <StoryboardCreateFlow />
+        <nav className="cw-nav" aria-label="바로 가기">
+          <Link className="tk-button" to="/creative/records">제작 기록</Link>
+          <Link className="tk-button" to="/creative/legacy">기존 프로젝트 편집기</Link>
+        </nav>
 
-        <details className="creative-plan-structured">
-        <summary>구조화 계획 입력 (보조 경로)</summary>
-        <section className="creative-create creative-plan-create" aria-labelledby="creative-create-title">
-          <div>
-            <span className="creative-eyebrow">AI CREATIVE STUDIO</span>
-            <h2 id="creative-create-title">어떤 영상을 만들까요?</h2>
-            <p className="creative-hint">내용을 적으면 장면 계획과 필요한 제작 도구를 먼저 확인할 수 있어요. 이름·길이·비율은 선택 사항입니다.</p>
-          </div>
-          <form onSubmit={(event) => { event.preventDefault(); if (canCreate) create.mutate(); }}>
-            <label className="creative-field">만들고 싶은 콘텐츠
-              <textarea className="tk-textarea" value={brief} maxLength={6000} rows={5} required
-                onChange={(event) => setBrief(event.target.value)}
-                placeholder="주제, 전달할 내용, 분위기와 원하는 장면을 자유롭게 적어 주세요." />
-            </label>
-            <div className="creative-plan-create__options">
-              <label className="creative-field">계획 이름 <span className="creative-hint">선택</span>
-                <input className="tk-input" value={name} maxLength={120} onChange={(event) => setName(event.target.value)} placeholder="비워 두면 내용에서 정해요" />
-              </label>
-              <label className="creative-field">화면 비율 <span className="creative-hint">선택</span>
-                <select className="tk-input" aria-label="화면 비율" value={aspect} onChange={(event) => setAspect(event.target.value as typeof aspect)}>
-                  <option value="16:9">16:9 · 가로</option><option value="9:16">9:16 · 세로</option><option value="1:1">1:1 · 정사각형</option>
-                </select>
-              </label>
-            </div>
-            <details className="creative-plan-create__duration">
-              <summary>원하는 길이 (선택)</summary>
-              <DurationPicker value={duration} onChange={setDuration} idPrefix="plan-new-picker" />
-            </details>
-            <p className="creative-hint">계획을 검토·승인한 뒤 제작 준비에서 장면별 이미지와 음악을 올리거나, 지원 레시피의 자동 생성을 요청할 수 있어요. 별도 품질 목표는 아직 입력할 수 없으며, 계획의 제작 도구·실제 결과 검사에서 서버가 제공하는 기준을 확인합니다.</p>
-            {create.isError && <p className="tk-error" role="alert">{errorLine(create.error)}</p>}
-            <Button type="submit" variant="primary" busy={create.isPending} disabled={!canCreate}>장면 계획 만들기</Button>
-          </form>
-        </section>
-        </details>
+        <IntentWorkspace />
 
         <section aria-labelledby="my-plans-title">
           <div className="creative-section-heading"><h2 id="my-plans-title">제작 계획</h2><span>장면 검토부터 렌더·결과 검사까지</span></div>
           {plans.isPending && <p role="status">계획을 불러오는 중</p>}
           {plans.isError && <p className="tk-error" role="alert">{errorLine(plans.error)} <Button onClick={() => void plans.refetch()}>다시 불러오기</Button></p>}
-          {plans.data?.length === 0 && <div className="tk-empty tk-empty--boxed"><h3>아직 계획이 없어요</h3><p>콘텐츠를 적으면 장면 구성부터 시작합니다.</p></div>}
+          {plans.data?.length === 0 && <div className="tk-empty tk-empty--boxed"><h3>아직 계획이 없어요</h3><p>의도를 입력하고 계획을 만들면 여기에 나타나요.</p></div>}
           <div className="creative-projects">{plans.data?.map((plan) => <Link key={plan.id} className="creative-project" to={`/creative/plan/${plan.id}`}>
             <div><strong>{plan.name}</strong><span>{plan.duration.planned_seconds == null ? "길이 확인 필요" : formatSeconds(plan.duration_check?.total_seconds ?? plan.duration.planned_seconds)} · 장면 {plan.scenes.length}개 · {plan.approval?.revision === plan.revision ? "승인됨" : "검토 중"}</span></div>
           </Link>)}</div>
