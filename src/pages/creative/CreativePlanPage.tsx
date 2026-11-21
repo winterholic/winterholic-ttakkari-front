@@ -432,6 +432,10 @@ function MatchPanel({ plan }: { plan: CreativePlan }) {
   const m = plan.match;
   const label = MATCH_LABEL[m.status];
   const recipe = m.candidates.find((c) => c.recipe_id === m.primary_recipe);
+  const constraints = [...new Set((m.needs ?? []).flatMap((need) =>
+    need.priority === "prefer" ? [] : need.best?.constraints ?? []
+  ))];
+  const unapplied = [...new Set(plan.intent_projection?.not_applied.map(({ reason }) => reason) ?? [])];
   return (
     <section className="creative-panel" aria-labelledby="plan-match">
       <h2 id="plan-match">제작 방식 판정</h2>
@@ -447,6 +451,18 @@ function MatchPanel({ plan }: { plan: CreativePlan }) {
         </p>
       ) : (
         <p>이 요청에 맞는 레시피를 찾지 못했어요. 콘텐츠 유형과 스타일을 더 구체적으로 알려 주세요.</p>
+      )}
+      {constraints.length > 0 && (
+        <div>
+          <h3>현재 제작 한계</h3>
+          <ul className="creative-reasons">{constraints.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+        </div>
+      )}
+      {unapplied.length > 0 && (
+        <details className="creative-details">
+          <summary>계획에 반영되지 않은 조건</summary>
+          <ul className="creative-reasons">{unapplied.map((reason) => <li key={reason}>{reason}</li>)}</ul>
+        </details>
       )}
       {plan.intent_status === "unconfirmed_hint" && (
         <p className="creative-notice" role="status">

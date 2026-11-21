@@ -149,6 +149,10 @@ export interface MatchResult {
   primary_recipe: string | null;
   auxiliary_recipes: string[];
   candidates: RecipeCandidate[];
+  needs?: Array<{
+    priority: "must" | "should" | "prefer";
+    best?: { constraints?: string[] } | null;
+  }>;
   gaps: MatchGap[];
   conflicts: MatchConflict[];
   dropped: Array<{ entry_id: string; reason: string }>;
@@ -355,6 +359,7 @@ export interface CreativePlan {
   intent_status: "confirmed" | "unconfirmed_hint";
   /** 계획이 제작 의도 v2를 받아 저장하는 서버만 돌려준다. 없으면 의도는 계획에 연결되지 않은 것이다. */
   intent_v2?: { revision: number } | null;
+  intent_projection?: { not_applied: Array<{ id: string; reason: string }> };
   basis: "info_items" | "template_scaffold" | "user_edited";
   match: MatchResult;
   duration: DurationPlan;
