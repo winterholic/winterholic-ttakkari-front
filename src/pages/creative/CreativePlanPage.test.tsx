@@ -160,7 +160,7 @@ test("review sends only the approved revision and preserves not-connected as unk
   });
   mount(`/creative/plan/${plan.id}`);
   fireEvent.click(await screen.findByRole("button", { name: "서버 검수 요청" }));
-  await screen.findByText(/검수 연결 상태: not_connected/);
+  await screen.findByText(/독립 평가 실행기가 연결되지 않아/);
   expect(calls.find((call) => call.url.endsWith(`/api/creative/v2/plans/${plan.id}/production/review`))?.body).toEqual({ revision: 1 });
 });
 
@@ -607,7 +607,8 @@ test("a dispatchable approved plan is prepared, then asks for scene images and m
   expect(calls.find((c) => c.method === "POST")?.body).toEqual({ revision: 1 });
   expect(calls.find((c) => c.method === "POST")?.url).toContain("?caption_mode=narration");
   expect(within(screen.getByLabelText("제작을 진행할 수 없는 이유")).getByText("음악 자산이 없습니다.")).toBeTruthy();
-  expect(screen.getByText(/skill\.v1_ffmpeg_slideshow \(ffmpeg version 7\.1\)/)).toBeTruthy();
+  expect(screen.getByText("실행기 상세")).toBeTruthy();
+  expect(screen.getByText(/^skill\.v1_ffmpeg_slideshow · ffmpeg version 7\.1$/)).toBeTruthy();
   expect(within(screen.getByLabelText("장면 이미지")).getAllByRole("listitem")).toHaveLength(2);
   expect(screen.getByLabelText("음악 파일")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "렌더 시작" })).toBeNull();

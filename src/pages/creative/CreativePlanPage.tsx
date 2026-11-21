@@ -90,6 +90,14 @@ function qualityVerdict(value: string) {
   return ({ pass: "통과", fail: "실패", unknown: "미확인", needs_review: "추가 검수 필요" } as Record<string, string>)[value] ?? value;
 }
 
+const STRATEGY_LABEL: Record<string, string> = {
+  slideshow: "업로드한 미디어 편집",
+  generative_video: "생성 영상 편집",
+  frame_animation_2d: "2D 프레임 애니메이션",
+  scene_3d: "3D 장면 렌더",
+  code_motion: "다이어그램 애니메이션",
+};
+
 type CaptionMode = "narration" | "title_only";
 const captionModeKey = (planId: string) => `creative-caption-mode:${planId}`;
 function readCaptionMode(planId: string): CaptionMode | null {
@@ -617,8 +625,8 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
         <>
           <p role="status">
             <Badge tone={PRODUCTION_TONE[view.state]}>{PRODUCTION_LABEL[view.state] ?? view.state}</Badge>
-            {view.engine && ` · 엔진 ${view.engine.adapter}${view.engine.version ? ` (${view.engine.version})` : ""}`}
           </p>
+          {view.engine && <details className="creative-hint"><summary>실행기 상세</summary>{view.engine.adapter}{view.engine.version && ` · ${view.engine.version}`}</details>}
           {view.reasons.length > 0 && (
             <ul className="creative-reasons creative-reasons--warn" aria-label="제작을 진행할 수 없는 이유">
               {view.reasons.map((r) => (
@@ -630,9 +638,20 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
             {plan.scenes.map((scene) => <li key={scene.scene_id}>
               <span>{clock(scene.start_time)}–{clock(scene.end_time)}</span>
               <strong>{scene.title || scene.scene_id}</strong>
-              {scene.selected_engine && <small>{scene.strategy ?? "전략 미지정"} · {scene.selected_engine}</small>}
-              {scene.shots?.map((shot) => <small key={shot.shot_id}>{shot.shot_id}: {shot.action} · {shot.selected_providers?.join(", ") || "공급자 근거 없음"}</small>)}
-              {scene.strategy_rationale?.reason && <small>선택 근거: {scene.strategy_rationale.reason}</small>}
+              {scene.strategy && <small>{STRATEGY_LABEL[scene.strategy] ?? "별도 제작 방식"}</small>}
+              {scene.strategy_rationale?.reason && <small>{scene.strategy_rationale.reason}</small>}
+              {scene.shots?.map((shot) => <small key={shot.shot_id}>{shot.action}</small>)}
+              {scene.strategy_rationale?.alternatives?.length ? (
+                <details>
+                  <summary>다른 제작 방식</summary>
+                  <ul>{scene.strategy_rationale.alternatives.map((option) => (
+                    <li key={option.strategy}>
+                      {STRATEGY_LABEL[option.strategy] ?? "별도 제작 방식"}{option.reason && ` · ${option.reason}`}
+                    </li>
+                  ))}</ul>
+                </details>
+              ) : null}
+              {scene.selected_engine && <details className="creative-hint"><summary>장면 실행기 상세</summary>{scene.selected_engine}{scene.strategy_rationale?.scope && ` · ${scene.strategy_rationale.scope}`}</details>}
             </li>)}
           </ol>
           <div>
@@ -771,9 +790,9 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
               <Button busy={repair.isPending} onClick={() => repair.mutate(view.quality_report!.defects)}>수정 영향 계산</Button>
             </>}
             <Button variant="ghost" busy={review.isPending} disabled={!view.final?.id} onClick={() => review.mutate()}>서버 검수 요청</Button>
-            {review.data?.status === "not_connected" && <p className="creative-hint">검수 연결 상태: not_connected · 의미·시청 판정은 미확인으로 유지됩니다.</p>}
-            {view.review_execution?.status === "not_connected" && <p className="creative-hint">서버 검수 연결 상태: not_connected · semantic/viewing은 unknown입니다.</p>}
-            {!view.review_execution && view.quality_report.semantic_qa.verdict === "unknown" && <p className="creative-hint">현재 기본 검수는 not_connected/unknown입니다. independent 입력이나 fixture 결과로 PASS 처리하지 않습니다.</p>}
+            {(review.data?.status === "not_connected" || view.review_execution?.status === "not_connected") && (
+              <p className="creative-hint" role="status">독립 평가 실행기가 연결되지 않아 내용과 시청·청취 품질은 미확인입니다.</p>
+            )}
           </section>}
           {view.repair_plan && <section className="creative-repair" aria-label="부분 수정 제안">
             <h3>부분 수정 제안 · {view.repair_plan.status}</h3>

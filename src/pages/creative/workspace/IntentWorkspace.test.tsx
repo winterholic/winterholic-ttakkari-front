@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import type { IntentResolveRequest, IntentResolveResult, IntentSpecV2 } from "../../../api/creativeV2";
 import fx from "./fixtures/intent-v2-local-backend.json";
-import { IntentWorkspace, createPlanFromIntent, toDurationRequest } from "./IntentWorkspace";
+import { IntentWorkspace, createPlanFromIntent } from "./IntentWorkspace";
 import { buildLabels } from "./intentModel";
 
 // fixtures/intent-v2-local-backend.json 은 intent v2 브랜치(aeb19745)를 로컬로 띄워 받은 실제 resolve·facets·catalog 응답이다.
@@ -158,10 +158,12 @@ test("the next button creates the plan with the confirmed intent in the request 
   const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/plans"))!;
   expect(post.body.intent_v2.schema_version).toBe(2);
   expect(post.body.intent_v2.conditions.some((c: { id: string; origin: string }) => c.id === "C01.music_video" && c.origin === "user_confirmed")).toBe(true);
-  expect(post.body.duration).toEqual({ mode: "preferred", seconds: 30, platform: null, source: null, as_of: null });
+  expect(post.body.intent_v2.duration).toMatchObject({ mode: "target", seconds: 30 });
+  expect(post.body).not.toHaveProperty("duration");
+  expect(post.body).not.toHaveProperty("aspect");
 });
 
-test("a server that rejects the intent field is retried once without it and reported as not linked", async () => {
+test("a rejected intent never creates a fallback plan without the selected conditions", async () => {
   const intent = fixture("scenarioC_ready").intent as IntentSpecV2;
   const labels = buildLabels(fx.catalog as never, fx.facets as never);
   const bodies: Array<Record<string, any>> = []; // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -171,13 +173,9 @@ test("a server that rejects the intent field is retried once without it and repo
       ? new Response(JSON.stringify({ detail: [{ type: "extra_forbidden" }] }), { status: 422 })
       : new Response(JSON.stringify({ id: "plan-2", revision: 1 }), { status: 200 });
   }));
-  const { link, plan } = await createPlanFromIntent(intent, "", labels);
-  expect(bodies.length).toBe(2);
+  await expect(createPlanFromIntent(intent, "", labels)).rejects.toMatchObject({ status: 422 });
+  expect(bodies).toHaveLength(1);
   expect(bodies[0].intent_v2).toBeTruthy();
-  expect(bodies[1]).not.toHaveProperty("intent_v2");
-  expect(bodies[1].brief).toContain("뮤직비디오");
-  expect(link.linked).toBe(false);
-  expect(plan.id).toBe("plan-2");
 });
 
 test("a server that accepts but ignores the field is also reported as not linked", async () => {
@@ -185,11 +183,6 @@ test("a server that accepts but ignores the field is also reported as not linked
   vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ id: "plan-3", revision: 1 }), { status: 200 })));
   const { link } = await createPlanFromIntent(intent, "brief", buildLabels(fx.catalog as never, fx.facets as never));
   expect(link).toEqual({ linked: false, revision: intent.revision });
-});
-
-test("length policy maps onto the existing plan duration request with no fixed template", () => {
-  expect(toDurationRequest(null).mode).toBe("auto");
-  expect(toDurationRequest({ mode: "strict", seconds: 95, origin: "user_confirmed", evidence: [] })).toMatchObject({ mode: "exact", seconds: 95 });
 });
 
 test("a server without the intent contract says so instead of showing an empty form", async () => {

@@ -422,6 +422,7 @@ export interface StoryboardRequest {
   sources: Array<{ id: string; locator: string; text: string }>;
   engine: "qwen-local" | "codex";
   model?: string;
+  intent_v2?: IntentSpecV2;
 }
 export interface StoryboardDraft {
   summary: string;
@@ -616,15 +617,12 @@ export const planPolicy = () => json<DurationPolicy>(`${root}/duration/policy`);
 export const planList = () => json<CreativePlan[]>(`${root}/plans`);
 export const planGet = (id: string) => json<CreativePlan>(`${root}/plans/${id}`);
 export const planCatalog = () => json<CreativeCatalog>(`${root}/catalog`);
-export const planCreate = (body: {
-  brief: string;
-  name: string;
-  duration: DurationRequest;
-  aspect?: string;
-  intent?: CreativeIntent;
-  /** 확정한 제작 의도 v2. 계획이 아직 받지 못하는 서버는 이 필드를 거부하거나 무시한다. */
-  intent_v2?: IntentSpecV2;
-}) => json<CreativePlan>(`${root}/plans`, { method: "POST", json: body });
+type PlanCreateBody = { brief: string; name?: string } & (
+  | { intent_v2: IntentSpecV2; intent?: never; duration?: never; aspect?: never }
+  | { intent_v2?: never; intent?: CreativeIntent; duration?: DurationRequest; aspect?: string }
+);
+export const planCreate = (body: PlanCreateBody) =>
+  json<CreativePlan>(`${root}/plans`, { method: "POST", json: body });
 export const intentFacets = () => json<IntentFacets>(`${root}/intent/facets`);
 export const intentResolve = (body: IntentResolveRequest) =>
   json<IntentResolveResult>(`${root}/intent/resolve`, { method: "POST", json: body });

@@ -2,12 +2,12 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { intentFacets, planCatalog, planCreate } from "../../../api/creativeV2";
-import type { DurationRequest, IntentConditionV2, IntentConflictV2, IntentSpecV2 } from "../../../api/creativeV2";
+import type { IntentConditionV2, IntentConflictV2, IntentSpecV2 } from "../../../api/creativeV2";
 import { errorText } from "../../../features/viewer/api";
 import { Badge } from "../../../ui/Badge";
 import { Button } from "../../../ui/Button";
 import { Icon } from "../../../ui/Icon";
-import { StoryboardCreateFlow } from "../StoryboardCreateFlow";
+import { StoryboardCreateFlow, type StoryboardSeed } from "../StoryboardCreateFlow";
 import { ConditionPicker } from "./ConditionPicker";
 import type { ConditionActions } from "./ConditionPicker";
 import { ConflictCards } from "./ConflictCards";
@@ -20,33 +20,15 @@ import "./workspace.css";
 
 const BRIEF_MAX = 6000;
 
-/** 확정 의도의 길이 정책을 기존 계획 생성이 받는 길이 요청으로 바꾼다. */
-export function toDurationRequest(policy: IntentSpecV2["duration"]): DurationRequest {
-  if (!policy || policy.mode === "auto") return { mode: "auto", seconds: null, platform: null, source: null, as_of: null };
-  return { mode: policy.mode === "target" ? "preferred" : "exact", seconds: policy.seconds, platform: policy.platform ?? null, source: null, as_of: null };
-}
-
 export type IntentLinkState = { linked: boolean; revision: number };
 
-/**
- * 확정한 의도를 계획 생성 요청에 담는다. 계획이 아직 의도 v2를 받지 못하는 서버는 모르는 필드를 거부(422)하거나 무시하므로,
- * 거부되면 의도 없이 한 번만 다시 보내고 "연결 안 됨"으로 알린다. 계획이 revision을 돌려줄 때만 연결됐다고 본다.
- */
 export async function createPlanFromIntent(intent: IntentSpecV2, brief: string, labels: Parameters<typeof summarizeIntent>[1]) {
-  const body = {
-    brief: brief.trim() || summarizeIntent(intent, labels),
-    name: "",
-    aspect: intent.aspect?.value,
-    duration: toDurationRequest(intent.duration),
-  };
-  try {
-    const plan = await planCreate({ ...body, intent_v2: intent });
-    return { plan, link: { linked: plan.intent_v2?.revision === intent.revision, revision: intent.revision } satisfies IntentLinkState };
-  } catch (error) {
-    if ((error as { status?: number }).status !== 422) throw error;
-    const plan = await planCreate(body);
-    return { plan, link: { linked: false, revision: intent.revision } satisfies IntentLinkState };
-  }
+  const plan = await planCreate({
+    brief: intent.brief || brief.trim() || summarizeIntent(intent, labels),
+    intent_v2: intent,
+  });
+  const link: IntentLinkState = { linked: plan.intent_v2?.revision === intent.revision, revision: intent.revision };
+  return { plan, link };
 }
 
 export function IntentWorkspace() {
@@ -57,7 +39,7 @@ export function IntentWorkspace() {
   const facets = useQuery({ queryKey: ["creative-v2-intent-facets"], queryFn: intentFacets, staleTime: Infinity, retry: false });
   const labels = useMemo(() => buildLabels(catalog.data, facets.data), [catalog.data, facets.data]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [storyboardOpen, setStoryboardOpen] = useState(false);
+  const [storyboardSeed, setStoryboardSeed] = useState<StoryboardSeed>();
   const { result, busy } = ws;
   const intent = result?.intent;
 
@@ -89,7 +71,11 @@ export function IntentWorkspace() {
   const notSupported = [catalog.error, facets.error].some((e) => (e as { status?: number } | null)?.status === 404);
   const ready = !!result?.ready_for_plan && !busy;
   const conflicts = result?.layout.conflicts ?? [];
-  const seed = intent ? { brief: ws.brief, summary: summarizeIntent(intent, labels), revision: intent.revision } : undefined;
+  function openStoryboard() {
+    if (!intent) return;
+    const summary = summarizeIntent(intent, labels);
+    setStoryboardSeed({ brief: intent.brief || ws.brief.trim() || summary, intentSummary: summary, intent });
+  }
 
   return (
     <div className="cw" data-busy={busy || undefined}>
@@ -158,14 +144,14 @@ export function IntentWorkspace() {
           {!result && <p className="cw-hint">콘텐츠 유형을 확정하면 계획을 만들 수 있어요.</p>}
           {create.isError && <p className="tk-error" role="alert">{errorText(create.error).message}</p>}
           <Button variant="primary" block busy={create.isPending} disabled={!ready || create.isPending} onClick={() => create.mutate()}>이 의도로 계획 만들기</Button>
-          <Button block disabled={!ready} onClick={() => setStoryboardOpen(true)}>AI 장면 구성 초안으로 이어가기</Button>
+          <Button block disabled={!ready} onClick={openStoryboard}>AI 장면 구성 초안으로 이어가기</Button>
           <p className="cw-hint">계획을 만든 뒤 장면 검토, 제작, 결과 검수로 이어져요. 승인 전에는 제작이 시작되지 않아요.</p>
         </section>
       </aside>
 
-      {storyboardOpen && seed && (
+      {storyboardSeed && (
         <div className="cw__wide">
-          <StoryboardCreateFlow key={seed.revision} seed={{ brief: seed.brief, intentSummary: seed.summary }} />
+          <StoryboardCreateFlow key={storyboardSeed.intent?.revision} seed={storyboardSeed} />
         </div>
       )}
     </div>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { storyboardRunAccept, storyboardRunCancel, storyboardRunGet, storyboardRunResume, storyboardRunStart } from "../../api/creativeV2";
-import type { StoryboardRequest, StoryboardRunStart } from "../../api/creativeV2";
+import type { IntentSpecV2, StoryboardRequest, StoryboardRunStart } from "../../api/creativeV2";
 import { errorText } from "../../features/viewer/api";
 import { Button } from "../../ui/Button";
 
@@ -33,7 +33,7 @@ const characterCount = (value: string) => Array.from(value).length;
 const newDocumentId = () => `file-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
 
 /** 제작 워크스페이스에서 확정한 의도를 이어받는다. 요약은 사용자 제공 자료 하나로 요청에 실린다. */
-export type StoryboardSeed = { brief: string; intentSummary: string };
+export type StoryboardSeed = { brief: string; intentSummary: string; intent?: IntentSpecV2 };
 
 export function StoryboardCreateFlow({ onAccepted, seed }: { onAccepted?: (planId: string) => void; seed?: StoryboardSeed }) {
   const navigate = useNavigate();
@@ -51,11 +51,11 @@ export function StoryboardCreateFlow({ onAccepted, seed }: { onAccepted?: (planI
   const { request, inputError } = useMemo(() => {
     const cleaned = brief.trim();
     const goal = qualityGoal.trim();
-    const compiledBrief = goal
+    const sourceBrief = goal
       ? `사용자 요청:\n${cleaned}\n\n사용자 품질 목표 (보장 아님):\n${goal}`
       : cleaned;
     const sources: StoryboardRequest["sources"] = cleaned
-      ? [{ id: "brief", locator: "사용자 요청", text: compiledBrief }]
+      ? [{ id: "brief", locator: "사용자 요청", text: sourceBrief }]
       : [];
     if (cleaned && seed?.intentSummary) sources.push({ id: "intent", locator: "확정한 제작 의도", text: seed.intentSummary });
     if (extraText.trim()) sources.push({ id: "source-1", locator: extraLocator.trim() || "사용자 제공 자료", text: extraText.trim() });
@@ -66,13 +66,16 @@ export function StoryboardCreateFlow({ onAccepted, seed }: { onAccepted?: (planI
     let error = "";
     if (documents.some((document) => document.status === "loading")) error = "참고 문서 읽기가 끝날 때까지 기다려 주세요.";
     else if (documents.some((document) => document.status === "error")) error = "오류가 있는 참고 문서를 제거하거나 다시 선택해 주세요.";
-    else if (cleaned && characterCount(compiledBrief) > 6000) error = "요청과 품질 목표를 합친 brief는 6,000자 이하여야 합니다.";
+    else if (cleaned && characterCount(sourceBrief) > 6000) error = "요청과 품질 목표를 합쳐 6,000자 이하여야 합니다.";
     else if (extraText.trim() && characterCount(extraText.trim()) > 12000) error = "추가 출처 본문은 12,000자 이하여야 합니다.";
     else if (extraText.trim() && characterCount(extraLocator.trim() || "사용자 제공 자료") > 500) error = "출처 위치는 500자 이하여야 합니다.";
     else if (sources.length > 10) error = "요청 출처는 사용자 요청을 포함해 10개 이하여야 합니다. 참고 문서를 제거해 주세요.";
 
-    return { request: cleaned && !error ? { brief: compiledBrief, sources, engine: "codex" as const } : null, inputError: error };
-  }, [brief, extraLocator, extraText, qualityGoal, documents, seed?.intentSummary]);
+    const request: StoryboardRequest | null = cleaned && !error
+      ? { brief: seed?.intent ? brief : sourceBrief, sources, engine: "codex", intent_v2: seed?.intent }
+      : null;
+    return { request, inputError: error };
+  }, [brief, extraLocator, extraText, qualityGoal, documents, seed]);
 
   const start = useMutation({ mutationFn: () => storyboardRunStart(request!, requestKey), onSuccess: (value) => { setRun(value); setReviewed(false); setNotice(""); } });
   const resume = useMutation({ mutationFn: (key: string) => storyboardRunResume(run!.run_id, key), onSuccess: (value) => { setRun(value); setResumeKey(""); setReviewed(false); setNotice(""); } });
@@ -167,7 +170,7 @@ export function StoryboardCreateFlow({ onAccepted, seed }: { onAccepted?: (planI
     <div className="storyboard-create__form">
       <label className="creative-field">만들고 싶은 콘텐츠
         <textarea className="tk-textarea" value={brief} rows={5} required
-          disabled={frozen}
+          disabled={frozen} readOnly={!!seed?.intent}
           onChange={(event) => { setBrief(event.target.value); setRequestKey(makeKey()); setNotice(""); }}
           aria-label="만들고 싶은 콘텐츠" placeholder="주제, 전달할 내용, 분위기와 원하는 장면을 자유롭게 적어 주세요." />
       </label>
