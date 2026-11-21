@@ -429,10 +429,13 @@ export interface StoryboardRequest {
   model?: string;
   intent_v2?: IntentSpecV2;
 }
+export interface StoryboardSequence { sequence_id: string; title: string; purpose?: string; scene_ids: string[] }
 export interface StoryboardDraft {
   summary: string;
   catalog_ids: string[];
   knowledge: Array<{ source_id: string; quote: string; application: string }>;
+  /** 장면 묶음. 이전 서버가 응답하면 없고, 있으면 모든 장면이 정확히 한 시퀀스에 속한다. */
+  sequences?: StoryboardSequence[];
   scenes: Array<{
     scene_id: string; title: string; narration: string; seconds: number; strategy: string;
     preset: string | null; rationale: string; source_ids: string[];

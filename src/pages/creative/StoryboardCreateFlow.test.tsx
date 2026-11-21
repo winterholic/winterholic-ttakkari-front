@@ -414,3 +414,45 @@ test("submits exactly ten sources including the user request", async () => {
     Array.from({ length: 9 }, (_, index) => ({ locator: `doc-${index}.txt`, text: `문서 본문 ${index}` })),
   );
 });
+
+const twoScenes = [
+  story.scenes[0],
+  { ...story.scenes[0], scene_id: "s2", title: "전개", shots: [{ shot_id: "s2a", action: "흐름을 보여 준다", layers: ["visual"], required_capabilities: [] }] },
+  { ...story.scenes[0], scene_id: "s3", title: "마무리", shots: [{ shot_id: "s3a", action: "요약한다", layers: ["captions"], required_capabilities: [] }] },
+];
+
+function reviewWith(storyboard: unknown) {
+  stub((url, init) => {
+    if (url.endsWith("/storyboard/runs") && init?.method === "POST") return { run_id: "run-1", status: "queued", engine: "codex", model: null, session_id: "session-1" };
+    if (url.endsWith("/storyboard/runs/run-1")) return { run_id: "run-1", status: "succeeded", phase: "completed_needs_review", review_required: true, sources: [{ id: "brief", locator: "사용자 요청", text: "사용자가 준 내용" }], storyboard, output_sha256: "a".repeat(64), error: null };
+    return [];
+  });
+  mount();
+  fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "사용자가 준 내용" } });
+  fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
+}
+
+test("groups reviewed scenes under their sequences while keeping global scene numbers", async () => {
+  reviewWith({ ...story, scenes: twoScenes, sequences: [
+    { sequence_id: "q1", title: "열기", purpose: "문제를 꺼낸다", scene_ids: ["s1"] },
+    { sequence_id: "q2", title: "풀이", purpose: "", scene_ids: ["s2", "s3"] },
+  ] });
+  await screen.findByText("구성 요약");
+  expect(screen.getByRole("region", { name: "시퀀스 1 열기" }).textContent).toContain("문제를 꺼낸다");
+  const second = screen.getByRole("region", { name: "시퀀스 2 풀이" });
+  expect(second.textContent).toContain("2장면");
+  expect(second.textContent).toContain("03 · 마무리");
+});
+
+test("shows a scene the sequences omit instead of dropping it", async () => {
+  reviewWith({ ...story, scenes: twoScenes, sequences: [{ sequence_id: "q1", title: "열기", scene_ids: ["s1", "s2"] }] });
+  await screen.findByText("구성 요약");
+  expect(screen.getByRole("region", { name: "시퀀스 2 묶음 없음" }).textContent).toContain("03 · 마무리");
+});
+
+test("renders a flat scene list when the server sends no sequences", async () => {
+  reviewWith({ ...story, scenes: twoScenes });
+  await screen.findByText("구성 요약");
+  expect(screen.getByText("02 · 전개")).toBeTruthy();
+  expect(screen.queryByRole("region", { name: /시퀀스/ })).toBeNull();
+});

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { storyboardRunAccept, storyboardRunCancel, storyboardRunGet, storyboardRunResume, storyboardRunStart } from "../../api/creativeV2";
-import type { IntentSpecV2, StoryboardRequest, StoryboardRunStart } from "../../api/creativeV2";
+import type { IntentSpecV2, StoryboardDraft, StoryboardRequest, StoryboardRunStart } from "../../api/creativeV2";
 import { errorText } from "../../features/viewer/api";
 import { Button } from "../../ui/Button";
 
@@ -34,6 +34,36 @@ const newDocumentId = () => `file-${globalThis.crypto?.randomUUID?.() ?? `${Date
 
 /** 제작 워크스페이스에서 확정한 의도를 이어받는다. 요약은 사용자 제공 자료 하나로 요청에 실린다. */
 export type StoryboardSeed = { brief: string; intentSummary: string; intent?: IntentSpecV2 };
+
+type StoryboardScene = StoryboardDraft["scenes"][number];
+
+function SceneCard({ scene, index }: { scene: StoryboardScene; index: number }) {
+  return <article className="storyboard-scene">
+    <div className="storyboard-scene__top"><h5>{String(index + 1).padStart(2, "0")} · {scene.title}</h5><span>{scene.seconds}초 · {scene.strategy}{scene.preset ? ` · ${scene.preset}` : ""}</span></div>
+    <p>{scene.narration || "내레이션 없음"}</p><p><strong>선택 이유:</strong> {scene.rationale}</p>
+    <div className="storyboard-scene__shots">{scene.shots.map((shot) => <div key={shot.shot_id}><strong>{shot.action}</strong><span>레이어 {shot.layers.join(" · ") || "없음"}</span><span>필요 도구 {shot.required_capabilities.join(" · ") || "없음"}</span></div>)}</div>
+    <p><strong>대안:</strong> {scene.alternatives.map((alt) => `${alt.strategy} — ${alt.rationale}`).join(" / ")}</p>
+  </article>;
+}
+
+/** 시퀀스가 있으면 장면 순서는 그대로 두고 묶음 제목만 얹는다. 어느 시퀀스에도 없는 장면은 마지막 묶음에 모아 조용히 버리지 않는다. */
+function SceneList({ draft }: { draft: StoryboardDraft }) {
+  const order = new Map(draft.scenes.map((scene, index) => [scene.scene_id, index]));
+  const sequences = draft.sequences ?? [];
+  if (sequences.length === 0) return <>{draft.scenes.map((scene, index) => <SceneCard key={scene.scene_id} scene={scene} index={index} />)}</>;
+  const placed = new Set(sequences.flatMap((sequence) => sequence.scene_ids));
+  const orphans = draft.scenes.filter((scene) => !placed.has(scene.scene_id));
+  const groups = [...sequences.map((sequence) => ({ key: sequence.sequence_id, title: sequence.title, purpose: sequence.purpose ?? "", ids: sequence.scene_ids })),
+    ...(orphans.length ? [{ key: "__unassigned", title: "묶음 없음", purpose: "", ids: orphans.map((scene) => scene.scene_id) }] : [])];
+  return <>{groups.map((group, groupIndex) => {
+    const scenes = group.ids.flatMap((id) => order.has(id) ? [draft.scenes[order.get(id)!]] : []);
+    return <section className="storyboard-sequence" key={group.key} aria-label={`시퀀스 ${groupIndex + 1} ${group.title}`}>
+      <h5 className="storyboard-sequence__title">시퀀스 {String(groupIndex + 1).padStart(2, "0")} · {group.title} <span>{scenes.length}장면</span></h5>
+      {group.purpose && <p className="creative-hint">{group.purpose}</p>}
+      {scenes.map((scene) => <SceneCard key={scene.scene_id} scene={scene} index={order.get(scene.scene_id)!} />)}
+    </section>;
+  })}</>;
+}
 
 export function StoryboardCreateFlow({ onAccepted, seed }: { onAccepted?: (planId: string) => void; seed?: StoryboardSeed }) {
   const navigate = useNavigate();
@@ -223,12 +253,7 @@ export function StoryboardCreateFlow({ onAccepted, seed }: { onAccepted?: (planI
         <div className="creative-notice"><strong>검토 대기</strong><p>이 출력은 아직 미승인입니다. 아래 출처는 내가 입력한 내용이며 전문지식 검색이나 독립 검증 결과가 아닙니다.</p><details><summary>상세 보기 (기술 정보)</summary><p>출력 SHA-256 {data.output_sha256}</p></details></div>
         <h4>구성 요약</h4><p>{data.storyboard.summary}</p>
         <div className="storyboard-review__sources"><h4>입력한 내용과 적용 방식</h4>{data.sources.map((source) => <article key={source.id}><strong>{source.locator === "사용자 요청" ? "사용자 요청" : source.locator}</strong><p>{source.text}</p>{data.storyboard!.knowledge.filter((item) => item.source_id === source.id).map((item, index) => <blockquote key={`${source.id}-${index}`}><p>“{item.quote}”</p><span>적용: {item.application}</span></blockquote>)}</article>)}</div>
-        <div className="storyboard-review__scenes"><h4>장면 검토 · 합계 {data.storyboard.scenes.reduce((n, scene) => n + scene.seconds, 0).toFixed(1)}초</h4>{data.storyboard.scenes.map((scene, index) => <article className="storyboard-scene" key={scene.scene_id}>
-          <div className="storyboard-scene__top"><h5>{String(index + 1).padStart(2, "0")} · {scene.title}</h5><span>{scene.seconds}초 · {scene.strategy}{scene.preset ? ` · ${scene.preset}` : ""}</span></div>
-          <p>{scene.narration || "내레이션 없음"}</p><p><strong>선택 이유:</strong> {scene.rationale}</p>
-          <div className="storyboard-scene__shots">{scene.shots.map((shot) => <div key={shot.shot_id}><strong>{shot.action}</strong><span>레이어 {shot.layers.join(" · ") || "없음"}</span><span>필요 도구 {shot.required_capabilities.join(" · ") || "없음"}</span></div>)}</div>
-          <p><strong>대안:</strong> {scene.alternatives.map((alt) => `${alt.strategy} — ${alt.rationale}`).join(" / ")}</p>
-        </article>)}</div>
+        <div className="storyboard-review__scenes"><h4>장면 검토 · 합계 {data.storyboard.scenes.reduce((n, scene) => n + scene.seconds, 0).toFixed(1)}초</h4><SceneList draft={data.storyboard} /></div>
         <label className="storyboard-review__accept"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} /> 출처·장면·도구·근거·대안을 확인했습니다. (승인할 출력은 위 상세 보기의 기술 정보로 고정돼요)</label>
         <p className="creative-hint">계획 이동 후에도 승인과 제작은 별도 단계입니다. 이 화면에서는 승인이나 제작을 시작하지 않아요.</p>
         {notice && <p className="creative-notice" role="status">{notice}</p>}
