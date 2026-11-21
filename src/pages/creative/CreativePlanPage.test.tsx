@@ -690,7 +690,7 @@ test("a ready plan starts the render and shows per-segment engine state", async 
   mount("/creative/plan/11111111-1111-4111-8111-111111111111");
   fireEvent.click(await screen.findByRole("button", { name: "렌더 시작" }));
   expect((await screen.findAllByText("렌더 중", { selector: "span" })).length).toBeGreaterThan(0);
-  expect(calls.some((c) => c.url.endsWith("/production/render") && c.method === "POST")).toBe(true);
+  expect(calls.find((c) => c.url.endsWith("/production/render") && c.method === "POST")?.body).toEqual({ revision: 1 });
   expect(within(screen.getByLabelText("제작 구간")).getByText(/seg-01 .* 큐 대기 · 1회 실행/)).toBeTruthy();
   expect(screen.queryByRole("button", { name: "렌더 시작" })).toBeNull();
 });
@@ -712,7 +712,21 @@ test("a failed segment offers a retry and shows the engine error", async () => {
   mount("/creative/plan/11111111-1111-4111-8111-111111111111");
   fireEvent.click(await screen.findByRole("button", { name: "실패한 구간 다시 시도" }));
   expect((await screen.findAllByText("렌더 중", { selector: "span" })).length).toBeGreaterThan(0);
-  expect(calls.some((c) => c.url.endsWith("/production/render") && c.method === "POST")).toBe(true);
+  expect(calls.find((c) => c.url.endsWith("/production/render") && c.method === "POST")?.body).toEqual({ revision: 1, retry: true });
+});
+
+test("a queued render refreshes until the worker starts it", async () => {
+  let statusReads = 0;
+  stub((url) => {
+    if (url.endsWith("/production")) {
+      statusReads += 1;
+      return productionFixture({ state: statusReads === 1 ? "queued" : "rendering", dispatchable: false, engine: ENGINE });
+    }
+    return approvedGate();
+  });
+  mount("/creative/plan/11111111-1111-4111-8111-111111111111");
+  expect(await screen.findByText("렌더 큐 대기")).toBeTruthy();
+  expect(await screen.findByText("렌더 중", { selector: "span" }, { timeout: 3500 })).toBeTruthy();
 });
 
 test("a finished render shows measured QA checks, the duration deviation and opens the media through a signed link", async () => {

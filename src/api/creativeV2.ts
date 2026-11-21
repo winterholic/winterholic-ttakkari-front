@@ -191,6 +191,7 @@ export type ProductionState =
   | "stale_revision"
   | "awaiting_assets"
   | "ready_to_render"
+  | "queued"
   | "rendering"
   | "failed"
   | "qa_failed"
@@ -662,8 +663,8 @@ export const planApprove = (id: string, revision: number) =>
 export const productionGet = (id: string) => json<ProductionView>(`${root}/plans/${id}/production`);
 export const productionDispatch = (id: string, revision: number, captionMode: "narration" | "title_only" = "narration") =>
   json<ProductionView>(`${root}/plans/${id}/production?caption_mode=${captionMode}`, { method: "POST", json: { revision } });
-export const productionRender = (id: string, revision: number) =>
-  json<ProductionView>(`${root}/plans/${id}/production/render`, { method: "POST", json: { revision } });
+export const productionRender = (id: string, revision: number, retry = false) =>
+  json<ProductionView>(`${root}/plans/${id}/production/render`, { method: "POST", json: retry ? { revision, retry } : { revision } });
 export const productionGenerateAssets = (id: string, revision: number) =>
   json<{ plan_id: string; plan_revision: number; status: "queued" | "running" }>(
     `${root}/plans/${id}/production/generate-assets`, { method: "POST", json: { revision } },

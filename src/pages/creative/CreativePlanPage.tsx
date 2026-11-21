@@ -530,6 +530,7 @@ const PRODUCTION_LABEL: Record<ProductionState, string> = {
   stale_revision: "계획이 바뀌어 이전 제작은 무효",
   awaiting_assets: "이미지·음악 자산을 기다리는 중",
   ready_to_render: "렌더 준비 완료",
+  queued: "렌더 큐 대기",
   rendering: "렌더 중",
   failed: "렌더 실패",
   qa_failed: "검사 실패",
@@ -541,6 +542,7 @@ const PRODUCTION_TONE: Record<ProductionState, "info" | "success" | "warning" | 
   stale_revision: "warning",
   awaiting_assets: "warning",
   ready_to_render: "info",
+  queued: "info",
   rendering: "info",
   failed: "danger",
   qa_failed: "danger",
@@ -568,7 +570,8 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
     queryKey: key,
     queryFn: () => productionGet(plan.id),
     refetchInterval: (query) => {
-      if (query.state.data?.state === "rendering") return 2000;
+      const state = query.state.data?.state;
+      if (state === "queued" || state === "rendering") return 2000;
       const generation = query.state.data?.asset_generation;
       return assetGenerationRequested && generation?.status !== "succeeded" && generation?.status !== "failed" ? 2000 : false;
     },
@@ -582,7 +585,7 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
     },
     onSuccess: done,
   });
-  const start = useMutation({ mutationFn: () => productionRender(plan.id, plan.revision), onSuccess: done });
+  const start = useMutation({ mutationFn: (retry: boolean) => productionRender(plan.id, plan.revision, retry), onSuccess: done });
   const generate = useMutation({
     mutationFn: () => productionGenerateAssets(plan.id, plan.revision),
     onSuccess: () => {
@@ -764,7 +767,7 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
             </div>
           )}
           {(view.state === "ready_to_render" || view.state === "failed") && (
-            <Button variant="primary" busy={start.isPending} onClick={() => start.mutate()}>
+            <Button variant="primary" busy={start.isPending} onClick={() => start.mutate(view.state === "failed")}>
               {view.state === "failed" ? "실패한 구간 다시 시도" : view.outdated_segments.length > 0 && view.final ? "바뀐 구간 다시 렌더" : "렌더 시작"}
             </Button>
           )}
