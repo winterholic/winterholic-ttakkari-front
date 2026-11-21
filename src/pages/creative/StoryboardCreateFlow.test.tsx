@@ -44,7 +44,7 @@ test("submits the supported storyboard request once, reviews output and accepts 
   fireEvent.change(screen.getByLabelText("만들고 싶은 콘텐츠"), { target: { value: "사용자가 준 내용" } });
   fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
   await screen.findByText("구성 요약");
-  fireEvent.click(screen.getByRole("checkbox", { name: /출력 SHA/ }));
+  fireEvent.click(screen.getByRole("checkbox", { name: /출처·장면·도구·근거·대안을 확인했습니다/ }));
   fireEvent.click(screen.getByRole("button", { name: "이 출력으로 미승인 계획 만들기" }));
   await waitFor(() => expect(calls.some((c) => c.url.endsWith("/accept"))).toBe(true));
   expect(calls.find((c) => c.url.endsWith("/storyboard/runs") && c.method === "POST")?.body).toEqual({
@@ -293,8 +293,8 @@ test("cancellation and terminal resume follow the server phases without approvin
   fireEvent.click(screen.getByRole("button", { name: "AI 장면 구성 만들기" }));
   await screen.findByRole("button", { name: "취소 요청" });
   fireEvent.click(screen.getByRole("button", { name: "취소 요청" }));
-  await screen.findByRole("button", { name: "이 Run 재개" });
-  fireEvent.click(screen.getByRole("button", { name: "이 Run 재개" }));
+  await screen.findByRole("button", { name: "이 작업 이어서 실행" });
+  fireEvent.click(screen.getByRole("button", { name: "이 작업 이어서 실행" }));
   await screen.findByText(/검토할 수 없는 출력/);
   expect(calls.find((call) => call.url.endsWith("/run-live/resume"))?.body).toEqual({});
   expect(calls.find((call) => call.url.endsWith("/run-live/resume"))?.key).toBeTruthy();

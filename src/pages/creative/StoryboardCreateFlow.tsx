@@ -10,8 +10,8 @@ const makeKey = () => globalThis.crypto?.randomUUID?.() ?? `storyboard-${Date.no
 
 function errorMessage(error: unknown) {
   const e = error as { status?: number; detail?: string; message?: string };
-  if (e.status === 404) return "이 서버에는 storyboard API가 배포되지 않았습니다 (HTTP 404). 입력은 보존했으며 기본 구조화 경로를 아래에서 선택할 수 있습니다.";
-  if (e.status === 503) return `storyboard 엔진을 지금 사용할 수 없습니다 (HTTP 503). ${e.detail ?? e.message ?? "엔진 또는 서버 상태를 확인해 주세요."}`;
+  if (e.status === 404) return "이 서버에서는 AI 장면 구성을 아직 쓸 수 없어요 (HTTP 404). 입력은 그대로 두었어요. 위의 '이 의도로 계획 만들기'로 계속할 수 있어요.";
+  if (e.status === 503) return `AI 장면 구성 엔진을 지금 사용할 수 없어요 (HTTP 503). ${e.detail ?? e.message ?? "잠시 뒤 다시 시도해 주세요."}`;
   return errorText(error).message;
 }
 
@@ -32,10 +32,13 @@ type ReferenceDocument = {
 const characterCount = (value: string) => Array.from(value).length;
 const newDocumentId = () => `file-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`}`;
 
-export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: string) => void }) {
+/** 제작 워크스페이스에서 확정한 의도를 이어받는다. 요약은 사용자 제공 자료 하나로 요청에 실린다. */
+export type StoryboardSeed = { brief: string; intentSummary: string };
+
+export function StoryboardCreateFlow({ onAccepted, seed }: { onAccepted?: (planId: string) => void; seed?: StoryboardSeed }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [brief, setBrief] = useState("");
+  const [brief, setBrief] = useState(seed?.brief ?? "");
   const [extraLocator, setExtraLocator] = useState("");
   const [extraText, setExtraText] = useState("");
   const [qualityGoal, setQualityGoal] = useState("");
@@ -54,6 +57,7 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
     const sources: StoryboardRequest["sources"] = cleaned
       ? [{ id: "brief", locator: "사용자 요청", text: compiledBrief }]
       : [];
+    if (cleaned && seed?.intentSummary) sources.push({ id: "intent", locator: "확정한 제작 의도", text: seed.intentSummary });
     if (extraText.trim()) sources.push({ id: "source-1", locator: extraLocator.trim() || "사용자 제공 자료", text: extraText.trim() });
     for (const document of documents) {
       if (document.status === "ready") sources.push({ id: document.id, locator: document.file.name, text: document.text });
@@ -68,7 +72,7 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
     else if (sources.length > 10) error = "요청 출처는 사용자 요청을 포함해 10개 이하여야 합니다. 참고 문서를 제거해 주세요.";
 
     return { request: cleaned && !error ? { brief: compiledBrief, sources, engine: "codex" as const } : null, inputError: error };
-  }, [brief, extraLocator, extraText, qualityGoal, documents]);
+  }, [brief, extraLocator, extraText, qualityGoal, documents, seed?.intentSummary]);
 
   const start = useMutation({ mutationFn: () => storyboardRunStart(request!, requestKey), onSuccess: (value) => { setRun(value); setReviewed(false); setNotice(""); } });
   const resume = useMutation({ mutationFn: (key: string) => storyboardRunResume(run!.run_id, key), onSuccess: (value) => { setRun(value); setResumeKey(""); setReviewed(false); setNotice(""); } });
@@ -84,7 +88,7 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
     mutationFn: () => storyboardRunAccept(run!.run_id, result.data!.output_sha256!),
     onSuccess: async (plan) => {
       await qc.invalidateQueries({ queryKey: ["creative-plans"] });
-      if (plan.approval) setNotice("서버가 승인 상태를 반환했습니다. 제작 작업으로 넘어가기 전에 승인 상태를 확인해 주세요.");
+      if (plan.approval) setNotice("계획에 승인 상태가 이미 있어요. 제작으로 넘어가기 전에 승인 상태를 확인해 주세요.");
       onAccepted?.(plan.id);
       navigate(`/creative/plan/${plan.id}`);
     },
@@ -111,7 +115,7 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
 
   function addDocuments(files: File[]) {
     if (!files.length) return;
-    const usedIds = new Set(["brief", "source-1", ...documents.map((document) => document.id)]);
+    const usedIds = new Set(["brief", "intent", "source-1", ...documents.map((document) => document.id)]);
     const entries = files.map((file) => {
       let id = newDocumentId();
       while (usedIds.has(id)) id = newDocumentId();
@@ -157,8 +161,8 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
   return <section className="creative-create creative-plan-create storyboard-create" aria-labelledby="storyboard-create-title">
     <div>
       <span className="creative-eyebrow">AI CREATIVE STUDIO</span>
-      <h2 id="storyboard-create-title">어떤 영상을 만들까요?</h2>
-      <p className="creative-hint">자유롭게 설명하면 AI가 장면 구성 초안을 만듭니다. 결과를 확인하고 직접 선택해야 미승인 계획으로 옮겨집니다.</p>
+      <h2 id="storyboard-create-title">{seed ? "AI 장면 구성 초안" : "어떤 영상을 만들까요?"}</h2>
+      <p className="creative-hint">{seed ? "확정한 의도를 바탕으로 AI가 장면 구성 초안을 만듭니다. " : "자유롭게 설명하면 AI가 장면 구성 초안을 만듭니다. "}결과를 확인하고 직접 선택해야 미승인 계획으로 옮겨집니다.</p>
     </div>
     <div className="storyboard-create__form">
       <label className="creative-field">만들고 싶은 콘텐츠
@@ -183,7 +187,7 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
           <input className="tk-input" type="file" accept=".txt,.md,text/plain,text/markdown" multiple disabled={frozen}
             aria-label="텍스트 참고 문서 (.txt, .md)" onChange={(event) => { addDocuments(Array.from(event.target.files ?? [])); event.target.value = ""; }} />
         </label>
-        <p className="creative-hint">선택한 문서는 이 브라우저에서 텍스트로 읽습니다. 제출할 때만 storyboard 요청에 포함되며 파일 자체는 업로드하지 않습니다. 이미지·영상·음악·PDF 읽기는 지원하지 않습니다.</p>
+        <p className="creative-hint">선택한 문서는 이 브라우저에서 텍스트로 읽습니다. 제출할 때만 요청에 포함되며 파일 자체는 업로드하지 않아요. 이미지·영상·음악·PDF는 아직 읽지 못해요.</p>
         {documents.length > 0 && <ul aria-label="선택한 참고 문서">
           {documents.map((document) => <li key={document.id}>
             <span>{document.file.name}</span> · {document.status === "loading" ? "읽는 중" : document.status === "ready" ? "읽기 완료" : "오류"}
@@ -193,36 +197,37 @@ export function StoryboardCreateFlow({ onAccepted }: { onAccepted?: (planId: str
         </ul>}
       </div>
       {inputError && <p className="tk-error" role="alert">{inputError}</p>}
-      <p className="creative-hint">요청은 codex storyboard API의 지원 필드만 보냅니다. 새 계획은 16:9로 고정됩니다. 계획 길이는 모델이 제안한 장면 길이의 합이며 입력 길이를 보장하지 않습니다. 먼저 장면과 도구 선택을 검토하며 제작이나 승인은 시작되지 않습니다.</p>
+      <p className="creative-hint">계획 길이는 AI가 제안한 장면 길이의 합이라 입력한 길이를 보장하지 않아요. 먼저 장면과 도구 선택을 검토하며, 제작이나 승인은 시작되지 않아요.</p>
+      <details className="creative-hint"><summary>기술 정보</summary><p>요청은 장면 구성 API가 지원하는 필드(brief, sources, engine=codex)만 보냅니다. 이 경로로 만든 계획의 화면 비율은 16:9로 고정됩니다.</p></details>
       {!run && <Button type="button" variant="primary" busy={start.isPending} disabled={!request || start.isPending} onClick={submit}>AI 장면 구성 만들기</Button>}
       {start.isError && <p className="tk-error" role="alert">{errorMessage(start.error)}</p>}
     </div>
 
     {run && <section className="storyboard-review" aria-labelledby="storyboard-review-title">
-      <div className="storyboard-review__heading"><h3 id="storyboard-review-title">실행 상태 · {STATUS[phase ?? ""] ?? phase}</h3><span>{run.engine}{run.model ? ` · ${run.model}` : ""}</span></div>
+      <div className="storyboard-review__heading"><h3 id="storyboard-review-title">실행 상태 · {STATUS[phase ?? ""] ?? phase}</h3><details className="creative-hint"><summary>상세 보기</summary><span>엔진 {run.engine}{run.model ? ` · ${run.model}` : ""} · 작업 {run.run_id}</span></details></div>
       {result.isPending && <p role="status">서버 상태를 불러오는 중…</p>}
       {result.isError && <p className="tk-error" role="alert">{errorMessage(result.error)} <Button onClick={() => void result.refetch()}>상태 다시 확인</Button></p>}
       {data?.error && <p className="tk-error" role="alert">{data.error}</p>}
       {data && (data.status === "queued" || data.status === "running") && <div className="storyboard-review__actions">
-        <p role="status">{STATUS[data.status]} · 실제 Run {data.run_id}</p>
+        <p role="status">{STATUS[data.status]}</p>
         <Button busy={cancel.isPending} onClick={() => cancel.mutate()}>취소 요청</Button>
-        {cancel.isError && <p className="tk-error" role="alert">{errorMessage(cancel.error)} 실행 중 Run은 서버가 취소를 거부할 수 있습니다.</p>}
+        {cancel.isError && <p className="tk-error" role="alert">{errorMessage(cancel.error)} 실행 중인 작업은 서버가 취소를 거부할 수 있어요.</p>}
       </div>}
       {data?.phase === "invalid_output" && <p className="creative-notice">모델 출력이 서버 검증을 통과하지 못했습니다. 출력은 계획으로 바꾸지 않았습니다.</p>}
-      {terminal && <div className="storyboard-review__actions"><p>종료 상태에서 같은 요청 맥락으로 새 Run을 재개할 수 있습니다.</p><Button busy={resume.isPending} onClick={() => { const key = resumeKey || makeKey(); setResumeKey(key); resume.mutate(key); }}>이 Run 재개</Button>{resume.isError && <p role="alert" className="tk-error">{errorMessage(resume.error)}</p>}</div>}
+      {terminal && <div className="storyboard-review__actions"><p>종료된 작업은 같은 요청 맥락으로 새로 이어서 실행할 수 있어요.</p><Button busy={resume.isPending} onClick={() => { const key = resumeKey || makeKey(); setResumeKey(key); resume.mutate(key); }}>이 작업 이어서 실행</Button>{resume.isError && <p role="alert" className="tk-error">{errorMessage(resume.error)}</p>}</div>}
       {resume.isError && <p role="alert" className="tk-error">{errorMessage(resume.error)}</p>}
       {data?.phase === "completed_needs_review" && data.storyboard && data.output_sha256 && <>
-        <div className="creative-notice"><strong>검토 대기 · SHA-256 {data.output_sha256}</strong><p>이 출력은 아직 미승인입니다. 서버의 sources는 사용자 요청과 선택 입력이며 전문지식 검색·독립 검증 결과가 아닙니다.</p></div>
+        <div className="creative-notice"><strong>검토 대기</strong><p>이 출력은 아직 미승인입니다. 아래 출처는 내가 입력한 내용이며 전문지식 검색이나 독립 검증 결과가 아닙니다.</p><details><summary>상세 보기 (기술 정보)</summary><p>출력 SHA-256 {data.output_sha256}</p></details></div>
         <h4>구성 요약</h4><p>{data.storyboard.summary}</p>
-        <div className="storyboard-review__sources"><h4>출처와 지식 적용</h4>{data.sources.map((source) => <article key={source.id}><strong>{source.locator === "사용자 요청" ? "사용자 요청" : source.locator}</strong><p>{source.text}</p>{data.storyboard!.knowledge.filter((item) => item.source_id === source.id).map((item, index) => <blockquote key={`${source.id}-${index}`}><p>“{item.quote}”</p><span>적용: {item.application}</span></blockquote>)}</article>)}</div>
+        <div className="storyboard-review__sources"><h4>입력한 내용과 적용 방식</h4>{data.sources.map((source) => <article key={source.id}><strong>{source.locator === "사용자 요청" ? "사용자 요청" : source.locator}</strong><p>{source.text}</p>{data.storyboard!.knowledge.filter((item) => item.source_id === source.id).map((item, index) => <blockquote key={`${source.id}-${index}`}><p>“{item.quote}”</p><span>적용: {item.application}</span></blockquote>)}</article>)}</div>
         <div className="storyboard-review__scenes"><h4>장면 검토 · 합계 {data.storyboard.scenes.reduce((n, scene) => n + scene.seconds, 0).toFixed(1)}초</h4>{data.storyboard.scenes.map((scene, index) => <article className="storyboard-scene" key={scene.scene_id}>
           <div className="storyboard-scene__top"><h5>{String(index + 1).padStart(2, "0")} · {scene.title}</h5><span>{scene.seconds}초 · {scene.strategy}{scene.preset ? ` · ${scene.preset}` : ""}</span></div>
           <p>{scene.narration || "내레이션 없음"}</p><p><strong>선택 이유:</strong> {scene.rationale}</p>
           <div className="storyboard-scene__shots">{scene.shots.map((shot) => <div key={shot.shot_id}><strong>{shot.action}</strong><span>레이어 {shot.layers.join(" · ") || "없음"}</span><span>필요 도구 {shot.required_capabilities.join(" · ") || "없음"}</span></div>)}</div>
           <p><strong>대안:</strong> {scene.alternatives.map((alt) => `${alt.strategy} — ${alt.rationale}`).join(" / ")}</p>
         </article>)}</div>
-        <label className="storyboard-review__accept"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} /> 출력 SHA {data.output_sha256}와 출처·장면·도구·근거·대안을 확인했습니다.</label>
-        <p className="creative-hint">계획 이동 후에도 승인과 제작은 별도 단계입니다. 이 화면에서는 승인, dispatch, render를 호출하지 않습니다.</p>
+        <label className="storyboard-review__accept"><input type="checkbox" checked={reviewed} onChange={(event) => setReviewed(event.target.checked)} /> 출처·장면·도구·근거·대안을 확인했습니다. (승인할 출력은 위 상세 보기의 기술 정보로 고정돼요)</label>
+        <p className="creative-hint">계획 이동 후에도 승인과 제작은 별도 단계입니다. 이 화면에서는 승인이나 제작을 시작하지 않아요.</p>
         {notice && <p className="creative-notice" role="status">{notice}</p>}
         {accept.isError && <p className="tk-error" role="alert">{errorMessage(accept.error)}</p>}
         <Button variant="primary" busy={accept.isPending} disabled={!reviewed || accept.isPending} onClick={() => accept.mutate()}>이 출력으로 미승인 계획 만들기</Button>

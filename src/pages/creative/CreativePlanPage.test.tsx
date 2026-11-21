@@ -349,68 +349,28 @@ function mount(path: string) {
   );
 }
 
-function mountPlanNew() {
+test("the default entry is the intent workspace, not a text submit form, and shows no internal terms", async () => {
+  stub((url) => url.endsWith("/api/creative/projects") || url.endsWith("/api/creative/v2/plans") ? [] : { catalogs: {}, groups: [], fields: [], tones: {}, rules: [], rules_version: "1" });
+  mount("/creative/plan");
+  expect(await screen.findByRole("heading", { name: "의도 입력" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "조건 조합·보완" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "AI 제작 제안" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "AI 장면 구성 만들기" })).toBeNull();
+  expect(screen.queryByText("구조화 계획 입력 (보조 경로)")).toBeNull();
+  const text = document.body.textContent ?? "";
+  expect(text).not.toMatch(/codex storyboard API|SHA-256|storyboard API/);
+});
+
+test("a plan opened from the workspace tells the user when the confirmed intent was not linked", async () => {
+  stub((url) => url.endsWith("/api/creative/projects") ? [] : planFixture());
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={["/creative/plan"]}><CreativePlanNewPage /></MemoryRouter>
+      <MemoryRouter initialEntries={[{ pathname: "/creative/plan/11111111-1111-4111-8111-111111111111", state: { intentLink: { linked: false, revision: 3 } } }]}>
+        <Routes><Route path="/creative/plan/:id" element={<CreativePlanDetailPage />} /></Routes>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
-}
-
-test("a creator can make a plan directly from a brief with optional duration and aspect", async () => {
-  const created = planFixture();
-  const calls = stub((url, init) => {
-    if (url.endsWith("/api/creative/projects")) return [];
-    if (url.endsWith("/api/creative/v2/catalog")) return { catalogs: { C01: { name: "콘텐츠 유형", entries: [{ id: "C01.tech_explainer", name: "기술 설명" }] } } };
-    if (url.endsWith("/api/creative/v2/plans") && init?.method === "POST") return created;
-    if (url.endsWith("/api/creative/v2/plans")) return [];
-    return created;
-  });
-  mountPlanNew();
-  fireEvent.click(screen.getByText("구조화 계획 입력 (보조 경로)"));
-  const submit = await screen.findByRole("button", { name: "장면 계획 만들기" });
-  fireEvent.change(screen.getAllByPlaceholderText(/주제, 전달할 내용/)[1], { target: { value: "기술 설명 영상" } });
-  fireEvent.click(screen.getByText("원하는 길이 (선택)"));
-  fireEvent.click(screen.getByRole("radio", { name: "3분" }));
-  fireEvent.change(screen.getByRole("combobox", { name: "화면 비율" }), { target: { value: "9:16" } });
-  await waitFor(() => expect((submit as HTMLButtonElement).disabled).toBe(false));
-  fireEvent.click(submit);
-  await waitFor(() => expect(calls.some((c) => c.url.endsWith("/api/creative/v2/plans") && c.method === "POST")).toBe(true));
-  const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/api/creative/v2/plans"));
-  expect(post?.body).toMatchObject({ brief: "기술 설명 영상", aspect: "9:16", duration: { mode: "preferred", seconds: 180 } });
-  expect(post?.body).not.toHaveProperty("intent");
-  expect(calls.some((call) => call.url.endsWith("/intent/validate"))).toBe(false);
-});
-
-test("storyboard is the default entry and structured plan input stays secondary", async () => {
-  stub((url) => url.endsWith("/api/creative/projects") || url.endsWith("/api/creative/v2/plans") ? [] : { catalogs: {} });
-  mount("/creative/plan");
-  expect(await screen.findByRole("button", { name: "AI 장면 구성 만들기" })).toBeTruthy();
-  expect(screen.getByText("구조화 계획 입력 (보조 경로)").closest("details")?.open).toBe(false);
-  expect(screen.getByRole("button", { name: "장면 계획 만들기", hidden: true }).closest("details")?.open).toBe(false);
-});
-
-test("automatic duration is the default; invalid optional custom duration blocks submission", async () => {
-  const calls = stub((url, init) => {
-    if (url.endsWith("/api/creative/projects")) return [];
-    if (url.endsWith("/api/creative/v2/plans") && init?.method === "POST") return planFixture();
-    return [];
-  });
-  mount("/creative/plan");
-  fireEvent.click(screen.getByText("구조화 계획 입력 (보조 경로)"));
-  const submit = (await screen.findByRole("button", { name: "장면 계획 만들기" })) as HTMLButtonElement;
-  fireEvent.change(screen.getAllByPlaceholderText(/주제, 전달할 내용/)[1], { target: { value: "내용" } });
-  expect(submit.disabled).toBe(false);
-  fireEvent.click(screen.getByText("원하는 길이 (선택)"));
-  fireEvent.click(screen.getByRole("radio", { name: "직접 입력" }));
-  fireEvent.change(screen.getByLabelText(/직접 입력 \(초/), { target: { value: "901" } });
-  expect(submit.disabled).toBe(true);
-  fireEvent.change(screen.getByLabelText(/직접 입력 \(초/), { target: { value: "45" } });
-  expect(submit.disabled).toBe(false);
-  fireEvent.click(screen.getByRole("radio", { name: "자동" }));
-  fireEvent.click(submit);
-  await waitFor(() => expect(calls.some((call) => call.method === "POST" && call.url.endsWith("/api/creative/v2/plans"))).toBe(true));
-  expect(calls.find((call) => call.method === "POST" && call.url.endsWith("/api/creative/v2/plans"))?.body).toMatchObject({ brief: "내용", duration: { mode: "auto" } });
+  expect(await screen.findByText("확정한 의도가 계획에 연결되지 않았어요")).toBeTruthy();
 });
 
 test("plan detail shows expected runtime, reasons, range, honest match status and gaps before render", async () => {
