@@ -8,6 +8,9 @@ import type {
   IntentResolveResult,
   IntentSpecV2,
 } from "../../../api/creativeV2";
+import { entryFeasibility } from "./feasibility";
+import type { FeasibilityResult } from "./feasibility";
+import type { CreativeCapabilities } from "../../../api/creativeV2";
 
 /** 처음 보여 주는 조건 축. 12개 카탈로그 전체를 나열하지 않고, 나머지 차원은 전문 설정에서 연다. */
 export const STARTER_DIMENSIONS: Array<{ key: string; label: string; hint: string }> = [
@@ -35,20 +38,34 @@ export interface Labels {
   entriesByDimension: Map<string, Array<{ id: string; name: string }>>;
   fields: Map<string, IntentFacetField>;
   groups: Map<string, { title: string; description: string; tier: "essential" | "advanced" }>;
+  /** 카탈로그·톤 조건 id. 설정 선택지 id와 구분해, 답변이 제작에 쓰이는 조건인지 가른다. */
+  catalogIds: Set<string>;
+  /** 조건 id별 제작 가능 여부. 능력 응답을 못 받았거나 필수 능력이 없는 조건은 키가 없다. */
+  feasibility: Map<string, FeasibilityResult>;
+  /** 능력 응답을 받아 판정했는지. false면 배지가 없는 것이 "제작 가능"이 아니라 "모름"이다. */
+  feasibilityKnown: boolean;
 }
 
-export function buildLabels(catalog: CreativeCatalog | undefined, facets: IntentFacets | undefined): Labels {
+export function buildLabels(catalog: CreativeCatalog | undefined, facets: IntentFacets | undefined, capabilities?: CreativeCapabilities): Labels {
   const conditions = new Map<string, string>();
   const dimensions = new Map<string, string>([["tone", "톤"]]);
   const entriesByDimension = new Map<string, Array<{ id: string; name: string }>>();
+  const feasibility = new Map<string, FeasibilityResult>();
+  const caps = capabilities?.capabilities;
+  const feasibilityKnown = !!caps && Object.keys(caps).length > 0;
   for (const [dim, cat] of Object.entries(catalog?.catalogs ?? {})) {
     dimensions.set(dim, cat.name);
     entriesByDimension.set(dim, cat.entries.map((e) => ({ id: e.id, name: e.name })));
-    for (const e of cat.entries) conditions.set(e.id, e.name);
+    for (const e of cat.entries) {
+      conditions.set(e.id, e.name);
+      const f = feasibilityKnown ? entryFeasibility(e.relations, caps) : null;
+      if (f) feasibility.set(e.id, f);
+    }
   }
   const tones = Object.entries(facets?.tones ?? {});
   entriesByDimension.set("tone", tones.map(([id, name]) => ({ id, name })));
   for (const [id, name] of tones) conditions.set(id, name);
+  const catalogIds = new Set(conditions.keys());
   const fields = new Map<string, IntentFacetField>();
   for (const f of facets?.fields ?? []) {
     fields.set(f.id, f);
@@ -56,7 +73,7 @@ export function buildLabels(catalog: CreativeCatalog | undefined, facets: Intent
   }
   const groups = new Map<string, { title: string; description: string; tier: "essential" | "advanced" }>();
   for (const g of facets?.groups ?? []) groups.set(g.id, { title: g.title, description: g.description, tier: g.tier });
-  return { conditions, dimensions, entriesByDimension, fields, groups };
+  return { conditions, dimensions, entriesByDimension, fields, groups, catalogIds, feasibility, feasibilityKnown };
 }
 
 export const labelOf = (labels: Labels, id: string) => labels.conditions.get(id) ?? id;

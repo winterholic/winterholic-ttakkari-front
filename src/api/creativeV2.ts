@@ -459,8 +459,26 @@ export interface StoryboardRunResult extends Omit<StoryboardRunStart, "resumed_f
   resumed_from?: string | null;
 }
 
+export interface CatalogRelation { type: string; target: string; strength: string; note: string }
+
 export interface CreativeCatalog {
-  catalogs: Record<string, { name: string; entries: Array<{ id: string; name: string }> }>;
+  catalogs: Record<string, { name: string; entries: Array<{ id: string; name: string; relations?: CatalogRelation[]; evidence_status?: string }> }>;
+}
+
+export interface CapabilityProvider {
+  entry_id: string;
+  capability: string;
+  level: "executed" | "executed_partial" | "installed" | "declared" | "missing" | string;
+  /** creative_runtime·app_service만 스튜디오 제작에 연결된 경로다. lab_only·none은 실험실 수준이다. */
+  integration: "creative_runtime" | "app_service" | "lab_only" | "none" | string;
+  evidence: string[];
+  constraints: string[];
+}
+
+export interface CapabilityInfo { name: string; description: string; best_level: string; providers: CapabilityProvider[] }
+
+export interface CreativeCapabilities {
+  capabilities: Record<string, CapabilityInfo>;
 }
 
 /** 제작 의도 v2 (백엔드 docs/design/creative-studio-v2-intent-v2.md). 서버 값이 정본이고 화면은 그대로 그린다. */
@@ -626,6 +644,7 @@ export const planPolicy = () => json<DurationPolicy>(`${root}/duration/policy`);
 export const planList = () => json<CreativePlan[]>(`${root}/plans`);
 export const planGet = (id: string) => json<CreativePlan>(`${root}/plans/${id}`);
 export const planCatalog = () => json<CreativeCatalog>(`${root}/catalog`);
+export const planCapabilities = () => json<CreativeCapabilities>(`${root}/capabilities`);
 type PlanCreateBody = { brief: string; name?: string } & (
   | { intent_v2: IntentSpecV2; intent?: never; duration?: never; aspect?: never }
   | { intent_v2?: never; intent?: CreativeIntent; duration?: DurationRequest; aspect?: string }

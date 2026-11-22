@@ -83,3 +83,5 @@
 .cw-detail__facts dd { margin: 0; overflow-wrap: anywhere; }
 .cw-detail__history { margin: 0; padding-left: var(--tk-space-5); font-size: var(--tk-font-size-sm); color: var(--tk-color-text-secondary); overflow-wrap: anywhere; }
 .cw-nav { display: flex; gap: var(--tk-space-2); flex-wrap: wrap; }
+.cw-feas { display: inline-flex; margin-inline-start: var(--tk-space-1); }
+.cw-feasibility li { display: flex; gap: var(--tk-space-2); align-items: baseline; flex-wrap: wrap; }

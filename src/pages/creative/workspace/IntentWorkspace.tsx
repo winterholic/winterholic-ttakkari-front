@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
-import { intentFacets, planCatalog, planCreate } from "../../../api/creativeV2";
+import { intentFacets, planCapabilities, planCatalog, planCreate } from "../../../api/creativeV2";
 import type { IntentConditionV2, IntentConflictV2, IntentSpecV2 } from "../../../api/creativeV2";
 import { errorText } from "../../../features/viewer/api";
 import { Badge } from "../../../ui/Badge";
@@ -11,6 +11,7 @@ import { StoryboardCreateFlow, type StoryboardSeed } from "../StoryboardCreateFl
 import { ConditionPicker } from "./ConditionPicker";
 import type { ConditionActions } from "./ConditionPicker";
 import { ConflictCards } from "./ConflictCards";
+import { FeasibilitySummary } from "./FeasibilitySummary";
 import { AdvancedSettingsDialog, GroupCards } from "./DynamicGroups";
 import { OutputPanel } from "./OutputPanel";
 import { ProposalPanel } from "./ProposalPanel";
@@ -37,7 +38,9 @@ export function IntentWorkspace() {
   const ws = useIntentWorkspace();
   const catalog = useQuery({ queryKey: ["creative-v2-catalog"], queryFn: planCatalog, staleTime: Infinity, retry: false });
   const facets = useQuery({ queryKey: ["creative-v2-intent-facets"], queryFn: intentFacets, staleTime: Infinity, retry: false });
-  const labels = useMemo(() => buildLabels(catalog.data, facets.data), [catalog.data, facets.data]);
+  // 제작 가능 여부는 보조 정보다. 못 받아도 조건 선택은 막지 않고, 배지가 없는 것이 가능이라는 뜻이 아님을 알린다.
+  const capabilities = useQuery({ queryKey: ["creative-v2-capabilities"], queryFn: planCapabilities, staleTime: 60_000, retry: false });
+  const labels = useMemo(() => buildLabels(catalog.data, facets.data, capabilities.data), [catalog.data, facets.data, capabilities.data]);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [storyboardSeed, setStoryboardSeed] = useState<StoryboardSeed>();
   const { result, busy } = ws;
@@ -60,8 +63,16 @@ export function IntentWorkspace() {
   const resolveConflict = (conflict: IntentConflictV2, choice: string) => ws.send({ resolutions: [{ conflict_id: conflict.id, choice }] });
 
   const create = useMutation({
-    mutationFn: () => createPlanFromIntent(intent!, ws.brief, labels),
-    onSuccess: ({ plan, link }) => {
+    // 문장을 고친 직후에는 화면의 intent가 낡았다. 최신 문장으로 다시 풀고, 그 결과가 계획 가능할 때만 만든다.
+    mutationFn: async () => {
+      const fresh = await ws.settle();
+      if (!fresh) throw new Error("바뀐 문장을 다시 읽지 못했어요. 잠시 뒤 다시 시도해 주세요.");
+      if (!fresh.result.ready_for_plan) return null;
+      return createPlanFromIntent(fresh.result.intent, fresh.brief, labels);
+    },
+    onSuccess: (made) => {
+      if (!made) return;
+      const { plan, link } = made;
       void qc.invalidateQueries({ queryKey: ["creative-plans"] });
       navigate(`/creative/plan/${plan.id}`, { state: { intentLink: link } });
     },
@@ -71,10 +82,12 @@ export function IntentWorkspace() {
   const notSupported = [catalog.error, facets.error].some((e) => (e as { status?: number } | null)?.status === 404);
   const ready = !!result?.ready_for_plan && !busy;
   const conflicts = result?.layout.conflicts ?? [];
-  function openStoryboard() {
-    if (!intent) return;
+  async function openStoryboard() {
+    const fresh = await ws.settle();
+    if (!fresh?.result.ready_for_plan) return;
+    const { intent } = fresh.result;
     const summary = summarizeIntent(intent, labels);
-    setStoryboardSeed({ brief: intent.brief || ws.brief.trim() || summary, intentSummary: summary, intent });
+    setStoryboardSeed({ brief: intent.brief || fresh.brief.trim() || summary, intentSummary: summary, intent });
   }
 
   return (
@@ -85,14 +98,14 @@ export function IntentWorkspace() {
           <label className="tk-field">만들고 싶은 콘텐츠
             <textarea className="tk-textarea" rows={5} maxLength={BRIEF_MAX} value={ws.brief} aria-label="만들고 싶은 콘텐츠"
               onChange={(e) => ws.setBrief(e.target.value)}
-              placeholder="주제, 분위기, 길이, 원하는 장면을 자유롭게 적어 주세요. 아래에서 조건을 직접 골라도 같이 반영돼요." />
+              placeholder="주제, 분위기, 길이, 원하는 장면을 자유롭게 적어 주세요. 아래에서 조건을 직접 골라도 같이 읽어요." />
           </label>
-          <p className="cw-hint">쓰는 동안 문장에서 조건을 읽어 아래에 보여 드려요. 읽은 값은 직접 확정해야 계획에 쓰여요.</p>
+          <p className="cw-hint">쓰는 동안 문장에서 조건을 읽어 아래에 보여 드려요. 읽은 값은 직접 확정해야 계획에 쓰여요. 조건마다 실제로 제작되는지 배지로 알려 드려요.</p>
         </section>
 
         <section className="tk-card cw-step" aria-labelledby="cw-step-2">
           <header className="cw-step__head"><Badge tone="info">2</Badge><h2 id="cw-step-2">조건 조합·보완</h2>
-            {busy && <span className="cw-busy" role="status"><span className="tk-spinner" aria-hidden="true" />다시 계산 중</span>}
+            {(busy || ws.stale) && <span className="cw-busy" role="status"><span className="tk-spinner" aria-hidden="true" />다시 계산 중</span>}
           </header>
           {setupFailed && (
             <p className="tk-error" role="alert">
@@ -140,11 +153,12 @@ export function IntentWorkspace() {
               {result.blocking.map((id) => <li key={id} data-result="fail"><Icon name="circle-x" /><span>{blockingText(id, result)}</span></li>)}
             </ul>
           )}
-          {result?.ready_for_plan && <p className="tk-status tk-status--success"><Icon name="circle-check" />의도가 확정됐어요.</p>}
+          {result?.ready_for_plan && <p className="tk-status tk-status--success"><Icon name="circle-check" />의도가 확정됐어요. 제작 가능하다는 뜻은 아니에요.</p>}
+          {intent && <FeasibilitySummary intent={intent} labels={labels} loading={capabilities.isPending} failed={capabilities.isError || (capabilities.isSuccess && !labels.feasibilityKnown)} />}
           {!result && <p className="cw-hint">콘텐츠 유형을 확정하면 계획을 만들 수 있어요.</p>}
           {create.isError && <p className="tk-error" role="alert">{errorText(create.error).message}</p>}
           <Button variant="primary" block busy={create.isPending} disabled={!ready || create.isPending} onClick={() => create.mutate()}>이 의도로 계획 만들기</Button>
-          <Button block disabled={!ready} onClick={openStoryboard}>AI 장면 구성 초안으로 이어가기</Button>
+          <Button block disabled={!ready} onClick={() => void openStoryboard()}>AI 장면 구성 초안으로 이어가기</Button>
           <p className="cw-hint">계획을 만든 뒤 장면 검토, 제작, 결과 검수로 이어져요. 승인 전에는 제작이 시작되지 않아요.</p>
         </section>
       </aside>

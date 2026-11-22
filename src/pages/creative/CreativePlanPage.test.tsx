@@ -307,7 +307,7 @@ test("revision comparison requests bound temporary links and can load an old cap
     return plan;
   });
   mount(`/creative/plan/${plan.id}`);
-  await screen.findByRole("button", { name: "결과 영상 열기" });
+  await screen.findByLabelText("결과 영상");
   fireEvent.click(await screen.findByRole("button", { name: "직전 결과와 비교" }));
   await screen.findByLabelText("이전 revision 1 결과");
   await screen.findByLabelText("현재 revision 2 결과");
@@ -316,7 +316,8 @@ test("revision comparison requests bound temporary links and can load an old cap
   fireEvent.click(await screen.findByRole("button", { name: "수정 전 문구를 수정 초안에 불러오기" }));
   expect(screen.getByRole("textbox", { name: "수정 문구 s1" })).toHaveProperty("value", "원본 제목");
   const links = calls.filter((call) => call.url.endsWith(`/api/creative/v2/plans/${plan.id}/production/result-link`));
-  expect(links.map((call) => call.body)).toEqual([{ revision: 2, result_id: "final" }, { revision: 1, result_id: "final" }]);
+  // 첫 번째는 결과 플레이어가 현재 revision 재생용으로 받은 링크다.
+  expect(links.map((call) => call.body)).toEqual([{ revision: 2, result_id: "final" }, { revision: 2, result_id: "final" }, { revision: 1, result_id: "final" }]);
   expect(screen.getByText(/링크 SHA 222222222222/)).toBeTruthy();
 });
 
@@ -729,9 +730,9 @@ test("a queued render refreshes until the worker starts it", async () => {
   expect(await screen.findByText("렌더 중", { selector: "span" }, { timeout: 3500 })).toBeTruthy();
 });
 
-test("a finished render shows measured QA checks, the duration deviation and opens the media through a signed link", async () => {
+test("a finished render shows measured QA checks, the duration deviation and plays and downloads the result through a signed result link", async () => {
   const calls = stub((url, init) => {
-    if (url.endsWith("/production/media-link") && init?.method === "POST") return { url: "/api/creative/v2/plans/x/production/media/m1?token=t" };
+    if (url.endsWith("/production/result-link") && init?.method === "POST") return { url: "/api/creative/v2/plans/x/production/results/1/final?token=t", expires_at: "2026-11-22T01:00:00Z", sha256: "s", revision: 1, result_id: "final" };
     if (url.includes("/production")) {
       return productionFixture({
         state: "succeeded",
@@ -767,10 +768,10 @@ test("a finished render shows measured QA checks, the duration deviation and ope
   expect(within(checks).getByText(/통과 · 기대 1280x720 · 측정 1280x720/)).toBeTruthy();
   expect(screen.getByText(/요청 길이 .*계획 .*\(deviated\) · 실제/)).toBeTruthy();
   expect(screen.getByText(/장면 2개 재사용/)).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "결과 영상 열기" }));
   const video = await screen.findByLabelText("결과 영상");
-  expect(video.getAttribute("src")).toContain("/production/media/m1?token=t");
-  expect(calls.find((c) => c.url.endsWith("/production/media-link"))?.body).toEqual({ id: "m1" });
+  expect(video.getAttribute("src")).toContain("/production/results/1/final?token=t");
+  expect(screen.getByRole("link", { name: /MP4 다운로드/ }).getAttribute("href")).toContain("token=t&download=true");
+  expect(calls.find((c) => c.url.endsWith("/production/result-link"))?.body).toMatchObject({ result_id: "final" });
 });
 
 test("a failed QA never offers the media", async () => {
@@ -792,7 +793,8 @@ test("a failed QA never offers the media", async () => {
   mount("/creative/plan/11111111-1111-4111-8111-111111111111");
   await screen.findByText("검사 실패");
   expect(screen.getByLabelText("결과 검사 항목")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "결과 영상 열기" })).toBeNull();
+  expect(screen.queryByLabelText("결과 영상")).toBeNull();
+  expect(screen.queryByRole("link", { name: /MP4 다운로드/ })).toBeNull();
 });
 
 test("a plan the engine cannot take shows why instead of a dispatch button", async () => {

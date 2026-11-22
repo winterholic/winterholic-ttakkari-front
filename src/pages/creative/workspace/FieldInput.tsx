@@ -29,8 +29,8 @@ export function FieldInput({ field, values, recommended, disabled, onAnswer, lab
           <button key={o.id} type="button" className="tk-chip" aria-pressed={pressed} data-recommended={recommended === o.id || undefined} disabled={disabled}
             onClick={() => {
               if (!multi) return onAnswer([o.id]);
-              const next = pressed ? values.filter((v) => v !== o.id) : [...values, o.id];
-              if (next.length) onAnswer(next);
+              // 마지막 값을 풀면 빈 목록을 그대로 보낸다. 삼키면 해제가 안 되고 서버는 이전 답을 계속 쓴다.
+              onAnswer(pressed ? values.filter((v) => v !== o.id) : [...values, o.id]);
             }}>
             <span>{labelOf(o.id)}</span>
           </button>

@@ -10,7 +10,6 @@ import {
   productionGet,
   productionRender,
   productionGenerateAssets,
-  productionMediaUrl,
   productionResultUrl,
   productionRevision,
   productionReview,
@@ -40,6 +39,7 @@ import { Badge } from "../../ui/Badge";
 import { Button } from "../../ui/Button";
 import { Icon } from "../../ui/Icon";
 import { DurationPicker } from "./DurationPicker";
+import { ResultVideo } from "./ResultVideo";
 import type { DurationState } from "./duration";
 import { INITIAL_DURATION, MAX_SECONDS, clock, describeRequest, formatSeconds, toRequest } from "./duration";
 import "../creative.css";
@@ -597,7 +597,6 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
     mutationFn: (v: { kind: "scene" | "music"; file: File; sceneId?: string }) => productionUpload(plan.id, v.kind, v.file, v.sceneId),
     onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
   });
-  const media = useMutation({ mutationFn: (mediaId: string) => productionMediaUrl(plan.id, mediaId) });
   const review = useMutation({
     mutationFn: () => productionReview(plan.id, plan.revision),
     onSuccess: () => void qc.invalidateQueries({ queryKey: key }),
@@ -627,7 +626,7 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
     onSuccess: setComparison,
   });
   const view = q.data;
-  const error = dispatch.error ?? generate.error ?? start.error ?? upload.error ?? media.error ?? review.error ?? repair.error ?? applyRepair.error ?? compareRevision.error ?? (q.isError ? q.error : null);
+  const error = dispatch.error ?? generate.error ?? start.error ?? upload.error ?? review.error ?? repair.error ?? applyRepair.error ?? compareRevision.error ?? (q.isError ? q.error : null);
   const dispatched = view && view.state !== "not_dispatched" && view.state !== "stale_revision";
   const missing = new Set(view?.assets.missing_scene_ids ?? []);
   const segmentFor = (sceneId: string) => view?.segments.find((segment) => segment.scene_ids.includes(sceneId));
@@ -882,12 +881,7 @@ function ProductionPanel({ plan }: { plan: CreativePlan }) {
                 </p>
               )}
               {view.state === "succeeded" && view.final.id && (
-                <>
-                  <Button busy={media.isPending} onClick={() => media.mutate(view.final!.id!)}>
-                    결과 영상 열기
-                  </Button>
-                  {media.data && <video controls src={media.data} aria-label="결과 영상" style={{ maxWidth: "100%" }} />}
-                </>
+                <ResultVideo planId={plan.id} revision={view.plan_revision} sha256={view.final.sha256} name={view.final.name} />
               )}
             </div>
           )}

@@ -6,6 +6,7 @@ import { Icon } from "../../../ui/Icon";
 import { ConditionPicker, ExtraDimensionPicker } from "./ConditionPicker";
 import type { ConditionActions } from "./ConditionPicker";
 import { FieldInput } from "./FieldInput";
+import { answerRecordedOnly } from "./feasibility";
 import { DEDICATED_GROUPS, labelOf, optionLabel } from "./intentModel";
 import type { Labels } from "./intentModel";
 import type { IntentSpecV2 } from "../../../api/creativeV2";
@@ -35,12 +36,18 @@ function QuestionBlock({ question, field, labels, disabled, onAnswer }: {
   );
 }
 
+/** 서버는 조건이 아닌 값을 담은 답변을 의도에만 저장하고 제작에는 쓰지 않는다. 그 사실을 답변 옆에 표시한다. */
+function RecordedOnlyBadge({ values, labels }: { values: string[]; labels: Labels }) {
+  if (!answerRecordedOnly(values, labels.catalogIds)) return null;
+  return <span title="이 답변은 의도에 저장되지만 이 설정을 소비하는 제작 경로가 아직 없어요. 영상에는 반영되지 않을 수 있어요."><Badge tone="warning">계획에만 기록</Badge></span>;
+}
+
 function AnsweredBlock({ field, values, labels, disabled, onAnswer }: {
   field: IntentFacetField; values: string[]; labels: Labels; disabled: boolean; onAnswer: Answer;
 }) {
   return (
     <div className="cw-q" data-mode="answered">
-      <div className="cw-q__title"><strong>{field.question}</strong><Badge tone="success">내가 정함</Badge></div>
+      <div className="cw-q__title"><strong>{field.question}</strong><Badge tone="success">내가 정함</Badge><RecordedOnlyBadge values={values} labels={labels} /></div>
       <FieldInput field={field} values={values} disabled={disabled} labelOf={(v) => optionLabel(field, v, labels)} onAnswer={(v) => onAnswer(field.id, v)} />
     </div>
   );

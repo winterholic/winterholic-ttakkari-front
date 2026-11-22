@@ -4,6 +4,7 @@ import { Button, IconButton } from "../../../ui/Button";
 import { Icon } from "../../../ui/Icon";
 import { ORIGIN_META, STARTER_DIMENSIONS, conditionsOf, isConfirmed, labelOf } from "./intentModel";
 import type { Labels } from "./intentModel";
+import { FeasibilityBadge } from "./FeasibilityBadge";
 
 export interface ConditionActions {
   select: (id: string, dimension: string) => void;
@@ -24,6 +25,7 @@ function ConditionChip({ condition, labels, actions }: { condition: IntentCondit
       <Icon name={confirmed ? "circle-check" : condition.origin === "ai_inferred" ? "sparkles" : "pen-tool"} />
       <span>{label}</span>
       <span className="cw-cond__origin">{meta.label}</span>
+      <FeasibilityBadge result={labels.feasibility.get(condition.id)} />
       {confirmed
         ? <button type="button" className="cw-cond__action" aria-pressed={condition.strength === "required"} aria-label={`${label} 필수 조건`} onClick={() => actions.setStrength(condition, condition.strength === "required" ? "preferred" : "required")}>{condition.strength === "required" ? "필수" : "선호"}</button>
         : <button type="button" className="cw-cond__action" aria-label={`${label} 확정`} onClick={() => actions.confirm([condition.id])}>확정</button>}
@@ -58,6 +60,7 @@ function DimensionRow({ dimension, label, hint, intent, labels, actions, openByD
               <button key={e.id} type="button" className="tk-chip" aria-pressed={pressed} data-origin={current?.origin}
                 onClick={() => (pressed ? actions.remove(e.id) : actions.select(e.id, dimension))}>
                 <span>{e.name}</span>
+                <FeasibilityBadge result={labels.feasibility.get(e.id)} />
               </button>
             );
           })}

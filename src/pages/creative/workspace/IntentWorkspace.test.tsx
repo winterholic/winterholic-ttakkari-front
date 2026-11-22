@@ -190,3 +190,71 @@ test("a server without the intent contract says so instead of showing an empty f
   mount();
   expect(await screen.findByText(/아직 제작 의도 v2를 지원하지 않아요/)).toBeTruthy();
 });
+
+const PLANS_OK = (url: string, init?: RequestInit) =>
+  url.endsWith("/api/creative/v2/plans") && init?.method === "POST" ? { id: "plan-9", revision: 1 } : undefined;
+
+test("editing the sentence and pressing next before the re-read finishes re-resolves with the latest text and plans from that result", async () => {
+  const ready = fixture("scenarioC_ready");
+  const calls = stub((req) => ({ ...ready, intent: { ...ready.intent, brief: req.brief ?? "" } }), PLANS_OK);
+  mount();
+  await type("감성 뮤직비디오 3분");
+  const next = await screen.findByRole("button", { name: "이 의도로 계획 만들기" });
+  await waitFor(() => expect((next as HTMLButtonElement).disabled).toBe(false), slow);
+  await type("잔잔한 풍경 영상 1분");
+  fireEvent.click(next);
+  await screen.findByText("계획 화면");
+  expect(resolveCalls(calls).at(-1)!.body.brief).toBe("잔잔한 풍경 영상 1분");
+  const post = calls.find((c) => c.method === "POST" && c.url.endsWith("/plans"))!;
+  expect(post.body.intent_v2.brief).toBe("잔잔한 풍경 영상 1분");
+});
+
+test("when the latest sentence is not plannable the stale ready result is not used to create a plan", async () => {
+  const ready = fixture("scenarioC_ready");
+  const calls = stub((req) => (req.brief === "다른 문장"
+    ? { ...ready, ready_for_plan: false, blocking: ["missing.content_type"], intent: { ...ready.intent, brief: "다른 문장", conditions: [] } }
+    : ready), PLANS_OK);
+  mount();
+  await type("감성 뮤직비디오 3분");
+  const next = await screen.findByRole("button", { name: "이 의도로 계획 만들기" });
+  await waitFor(() => expect((next as HTMLButtonElement).disabled).toBe(false), slow);
+  await type("다른 문장");
+  fireEvent.click(next);
+  await screen.findByText("콘텐츠 유형을 하나 이상 골라 주세요.", undefined, slow);
+  expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/plans"))).toBe(false);
+});
+
+const catalogWithRelations = () => {
+  const c = JSON.parse(JSON.stringify(fx.catalog)) as { catalogs: Record<string, { entries: Array<{ id: string; relations?: unknown[] }> }> };
+  const mv = c.catalogs.C01.entries.find((e) => e.id === "C01.music_video")!;
+  mv.relations = [{ type: "requires", target: "audio.music_analysis", strength: "hard", note: "" }];
+  return c;
+};
+const capabilitiesBody = {
+  capabilities: { "audio.music_analysis": { name: "음악 분석", description: "", best_level: "executed", providers: [{ entry_id: "p", capability: "audio.music_analysis", level: "executed", integration: "lab_only", evidence: [], constraints: [] }] } },
+};
+
+test("conditions the studio cannot produce are marked plan-only from the capabilities response and listed before creating the plan", async () => {
+  stub(fixture("scenarioC_ready"), (url) => {
+    if (url.endsWith("/api/creative/v2/capabilities")) return capabilitiesBody;
+    if (url.endsWith("/api/creative/v2/catalog")) return catalogWithRelations();
+    return undefined;
+  });
+  mount();
+  await type("감성 뮤직비디오 3분");
+  const note = await screen.findByRole("note", { name: "제작 가능 여부 안내" }, slow);
+  expect(within(note).getByText("뮤직비디오")).toBeTruthy();
+  expect(within(note).getAllByText("계획만 반영").length).toBeGreaterThan(0);
+  const chip = document.querySelector('.cw-cond[data-origin="user_confirmed"]')!;
+  expect(within(chip as HTMLElement).getByText("계획만 반영")).toBeTruthy();
+  // 의도 확정 문구가 제작 가능으로 읽히지 않는다.
+  expect(screen.getByText(/제작 가능하다는 뜻은 아니에요/)).toBeTruthy();
+});
+
+test("when the capabilities response is unavailable the missing badge is explained instead of implying everything is producible", async () => {
+  stub(fixture("scenarioC_ready"), (url) => (url.endsWith("/api/creative/v2/capabilities") ? new Response("{}", { status: 500 }) : undefined));
+  mount();
+  await type("감성 뮤직비디오 3분");
+  expect(await screen.findByText(/제작 가능 여부를 불러오지 못했어요/, undefined, slow)).toBeTruthy();
+  expect(document.querySelector(".cw-feas")).toBeNull();
+});
