@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
+import { ApiError } from "../../api/client";
 import type { AccountUsage } from "../../api/client";
 import { UsageDialog } from "./UsageDialog";
 
@@ -455,4 +456,11 @@ it("Antigravity 카드에서 Gemini 주간 활성화를 제어한다", async () 
   expect(screen.getByText("Gemini 모델 그룹에 적용돼요.")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "지금 활성화" }));
   await waitFor(() => expect(api.subscriptionAction).toHaveBeenCalledWith("agy", "activate"));
+});
+
+it("Antigravity 예약을 지원하지 않는 서버에서도 사용량 카드를 표시한다", async () => {
+  api.subscriptionState.mockRejectedValue(new ApiError(400, { code: "http_error", message: "Unsupported" }));
+  renderUsage();
+  expect(await screen.findByText("AI 크레딧 잔액: 0 크레딧")).toBeTruthy();
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Antigravity 주간 자동 활성화 관리" })).toBeNull());
 });

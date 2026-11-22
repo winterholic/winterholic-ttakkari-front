@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { subscriptionAction, subscriptionState, subscriptionToggle } from "../../api/client";
+import { ApiError, subscriptionAction, subscriptionState, subscriptionToggle } from "../../api/client";
 import type { SubscriptionObservation, SubscriptionState } from "../../api/client";
 import { errorText } from "../viewer/api";
 
@@ -36,8 +36,8 @@ function weekly(value: SubscriptionObservation | undefined, antigravity: boolean
   return value?.windows.find((window) => window.key === key);
 }
 
-export function SubscriptionRow({ accountId, accountName, accountEnabled, active = true, onUpdated }: {
-  accountId: string; accountName: string; accountEnabled: boolean; active?: boolean; onUpdated: () => void;
+export function SubscriptionRow({ accountId, accountName, accountEnabled, engine = "codex", active = true, onUpdated }: {
+  accountId: string; accountName: string; accountEnabled: boolean; engine?: "codex" | "antigravity"; active?: boolean; onUpdated: () => void;
 }) {
   const qc = useQueryClient();
   const key = ["accounts", "subscription", accountId];
@@ -53,6 +53,8 @@ export function SubscriptionRow({ accountId, accountName, accountEnabled, active
   const before = weekly(data?.last_result?.before, antigravity);
   const after = weekly(data?.last_result?.after, antigravity);
   const result = data?.action_result?.status;
+
+  if (engine === "antigravity" && q.error instanceof ApiError && q.error.status === 400) return null;
 
   return <section className="subscription" aria-label={`${accountName} 주간 자동 활성화 관리`} aria-busy={busy || undefined}>
     <div className="subscription__head">
