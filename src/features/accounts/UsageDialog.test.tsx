@@ -446,3 +446,13 @@ describe("UsageDialog Copilot 계정 잔여량", () => {
     expect(screen.queryByText("아직 사용량 기록이 없어요.")).toBeNull();
   });
 });
+
+it("Antigravity 카드에서 Gemini 주간 활성화를 제어한다", async () => {
+  api.subscriptionState.mockResolvedValue({ provider: "antigravity", auto_enabled: false });
+  renderUsage();
+  const toggle = await screen.findByRole("switch", { name: "Antigravity 주간 자동 활성화" });
+  expect((toggle as HTMLInputElement).checked).toBe(false);
+  expect(screen.getByText("Gemini 모델 그룹에 적용돼요.")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "지금 활성화" }));
+  await waitFor(() => expect(api.subscriptionAction).toHaveBeenCalledWith("agy", "activate"));
+});

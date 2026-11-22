@@ -357,7 +357,7 @@ export function UsageDialog({ open, onClose }: { open: boolean; onClose: () => v
                           <p className="usage__note">AI 크레딧 잔액: {a.credits_balance == null ? (a.credits_error ?? (a.error ? "조회 실패" : "미측정")) : `${a.credits_balance} 크레딧`}</p>
                         )}
                         {a.engine === "codex" && a.reset_credits && <ResetRow account={a} now={now} onDone={() => refreshAccount(a.id)} />}
-                        {a.engine === "codex" && <SubscriptionRow accountId={a.id} accountName={a.name} accountEnabled={on} active={open}
+                        {(a.engine === "codex" || a.engine === "antigravity") && <SubscriptionRow accountId={a.id} accountName={a.name} accountEnabled={on} active={open}
                           onUpdated={() => { void lq?.refetch(); }} />}
                         {measured(a) && (
                           <p className="usage-card__foot">
