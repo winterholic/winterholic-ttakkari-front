@@ -83,7 +83,6 @@ export function ShareLinkPanel({ project }: { project: ShareProject }) {
       <label className="share-check"><input type="checkbox" checked={allowExport} onChange={(e) => setAllowExport(e.target.checked)} disabled={pending} /><span>파일 내보내기 허용</span></label>
       <button className="tk-button tk-button--primary" disabled={pending || !label.trim() || project.publication?.status !== "active"} onClick={() => void issue()}>{pending ? "링크 발급 중" : "공유 링크 생성"}</button>
     </div>
-    {project.scope === "work" && <p className="share-muted">회사 범위는 조직 공유 정책에 따라 발급이 거절될 수 있습니다.</p>}
     {project.publication?.status !== "active" && <p className="share-muted">게시된 snapshot이 있어야 링크를 만들 수 있습니다.</p>}
     {error && <p className="share-alert" role="alert">{error}</p>}{notice && <p className="share-notice" role="status">{notice}</p>}
     {issued && <section className="share-issued" aria-label="발급된 공유 링크"><strong>원문 링크 · 지금 한 번만 표시됩니다</strong><code>{issued.url}</code><p>만료 {date(issued.expires_at)} · {policy === "pinned" ? "현재 게시물에 고정" : "최신 게시물"}</p><div className="share-actions"><button className="tk-button tk-button--primary" onClick={() => void copyUrl()}>링크 복사 후 원문 지우기</button><button className="tk-button tk-button--secondary" onClick={() => setIssued(null)}>닫기</button></div></section>}

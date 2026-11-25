@@ -91,7 +91,8 @@ export function describeShareError(e: unknown): ShareProblem {
     case "work_scope_confirmation_required":
       return { code: e.code, title: "회사 범위 확인이 필요합니다", body: "회사(work) 범위 자료가 포함돼 있습니다. 외부 공유 의도를 확인하는 선택을 켜야 초안을 만들 수 있습니다.", tone: "warning", retryable: false };
     case "work_sharing_policy_required":
-      return { code: e.code, title: "회사 공유 정책 승인이 필요합니다", body: "조직 공유 정책이 아직 승인되지 않아 회사 범위의 새 게시나 v2 키·링크를 발급할 수 없습니다. 체크박스나 개인 확인으로 이 제한을 바꿀 수 없습니다.", tone: "warning", retryable: false };
+      // 회사 범위 차단을 없애기 전의 백엔드만 이 코드를 보낸다.
+      return { code: e.code, title: "서버가 회사 범위 공유를 막고 있습니다", body: "서버가 회사 자료 공유를 막던 이전 버전입니다. 백엔드를 최신으로 배포하면 회사 범위도 게시와 키·링크 발급이 됩니다.", tone: "warning", retryable: false };
     case "work_scope_owner_only":
       return { code: e.code, title: "회사 범위 초안은 직접 만들어야 합니다", body: "에이전트는 회사 범위 초안을 만들 수 없습니다. 이 화면에서 직접 만드세요.", tone: "warning", retryable: false };
     case "draft_not_editable":

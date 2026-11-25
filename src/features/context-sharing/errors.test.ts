@@ -23,11 +23,11 @@ it("contract_incomplete 는 게시는 됐지만 키를 만들 수 없고 재시�
   expect(p.retryable).toBe(false);
 });
 
-it("회사 공유 정책이 없으면 새 게시·v2 자격 발급을 거절한 이유를 보존한다", () => {
+it("회사 범위를 막던 이전 백엔드의 거절은 배포 갱신을 안내한다", () => {
   const p = describeShareError(err(403, "work_sharing_policy_required"));
   expect(p.title).toMatch(/회사/);
-  expect(p.body).toMatch(/조직 공유 정책/);
-  expect(p.body).toMatch(/승인/);
+  expect(p.body).toMatch(/이전 버전/);
+  expect(p.body).toMatch(/배포/);
   expect(p.retryable).toBe(false);
 });
 
