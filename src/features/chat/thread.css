@@ -1,5 +1,8 @@
-/* 끝난 메시지는 화면 밖에서 레이아웃·페인트를 건너뛴다. 스트리밍 중인 메시지(aria-busy)는 제외한다. */
-.tk-thread__inner > .tk-message:not([aria-busy]) {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 180px;
+/* 채팅 스크롤 안정화:
+   가상 크기(content-visibility: auto)는 뷰포트 출입 시 높이가 수백~수천 px 요동쳐
+   스크롤 위치 보존(특히 WebKit 및 이전 대화 탐색)을 깨뜨리므로 적용하지 않는다.
+   과거 Run 이벤트의 무거운 조회를 미루는 일은 useNearViewport 지연 로딩이 이미 담당한다. */
+.tk-thread {
+  overflow-anchor: auto;
+  -webkit-overflow-scrolling: touch;
 }

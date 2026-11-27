@@ -17,13 +17,12 @@ import { Icon } from "../ui/Icon";
 import { EngineBadge } from "../ui/EngineBadge";
 import { Button } from "../ui/Button";
 import { useForegroundResync } from "../hooks/useForegroundResync";
+import { useThreadFollow } from "../hooks/useThreadFollow";
 import { buildForest, isActive } from "../features/tasks/buildTree";
 import { useActiveTasks, useTaskTree } from "../features/tasks/useTasks";
 import { NodePanel } from "../features/tasks/NodePanel";
 import "../features/orchestrator/orchestrator.css";
 import { Art } from "../ui/Art";
-
-const FOLLOW_THRESHOLD = 96;
 
 interface Attachment {
   key: string;
@@ -39,72 +38,6 @@ const MAX_PROMPT = 100_000;
 // 대화는 따까리 하나뿐이라 끝없이 길어진다. 최근 것부터 이만큼씩 읽는다.
 const RUN_PAGE = 40;
 
-/** 바닥 근처일 때만 새 내용을 따라가고, 위로 올려 읽는 중이면 '새 메시지' 버튼을 띄운다(docs/07 §5). */
-function useThreadFollow(dep: unknown) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inner = useRef<HTMLDivElement>(null);
-  const atBottom = useRef(true);
-  // 위에 이전 대화를 붙일 때는 아래로부터의 거리를 지켜 읽던 자리에 머문다. 새 메시지 알림도 띄우지 않는다.
-  const keepFromBottom = useRef<number | null>(null);
-  // 우리가 바꾼 스크롤에서 온 scroll 이벤트. 트리 카드처럼 늦게 커지는 내용이 그 사이에 붙으면
-  // 이 이벤트가 "사용자가 위로 올렸다"로 잘못 읽혀 바닥 따라가기가 풀렸다.
-  const ownScroll = useRef(false);
-  // 아래까지 남은 거리. 이것이 늘 때만 '새 메시지'를 띄운다. 위쪽 항목이 자라는 것(늦게 받은 단계 목록)은 새 메시지가 아니다.
-  const lastGap = useRef(0);
-  const [jump, setJump] = useState(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const onScroll = () => {
-      if (ownScroll.current) {
-        ownScroll.current = false;
-        return;
-      }
-      lastGap.current = el.scrollHeight - el.scrollTop - el.clientHeight;
-      atBottom.current = lastGap.current < FOLLOW_THRESHOLD;
-      if (atBottom.current) setJump(false);
-    };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    const el = ref.current;
-    const body = inner.current;
-    if (!el || !body) return;
-    const ro = new ResizeObserver(() => {
-      const set = (top: number) => {
-        // 값이 그대로면 scroll 이벤트가 오지 않으니 표시하지 않는다.
-        if (Math.abs(el.scrollTop - top) >= 1) ownScroll.current = true;
-        el.scrollTop = top;
-      };
-      if (keepFromBottom.current !== null) {
-        set(el.scrollHeight - keepFromBottom.current);
-        keepFromBottom.current = null;
-      } else if (atBottom.current) set(el.scrollHeight - el.clientHeight);
-      else {
-        const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
-        if (gap > lastGap.current + 1) setJump(true);
-        lastGap.current = gap;
-      }
-    });
-    ro.observe(body);
-    return () => ro.disconnect();
-  }, [dep]);
-
-  const toBottom = () => {
-    const el = ref.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
-    atBottom.current = true;
-    setJump(false);
-  };
-  const holdPosition = () => {
-    const el = ref.current;
-    if (el) keepFromBottom.current = el.scrollHeight - el.scrollTop;
-  };
-  return { ref, inner, jump, toBottom, holdPosition };
-}
 
 /**
  * /chat·/work 는 모드(개인·회사)마다 하나뿐인 따까리 대화다(back ADR 0014). 새 대화 만들기는 없다.
