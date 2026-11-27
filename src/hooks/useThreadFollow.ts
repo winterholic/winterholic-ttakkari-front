@@ -9,7 +9,13 @@ export interface ThreadFollowState {
   holdPosition: () => void;
 }
 
+// 이 거리 안이면 바닥으로 본다(새 메시지 버튼이 사라지는 기준과 같다).
+const NEAR_BOTTOM = 48;
 const SCROLL_KEYS = ["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "];
+
+function isEditable(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+}
 
 interface Anchor {
   element: HTMLElement;
@@ -17,8 +23,10 @@ interface Anchor {
 }
 
 /**
- * 뷰포트 내(컨테이너 기준)에서 현재 사용자가 보고 있는 첫 번째 메시지 요소를 찾아
- * DOM anchor로 반환한다.
+ * 뷰포트 내(컨테이너 기준)에서 사용자가 보고 있는 기준 메시지 요소를 찾아 DOM anchor로 반환한다.
+ * 위쪽 경계가 화면 안에서 시작하는 첫 메시지를 우선한다. 위쪽이 잘려 걸쳐 있는 메시지를 기준으로 삼으면
+ * 그 메시지 자신이 지연 로딩으로 커질 때(top 은 그대로) 아래에서 읽던 메시지가 밀려도 보정이 일어나지 않는다.
+ * 그런 메시지가 없으면(한 메시지가 화면을 채움) 걸쳐 있는 첫 메시지를 쓴다.
  * 더보기 버튼(.thread-older) 등 상단 컨트롤은 앵커에서 제외한다.
  */
 function findAnchor(container: HTMLElement): Anchor | null {
@@ -26,17 +34,17 @@ function findAnchor(container: HTMLElement): Anchor | null {
   const candidates = container.querySelectorAll<HTMLElement>(
     ".tk-message, .report-message, article[data-author]",
   );
+  let straddling: Anchor | null = null;
   for (let i = 0; i < candidates.length; i++) {
     const el = candidates[i];
     const rect = el.getBoundingClientRect();
     if (rect.bottom > containerRect.top + 2 && rect.top < containerRect.bottom - 2) {
-      return {
-        element: el,
-        topOffset: rect.top - containerRect.top,
-      };
+      const anchor = { element: el, topOffset: rect.top - containerRect.top };
+      if (rect.top >= containerRect.top - 2) return anchor;
+      straddling ??= anchor;
     }
   }
-  return null;
+  return straddling;
 }
 
 /**
@@ -89,6 +97,8 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
   const currentAnchor = useRef<Anchor | null>(null);
   // 7. 직전 바닥 거리
   const lastGap = useRef(0);
+  // 직전 scroll 이벤트가 본 scrollTop. 아래로 움직인 이벤트만 '바닥에 도달'로 읽는 데 쓴다.
+  const lastTop = useRef(0);
   // 8. '새 메시지' 점프 버튼 표시 여부
   const [jump, setJump] = useState(false);
 
@@ -100,6 +110,7 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     pendingHold.current = null;
     currentAnchor.current = null;
     lastGap.current = 0;
+    lastTop.current = 0;
   }, [dep]);
 
   useEffect(() => {
@@ -107,9 +118,9 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     if (!el) return;
 
     // 사용자가 움직이기 시작했다: 이전 대화 더 보기의 기준점은 더 이상 읽던 자리가 아니다.
+    // programScrollTop 은 지우지 않는다: 입력 직전에 우리가 낸 스크롤의 이벤트가 입력 뒤에 도착해도 우리 것으로 알아봐야 한다.
     const userMoved = () => {
       pendingHold.current = null;
-      programScrollTop.current = null;
     };
 
     // 사용자 의도 감지: 위로 스크롤하려는 입력이 발생하는 즉시 자동 따라가기 해제
@@ -158,14 +169,23 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // 입력창 안의 키는 커서 이동이지 대화 스크롤이 아니다.
+      if (isEditable(e.target)) return;
       if (SCROLL_KEYS.includes(e.key)) userMoved();
       if (e.key === "ArrowUp" || e.key === "PageUp" || e.key === "Home") {
         isFollowing.current = false;
         currentAnchor.current = findAnchor(el);
+      } else if (e.key === "End" || ((e.metaKey || e.ctrlKey) && e.key === "ArrowDown")) {
+        // 바닥으로 가겠다는 뜻이다. 1~2초 걸리는 부드러운 이동 중에 스트리밍이 자라 도착 시점의 gap 이 기준을 넘어도 바닥을 따라간다.
+        isFollowing.current = true;
+        currentAnchor.current = null;
+        setJump(false);
       }
     };
 
     const onScroll = () => {
+      const movedDown = el.scrollTop > lastTop.current + 0.5;
+      lastTop.current = el.scrollTop;
       // 우리가 대입한 값 그대로인 이벤트는 우리 것이다. 한 번만 무시하고, 값이 다르면 직후라도 사용자 스크롤로 읽는다.
       const own = programScrollTop.current;
       programScrollTop.current = null;
@@ -176,11 +196,14 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
       const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
       lastGap.current = gap;
 
-      if (gap <= 4) {
-        // 사용자가 스크롤하여 맨 바닥에 도달함 -> 다시 자동 따라가기 활성화
-        isFollowing.current = true;
+      if (gap <= NEAR_BOTTOM && (gap <= 4 || movedDown)) {
         setJump(false);
-        currentAnchor.current = null;
+        // 아래로 내려 바닥에 닿음(새 메시지 버튼이 사라지는 48px 안; End 키·스크롤바의 부드러운 이동이 끝날 즈음 스트리밍이 조금 더 자란 경우 포함) -> 다시 자동 따라가기 활성화.
+        // 위치가 그대로이거나 위로 간 이벤트(직전 따라가기 스크롤이 남긴 지연·중복 이벤트)는 키·휠로 푼 따라가기를 되살리지 못한다.
+        if (isFollowing.current || movedDown) {
+          isFollowing.current = true;
+          currentAnchor.current = null;
+        }
       } else {
         // 바닥에서 벗어나 있음:
         // 사용자가 직접 입력(터치, 스크롤바 드래그 등) 중인 경우에만 isFollowing 해제
@@ -188,7 +211,7 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
           isFollowing.current = false;
         }
         currentAnchor.current = findAnchor(el);
-        if (!isFollowing.current && gap > 48) {
+        if (!isFollowing.current && gap > NEAR_BOTTOM) {
           setJump(true);
         }
       }
@@ -258,13 +281,15 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
       }
 
       const gap = el.scrollHeight - el.scrollTop - el.clientHeight;
-      if (gap > 48) {
+      if (gap > NEAR_BOTTOM) {
         setJump(true);
       }
       lastGap.current = gap;
     });
 
     ro.observe(body);
+    // 대화 영역 자체의 크기 변화(입력창 포커스로 뷰포트가 줄었다 돌아옴)도 같은 경로로 처리한다: 바닥을 보던 사용자는 마지막 메시지가 계속 보여야 한다.
+    ro.observe(el);
     return () => ro.disconnect();
   }, [dep]);
 

@@ -7,10 +7,13 @@ import { useThreadFollow } from "./useThreadFollow";
 const IDS = ["m0", "m1", "m2", "m3", "m4", "m5", "m6", "m7"];
 const VIEW = 140;
 
-let resize = () => {};
+// 실제 ResizeObserver 처럼 관찰 중인 요소의 크기가 바뀐 때만 콜백이 온다.
+const observers: { callback: () => void; targets: Set<Element> }[] = [];
+const fire = (target: Element) => observers.forEach((o) => o.targets.has(target) && o.callback());
 
 function setup() {
   const tops: Record<string, number> = Object.fromEntries(IDS.map((id, i) => [id, i * 100]));
+  const heights: Record<string, number> = Object.fromEntries(IDS.map((id) => [id, 80]));
   let total = 900;
   function Thread() {
     const t = useThreadFollow("conversation");
@@ -25,9 +28,11 @@ function setup() {
   }
   const page = render(<Thread />);
   const thread = page.getByTestId("thread");
-  Object.defineProperties(thread, { clientHeight: { value: VIEW }, scrollHeight: { get: () => total } });
-  thread.getBoundingClientRect = () => new DOMRect(0, 0, 300, VIEW);
-  for (const id of IDS) page.getByTestId(id).getBoundingClientRect = () => new DOMRect(0, tops[id] - thread.scrollTop, 300, 80);
+  const inner = thread.querySelector("div")!;
+  let view = VIEW;
+  Object.defineProperties(thread, { clientHeight: { get: () => view }, scrollHeight: { get: () => total } });
+  thread.getBoundingClientRect = () => new DOMRect(0, 0, 300, view);
+  for (const id of IDS) page.getByTestId(id).getBoundingClientRect = () => new DOMRect(0, tops[id] - thread.scrollTop, 300, heights[id]);
   const screenTop = (id: string) => page.getByTestId(id).getBoundingClientRect().top;
   // 사용자가 입력(휠)으로 scrollTop 을 바꾸고 scroll 이벤트가 따라온다.
   const userScrollTo = (top: number) => {
@@ -41,17 +46,28 @@ function setup() {
   const prepend = (dy: number) => {
     for (const id of IDS) tops[id] += dy;
     total += dy;
-    act(resize);
+    act(() => fire(inner));
   };
   const hold = () => act(() => page.getByRole("button").click());
-  return { thread, screenTop, userScrollTo, prepend, hold, grow: (dy: number) => { total += dy; act(resize); } };
+  // 한 메시지 자체가 커진다(지연 로딩): 그 아래 메시지가 dy 만큼 밀리고 전체 높이가 는다. 그 메시지의 top 은 그대로다.
+  const growMessage = (id: string, dy: number) => {
+    heights[id] += dy;
+    for (const other of IDS.slice(IDS.indexOf(id) + 1)) tops[other] += dy;
+    total += dy;
+    act(() => fire(inner));
+  };
+  const resizeView = (h: number) => { view = h; act(() => fire(thread)); };
+  const layout = () => act(() => fire(inner));
+  return { thread, layout, screenTop, userScrollTo, prepend, hold, growMessage, resizeView, grow: (dy: number) => { total += dy; act(() => fire(inner)); } };
 }
 
 beforeEach(() => {
+  observers.length = 0;
   vi.stubGlobal("ResizeObserver", class {
-    constructor(callback: () => void) { resize = callback; }
-    observe() {}
-    disconnect() {}
+    private entry: { callback: () => void; targets: Set<Element> };
+    constructor(callback: () => void) { this.entry = { callback, targets: new Set() }; observers.push(this.entry); }
+    observe(target: Element) { this.entry.targets.add(target); }
+    disconnect() { this.entry.targets.clear(); }
   });
 });
 afterEach(() => {
@@ -64,8 +80,8 @@ describe("useThreadFollow 이전 대화 불러오기 뒤 탐색", () => {
     const t = setup();
     t.thread.scrollTop = 190; // m2 가 화면 위 10px
     t.hold();
-    act(resize); // 높이 변화 없음
-    act(resize);
+    t.layout(); // 높이 변화 없음
+    t.layout();
     expect(t.thread.scrollTop).toBe(190);
     t.prepend(300);
     expect(t.screenTop("m2")).toBe(10);
@@ -91,7 +107,7 @@ describe("useThreadFollow 이전 대화 불러오기 뒤 탐색", () => {
     expect(t.screenTop("m5")).toBe(10);
     t.grow(60);
     expect(t.screenTop("m5")).toBe(10);
-    act(resize);
+    t.layout();
     expect(t.screenTop("m5")).toBe(10);
   });
 
@@ -101,7 +117,7 @@ describe("useThreadFollow 이전 대화 불러오기 뒤 탐색", () => {
     t.hold();
     t.prepend(300);
     t.userScrollTo(390);
-    act(resize);
+    t.layout();
     t.userScrollTo(640);
     t.userScrollTo(540);
     t.grow(40);
@@ -138,5 +154,103 @@ describe("useThreadFollow 이전 대화 불러오기 뒤 탐색", () => {
     t.hold();
     t.prepend(300);
     expect(t.thread.scrollTop).toBe(1120);
+  });
+
+  it("위쪽이 잘려 걸친 메시지가 스스로 커져도(지연 로딩) 그 아래 읽던 메시지가 제자리에 머문다", () => {
+    const t = setup();
+    t.userScrollTo(400);
+    t.userScrollTo(258); // 위로 올려 읽는다. m2(내용 200~280)가 화면 위로 58px 잘려 걸치고, m3 는 화면 위 42px 에서 시작한다
+    expect(t.screenTop("m2")).toBe(-58);
+    expect(t.screenTop("m3")).toBe(42);
+    t.growMessage("m2", 300); // m2 의 events 가 도착해 m2 만 커진다 → m3 이하는 300px 밀린다
+    expect(t.screenTop("m3")).toBe(42);
+  });
+
+  it("바닥을 따라가는 중 대화 영역 자체가 줄어도(입력창 포커스로 뷰포트 축소) 마지막 메시지가 계속 보인다", () => {
+    const t = setup();
+    t.layout(); // 열린 직후 바닥으로
+    expect(t.thread.scrollTop).toBe(900 - VIEW);
+    t.resizeView(90);
+    expect(t.thread.scrollTop).toBe(900 - 90);
+    t.resizeView(VIEW);
+    expect(t.thread.scrollTop).toBe(900 - VIEW);
+  });
+
+  it("위로 올려 읽는 중 대화 영역이 줄었다 돌아와도 읽던 메시지 위치는 그대로다", () => {
+    const t = setup();
+    t.userScrollTo(400);
+    t.userScrollTo(290);
+    const before = t.screenTop("m3");
+    t.resizeView(90);
+    expect(t.screenTop("m3")).toBe(before);
+    t.resizeView(VIEW);
+    expect(t.screenTop("m3")).toBe(before);
+  });
+
+  it("키보드로 따라가기를 푼 뒤에 도착한 우리 스크롤의 scroll 이벤트(바닥)가 다시 따라가게 만들지 않는다", () => {
+    const t = setup();
+    t.layout(); // 바닥을 따라가며 scrollTop 을 바닥으로 둔다
+    expect(t.thread.scrollTop).toBe(900 - VIEW);
+    // 우리가 바닥으로 보낸 스크롤의 scroll 이벤트는 아직 도착하지 않았다.
+    act(() => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" })); }); // 사용자가 위로: 따라가기 해제
+    // 그 이벤트가 키 입력 뒤에 도착한다(위치는 그대로 바닥). 사용자의 아래 이동으로 오인하면 따라가기가 되살아난다.
+    act(() => { t.thread.dispatchEvent(new Event("scroll")); });
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(900 - VIEW); // 바닥으로 끌려가지 않는다
+  });
+
+  it("사용자가 아래로 내려 바닥에 닿으면 다시 따라간다", () => {
+    const t = setup();
+    t.userScrollTo(400);
+    t.userScrollTo(200); // 위로: 해제
+    t.userScrollTo(900 - VIEW); // 아래로 바닥까지
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(900 + 60 - VIEW);
+  });
+
+  it("아래로 내려 바닥 48px 안에 닿으면(부드러운 스크롤이 끝날 즈음 조금 더 자란 경우) 다시 따라간다", () => {
+    const t = setup();
+    t.userScrollTo(400);
+    t.userScrollTo(200); // 위로: 따라가기 해제
+    t.userScrollTo(900 - VIEW - 30); // 아래로, 바닥 30px 앞
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(900 + 60 - VIEW);
+  });
+
+  it("위로 20px 올린 것은 바닥 48px 안이어도 해제 상태를 유지한다", () => {
+    const t = setup();
+    t.layout();
+    act(() => { t.thread.dispatchEvent(new Event("scroll")); });
+    t.userScrollTo(900 - VIEW - 20); // 위로 20px(wheel deltaY<0)
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(900 - VIEW - 20);
+  });
+
+  const key = (target: EventTarget, k: string, init: KeyboardEventInit = {}) =>
+    act(() => { target.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true, ...init })); });
+
+  it("End 키는 바닥으로 가서 따라가겠다는 뜻이다(부드러운 이동이 끝나기 전에 자란 만큼 뒤처져도 바닥을 따라간다)", () => {
+    const t = setup();
+    t.userScrollTo(400);
+    t.userScrollTo(200); // 위로 올려 읽는 중: 따라가기 해제
+    key(t.thread, "End");
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(900 + 60 - VIEW);
+  });
+
+  it("입력창에서 누른 End·↑ 는 커서 이동일 뿐이라 따라가기 상태를 바꾸지 않는다", () => {
+    const t = setup();
+    t.layout();
+    const box = document.createElement("textarea");
+    document.body.appendChild(box);
+    key(box, "ArrowUp"); // 입력창에서 위 화살표: 따라가기가 풀리면 안 된다
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(900 + 60 - VIEW);
+    t.userScrollTo(400);
+    t.userScrollTo(200); // 위로 올려 읽는 중
+    key(box, "End"); // 입력창의 End: 되살리면 안 된다
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(200);
+    box.remove();
   });
 });
