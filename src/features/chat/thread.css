@@ -1,7 +1,10 @@
 /* 채팅 스크롤 안정화:
    가상 크기(content-visibility: auto)는 뷰포트 출입 시 높이가 수백~수천 px 요동쳐
    스크롤 위치 보존(특히 WebKit 및 이전 대화 탐색)을 깨뜨리므로 적용하지 않는다.
-   과거 Run 이벤트의 무거운 조회를 미루는 일은 useNearViewport 지연 로딩이 이미 담당한다. */
+   과거 Run 이벤트의 무거운 조회를 미루는 일은 useNearViewport 지연 로딩이 이미 담당한다.
+   위치 보존의 책임: 보이는 영역 위쪽의 높이 변화는 아래 overflow-anchor(브라우저)가 먼저 보정하고,
+   지원하지 않는 WebKit 에서는 useThreadFollow 가 기준 메시지의 화면 위치 차이만큼 보정한다.
+   둘 다 요소의 화면 위치를 기준으로 하므로 겹쳐도 이중으로 움직이지 않는다. */
 .tk-thread {
   overflow-anchor: auto;
   -webkit-overflow-scrolling: touch;
