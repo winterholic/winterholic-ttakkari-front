@@ -188,7 +188,7 @@ export function startMockApi({ port = 0 } = {}) {
   return new Promise((resolve) => {
     server.listen(port, '127.0.0.1', () => {
       const { port: p } = server.address();
-      resolve({ port: p, url: `http://127.0.0.1:${p}`, ctl, idOf, close: () => { clearInterval(ctl.live); server.closeAllConnections?.(); server.close(); } });
+      resolve({ port: p, url: `http://127.0.0.1:${p}`, ctl, idOf, close: () => new Promise((done) => { clearInterval(ctl.live); server.closeAllConnections?.(); server.close(() => done()); }) });
     });
   });
 }

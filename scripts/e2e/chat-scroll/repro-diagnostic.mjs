@@ -3,12 +3,21 @@
 // 2. 과거 메시지 로드 시 비동기 높이 변화에서 DOM anchor 기반 위치 보존 검증
 import { createServer } from 'vite';
 import { startMockApi } from './mock-api.mjs';
-
-const PLAYWRIGHT_PATH = '/Users/winterholic/development/projects/design-system-static-kit/node_modules/playwright-core/index.mjs';
-const { chromium } = await import(PLAYWRIGHT_PATH);
+import { createResources, e2ePorts, loadPlaywright } from './runtime.mjs';
 
 async function run() {
-  const mock = await startMockApi({ port: 5898 });
+  const resources = createResources();
+  try {
+    await runIn(resources);
+  } finally {
+    await resources.closeAll();
+  }
+}
+
+async function runIn(resources) {
+  const { chromium } = await loadPlaywright();
+  const { vitePort: VITE_PORT, mockPort: MOCK_PORT } = e2ePorts();
+  const mock = resources.add(await startMockApi({ port: MOCK_PORT }), (m) => m.close());
   process.env.VITE_API_BASE = mock.url;
   process.env.TTAKKARI_NO_ENV_FILE = '1';
 
@@ -18,17 +27,17 @@ async function run() {
     body: JSON.stringify({ op: 'startLive', interval: 50 }),
   });
 
-  const vite = await createServer({
-    server: { port: 5899, strictPort: true, host: '127.0.0.1' },
+  const vite = resources.add(await createServer({
+    server: { port: VITE_PORT, strictPort: true, host: '127.0.0.1' },
     define: {
       'import.meta.env.VITE_API_BASE': JSON.stringify(mock.url),
     },
     configFile: './vite.config.ts',
-  });
+  }), (v) => v.close());
   await vite.listen();
-  console.log(`[Diagnostic] Vite on 5899, Mock on ${mock.port}`);
+  console.log(`[Diagnostic] Vite on ${VITE_PORT}, Mock on ${mock.port}`);
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = resources.add(await chromium.launch({ headless: true }), (b) => b.close());
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   // 온보딩 팝업 비활성화
   await context.addInitScript(() => {
@@ -44,7 +53,7 @@ async function run() {
 
   try {
     // 1. 대화창 진입 (/chat/desk-1)
-    await page.goto('http://127.0.0.1:5899/chat/desk-1', { waitUntil: 'domcontentloaded' });
+    await page.goto(`http://127.0.0.1:${VITE_PORT}/chat/desk-1`, { waitUntil: 'domcontentloaded' });
     const thread = page.locator('.tk-thread');
     await thread.waitFor({ state: 'visible' });
 
@@ -142,9 +151,7 @@ async function run() {
     }
 
   } finally {
-    await browser.close();
-    await vite.close();
-    mock.close();
+    // 닫기는 run 의 resources 가 맡는다.
   }
 
   console.log('[Diagnostic Summary]:', results);

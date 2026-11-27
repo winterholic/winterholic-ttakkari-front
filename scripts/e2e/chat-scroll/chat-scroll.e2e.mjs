@@ -5,32 +5,44 @@
  */
 import { createServer } from 'vite';
 import { startMockApi, DESK, WORKER } from './mock-api.mjs';
+import { createResources, e2ePorts, loadPlaywright } from './runtime.mjs';
 
-const PLAYWRIGHT_PATH = '/Users/winterholic/development/projects/design-system-static-kit/node_modules/playwright-core/index.mjs';
-const { chromium, webkit, devices } = await import(PLAYWRIGHT_PATH);
+/**
+ * 준비(mock·Vite·브라우저 실행)가 어디서 실패해도 만든 서버를 모두 닫는다.
+ * 옵션: playwright(테스트용 대체), vitePort, mockPort. 환경: PLAYWRIGHT_CORE, CHAT_SCROLL_VITE_PORT, CHAT_SCROLL_MOCK_PORT.
+ */
+export async function runScenarios(options = {}) {
+  const resources = createResources();
+  try {
+    return await runScenariosIn(options, resources);
+  } finally {
+    await resources.closeAll();
+  }
+}
 
-const VITE_PORT = 5899;
-const MOCK_PORT = 5898;
-
-export async function runScenarios({ browserName = 'chromium', isMobile = false } = {}) {
+async function runScenariosIn({ browserName = 'chromium', isMobile = false, playwright, vitePort, mockPort } = {}, resources) {
+  const { chromium, webkit, devices } = playwright ?? (await loadPlaywright());
+  const ports = e2ePorts();
+  const VITE_PORT = vitePort ?? ports.vitePort;
+  const MOCK_PORT = mockPort ?? ports.mockPort;
   const browserType = browserName === 'webkit' ? webkit : chromium;
   const tag = `[${browserName.toUpperCase()}${isMobile ? '-MOBILE' : '-DESKTOP'}]`;
   console.log(`\n================================================================`);
   console.log(`${tag} Starting Chat Scroll E2E 12-Scenario Suite`);
   console.log(`================================================================`);
 
-  const mock = await startMockApi({ port: MOCK_PORT });
+  const mock = resources.add(await startMockApi({ port: MOCK_PORT }), (m) => m.close());
   process.env.VITE_API_BASE = mock.url;
   process.env.TTAKKARI_NO_ENV_FILE = '1';
 
-  const vite = await createServer({
+  const vite = resources.add(await createServer({
     server: { port: VITE_PORT, strictPort: true, host: '127.0.0.1' },
     define: { 'import.meta.env.VITE_API_BASE': JSON.stringify(mock.url) },
     configFile: './vite.config.ts',
-  });
+  }), (v) => v.close());
   await vite.listen();
 
-  const browser = await browserType.launch({ headless: true });
+  const browser = resources.add(await browserType.launch({ headless: true }), (b) => b.close());
   const contextOptions = isMobile
     ? { ...devices['iPhone 14'], hasTouch: true }
     : { viewport: { width: 1280, height: 800 } };
@@ -324,9 +336,7 @@ export async function runScenarios({ browserName = 'chromium', isMobile = false 
     record(12, `브라우저 (${browserName}) 회귀 없음`, all11Passed, `all 11 scenarios verified cleanly`);
 
   } finally {
-    await browser.close();
-    await vite.close();
-    mock.close();
+    // 닫기는 runScenarios 의 resources 가 맡는다(준비 단계 실패 때도 같은 경로).
   }
 
   console.log(`\n${tag} All 12 scenarios PASSED successfully!\n`);
