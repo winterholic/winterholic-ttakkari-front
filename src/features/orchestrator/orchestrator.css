@@ -27,3 +27,49 @@
   background: var(--tk-color-surface-subtle); color: var(--tk-color-text-secondary);
   font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-relaxed) var(--tk-font-family-mono);
 }
+
+/* 기획 세션 목표 진행 띠. 헤더 아래 flex:none 한 줄이라 대화 스크롤 영역(.tk-screen__body)과 겹치지 않고, 펼친 본문은 자기 안에서만 스크롤한다. 색은 배지가 맡고 띠는 왼쪽 선만 상태색을 띤다 */
+.goal-summary {
+  --goal-accent: var(--tk-color-border-default);
+  flex: none; min-width: 0; border-bottom: var(--tk-border-width-hairline) solid var(--tk-color-border-default);
+  border-left: var(--tk-space-1) solid var(--goal-accent); background: var(--tk-color-surface-subtle);
+}
+.goal-summary[data-tone="info"] { --goal-accent: var(--tk-color-status-info-border); }
+.goal-summary[data-tone="success"] { --goal-accent: var(--tk-color-status-success-border); }
+.goal-summary[data-tone="warning"] { --goal-accent: var(--tk-color-status-warning-border); }
+.goal-summary[data-tone="danger"] { --goal-accent: var(--tk-color-status-danger-border); }
+.goal-summary__head {
+  display: flex; flex-direction: column; gap: var(--tk-space-1); width: 100%; min-width: 0; margin: 0; border: 0; background: none; cursor: pointer; text-align: start; color: inherit;
+  padding: var(--tk-space-2) var(--tk-size-layout-page-gutter);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans);
+}
+.goal-summary__head:focus-visible { outline: var(--tk-focus-ring-width) solid var(--tk-color-interactive-focus-ring); outline-offset: calc(-1 * var(--tk-focus-ring-width)); }
+.goal-summary__line { display: flex; align-items: center; flex-wrap: wrap; gap: var(--tk-space-1-5) var(--tk-space-2); min-width: 0; }
+.goal-summary__line > .tk-icon { margin-left: auto; flex: none; --tk-_icon: var(--tk-size-icon-sm); color: var(--tk-color-text-tertiary); }
+.goal-summary__counts { color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-medium); }
+.goal-summary__hint { display: inline-flex; align-items: center; gap: var(--tk-space-1); min-width: 0; color: var(--tk-color-text-tertiary); }
+.goal-summary__hint[data-needed] { color: var(--tk-color-text-warning); font-weight: var(--tk-font-weight-medium); }
+.goal-summary__hint > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-xs); }
+.goal-summary__detail { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--tk-color-text-secondary); }
+.goal-summary__body {
+  display: flex; flex-direction: column; gap: var(--tk-space-3); min-width: 0; max-height: 30dvh; overflow-y: auto; overscroll-behavior: contain;
+  padding: var(--tk-space-1) var(--tk-size-layout-page-gutter) var(--tk-space-3);
+  font: var(--tk-font-weight-regular) var(--tk-font-size-sm) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); color: var(--tk-color-text-secondary);
+}
+.goal-summary__body > * { margin: 0; }
+.goal-summary__goal { color: var(--tk-color-text-primary); font-weight: var(--tk-font-weight-medium); overflow-wrap: anywhere; }
+.goal-summary__facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--tk-space-1) var(--tk-space-3); }
+.goal-summary__facts > dt { color: var(--tk-color-text-tertiary); }
+.goal-summary__facts > dd { margin: 0; overflow-wrap: anywhere; }
+.goal-summary__group { display: flex; flex-direction: column; gap: var(--tk-space-1); min-width: 0; }
+.goal-summary__group-title { margin: 0; color: var(--tk-color-text-primary); font: var(--tk-font-weight-semibold) var(--tk-font-size-xs) / var(--tk-font-line-height-normal) var(--tk-font-family-sans); }
+.goal-summary__empty { margin: 0; color: var(--tk-color-text-tertiary); }
+.goal-summary__items { display: flex; flex-direction: column; gap: var(--tk-space-1-5); margin: 0; padding: 0; list-style: none; }
+.goal-summary__item { display: flex; align-items: flex-start; gap: var(--tk-space-2); min-width: 0; }
+.goal-summary__item > .tk-icon { flex: none; --tk-_icon: var(--tk-size-icon-sm); margin-top: var(--tk-space-0-5); }
+.goal-summary__item[data-status="done"] > .tk-icon { color: var(--tk-color-text-success); }
+.goal-summary__item[data-status="review"] > .tk-icon { color: var(--tk-color-text-warning); }
+.goal-summary__item[data-status="pending"] > .tk-icon { color: var(--tk-color-text-tertiary); }
+.goal-summary__item-text { min-width: 0; overflow-wrap: anywhere; }
+.goal-summary__tag { color: var(--tk-color-text-warning); }
+.goal-summary__evidence { display: block; color: var(--tk-color-text-tertiary); font-size: var(--tk-font-size-xs); }

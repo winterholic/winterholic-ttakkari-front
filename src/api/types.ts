@@ -116,6 +116,39 @@ export interface SessionOut {
   last_run_started_at?: ISODateTime | null;
   /** 마지막으로 끝난 Run 의 결과(없으면 오류) 앞 200자 */
   last_result?: string | null;
+  /** 기획 세션 상세(GET /api/sessions/{id})에서만 채운다. 계약이 없거나 목록·구버전 백엔드면 null 이거나 필드가 없다. */
+  goal_summary?: GoalSummary | null;
+}
+
+// ---- 기획 세션의 목표 상태 요약(back/docs/api-contract.md '기획 세션의 목표 상태 요약'). 화면 분기는 phase 만 본다.
+export type GoalPhase = "running" | "waiting" | "paused" | "blocked" | "complete";
+export interface GoalRequirement {
+  id: string;
+  text: string;
+  status: "pending" | "review" | "done";
+  evidence: string;
+}
+export interface GoalSummary {
+  status: "active" | "blocked" | "paused" | "complete";
+  phase: GoalPhase;
+  goal: string;
+  revision: number;
+  completed: GoalRequirement[];
+  pending: GoalRequirement[];
+  completed_count: number;
+  pending_count: number;
+  running_tasks: string[];
+  next_action: string;
+  waiting_until: ISODateTime | null;
+  stop_reason: string;
+  /** blocked 일 때만: no_progress | permanent_failure | transient_exhausted | usage_limit_exhausted */
+  blocker_kind: string | null;
+  auto_resumable: boolean;
+  /** none | resume(다시 지시하면 이어간다) | intervene(막힘을 풀어야 한다) | review(완료 근거를 확인해야 한다) */
+  user_action: "none" | "resume" | "intervene" | "review";
+  user_intervention_needed: boolean;
+  additional_request_count: number;
+  updated_at: string | null;
 }
 
 // ---- runs

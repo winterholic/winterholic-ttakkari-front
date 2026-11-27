@@ -22,6 +22,7 @@ import { buildForest, isActive } from "../features/tasks/buildTree";
 import { useActiveTasks, useTaskTree } from "../features/tasks/useTasks";
 import { NodePanel } from "../features/tasks/NodePanel";
 import "../features/orchestrator/orchestrator.css";
+import { GoalSummaryBar } from "../features/orchestrator/GoalSummaryBar";
 import { Art } from "../ui/Art";
 
 interface Attachment {
@@ -104,7 +105,12 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
   const [fill, setFill] = useState<{ text: string; nonce: number } | null>(null);
   const [sendError, setSendError] = useState<string | null>(null);
 
-  const session = useQuery({ queryKey: ["session", sessionId], queryFn: () => getSession(sessionId) });
+  const session = useQuery({
+    queryKey: ["session", sessionId],
+    queryFn: () => getSession(sessionId),
+    // 기획 세션의 goal_summary 는 Run 이벤트 없이 서버에서 바뀐다(자동 재개·막힘). 느리게 다시 읽는다.
+    refetchInterval: (q) => (q.state.data?.kind === "orchestrator" ? 30_000 : false),
+  });
   const workspace = useQuery({
     queryKey: ["workspace", session.data?.workspace_id],
     queryFn: () => getWorkspace(session.data!.workspace_id),
@@ -372,6 +378,7 @@ function ChatScreen({ sessionId }: { sessionId: string }) {
           )
         }
       />
+      {kind === "orchestrator" && <GoalSummaryBar summary={session.data?.goal_summary} />}
       <div className="desk-split" data-open={nodeId && isDesktop ? "" : undefined}>
       <div className="desk-split__main">
       <ArtifactViewerHost
