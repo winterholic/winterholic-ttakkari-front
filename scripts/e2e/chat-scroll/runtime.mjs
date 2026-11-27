@@ -44,3 +44,13 @@ export function createResources() {
     },
   };
 }
+
+/**
+ * 교정 전 훅 변형 검사용: CHAT_SCROLL_HOOK_VARIANT=<useThreadFollow 대체 파일의 절대 경로>.
+ * 소스를 건드리지 않고 Vite alias 로 훅만 바꿔 같은 시나리오가 실패하는지 본다.
+ */
+export function hookAlias(env = process.env) {
+  const variant = env.CHAT_SCROLL_HOOK_VARIANT;
+  if (!variant) return undefined;
+  return [{ find: /^(\.\.?\/)+hooks\/useThreadFollow$/, replacement: variant }];
+}
