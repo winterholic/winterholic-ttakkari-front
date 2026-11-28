@@ -296,6 +296,53 @@ describe("useThreadFollow 이전 대화 불러오기 뒤 탐색", () => {
     expect(t.thread.scrollTop).toBe(900 + 80 + 80 - VIEW);
   });
 
+  it("손가락이 눌린 채 브라우저가 pointercancel 을 보내도(스크롤 인계) 그 터치의 드래그는 상호작용이라 바닥으로 끌려가지 않는다", () => {
+    const t = setup();
+    t.layout(); // 바닥에서 따라가기 중
+    expect(t.thread.scrollTop).toBe(900 - VIEW);
+
+    // 터치 시작 -> 브라우저가 스크롤을 넘겨받으며 pointercancel. 손가락은 아직 떼지 않았다.
+    act(() => {
+      t.thread.dispatchEvent(new PointerEvent("pointerdown"));
+      t.thread.dispatchEvent(new TouchEvent("touchstart", { touches: [{ clientY: 200 } as Touch] }));
+      window.dispatchEvent(new PointerEvent("pointercancel"));
+    });
+    // 손가락이 시작점보다 위에 있어 touchmove 의 방향 판정으로는 따라가기가 풀리지 않는 상태에서, 화면이 바닥에서 60px 올라간다.
+    act(() => {
+      t.thread.dispatchEvent(new TouchEvent("touchmove", { touches: [{ clientY: 150 } as Touch] }));
+      t.thread.scrollTop = 900 - VIEW - 60;
+      t.thread.dispatchEvent(new Event("scroll"));
+    });
+
+    t.grow(80); // 손가락이 눌린 채 대화가 자란다
+    expect(t.thread.scrollTop).toBe(900 - VIEW - 60);
+
+    // 손가락을 떼면 상호작용이 끝난다: 이후 touchcancel 만 오는 터치(시스템 제스처)도 상태를 남기지 않는다.
+    act(() => { t.thread.dispatchEvent(new TouchEvent("touchend", { touches: [] })); });
+    act(() => {
+      t.thread.dispatchEvent(new TouchEvent("touchstart", { touches: [{ clientY: 200 } as Touch] }));
+      t.thread.dispatchEvent(new TouchEvent("touchcancel", { touches: [] }));
+    });
+    t.userScrollTo(900 + 80 - VIEW); // 사용자가 바닥으로 돌아와 따라가기가 복구된다
+    t.grow(40);
+    expect(t.thread.scrollTop).toBe(900 + 80 + 40 - VIEW);
+  });
+
+  it("touchcancel 만으로도 상호작용 상태가 풀린다(pointercancel 없이)", () => {
+    const t = setup();
+    t.layout();
+    act(() => {
+      t.thread.dispatchEvent(new TouchEvent("touchstart", { touches: [{ clientY: 200 } as Touch] }));
+      t.thread.dispatchEvent(new TouchEvent("touchcancel", { touches: [] }));
+    });
+    act(() => {
+      t.thread.scrollTop = 900 - VIEW - 60;
+      t.thread.dispatchEvent(new Event("scroll"));
+    });
+    t.grow(80);
+    expect(t.thread.scrollTop).toBe(900 + 80 - VIEW);
+  });
+
   it("세션이 바뀌면 이전 세션에서 켜졌던 새 메시지 점프 버튼(jump)이 초기화되어 사라진다", () => {
     const t = setup();
     t.layout();

@@ -93,14 +93,9 @@ try {
       const t0 = performance.now();
       const candidates = container.querySelectorAll('.tk-message, .report-message, article[data-author]');
       const containerRect = container.getBoundingClientRect();
-      let straddling = null;
       for (let i = 0; i < candidates.length; i++) {
-        const el = candidates[i];
-        const rect = el.getBoundingClientRect();
-        if (rect.bottom > containerRect.top + 2 && rect.top < containerRect.bottom - 2) {
-          if (rect.top >= containerRect.top - 2) { straddling = el; break; }
-          straddling ??= el;
-        }
+        const rect = candidates[i].getBoundingClientRect();
+        if (rect.bottom > containerRect.top + 2 && rect.top < containerRect.bottom - 2 && rect.top >= containerRect.top - 2) break;
       }
       const costMs = performance.now() - t0;
       return { costMs: Number(costMs.toFixed(3)), candidates: candidates.length };

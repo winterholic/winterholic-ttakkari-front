@@ -107,6 +107,12 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
   const lastTop = useRef(0);
   // 8. '새 메시지' 점프 버튼 표시 여부
   const [jump, setJump] = useState(false);
+  // 세션이 바뀌면 이전 세션의 '새 메시지' 표시도 버린다. effect 가 아니라 렌더 중에 맞춰야 새 세션 첫 화면에 낡은 버튼이 한 번도 그려지지 않는다.
+  const [jumpDep, setJumpDep] = useState(dep);
+  if (jumpDep !== dep) {
+    setJumpDep(dep);
+    setJump(false);
+  }
 
   // 세션이 바뀌면 상태 초기화
   useEffect(() => {
@@ -117,7 +123,6 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     currentAnchor.current = null;
     lastGap.current = 0;
     lastTop.current = 0;
-    setJump(false);
   }, [dep]);
 
   useEffect(() => {
@@ -144,7 +149,11 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     };
 
     let touchStartY = 0;
+    // 터치는 손가락이 떨어질 때(touchend/touchcancel)까지 상호작용 중이다.
+    // 브라우저는 스크롤을 넘겨받는 순간 같은 터치의 pointercancel 을 먼저 보내므로, 그것으로 상태를 끄면 손가락이 눌린 채의 드래그가 상호작용으로 읽히지 않는다.
+    let touchActive = false;
     const onTouchStart = (e: TouchEvent) => {
+      touchActive = true;
       isUserInteracting.current = true;
       if (e.touches.length > 0) {
         touchStartY = e.touches[0].clientY;
@@ -164,6 +173,7 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     };
 
     const onTouchEnd = () => {
+      touchActive = false;
       isUserInteracting.current = false;
     };
 
@@ -172,7 +182,7 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     };
 
     const onPointerUp = () => {
-      isUserInteracting.current = false;
+      isUserInteracting.current = touchActive;
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
