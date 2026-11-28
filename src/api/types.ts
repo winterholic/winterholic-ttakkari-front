@@ -125,9 +125,20 @@ export type GoalPhase = "running" | "waiting" | "paused" | "blocked" | "complete
 export interface GoalRequirement {
   id: string;
   text: string;
-  status: "pending" | "review" | "done";
+  /** waiting·blocked 는 백엔드 2차 안정화에서 요약에 나온다. 구버전은 pending·review·done 만 준다. */
+  status: "pending" | "review" | "done" | "waiting" | "blocked";
   evidence: string;
 }
+/** 기다리는 외부 의존성 한 건. 백엔드 DependencyWait 의 일부만 쓰고, 없는 필드는 비어 있을 수 있다. */
+export interface GoalDependencyWait {
+  target?: string;
+  reason?: string;
+  resume_condition?: string;
+  timeout_at?: string | null;
+  owner?: string | null;
+}
+/** 대기 종류. 구버전 백엔드는 필드가 없고(undefined), 새 백엔드가 기다리는 이유를 못 가리면 null 이다. */
+export type GoalWaitType = "external_dependency" | "usage_limit";
 export interface GoalSummary {
   status: "active" | "blocked" | "paused" | "complete";
   phase: GoalPhase;
@@ -149,6 +160,13 @@ export interface GoalSummary {
   user_intervention_needed: boolean;
   additional_request_count: number;
   updated_at: string | null;
+  // 아래 4개는 백엔드 2차 안정화에서 추가됐다. 배포 전 백엔드에는 없으므로 모두 선택 필드로 다룬다.
+  wait_type?: GoalWaitType | null;
+  waiting_dependencies?: GoalDependencyWait[];
+  /** active 인데 일부 요구가 blocked 인 경우 */
+  has_partial_failure?: boolean;
+  /** false 면 이어갈 책임자(실행 중 작업·기다리는 의존성·예약)가 없다. 없으면 구버전이라 모른다 */
+  has_owner?: boolean;
 }
 
 // ---- runs
