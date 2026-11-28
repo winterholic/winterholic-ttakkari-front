@@ -32,7 +32,7 @@ const ITEM_LABEL: Record<GoalRequirement["status"], string> = { done: "완료", 
 const ITEM_TAGGED: readonly GoalRequirement["status"][] = ["review", "waiting", "blocked"];
 
 type PhaseViewInput = Pick<GoalSummary, "phase" | "user_action" | "user_intervention_needed"> &
-  Partial<Pick<GoalSummary, "status" | "wait_type" | "has_owner" | "has_partial_failure" | "pending_count" | "pending">>;
+  Partial<Pick<GoalSummary, "status" | "wait_type" | "has_owner" | "has_partial_failure" | "pending_count" | "pending" | "waiting_until" | "waiting_dependencies">>;
 
 /**
  * 화면 분기는 status 와 phase 를 함께 본다. Run 이 끝났다는 사실은 완료가 아니다.
@@ -61,8 +61,11 @@ export function goalPhaseView(g: PhaseViewInput): GoalPhaseView | null {
   }
   if (g.has_owner === false) return { kind: "no_owner", label: "이어갈 작업 없음", tone: "warning", icon: "warning" };
   if (g.phase === "waiting") {
-    if (g.wait_type === "usage_limit") return { kind: "usage", label: "한도 대기", tone: "info", icon: "clock", state: "waiting" };
-    if (g.wait_type === "external_dependency") return { kind: "external", label: "결과 대기", tone: "info", icon: "clock", state: "waiting" };
+    // 백엔드 wait_type 은 지난 한도 시각도 한도 대기로 센다. 시각이 사라졌는데 기다리는 의존성이 있으면 풀린 한도가 아니라 그 결과를 기다리는 것이다.
+    const limitStillOn = !!g.waiting_until && !Number.isNaN(new Date(g.waiting_until).getTime());
+    const hasDeps = Array.isArray(g.waiting_dependencies) && g.waiting_dependencies.length > 0;
+    if (g.wait_type === "usage_limit" && (limitStillOn || !hasDeps)) return { kind: "usage", label: "한도 대기", tone: "info", icon: "clock", state: "waiting" };
+    if (g.wait_type === "external_dependency" || g.wait_type === "usage_limit") return { kind: "external", label: "결과 대기", tone: "info", icon: "clock", state: "waiting" };
     if (g.wait_type === null) return { kind: "auto", label: "자동 재개 예정", tone: "info", icon: "clock", state: "waiting" };
     return { kind: "waiting", label: "대기 중", tone: "info", icon: "clock", state: "waiting" };
   }

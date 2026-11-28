@@ -137,6 +137,21 @@ describe("GoalSummaryBar 새 필드로 구분하는 상태", () => {
     expect(hint()).toBe("한도가 풀리면 자동으로 이어가요");
   });
 
+  // 백엔드 wait_type 은 시간이 지난 waiting_until 도 한도 대기로 센다(view 가 summary 처럼 만료를 거르지 않는다).
+  // 그때 summary 는 waiting_until=null, phase=waiting(의존성 때문), wait_type=usage_limit 으로 나온다. 풀린 한도를 기다린다고 보이면 안 된다.
+  it("한도 시각이 이미 지나 사라졌고 기다리는 의존성이 있으면 한도 대기가 아니라 결과 대기로 본다", () => {
+    const stale = make({ phase: "waiting", wait_type: "usage_limit", waiting_until: null, waiting_dependencies: [{ target: "배포 완료" }], has_owner: true });
+    expect(goalPhaseView(stale)?.kind).toBe("external");
+    render(<GoalSummaryBar summary={stale} />);
+    expect(badge()).toBe("결과 대기");
+    expect(hint()).toBe("기다리던 결과가 오면 자동으로 이어가요");
+    expect(screen.getByText(/기다리는 것 배포 완료/)).toBeTruthy();
+  });
+
+  it("한도 시각이 아직 남아 있으면 의존성이 함께 있어도 한도 대기가 먼저다", () => {
+    expect(goalPhaseView(make({ ...waitingBase, wait_type: "usage_limit", waiting_dependencies: [{ target: "배포 완료" }], has_owner: true }))?.kind).toBe("usage");
+  });
+
   it("자동 재개 예정: 새 백엔드가 대기 이유 없이(wait_type=null) 대기 시각만 주면 자동 재개 예정", () => {
     render(<GoalSummaryBar summary={make({ ...waitingBase, wait_type: null, has_owner: true })} />);
     expect(badge()).toBe("자동 재개 예정");
