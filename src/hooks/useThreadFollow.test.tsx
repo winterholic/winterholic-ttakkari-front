@@ -11,22 +11,23 @@ const VIEW = 140;
 const observers: { callback: () => void; targets: Set<Element> }[] = [];
 const fire = (target: Element) => observers.forEach((o) => o.targets.has(target) && o.callback());
 
-function setup() {
+function setup({ initialDep = "conversation" }: { initialDep?: string } = {}) {
   const tops: Record<string, number> = Object.fromEntries(IDS.map((id, i) => [id, i * 100]));
   const heights: Record<string, number> = Object.fromEntries(IDS.map((id) => [id, 80]));
   let total = 900;
-  function Thread() {
-    const t = useThreadFollow("conversation");
+  function Thread({ dep }: { dep: string }) {
+    const t = useThreadFollow(dep);
     return (
       <div ref={t.ref} data-testid="thread">
         <button onClick={t.holdPosition}>이전 대화</button>
+        {t.jump && <button data-testid="jump-btn">새 메시지</button>}
         <div ref={t.inner}>
           {IDS.map((id) => <article key={id} className="tk-message" data-testid={id}>{id}</article>)}
         </div>
       </div>
     );
   }
-  const page = render(<Thread />);
+  const page = render(<Thread dep={initialDep} />);
   const thread = page.getByTestId("thread");
   const inner = thread.querySelector("div")!;
   let view = VIEW;
@@ -48,7 +49,7 @@ function setup() {
     total += dy;
     act(() => fire(inner));
   };
-  const hold = () => act(() => page.getByRole("button").click());
+  const hold = () => act(() => page.getByRole("button", { name: "이전 대화" }).click());
   // 한 메시지 자체가 커진다(지연 로딩): 그 아래 메시지가 dy 만큼 밀리고 전체 높이가 는다. 그 메시지의 top 은 그대로다.
   const growMessage = (id: string, dy: number) => {
     heights[id] += dy;
@@ -58,7 +59,12 @@ function setup() {
   };
   const resizeView = (h: number) => { view = h; act(() => fire(thread)); };
   const layout = () => act(() => fire(inner));
-  return { thread, layout, screenTop, userScrollTo, prepend, hold, growMessage, resizeView, grow: (dy: number) => { total += dy; act(() => fire(inner)); } };
+  const changeDep = (newDep: string) => {
+    act(() => {
+      page.rerender(<Thread dep={newDep} />);
+    });
+  };
+  return { page, thread, layout, screenTop, userScrollTo, prepend, hold, growMessage, resizeView, changeDep, grow: (dy: number) => { total += dy; act(() => fire(inner)); } };
 }
 
 beforeEach(() => {
@@ -252,5 +258,88 @@ describe("useThreadFollow 이전 대화 불러오기 뒤 탐색", () => {
     t.grow(60);
     expect(t.thread.scrollTop).toBe(200);
     box.remove();
+  });
+
+  it("touchcancel 및 pointercancel 발생 시 사용자 상호작용 상태를 리셋하여 부당한 따라가기 해제를 막는다", () => {
+    const t = setup();
+    t.layout(); // 바닥에서 따라가기 중
+    expect(t.thread.scrollTop).toBe(900 - VIEW);
+
+    // 1. pointerdown 후 시스템에 의해 pointercancel 발생
+    act(() => {
+      t.thread.dispatchEvent(new PointerEvent("pointerdown"));
+      window.dispatchEvent(new PointerEvent("pointercancel"));
+    });
+
+    // 사용자가 손을 뗐으므로 상호작용 중이 아니다.
+    // 임의의 스크롤(예: 레이아웃 갱신 등)로 일시적 바닥 이탈(gap > NEAR_BOTTOM)이 발생해도 상호작용 중이 아니면 따라가기가 유지되어야 한다.
+    act(() => {
+      t.thread.scrollTop = 900 - VIEW - 60; // gap = 60 > NEAR_BOTTOM
+      t.thread.dispatchEvent(new Event("scroll"));
+    });
+
+    t.grow(80);
+    expect(t.thread.scrollTop).toBe(900 + 80 - VIEW); // 따라가기가 풀리지 않고 바닥으로 가야 함
+
+    // 2. touchstart 후 touchcancel 발생
+    act(() => {
+      t.thread.dispatchEvent(new TouchEvent("touchstart", { touches: [{ clientY: 200 } as Touch] }));
+      t.thread.dispatchEvent(new TouchEvent("touchcancel", { touches: [] }));
+    });
+
+    act(() => {
+      t.thread.scrollTop = 900 + 80 - VIEW - 60;
+      t.thread.dispatchEvent(new Event("scroll"));
+    });
+
+    t.grow(80);
+    expect(t.thread.scrollTop).toBe(900 + 80 + 80 - VIEW);
+  });
+
+  it("세션이 바뀌면 이전 세션에서 켜졌던 새 메시지 점프 버튼(jump)이 초기화되어 사라진다", () => {
+    const t = setup();
+    t.layout();
+    expect(t.page.queryByTestId("jump-btn")).toBeNull();
+
+    // 위로 올려서 바닥에서 벗어남 -> jump 버튼 표시
+    t.userScrollTo(200);
+    t.grow(60);
+    expect(t.page.queryByTestId("jump-btn")).not.toBeNull();
+
+    // 세션 전환
+    t.changeDep("another-session");
+
+    // 새 세션에서는 jump 버튼이 즉시 초기화되어야 함
+    expect(t.page.queryByTestId("jump-btn")).toBeNull();
+  });
+
+  it("사이드 패널(aside, dialog) 안의 요소에 포커스가 있을 때 누른 화살표/End 키는 대화 스레드의 따라가기를 건드리지 않는다", () => {
+    const t = setup();
+    t.layout();
+    expect(t.thread.scrollTop).toBe(900 - VIEW);
+
+    const aside = document.createElement("aside");
+    aside.className = "desk-split__node";
+    const panelBtn = document.createElement("button");
+    panelBtn.textContent = "작업 노드";
+    aside.appendChild(panelBtn);
+    document.body.appendChild(aside);
+
+    // 사이드 패널 안의 버튼에서 ArrowUp 누름: 대화 스레드 따라가기가 풀리면 안 됨
+    key(panelBtn, "ArrowUp");
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(900 + 60 - VIEW);
+
+    // 사용자가 대화 스레드를 위로 스크롤하여 따라가기를 해제함
+    t.userScrollTo(400);
+    t.userScrollTo(200);
+    expect(t.thread.scrollTop).toBe(200);
+
+    // 사이드 패널 안의 버튼에서 End 키 누름: 대화 스레드가 바닥으로 끌려가면 안 됨
+    key(panelBtn, "End");
+    t.grow(60);
+    expect(t.thread.scrollTop).toBe(200); // 200 유지
+
+    aside.remove();
   });
 });

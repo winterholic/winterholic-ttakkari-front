@@ -86,10 +86,30 @@ try {
     const scrollMs = Date.now() - s0;
     const fr = await page.evaluate(() => { window.__frames.on = false; return { t: window.__frames.t, long: { count: window.__long.count - window.__long0.count, total: window.__long.total - window.__long0.total } }; });
     const info = await d.info();
+    const domCount = await page.evaluate(() => document.querySelectorAll('*').length);
+    const anchorMeasure = await page.evaluate(() => {
+      const container = document.querySelector('.tk-thread');
+      if (!container) return { costMs: 0, candidates: 0 };
+      const t0 = performance.now();
+      const candidates = container.querySelectorAll('.tk-message, .report-message, article[data-author]');
+      const containerRect = container.getBoundingClientRect();
+      let straddling = null;
+      for (let i = 0; i < candidates.length; i++) {
+        const el = candidates[i];
+        const rect = el.getBoundingClientRect();
+        if (rect.bottom > containerRect.top + 2 && rect.top < containerRect.bottom - 2) {
+          if (rect.top >= containerRect.top - 2) { straddling = el; break; }
+          straddling ??= el;
+        }
+      }
+      const costMs = performance.now() - t0;
+      return { costMs: Number(costMs.toFixed(3)), candidates: candidates.length };
+    });
     samples.push({
       toMessagesMs: tMessages, toReadyMs: tReady, loadLongTasks: nav.long, heapMB: nav.heap && Math.round(nav.heap / 1048576),
       scrollMs, frames: fr.t.length, frameP50: pct(fr.t, 0.5), frameP95: pct(fr.t, 0.95), frameMax: Math.max(...fr.t, 0),
       over32: fr.t.filter((x) => x > 32).length, scrollLongTasks: fr.long, eventsRequested: new Set(log.events).size, endTop: Math.round(info.top),
+      domCount, anchorCostMs: anchorMeasure.costMs, anchorCandidates: anchorMeasure.candidates,
     });
     await context.close();
   }
@@ -101,7 +121,11 @@ try {
     heapMB: median(kept.map((s) => s.heapMB ?? 0)),
     scrollMs: median(kept.map((s) => s.scrollMs)), frameP50: median(kept.map((s) => s.frameP50)), frameP95: median(kept.map((s) => s.frameP95)),
     over32: median(kept.map((s) => s.over32)), scrollLongTaskMs: median(kept.map((s) => Math.round(s.scrollLongTasks.total))),
-    eventsRequested: median(kept.map((s) => s.eventsRequested)), samples: kept,
+    eventsRequested: median(kept.map((s) => s.eventsRequested)),
+    domCount: median(kept.map((s) => s.domCount)),
+    anchorCostMs: median(kept.map((s) => s.anchorCostMs)),
+    anchorCandidates: median(kept.map((s) => s.anchorCandidates)),
+    samples: kept,
   };
   console.log(JSON.stringify({ ...summary, samples: undefined }));
   if (jsonPath) writeFileSync(jsonPath, JSON.stringify(summary, null, 1));

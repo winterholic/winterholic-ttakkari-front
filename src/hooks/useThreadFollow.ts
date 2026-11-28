@@ -17,6 +17,12 @@ function isEditable(target: EventTarget | null): boolean {
   return target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
 }
 
+function isOutsidePanel(target: EventTarget | null, container: HTMLElement): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (container.contains(target)) return false;
+  return !!target.closest("aside, dialog, [role='dialog'], .desk-split__node, .tk-viewer");
+}
+
 interface Anchor {
   element: HTMLElement;
   topOffset: number;
@@ -111,6 +117,7 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     currentAnchor.current = null;
     lastGap.current = 0;
     lastTop.current = 0;
+    setJump(false);
   }, [dep]);
 
   useEffect(() => {
@@ -169,8 +176,8 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
-      // 입력창 안의 키는 커서 이동이지 대화 스크롤이 아니다.
-      if (isEditable(e.target)) return;
+      // 입력창 안의 키는 커서 이동이고, 사이드 패널이나 다이얼로그 안의 포커스는 대화 스크롤이 아니다.
+      if (isEditable(e.target) || isOutsidePanel(e.target, el)) return;
       if (SCROLL_KEYS.includes(e.key)) userMoved();
       if (e.key === "ArrowUp" || e.key === "PageUp" || e.key === "Home") {
         isFollowing.current = false;
@@ -221,8 +228,10 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
     el.addEventListener("touchstart", onTouchStart, { passive: true });
     el.addEventListener("touchmove", onTouchMove, { passive: true });
     el.addEventListener("touchend", onTouchEnd, { passive: true });
+    el.addEventListener("touchcancel", onTouchEnd, { passive: true });
     el.addEventListener("pointerdown", onPointerDown, { passive: true });
     window.addEventListener("pointerup", onPointerUp, { passive: true });
+    window.addEventListener("pointercancel", onPointerUp, { passive: true });
     window.addEventListener("keydown", onKeyDown, { passive: true });
     el.addEventListener("scroll", onScroll, { passive: true });
 
@@ -231,8 +240,10 @@ export function useThreadFollow(dep: unknown): ThreadFollowState {
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchmove", onTouchMove);
       el.removeEventListener("touchend", onTouchEnd);
+      el.removeEventListener("touchcancel", onTouchEnd);
       el.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
       window.removeEventListener("keydown", onKeyDown);
       el.removeEventListener("scroll", onScroll);
     };
